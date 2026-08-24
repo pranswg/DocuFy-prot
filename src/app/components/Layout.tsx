@@ -283,20 +283,26 @@ export default function Layout({
         <div className="flex justify-center">
           <button
             type="button"
-            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            aria-label={isSidebarExpanded ? "Collapse navigation" : "Expand navigation"}
-            aria-expanded={isSidebarExpanded}
+            onClick={() => {
+              if (isMobile) {
+                setIsNavigationOpen(false);
+              } else {
+                setIsSidebarExpanded(!isSidebarExpanded);
+              }
+            }}
+            aria-label={isMobile ? "Close navigation" : isSidebarExpanded ? "Collapse navigation" : "Expand navigation"}
+            aria-expanded={isMobile ? isNavigationOpen : isSidebarExpanded}
             className={`flex items-center rounded-xl transition-all duration-200 group relative ${
-              isSidebarExpanded
+              isMobile || isSidebarExpanded
                 ? "w-full px-3 py-2.5 gap-3"
                 : "w-10 h-10 justify-center"
             } text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`}
           >
             <div className="flex-shrink-0">
-              {isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+              {isMobile || isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
             </div>
-            {isSidebarExpanded && <span className="text-sm font-medium">Collapse</span>}
-            {!isSidebarExpanded && (
+            {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium">Collapse</span>}
+            {!isMobile && !isSidebarExpanded && (
               <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
                 Expand navigation
               </div>
@@ -316,14 +322,14 @@ export default function Layout({
                 onClick={() => handleNavigation(item.path)}
                 aria-current={isActive ? "page" : undefined}
                 className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                  isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
+                  isMobile || isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
                 } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
               >
                 <div className="flex-shrink-0 flex items-center justify-center">{item.icon}</div>
-                {isSidebarExpanded && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
-                {isActive && isSidebarExpanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
+                {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
+                {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
               </button>
-              {!isSidebarExpanded && (
+              {!isMobile && !isSidebarExpanded && (
                 <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
                   {item.label}
                 </div>
@@ -332,6 +338,71 @@ export default function Layout({
           );
         })}
       </nav>
+
+      <div className="relative mt-auto w-full px-3 pb-5">
+        <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+        <button
+          type="button"
+          onClick={() => {
+            setIsProfileOpen(!isProfileOpen);
+            setIsNotificationOpen(false);
+            setIsSIEMOpen(false);
+          }}
+          aria-label="Open account menu"
+          aria-expanded={isProfileOpen}
+          aria-haspopup="menu"
+          className={`flex items-center gap-3 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            isMobile || isSidebarExpanded ? "w-full px-3 py-2.5" : "mx-auto h-11 w-11 justify-center"
+          } ${isProfileOpen ? "bg-white/15" : "hover:bg-white/10"}`}
+        >
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#1D73EC] font-bold text-xs uppercase flex-shrink-0">
+            {user?.email?.[0]}
+          </div>
+          {(isMobile || isSidebarExpanded) && (
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-xs font-bold text-white leading-none truncate">
+                {user?.email?.split("@")[0]}
+              </p>
+              <p className="text-[10px] text-blue-100 capitalize leading-none mt-1">
+                {user?.role} account
+              </p>
+            </div>
+          )}
+          {(isMobile || isSidebarExpanded) && (
+            <ChevronDown className={`w-4 h-4 text-blue-100 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
+          )}
+        </button>
+
+        {isProfileOpen && (
+          <div className={`absolute bottom-full mb-2 ${isMobile || isSidebarExpanded ? "left-3 right-3" : "left-[72px] w-56"} bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20`}>
+            <div className="px-4 py-3 border-b border-gray-100">
+              <p className="text-xs font-bold text-gray-900 truncate">{user?.email}</p>
+              <p className="text-[10px] text-gray-500 capitalize mt-0.5">{user?.role} Account</p>
+            </div>
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  handleNavigation(`/${user?.role}/profile`);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+              >
+                <User className="w-4 h-4" /> My Profile
+              </button>
+            </div>
+            <div className="border-t border-gray-100 py-1">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors font-medium"
+              >
+                <LogOut className="w-4 h-4" /> Sign Out
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 
@@ -339,7 +410,7 @@ export default function Layout({
     <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
       {isMobile ? (
         <Sheet open={isNavigationOpen} onOpenChange={setIsNavigationOpen}>
-          <SheetContent side="left" className="w-[min(18rem,85vw)] bg-[#1D73EC] p-0 text-white [&>button]:text-white">
+          <SheetContent side="left" showClose={false} className="w-[min(18rem,85vw)] bg-[#1D73EC] p-0 text-white">
             <SheetHeader className="sr-only">
               <SheetTitle>Primary navigation</SheetTitle>
               <SheetDescription>Navigate through your DocuFy account.</SheetDescription>
@@ -387,20 +458,6 @@ export default function Layout({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Role Badge */}
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
-              user?.role === 'admin' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-              user?.role === 'staff' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-              'bg-green-100 text-green-700 border border-green-200'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                user?.role === 'admin' ? 'bg-purple-500' :
-                user?.role === 'staff' ? 'bg-blue-500' :
-                'bg-green-500'
-              }`} />
-              {user?.role === 'admin' ? 'Admin Account' : user?.role === 'staff' ? 'Staff Account' : 'Customer Account'}
-            </div>
-
             {/* SIEM Security Alerts (Admin Only) */}
             {user?.role === 'admin' && (
               <div className="relative">
@@ -606,74 +663,6 @@ export default function Layout({
               )}
             </div>
 
-            {/* Profile Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsProfileOpen(!isProfileOpen);
-                  setIsNotificationOpen(false);
-                  setIsSIEMOpen(false);
-                }}
-                aria-label="Open account menu"
-                aria-expanded={isProfileOpen}
-                aria-haspopup="menu"
-                className={`flex items-center gap-2.5 py-1.5 pl-1.5 pr-3 rounded-xl border transition-all ${isProfileOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
-              >
-                {/* Profile Badge remains Gradient-styled if specified, or solid blue */}
-                <div className="w-8 h-8 bg-[#1D73EC] rounded-lg flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0">
-                  {user?.email?.[0]}
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-xs font-bold text-gray-900 leading-none">
-                    {user?.email?.split("@")[0]}
-                  </p>
-                  <p className="text-[10px] text-gray-400 capitalize leading-none mt-0.5">
-                    {user?.role}
-                  </p>
-                </div>
-                <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transition-transform ${isProfileOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {isProfileOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setIsProfileOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20">
-                    {/* Profile Section */}
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-xs font-bold text-gray-900">{user?.email}</p>
-                      <p className="text-[10px] text-gray-500 capitalize mt-0.5">{user?.role} Account</p>
-                    </div>
-
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          navigate(`/${user?.role}/profile`);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-                      >
-                        <User className="w-4 h-4" /> My Profile
-                      </button>
-                    </div>
-
-                    <div className="border-t border-gray-100 py-1">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-50 transition-colors font-medium"
-                      >
-                        <LogOut className="w-4 h-4" /> Sign Out
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </header>
 
