@@ -28,6 +28,14 @@ import { inventoryStore } from "../utils/inventoryStore";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
 import { toast } from "sonner";
+import { useIsMobile } from "./ui/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "./ui/sheet";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -51,6 +59,7 @@ export default function Layout({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const isMobile = useIsMobile();
 
   const handleBack = () => {
     if (backButtonPath) {
@@ -66,6 +75,7 @@ export default function Layout({
       return saved !== null ? JSON.parse(saved) : true;
     },
   );
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
@@ -144,6 +154,15 @@ export default function Layout({
     menuItems.find((item) => item.path === location.pathname)
       ?.label ||
     "Dashboard";
+
+  useEffect(() => {
+    setIsNavigationOpen(false);
+  }, [location.pathname]);
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setIsNavigationOpen(false);
+  };
 
   const handleLogout = () => {
     logout();
@@ -247,118 +266,116 @@ export default function Layout({
     return `${days}d ago`;
   };
 
-  return (
-    <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
-      {/* ─── SIDEBAR (Gradient removed, solid blue restored) ─── */}
-      <aside
-        className={`bg-[#1D73EC] flex flex-col z-50 shadow-2xl transition-all duration-300 ease-in-out flex-shrink-0 relative ${
-          isSidebarExpanded ? "w-64" : "w-[72px]"
-        }`}
-      >
-        {/* Brand / Logo */}
-        <div className="pt-5 pb-3 w-full">
-          <div className="flex items-center justify-center">
-            <img
-              src={logoImage}
-              alt="DocuFy Logo"
-              className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
-            />
-          </div>
+  const navigation = (
+    <>
+      <div className="pt-5 pb-3 w-full" aria-hidden="true">
+        <div className="flex items-center justify-center">
+          <img
+            src={logoImage}
+            alt=""
+            className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
+          />
         </div>
+      </div>
 
-        {/* Toggle Button Section - Arrow Only & High Visibility Lines */}
-        <div className="my-2 px-3">
-          <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
-          <div className="flex justify-center">
-            <button
-              onClick={() =>
-                setIsSidebarExpanded(!isSidebarExpanded)
-              }
-              className={`flex items-center rounded-xl transition-all duration-200 group relative ${
-                isSidebarExpanded
-                  ? "w-full px-3 py-2.5 gap-3"
-                  : "w-10 h-10 justify-center"
-              } text-blue-100 hover:bg-white/10 hover:text-white`}
-            >
-              <div className="flex-shrink-0">
-                {isSidebarExpanded ? (
-                  <ChevronLeft className="w-5 h-5" />
-                ) : (
-                  <ChevronRight className="w-5 h-5" />
-                )}
+      <div className="my-2 px-3">
+        <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+            aria-label={isSidebarExpanded ? "Collapse navigation" : "Expand navigation"}
+            aria-expanded={isSidebarExpanded}
+            className={`flex items-center rounded-xl transition-all duration-200 group relative ${
+              isSidebarExpanded
+                ? "w-full px-3 py-2.5 gap-3"
+                : "w-10 h-10 justify-center"
+            } text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`}
+          >
+            <div className="flex-shrink-0">
+              {isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+            {isSidebarExpanded && <span className="text-sm font-medium">Collapse</span>}
+            {!isSidebarExpanded && (
+              <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
+                Expand navigation
               </div>
-              {isSidebarExpanded && (
-                <span className="text-sm font-medium">
-                  Collapse
-                </span>
-              )}
+            )}
+          </button>
+        </div>
+        <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
+      </div>
 
-              {/* Tooltip for Toggle Button */}
+      <nav aria-label="Primary navigation" className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center">
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+          return (
+            <div key={item.path} className="relative group w-full flex justify-center px-3">
+              <button
+                type="button"
+                onClick={() => handleNavigation(item.path)}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                  isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
+                } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
+              >
+                <div className="flex-shrink-0 flex items-center justify-center">{item.icon}</div>
+                {isSidebarExpanded && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
+                {isActive && isSidebarExpanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
+              </button>
               {!isSidebarExpanded && (
                 <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
-                  Open Sidebar
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1c1f26]" />
+                  {item.label}
                 </div>
               )}
-            </button>
-          </div>
-          <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
-        </div>
+            </div>
+          );
+        })}
+      </nav>
+    </>
+  );
 
-        {/* Navigation */}
-        <nav className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <div
-                key={item.path}
-                className="relative group w-full flex justify-center px-3"
-              >
-                <button
-                  onClick={() => navigate(item.path)}
-                  className={`flex items-center transition-all duration-200 ${
-                    isSidebarExpanded
-                      ? "w-full px-4 py-3 gap-3.5 rounded-xl"
-                      : "w-11 h-11 justify-center rounded-xl"
-                  } ${
-                    isActive
-                      ? "bg-white text-[#1D73EC] shadow-lg"
-                      : "text-blue-100 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <div className="flex-shrink-0 flex items-center justify-center">
-                    {item.icon}
-                  </div>
-                  {isSidebarExpanded && (
-                    <span className="text-sm font-medium whitespace-nowrap truncate">
-                      {item.label}
-                    </span>
-                  )}
-                  {isActive && isSidebarExpanded && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />
-                  )}
-                </button>
-
-                {/* Fixed Tooltip for Tab Names */}
-                {!isSidebarExpanded && (
-                  <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
-                    {item.label}
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1c1f26]" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
+  return (
+    <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
+      {isMobile ? (
+        <Sheet open={isNavigationOpen} onOpenChange={setIsNavigationOpen}>
+          <SheetContent side="left" className="w-[min(18rem,85vw)] bg-[#1D73EC] p-0 text-white [&>button]:text-white">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Primary navigation</SheetTitle>
+              <SheetDescription>Navigate through your DocuFy account.</SheetDescription>
+            </SheetHeader>
+            <div className="flex h-full w-full flex-col">{navigation}</div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <aside
+          aria-label="Primary navigation"
+          className={`bg-[#1D73EC] flex flex-col z-30 shadow-2xl transition-all duration-300 ease-in-out flex-shrink-0 relative overflow-hidden ${
+            isNavigationOpen ? (isSidebarExpanded ? "w-64" : "w-[72px]") : "w-0"
+          }`}
+        >
+          {navigation}
+        </aside>
+      )}
 
       {/* ─── MAIN CONTENT ─── */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="h-16 bg-white border-b border-gray-200 px-6 lg:px-8 flex items-center justify-between z-40 flex-shrink-0 shadow-sm">
+        <header className="min-h-16 bg-white border-b border-gray-200 px-3 sm:px-6 lg:px-8 py-2 flex items-center justify-between z-40 flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsNavigationOpen(!isNavigationOpen)}
+              aria-label={isNavigationOpen ? "Hide navigation" : "Show navigation"}
+              aria-expanded={isNavigationOpen}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+            >
+              <img src={logoImage} alt="DocuFy logo, show navigation" className="w-10 h-10 rounded-full bg-[#1D73EC]/10 p-0.5 shadow-sm" />
+            </button>
             {showBackButton && (
               <button
+                type="button"
                 onClick={handleBack}
+                aria-label="Go back"
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-[#1D73EC]"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -388,11 +405,15 @@ export default function Layout({
             {user?.role === 'admin' && (
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsSIEMOpen(!isSIEMOpen);
                     setIsNotificationOpen(false);
                     setIsProfileOpen(false);
                   }}
+                  aria-label={`Security alerts${siemUnreadCount > 0 ? `, ${siemUnreadCount} unread` : ''}`}
+                  aria-expanded={isSIEMOpen}
+                  aria-haspopup="true"
                   className={`p-2 rounded-xl border transition-all relative ${isSIEMOpen ? "bg-red-100 border-red-300" : siemCriticalCount > 0 ? "bg-red-50 border-red-200 animate-pulse" : "hover:bg-gray-50 border-transparent"}`}
                 >
                   <Shield className={`w-5 h-5 ${siemCriticalCount > 0 ? 'text-red-600' : 'text-gray-600'}`} />
@@ -434,8 +455,16 @@ export default function Layout({
                             return (
                               <div
                                 key={alert.id}
+                                role="button"
+                                tabIndex={0}
                                 className={`p-4 ${index !== siemAlerts.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-red-50 transition-colors cursor-pointer ${!alert.read ? 'bg-red-50/50' : ''}`}
                                 onClick={() => handleSIEMAlertClick(alert)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    handleSIEMAlertClick(alert);
+                                  }
+                                }}
                               >
                                 <div className="flex gap-3">
                                   <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -488,11 +517,15 @@ export default function Layout({
             {/* Notification Bell */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => {
                   setIsNotificationOpen(!isNotificationOpen);
                   setIsProfileOpen(false);
                   setIsSIEMOpen(false);
                 }}
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                aria-expanded={isNotificationOpen}
+                aria-haspopup="true"
                 className={`p-2 rounded-xl border transition-all relative ${isNotificationOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
               >
                 <Bell className="w-5 h-5 text-gray-600" />
@@ -512,7 +545,7 @@ export default function Layout({
                       setIsSIEMOpen(false);
                     }}
                   />
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-20">
+                  <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-20">
                     <div className="px-4 py-3 border-b border-gray-100">
                       <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
                     </div>
@@ -528,8 +561,16 @@ export default function Layout({
                           return (
                             <div
                               key={notification.id}
+                              role={notification.clickable ? "button" : undefined}
+                              tabIndex={notification.clickable ? 0 : undefined}
                               className={`p-4 ${index !== notifications.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50 transition-colors ${notification.clickable ? 'cursor-pointer' : ''} ${!notification.read ? 'bg-blue-50/50' : ''}`}
                               onClick={() => handleNotificationClick(notification)}
+                              onKeyDown={notification.clickable ? (event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  handleNotificationClick(notification);
+                                }
+                              } : undefined}
                             >
                               <div className="flex gap-3">
                                 <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -568,11 +609,15 @@ export default function Layout({
             {/* Profile Dropdown */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => {
                   setIsProfileOpen(!isProfileOpen);
                   setIsNotificationOpen(false);
                   setIsSIEMOpen(false);
                 }}
+                aria-label="Open account menu"
+                aria-expanded={isProfileOpen}
+                aria-haspopup="menu"
                 className={`flex items-center gap-2.5 py-1.5 pl-1.5 pr-3 rounded-xl border transition-all ${isProfileOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
               >
                 {/* Profile Badge remains Gradient-styled if specified, or solid blue */}
@@ -633,7 +678,7 @@ export default function Layout({
         </header>
 
         <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f0f4f8]">
-          <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
+          <div className="p-3 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
             {children}
           </div>
         </main>

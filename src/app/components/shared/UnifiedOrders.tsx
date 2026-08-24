@@ -884,7 +884,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     <Layout menuItems={menuItems} title="Orders" showBackButton>
       <div className="flex flex-col space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
           <div className="flex items-center gap-4">
             <div>
               <p className="text-sm text-gray-500 mt-0.5">
@@ -894,7 +894,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative w-80">
+            <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search for anything"
@@ -918,7 +918,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         </div>
 
         {/* Summary Cards - 2 Rows */}
-        <div className="grid grid-cols-4 gap-4 mb-4 shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 shrink-0">
           <Card
             className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "all" ? "border-[#1D73EC] bg-white border-2 border-blue-200/50" : "border-gray-100 hover:border-[#1D73EC]"}`}
             onClick={() => setStatusFilter("all")}
@@ -1012,7 +1012,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </Card>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 shrink-0">
           <Card
             className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "completed" ? "border-blue-200 bg-white border-2 border-blue-200" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>

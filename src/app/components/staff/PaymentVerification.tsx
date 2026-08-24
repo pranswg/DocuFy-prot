@@ -254,7 +254,7 @@ export default function PaymentVerification() {
     <Layout menuItems={menuItems} title="Payment Verification" showBackButton>
       <div className="flex flex-col h-full max-w-[1800px] mx-auto font-poppins">
         {/* Header Section */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
           <div>
             <h1 className="text-2xl font-bold text-[#1c1f26]">
               Payment Verification
@@ -264,7 +264,7 @@ export default function PaymentVerification() {
             </p>
           </div>
 
-          <div className="relative w-80">
+          <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search payments..."
@@ -276,7 +276,7 @@ export default function PaymentVerification() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-6 shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 shrink-0">
           <SummaryCard
             label="All Transactions"
             value={payments.length}

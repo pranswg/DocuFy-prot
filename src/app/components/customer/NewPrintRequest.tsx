@@ -982,7 +982,7 @@ export default function NewPrintRequest() {
                             <p className="text-xs text-blue-700 font-medium mb-2">
                               Color Intensity by Page:
                             </p>
-                            <div className="grid grid-cols-2 gap-1 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                               {(showAllAnalysis[fileData.id]
                                 ? fileData.colorAnalysis.colorPages
                                 : fileData.colorAnalysis.colorPages.slice(0, 6)
@@ -1023,7 +1023,7 @@ export default function NewPrintRequest() {
                   )}
 
                   <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
                           Paper Size
@@ -1085,7 +1085,7 @@ export default function NewPrintRequest() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
                           Number of Copies
@@ -1654,7 +1654,7 @@ export default function NewPrintRequest() {
                     <div className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300 truncate">
                       File {index + 1}: {fileData.fileName}
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-gray-600">Pages</p>
                         <p className="font-medium text-gray-900">
@@ -2011,7 +2011,7 @@ export default function NewPrintRequest() {
                           <strong>50% down payment</strong> before printing begins. Your order will be placed{" "}
                           <strong>On Hold</strong> until the down payment is verified by Admin or Staff.
                         </p>
-                        <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                           <div className="p-3 bg-white rounded-lg border border-amber-200">
                             <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
                               Down Payment Due

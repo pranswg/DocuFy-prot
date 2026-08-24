@@ -139,7 +139,7 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-            DocuFy<span className="text-[#1D73EC]">.</span>
+            DocuFy<span className="text-[#1D73EC]"></span>
           </h1>
           <h2 className="text-xl font-medium text-white mb-4">
             Your Complete Printing Solution
@@ -161,7 +161,7 @@ export default function LoginPage() {
                 <Printer size={20} strokeWidth={2.5} />
               </div>
               <span className="font-semibold text-lg text-[#1c1f26] tracking-tight">
-                DocuFy.
+                DocuFy
               </span>
             </div>
             <button
@@ -307,14 +307,14 @@ export default function LoginPage() {
                   htmlFor="email"
                   className="text-xs font-medium"
                 >
-                  Email / Username
+                  Email
                 </Label>
                 <Input
                   id="email"
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter email"
+                  placeholder="Enter Email"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -333,7 +333,7 @@ export default function LoginPage() {
                     onClick={() => navigate("/forgot-password")}
                     className="text-[11px] font-medium text-[#1D73EC] hover:underline"
                   >
-                    Forgot?
+                    Forgot Password?
                   </button>
                 </div>
                 <div className="relative">
@@ -344,7 +344,7 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setPassword(e.target.value)
                     }
-                    placeholder="Enter password"
+                    placeholder="Enter Password"
                     className="h-10 bg-[#F2F7FF] border-transparent rounded-xl pr-10 text-sm"
                     required
                   />
@@ -364,7 +364,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              {/* <div className="flex items-center space-x-2">
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
@@ -379,7 +379,7 @@ export default function LoginPage() {
                 >
                   Remember me
                 </label>
-              </div>
+              </div> */}
 
               {error && (
                 <Alert
@@ -403,12 +403,12 @@ export default function LoginPage() {
           )}
 
           <div className="mt-4 text-center text-xs text-gray-500">
-            Don't have an account?{" "}
+            Didn't receive code?{" "}
             <button
               onClick={() => navigate("/signup")}
-              className="text-[#1D73EC] font-semibold"
+              className="text-[#1D73EC] text-xs font-semibold"
             >
-              Sign up
+              Resend
             </button>
           </div>
 

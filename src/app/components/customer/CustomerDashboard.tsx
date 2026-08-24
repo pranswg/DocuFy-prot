@@ -130,7 +130,15 @@ export default function CustomerDashboard() {
             {notifications.slice(0, 3).map((notification) => (
               <div
                 key={notification.id}
+                role={notification.clickable ? "button" : undefined}
+                tabIndex={notification.clickable ? 0 : undefined}
                 onClick={() => handleNotificationClick(notification)}
+                onKeyDown={notification.clickable ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleNotificationClick(notification);
+                  }
+                } : undefined}
                 className={`p-4 rounded-xl border-2 ${
                   notification.read
                     ? 'bg-white border-gray-200'
@@ -158,7 +166,8 @@ export default function CustomerDashboard() {
                       </div>
                       <button
                         onClick={(e) => handleDismissNotification(notification.id, e)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
+                        aria-label="Dismiss notification"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
                       >
                         <X className="w-4 h-4 text-gray-500" />
                       </button>
@@ -203,8 +212,17 @@ export default function CustomerDashboard() {
           ].map((kpi) => (
             <Card
               key={kpi.key}
+              role="link"
+              tabIndex={0}
+              aria-label={`${kpi.label}: ${kpi.val}. ${kpi.desc}`}
               className="p-6 bg-white border-2 border-blue-200 shadow-sm cursor-pointer hover:bg-[#2F6FD6] hover:text-white transition-all group"
               onClick={kpi.click}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  kpi.click();
+                }
+              }}
             >
               <p className="text-sm font-medium text-gray-600 group-hover:text-blue-100">
                 {kpi.label}
