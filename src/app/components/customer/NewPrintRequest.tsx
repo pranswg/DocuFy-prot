@@ -661,25 +661,25 @@ export default function NewPrintRequest() {
       title="Print Request"
       showBackButton
     >
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-3">
 
         {/* Step Indicator */}
-        <Card className="p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between">
+        <Card className="p-7 sm:p-6 bg-white shadow-sm">
+          <div className="flex items-center justify-center w-full">
             {steps.map((step, index) => (
               <React.Fragment key={step.number}>
-                <div className="flex flex-col items-center">
+                <div className="flex flex-1 flex-col items-center justify-center min-w-0">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    className={`w-15 h-15 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-colors duration-200 ${
                       currentStep >= step.number
-                        ? "bg-[#2F6FD6] text-white"
+                        ? "bg-[#2F6FD6] text-white shadow-sm"
                         : "bg-gray-200 text-gray-500"
                     }`}
                   >
-                    <step.icon className="w-6 h-6" />
+                    <step.icon className="w-6 h-6 sm:w-6 sm:h-6" />
                   </div>
                   <p
-                    className={`mt-2 text-sm font-medium ${
+                    className={`hidden sm:block mt-2 text-[11px] sm:text-sm font-medium leading-tight text-center ${
                       currentStep >= step.number
                         ? "text-gray-900"
                         : "text-gray-500"
@@ -689,13 +689,15 @@ export default function NewPrintRequest() {
                   </p>
                 </div>
                 {index < steps.length - 1 && (
-                  <div
-                    className={`flex-1 h-1 mx-4 ${
-                      currentStep > step.number
-                        ? "bg-[#2F6FD6]"
-                        : "bg-gray-200"
-                    }`}
-                  />
+                  <div className="flex-shrink-0 px-1 sm:px-3">
+                    <div
+                      className={`h-1 w-7 sm:w-12 rounded-full ${
+                        currentStep > step.number
+                          ? "bg-[#2F6FD6]"
+                          : "bg-gray-200"
+                      }`}
+                    />
+                  </div>
                 )}
               </React.Fragment>
             ))}
@@ -2061,9 +2063,10 @@ export default function NewPrintRequest() {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t">
+          <div className="flex items-center justify-between mt-1 pt-6 border-t gap-4 sm:gap-5">
             <Button
               variant="outline"
+              className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"
               onClick={() => {
                 if (currentStep > 1) {
                   setCurrentStep((prev) => prev - 1);
@@ -2076,10 +2079,10 @@ export default function NewPrintRequest() {
               {currentStep === 1 ? "Cancel" : "Back"}
             </Button>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {currentStep < 4 ? (
                 <Button
-                  className="bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={() => {
                     const nextStep = currentStep + 1;
                     setCurrentStep(nextStep);
@@ -2096,7 +2099,7 @@ export default function NewPrintRequest() {
                 </Button>
               ) : (
                 <Button
-                  className="bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400"
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400"
                   onClick={handleSubmit}
                   disabled={
                     files.length === 0 || !paymentMethod
