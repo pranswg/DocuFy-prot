@@ -116,19 +116,19 @@ export default function JobBoard() {
 
   return (
     <Layout menuItems={menuItems} title="Job Board" showBackButton>
-      <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="space-y-4 max-w-5xl mx-auto">
 
         {/* Page Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
-            <p className="text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 sm:text-base">
               Browse opportunities at DocuFy PSMS · Room 4, TBI Building, Palawan State University
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <button
               onClick={() => setTab('listings')}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+              className={`w-full rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-all sm:w-auto ${
                 tab === 'listings'
                   ? 'bg-[#1D73EC] text-white border-[#1D73EC] shadow-md'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-[#1D73EC] hover:text-[#1D73EC]'
@@ -138,7 +138,7 @@ export default function JobBoard() {
             </button>
             <button
               onClick={() => setTab('applications')}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold border-2 transition-all relative ${
+              className={`relative w-full rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-all sm:w-auto ${
                 tab === 'applications'
                   ? 'bg-[#1D73EC] text-white border-[#1D73EC] shadow-md'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-[#1D73EC] hover:text-[#1D73EC]'
@@ -146,7 +146,7 @@ export default function JobBoard() {
             >
               My Applications
               {applications.length > 0 && (
-                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                   tab === 'applications' ? 'bg-white/20 text-white' : 'bg-[#1D73EC] text-white'
                 }`}>
                   {applications.length}
@@ -158,7 +158,7 @@ export default function JobBoard() {
 
         {/* ── JOB LISTINGS ── */}
         {tab === 'listings' && (
-          <div className="space-y-5">
+          <div className="space-y-3">
             {jobs.map((job) => {
               const application = getApplicationForJob(job.id);
               const isExpanded = expandedJobId === job.id;
@@ -166,23 +166,20 @@ export default function JobBoard() {
               return (
                 <Card
                   key={job.id}
-                  className="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                  className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
                 >
-                  {/* Main Row */}
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      {/* Icon */}
-                      <div className="w-12 h-12 bg-[#F2F7FF] rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-100">
-                        <Briefcase className="w-6 h-6 text-[#1D73EC]" />
+                  <div className="p-4 sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-[#F2F7FF]">
+                        <Briefcase className="h-6 w-6 text-[#1D73EC]" />
                       </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <h3 className="text-lg font-bold text-[#1c1f26]">{job.title}</h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                              <Badge className="bg-white border-2 border-blue-200 text-blue-700 border border-green-200 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                              <Badge className="border border-green-200 border-2 bg-white text-xs text-blue-700">
                                 {job.type}
                               </Badge>
                               <span className="text-xs text-gray-400">·</span>
@@ -197,16 +194,15 @@ export default function JobBoard() {
                             </div>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                             <button
                               onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+                              className="flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
                             >
                               {isExpanded ? (
-                                <><ChevronUp className="w-3.5 h-3.5" /> Less</>
+                                <><ChevronUp className="h-3.5 w-3.5" /> Less</>
                               ) : (
-                                <><ChevronDown className="w-3.5 h-3.5" /> Details</>
+                                <><ChevronDown className="h-3.5 w-3.5" /> Details</>
                               )}
                             </button>
                             {application && (
@@ -214,7 +210,7 @@ export default function JobBoard() {
                                 variant="outline"
                                 size="sm"
                                 disabled
-                                className="text-xs opacity-60"
+                                className="w-full text-xs opacity-60 sm:w-auto"
                               >
                                 Applied
                               </Button>
@@ -222,27 +218,25 @@ export default function JobBoard() {
                           </div>
                         </div>
 
-                        {/* Meta */}
-                        <div className="flex items-center gap-5 mt-3 text-xs text-gray-500">
+                        <div className="mt-3 flex flex-col gap-2 text-xs text-gray-500 sm:flex-row sm:items-center sm:gap-5">
                           <span className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" /> {job.duration}
+                            <Clock className="h-3.5 w-3.5" /> {job.duration}
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" /> Room 4, PSU Main Campus, TBI Building
+                            <MapPin className="h-3.5 w-3.5" /> Room 4, PSU Main Campus, TBI Building
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Expandable Details */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-5">
-                      <p className="text-sm text-gray-700 leading-relaxed">{job.description}</p>
+                    <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:px-6 sm:py-5">
+                      <p className="text-sm leading-relaxed text-gray-700">{job.description}</p>
                       {!application && (
                         <div className="mt-4">
                           <Button
-                            className="bg-[#1D73EC] hover:bg-[#10316B] text-white text-sm"
+                            className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B] sm:w-auto"
                             onClick={() => navigate(`/customer/job-apply/${job.id}`)}
                           >
                             Apply for this Position
@@ -259,14 +253,14 @@ export default function JobBoard() {
 
         {/* ── MY APPLICATIONS ── */}
         {tab === 'applications' && (
-          <div className="space-y-5">
+          <div className="space-y-3">
             {applications.length === 0 ? (
               <Card className="p-16 bg-white shadow-sm text-center border border-gray-100">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Briefcase className="w-8 h-8 text-gray-300" />
                 </div>
                 <p className="font-semibold text-gray-500 text-lg">No applications yet</p>
-                <p className="text-sm text-gray-400 mt-1">Browse job listings and apply to get started.</p>
+                <p className="text-smm text-gray-400 mt-1">Browse job listings and apply to get started.</p>
                 <Button
                   className="mt-6 bg-[#1D73EC] hover:bg-[#10316B] text-white"
                   onClick={() => setTab('listings')}
@@ -279,19 +273,19 @@ export default function JobBoard() {
                 const job = jobs.find((j) => j.id === app.jobId);
 
                 return (
-                  <Card key={app.id} className="overflow-hidden bg-white shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-[#F2F7FF] rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-100">
-                            <Briefcase className="w-6 h-6 text-[#1D73EC]" />
+                  <Card key={app.id} className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
+                    <div className="p-4 sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-[#F2F7FF]">
+                            <Briefcase className="h-6 w-6 text-[#1D73EC]" />
                           </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-[#1c1f26]">{app.jobTitle}</h3>
-                            <p className="text-sm text-gray-500 mt-0.5">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{app.jobTitle}</h3>
+                            <p className="mt-0.5 text-sm text-gray-500">
                               Applied on {new Date(app.appliedDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
                             </p>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
                               <Badge className={`text-xs border ${STATUS_COLORS[app.status]}`}>
                                 {app.status}
                               </Badge>
@@ -300,14 +294,13 @@ export default function JobBoard() {
                           </div>
                         </div>
 
-                        {/* View Full Details Button */}
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-xs border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white flex-shrink-0"
+                          className="w-full border-[#1D73EC] text-xs text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white sm:w-auto"
                           onClick={() => setSelectedApp(app)}
                         >
-                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          <Eye className="mr-1.5 h-3.5 w-3.5" />
                           View Details
                         </Button>
                       </div>
@@ -370,11 +363,11 @@ export default function JobBoard() {
         )}
 
         {/* Info Card */}
-        <Card className="p-6 bg-[#F2F7FF] border border-green-200">
+        <Card className="border border-green-200 bg-[#F2F7FF] p-4 sm:p-6">
           <div className="flex items-start gap-3">
-            <Briefcase className="w-5 h-5 text-[#1D73EC] mt-0.5 flex-shrink-0" />
+            <Briefcase className="mt-0.5 h-5 w-5 shrink-0 text-[#1D73EC]" />
             <div>
-              <h3 className="font-semibold text-[#10316B] mb-2">Why Work With DocuFy?</h3>
+              <h3 className="mb-2 font-semibold text-[#10316B]">Why Work With DocuFy?</h3>
               <ul className="space-y-1 text-sm text-gray-700">
                 <li>• Flexible schedules perfect for students</li>
                 <li>• Gain valuable work experience in printing & admin</li>
