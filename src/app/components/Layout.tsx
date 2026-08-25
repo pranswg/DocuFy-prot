@@ -14,7 +14,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
   AlertCircle,
   Shield,
   MapPin,
@@ -60,14 +59,6 @@ export default function Layout({
   const location = useLocation();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
-
-  const handleBack = () => {
-    if (backButtonPath) {
-      navigate(backButtonPath);
-    } else {
-      navigate(-1);
-    }
-  };
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(
     () => {
@@ -450,16 +441,6 @@ export default function Layout({
             >
               <img src={logoImage} alt="DocuFy logo, show navigation" className="w-10 h-10 rounded-full bg-[#1D73EC]/10 p-0.5 shadow-sm" />
             </button>
-            {showBackButton && (
-              <button
-                type="button"
-                onClick={handleBack}
-                aria-label="Go back"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-[#1D73EC]"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
             <h1 className="text-base font-bold text-[#1c1f26] truncate">
               {displayTitle}
             </h1>
