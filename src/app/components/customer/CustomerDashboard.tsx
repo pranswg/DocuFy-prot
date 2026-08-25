@@ -372,7 +372,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Card className="p-6 bg-[#1D73EC] text-white shadow-lg border-none">
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
