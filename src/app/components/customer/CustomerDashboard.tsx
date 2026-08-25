@@ -60,7 +60,9 @@ export default function CustomerDashboard() {
       );
       setStats(dataStore.getOrderStats(user?.email || ""));
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, [user?.email]);
 
   useEffect(() => {
@@ -180,7 +182,7 @@ export default function CustomerDashboard() {
         )}
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[
             {
               key: "kpi-tot",
@@ -212,28 +214,22 @@ export default function CustomerDashboard() {
           ].map((kpi) => (
             <Card
               key={kpi.key}
-              role="link"
-              tabIndex={0}
-              aria-label={`${kpi.label}: ${kpi.val}. ${kpi.desc}`}
-              className="p-6 bg-white border-2 border-blue-200 shadow-sm cursor-pointer hover:bg-[#2F6FD6] hover:text-white transition-all group"
-              onClick={kpi.click}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  kpi.click();
-                }
-              }}
+              className={`p-3 sm:p-4 border-2 shadow-sm transition-all group ${
+                kpi.key === "kpi-com"
+                  ? "bg-[#1D73EC] border-[#1D73EC] text-white"
+                  : "bg-white border-blue-200"
+              }`}
             >
-              <p className="text-sm font-medium text-gray-600 group-hover:text-blue-100">
+              <p className={`text-[11px] sm:text-sm font-medium truncate ${kpi.key === "kpi-com" ? "text-white" : "text-gray-600"}`}>
                 {kpi.label}
               </p>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-white">
+              <div className="flex items-center justify-between gap-1 mt-2">
+                <p className={`text-2xl sm:text-3xl font-bold ${kpi.key === "kpi-com" ? "text-white" : "text-gray-900"}`}>
                   {kpi.val}
                 </p>
-                <kpi.icon className="w-10 h-10 text-blue-600 opacity-50 group-hover:text-white group-hover:opacity-100 group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.9)] transition-all duration-300" />
+                <kpi.icon className={`w-7 h-7 sm:w-9 sm:h-9 opacity-50 transition-all duration-300 ${kpi.key === "kpi-com" ? "text-white opacity-100" : "text-blue-600"}`} />
               </div>
-              <p className="text-xs mt-1 text-gray-500 group-hover:text-blue-100">
+              <p className={`hidden sm:block text-xs mt-1 truncate ${kpi.key === "kpi-com" ? "text-blue-100" : "text-gray-500"}`}>
                 {kpi.desc}
               </p>
             </Card>
@@ -243,7 +239,7 @@ export default function CustomerDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
           {/* Left Column: Quick Actions */}
           <div className="lg:col-span-1 flex flex-col">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 ml-1">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4 ml-1">
               Quick Actions
             </h3>
             <div className="flex flex-col gap-2 flex-grow">
@@ -269,11 +265,12 @@ export default function CustomerDashboard() {
               ].map((action) => (
                 <button
                   key={action.key}
+                  type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex flex-col items-center justify-center gap-1 p-2 bg-white border border-slate-200 rounded-lg hover:bg-[#2F6FD6] transition-all shadow-sm group cursor-pointer flex-1"
+                  className="flex flex-row items-center justify-center gap-4 p-7 bg-white border border-slate-200 rounded-lg hover:bg-[#2F6FD6] transition-all shadow-sm group cursor-pointer flex-1"
                 >
-                  <action.icon className="w-6 h-6 text-[#2F6FD6] group-hover:text-white mb-1" />
-                  <p className="font-bold text-sm text-gray-900 group-hover:text-white text-center leading-tight">
+                  <action.icon className="w-7 h-7 flex-shrink-0 text-[#2F6FD6] group-hover:text-white" />
+                  <p className="font-bold text-lg text-gray-900 group-hover:text-white text-left leading-tight">
                     {action.label}
                   </p>
                 </button>
@@ -286,7 +283,7 @@ export default function CustomerDashboard() {
             <Card className="p-6 bg-white shadow-sm border border-slate-100 h-full flex flex-col">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <h3 className="text-2xl font-bold text-gray-900">
                     Recent Orders
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">

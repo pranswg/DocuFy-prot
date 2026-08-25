@@ -75,7 +75,9 @@ export default function Layout({
       return saved !== null ? JSON.parse(saved) : true;
     },
   );
-  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+  const [isNavigationOpen, setIsNavigationOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 768 : false,
+  );
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
@@ -156,8 +158,14 @@ export default function Layout({
     "Dashboard";
 
   useEffect(() => {
-    setIsNavigationOpen(false);
-  }, [location.pathname]);
+    setIsNavigationOpen(!isMobile);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsNavigationOpen(false);
+    }
+  }, [isMobile, location.pathname]);
 
   const handleNavigation = (path: string) => {
     navigate(path);
