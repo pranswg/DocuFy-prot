@@ -159,7 +159,13 @@ export default function JobBoard() {
         {/* ── JOB LISTINGS ── */}
         {tab === 'listings' && (
           <div className="space-y-3">
-            {jobs.map((job) => {
+            {jobs.length === 0 ? (
+              <Card className="border border-gray-100 bg-white p-16 text-center shadow-sm">
+                <Briefcase className="mx-auto mb-4 h-10 w-10 text-[#1D73EC]/35" />
+                <p className="text-lg font-semibold text-gray-500">No job listings available</p>
+                <p className="mt-1 text-sm text-gray-400">New opportunities will appear here when they are posted.</p>
+              </Card>
+            ) : jobs.map((job) => {
               const application = getApplicationForJob(job.id);
               const isExpanded = expandedJobId === job.id;
 

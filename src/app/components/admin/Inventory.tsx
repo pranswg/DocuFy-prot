@@ -407,7 +407,14 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInventory.map((item) => {
+                {filteredInventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-16 text-center">
+                      <p className="text-sm font-semibold text-gray-500">No inventory items yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Add an item to start tracking your supplies.</p>
+                    </td>
+                  </tr>
+                ) : filteredInventory.map((item) => {
                   const currentStock = item.quantityAdded - item.quantitySold;
                   const reorderLevel = item.reorderLevel || 0;
                   const isCritical = currentStock <= reorderLevel * 0.5;

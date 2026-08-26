@@ -20,6 +20,7 @@ import {
   XCircle,
   Clock,
   Upload,
+  ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
@@ -160,7 +161,9 @@ export default function Layout({
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    setIsNavigationOpen(false);
+    if (isMobile) {
+      setIsNavigationOpen(false);
+    }
   };
 
   const handleLogout = () => {
@@ -420,7 +423,7 @@ export default function Layout({
       ) : (
         <aside
           aria-label="Primary navigation"
-          className={`bg-[#1D73EC] flex flex-col z-30 shadow-2xl transition-all duration-300 ease-in-out flex-shrink-0 relative overflow-hidden ${
+          className={`h-screen overflow-y-auto custom-scrollbar bg-[#1D73EC] flex flex-col z-30 shadow-2xl transition-all duration-300 ease-in-out flex-shrink-0 relative ${
             isNavigationOpen ? (isSidebarExpanded ? "w-64" : "w-[72px]") : "w-0"
           }`}
         >
@@ -432,15 +435,27 @@ export default function Layout({
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         <header className="min-h-16 bg-white border-b border-gray-200 px-3 sm:px-6 lg:px-8 py-2 flex items-center justify-between z-40 flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsNavigationOpen(!isNavigationOpen)}
-              aria-label={isNavigationOpen ? "Hide navigation" : "Show navigation"}
-              aria-expanded={isNavigationOpen}
-              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
-            >
-              <img src={logoImage} alt="DocuFy logo, show navigation" className="w-10 h-10 rounded-full bg-[#1D73EC]/10 p-0.5 shadow-sm" />
-            </button>
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setIsNavigationOpen(!isNavigationOpen)}
+                aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
+                aria-expanded={isNavigationOpen}
+                className="rounded-xl p-2 text-[#1D73EC] transition-all duration-200 hover:bg-[#F2F7FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+              >
+                <Menu className={`h-6 w-6 transition-transform duration-200 ${isNavigationOpen ? "rotate-90" : "rotate-0"}`} />
+              </button>
+            ) : null}
+            {isMobile && (showBackButton || !location.pathname.endsWith("/dashboard")) && (
+              <button
+                type="button"
+                onClick={() => backButtonPath ? navigate(backButtonPath) : navigate(-1)}
+                aria-label="Go back"
+                className="rounded-xl p-2 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            )}
             <h1 className="text-base font-bold text-[#1c1f26] truncate">
               {displayTitle}
             </h1>
@@ -469,7 +484,6 @@ export default function Layout({
                     </span>
                   )}
                 </button>
-
                 {isSIEMOpen && (
                   <>
                     <div
@@ -651,6 +665,15 @@ export default function Layout({
                 </>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/${user?.role}/profile`)}
+              aria-label="Open profile"
+              className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+            >
+              <img src={logoImage} alt="DocuFy profile" className="h-10 w-10 rounded-full bg-[#1D73EC]/10 p-0.5 shadow-sm" />
+            </button>
 
           </div>
         </header>

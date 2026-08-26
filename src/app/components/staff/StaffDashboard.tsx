@@ -64,11 +64,11 @@ const Avatar = ({ name }: { name: string }) => {
 
   const colors = [
     "bg-blue-100 text-blue-700",
-    "bg-orange-100 text-orange-700",
     "bg-blue-100 text-blue-700",
-    "bg-purple-100 text-purple-700",
-    "bg-pink-100 text-pink-700",
-    "bg-cyan-100 text-cyan-700",
+    "bg-blue-100 text-blue-700",
+    "bg-blue-50 text-blue-700",
+    "bg-[#F2F7FF] text-[#1D73EC]",
+    "bg-blue-200 text-blue-800",
   ];
 
   const colorIndex = name.charCodeAt(0) % colors.length;
@@ -241,14 +241,14 @@ export default function StaffDashboard() {
             ].map((kpi) => (
               <Card
                 key={kpi.id}
-                className="p-5 bg-white border border-slate-100 shadow-sm cursor-pointer hover:bg-[#2F6FD6] hover:text-white transition-all group"
+                className="cursor-pointer border border-slate-100 bg-white p-5 shadow-sm transition-all group hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md"
                 onClick={kpi.click}
               >
                 <div className="flex justify-between items-start">
                   <p className="text-base font-bold text-slate-700 group-hover:text-white">
                     {kpi.label}
                   </p>
-                  <kpi.icon className="w-5 h-5 text-[#2F6FD6] group-hover:text-white opacity-40" />
+                  <kpi.icon className="h-5 w-5 text-[#2F6FD6] opacity-50 transition-all group-hover:scale-110 group-hover:text-white group-hover:opacity-100" />
                 </div>
                 <p className="text-3xl font-bold text-slate-900 group-hover:text-white mt-2">
                   {kpi.val}

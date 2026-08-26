@@ -25,47 +25,7 @@ export type ApplicationType = {
 type Subscriber = () => void;
 
 class ApplicationsStore {
-  private applications: ApplicationType[] = [
-    {
-      id: 'APP-001',
-      jobId: 'JOB-001',
-      jobTitle: 'Part-Time Print Shop Assistant',
-      firstName: 'Maria',
-      lastName: 'Santos',
-      name: 'Maria Santos',
-      email: 'maria.santos@psu.edu.ph',
-      contact: '09171234567',
-      position: 'Part-Time Print Shop Assistant',
-      skills:
-        'I have experience with document preparation and customer service from my previous OJT at a printing shop. I am a 3rd year Business Administration student with flexible availability. Highly organized and fast learner.',
-      portfolio: 'https://drive.google.com/maria-santos-resume',
-      portfolioType: 'link',
-      appliedDateTime: '2026-04-12 09:30 AM',
-      status: 'For Interview',
-      appliedDate: '2026-04-12',
-      interviewDate: '2026-04-16',
-      interviewTime: '10:00 AM',
-      interviewLocation: 'Room 4, TBI Building, Palawan State University',
-    },
-    {
-      id: 'APP-002',
-      jobId: 'JOB-002',
-      jobTitle: 'Graphic Designer',
-      firstName: 'Maria',
-      lastName: 'Santos',
-      name: 'Maria Santos',
-      email: 'maria.santos@psu.edu.ph',
-      contact: '09171234567',
-      position: 'Graphic Designer',
-      skills:
-        'Proficient in Adobe Photoshop, Illustrator, and Canva. I have designed posters, tarpaulins, and social media graphics for school events. I have a portfolio of 20+ projects.',
-      portfolio: 'https://behance.net/mariasantos',
-      portfolioType: 'link',
-      appliedDateTime: '2026-04-10 02:15 PM',
-      status: 'Under Review',
-      appliedDate: '2026-04-10',
-    },
-  ];
+  private applications: ApplicationType[] = [];
   private subscribers: Set<Subscriber> = new Set();
 
   getApplications(): ApplicationType[] {

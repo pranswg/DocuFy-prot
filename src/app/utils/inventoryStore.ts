@@ -39,13 +39,13 @@ class InventoryStore {
     if (this.initialized) return;
 
     try {
-      const INVENTORY_VERSION = '2.0'; // Increment this to force inventory reset
+      const INVENTORY_VERSION = '3.0'; // Increment this to force inventory reset
       const storedVersion = localStorage.getItem('inventoryStoreVersion');
       const stored = localStorage.getItem('inventoryStore');
 
       // Reset inventory if version changed or no stored data
       if (!stored || storedVersion !== INVENTORY_VERSION) {
-        console.log('Resetting inventory to default (version mismatch or first load)');
+        console.log('Resetting inventory to empty state (version mismatch or first load)');
         this.items = this.getDefaultInventory();
         localStorage.setItem('inventoryStoreVersion', INVENTORY_VERSION);
         this.saveToLocalStorage();
@@ -70,53 +70,7 @@ class InventoryStore {
 
   // Get default inventory items
   private getDefaultInventory(): InventoryItem[] {
-    const defaultItems = [
-      // Paper - with realistic sizes (increased stock for sufficient inventory)
-      { itemName: 'Bond Paper (A4)', category: 'Paper', quantityAdded: 15000, quantitySold: 1000 },
-      { itemName: 'Bond Paper (Legal)', category: 'Paper', quantityAdded: 12000, quantitySold: 500 },
-      { itemName: 'Bond Paper (A3)', category: 'Paper', quantityAdded: 8000, quantitySold: 300 },
-      { itemName: 'Colored Paper', category: 'Paper', quantityAdded: 8000, quantitySold: 400 },
-
-      // Ink/Toner (increased stock for sufficient inventory)
-      { itemName: 'Black Ink Cartridge', category: 'Supplies', quantityAdded: 100, quantitySold: 15 },
-      { itemName: 'Colored Ink Cartridge', category: 'Supplies', quantityAdded: 80, quantitySold: 10 },
-      
-      // Add-ons matching the constants
-      { itemName: 'Staples', category: 'Add-ons', quantityAdded: 500, quantitySold: 65 },
-      { itemName: 'Folder (Plastic)', category: 'Add-ons', quantityAdded: 400, quantitySold: 220 },
-      { itemName: 'Folder (Paper)', category: 'Add-ons', quantityAdded: 350, quantitySold: 180 },
-      { itemName: 'Envelopes', category: 'Add-ons', quantityAdded: 600, quantitySold: 280 },
-    ];
-
-    return defaultItems.map((item, index) => {
-      const initialAddTransaction: InventoryTransaction = {
-        id: `TXN-INIT-${index + 1}`,
-        type: 'add',
-        quantity: item.quantityAdded,
-        date: new Date('2026-04-01'),
-        note: 'Initial inventory',
-      };
-
-      const soldTransactions: InventoryTransaction[] = item.quantitySold > 0 ? [{
-        id: `TXN-SOLD-${index + 1}`,
-        type: 'sell',
-        quantity: item.quantitySold,
-        date: new Date('2026-04-15'),
-        note: 'Historical sales',
-      }] : [];
-
-      return {
-        id: `INV-${String(index + 1).padStart(3, '0')}`,
-        itemName: item.itemName,
-        category: item.category,
-        quantityAdded: item.quantityAdded,
-        quantitySold: item.quantitySold,
-        currentStock: item.quantityAdded - item.quantitySold,
-        dateAdded: new Date('2026-04-01'),
-        archived: false,
-        transactions: [initialAddTransaction, ...soldTransactions],
-      };
-    });
+    return [];
   }
 
   // Save to localStorage

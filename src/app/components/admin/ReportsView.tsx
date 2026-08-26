@@ -216,6 +216,14 @@ export default function ReportsView({
         </div>
 
         <div className="p-0">
+          {reportData.length === 0 && (
+            <div className="border-b border-gray-100 px-6 py-16 text-center">
+              <FileText className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+              <p className="text-sm font-semibold text-gray-500">This report has no records</p>
+              <p className="mt-1 text-xs text-gray-400">Try another date range or generate the report after activity is recorded.</p>
+            </div>
+          )}
+
           {/* Sales/Daily Sales Table */}
           {(currentReport === 'Sales' || currentReport === 'Daily Sales') && (
             <div className="w-full overflow-x-auto">

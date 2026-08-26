@@ -27,68 +27,11 @@ class SIEMAlertStore {
   private listeners: Set<() => void> = new Set();
 
   constructor() {
-    this.initializeMockAlerts();
+    this.alerts = [];
   }
 
   private initializeMockAlerts() {
-    // Generate realistic SIEM alerts for demonstration
-    this.alerts = [
-      {
-        id: 'SIEM-001',
-        type: 'impossible_travel',
-        severity: 'critical',
-        title: 'Impossible Travel Detected',
-        description: 'User logged in from Berlin, Germany 10 minutes after Manila, Philippines login',
-        affectedAccount: 'customer@test.com',
-        timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
-        read: false,
-        investigateUrl: '/admin/audit-logs',
-      },
-      {
-        id: 'SIEM-002',
-        type: 'brute_force',
-        severity: 'critical',
-        title: 'Brute Force Attack Detected',
-        description: '15 failed login attempts from IP 45.142.212.61 in 2 minutes',
-        affectedAccount: 'multiple',
-        timestamp: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
-        read: false,
-        investigateUrl: '/admin/audit-logs',
-      },
-      {
-        id: 'SIEM-003',
-        type: 'suspicious_upload',
-        severity: 'high',
-        title: 'Suspicious File Upload Blocked',
-        description: 'Malware scanner flagged uploaded file: potential.exe',
-        affectedAccount: 'staff@test.com',
-        timestamp: new Date(Date.now() - 120 * 60 * 1000), // 2 hours ago
-        read: false,
-        investigateUrl: '/admin/audit-logs',
-      },
-      {
-        id: 'SIEM-004',
-        type: 'unusual_access',
-        severity: 'medium',
-        title: 'Administrator Access at Unusual Time',
-        description: 'Admin panel accessed at 11:20 PM (outside normal hours)',
-        affectedAccount: 'admin@test.com',
-        timestamp: new Date(Date.now() - 180 * 60 * 1000), // 3 hours ago
-        read: false,
-        investigateUrl: '/admin/audit-logs',
-      },
-      {
-        id: 'SIEM-005',
-        type: 'repeated_failures',
-        severity: 'medium',
-        title: 'Repeated Password Reset Attempts',
-        description: '5 password reset requests in 10 minutes from same user',
-        affectedAccount: 'customer@test.com',
-        timestamp: new Date(Date.now() - 300 * 60 * 1000), // 5 hours ago
-        read: true,
-        investigateUrl: '/admin/audit-logs',
-      },
-    ];
+    this.alerts = [];
   }
 
   addAlert(alert: Omit<SIEMAlert, 'id' | 'timestamp' | 'read'>) {

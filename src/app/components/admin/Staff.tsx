@@ -446,7 +446,7 @@ const staffData: Staff[] = [
 
 export default function Staff() {
   const [staff, setStaff] =
-    useState<Staff[]>(staffData);
+    useState<Staff[]>([]);
   const [archivedStaff, setArchivedStaff] = useState<Staff[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [selectedStaff, setSelectedStaff] =

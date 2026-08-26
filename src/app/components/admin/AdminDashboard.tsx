@@ -42,60 +42,16 @@ import { dataStore } from "../../utils/dataStore";
 import AttendanceWidget from "../AttendanceWidget";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 
-const fullYearLabels = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 const chartData = {
   Weekly: {
-    sales: [
-      { name: "sales-weekly-Mon", label: "Mon", sales: 450 },
-      { name: "sales-weekly-Tue", label: "Tue", sales: 680 },
-      { name: "sales-weekly-Wed", label: "Wed", sales: 520 },
-      { name: "sales-weekly-Thu", label: "Thu", sales: 790 },
-      { name: "sales-weekly-Fri", label: "Fri", sales: 920 },
-      { name: "sales-weekly-Sat", label: "Sat", sales: 340 },
-    ],
-    orders: [
-      { name: "orders-weekly-Mon", label: "Mon", orders: 12 },
-      { name: "orders-weekly-Tue", label: "Tue", orders: 18 },
-      { name: "orders-weekly-Wed", label: "Wed", orders: 15 },
-      { name: "orders-weekly-Thu", label: "Thu", orders: 22 },
-      { name: "orders-weekly-Fri", label: "Fri", orders: 28 },
-      { name: "orders-weekly-Sat", label: "Sat", orders: 10 },
-    ],
+    sales: [],
+    orders: [],
   },
   Yearly: {
-    sales: fullYearLabels.slice(0, 6).map((m, i) => ({
-      name: `sales-yearly-${m}`,
-      label: m,
-      sales: [4200, 5100, 4800, 6200, 5800, 7100][i],
-    })),
-    orders: fullYearLabels.slice(0, 6).map((m, i) => ({
-      name: `orders-yearly-${m}`,
-      label: m,
-      orders: [110, 145, 130, 190, 175, 210][i],
-    })),
+    sales: [],
+    orders: [],
   },
 };
-
-// Staff data - matches the data structure from Staff.tsx
-const staffData = [
-  { id: "EMP-001", status: "Active" },
-  { id: "EMP-002", status: "Active" },
-  { id: "EMP-003", status: "Active" },
-];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -104,8 +60,14 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(dataStore.getOrderStats());
   const [lowStock, setLowStock] = useState(dataStore.getLowStockItems());
   const [showLowStockModal, setShowLowStockModal] = useState(false);
-  const [activeStaffCount] = useState(
-    staffData.filter(staff => staff.status === "Active").length
+  const activeStaffCount = 0;
+
+  const EmptyChartState = ({ label }: { label: string }) => (
+    <div className="h-[220px] flex flex-col items-center justify-center text-center text-slate-400">
+      <TrendingUp className="w-8 h-8 mb-3 text-[#2F6FD6]/35" />
+      <p className="text-sm font-semibold text-slate-500">No {label.toLowerCase()} yet</p>
+      <p className="text-xs mt-1">Activity will appear here once orders are recorded.</p>
+    </div>
   );
 
   useEffect(() => {
@@ -164,14 +126,14 @@ export default function AdminDashboard() {
             ].map((kpi) => (
               <Card
                 key={kpi.id}
-                className="p-5 bg-white border border-slate-100 shadow-sm cursor-pointer hover:bg-[#2F6FD6] hover:text-white transition-all group"
+                className="cursor-pointer border border-slate-100 bg-white p-5 shadow-sm transition-all group hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md"
                 onClick={kpi.click}
               >
                 <div className="flex justify-between items-start">
                   <p className="text-base font-bold text-slate-700 group-hover:text-white">
                     {kpi.label}
                   </p>
-                  <kpi.icon className="w-5 h-5 text-[#2F6FD6] group-hover:text-white opacity-40" />
+                  <kpi.icon className="h-5 w-5 text-[#2F6FD6] opacity-50 transition-all group-hover:scale-110 group-hover:text-white group-hover:opacity-100" />
                 </div>
                 <p className="text-3xl font-bold text-slate-900 group-hover:text-white mt-2">
                   {kpi.val}
@@ -201,11 +163,8 @@ export default function AdminDashboard() {
                   <option value="Yearly">Monthly</option>
                 </select>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart
-                  data={chartData[salesTimeframe].sales}
-                  key={`sales-chart-${salesTimeframe}`}
-                >
+              {chartData[salesTimeframe].sales.length === 0 ? <EmptyChartState label="sales" /> : <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData[salesTimeframe].sales} key={`sales-chart-${salesTimeframe}`}>
                   <CartesianGrid
                     strokeDasharray="4 4"
                     vertical={true}
@@ -245,7 +204,7 @@ export default function AdminDashboard() {
                     isAnimationActive={false}
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer>}
             </Card>
 
             <Card className="p-5 bg-white shadow-sm border border-slate-100">
@@ -264,11 +223,8 @@ export default function AdminDashboard() {
                   <option value="Yearly">Monthly</option>
                 </select>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={chartData[ordersTimeframe].orders}
-                  key={`orders-chart-${ordersTimeframe}`}
-                >
+              {chartData[ordersTimeframe].orders.length === 0 ? <EmptyChartState label="order volume" /> : <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartData[ordersTimeframe].orders} key={`orders-chart-${ordersTimeframe}`}>
                   <CartesianGrid
                     strokeDasharray="4 4"
                     vertical={false}
@@ -301,7 +257,7 @@ export default function AdminDashboard() {
                     isAnimationActive={false}
                   />
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer>}
             </Card>
           </div>
 

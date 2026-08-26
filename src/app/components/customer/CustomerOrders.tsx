@@ -9,6 +9,7 @@ import {
   Calendar,
   XCircle,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -65,6 +66,7 @@ export default function CustomerOrders() {
   const [showCancelDialog, setShowCancelDialog] = useState<boolean>(false);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
   const [cancellationReason, setCancellationReason] = useState<string>("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -154,7 +156,7 @@ export default function CustomerOrders() {
         </div>
 
         {/* ── Filters Card ───────────────────────────────────── */}
-        <Card className="p-6 bg-white shadow-sm">
+        <Card className="p-4 sm:p-6 bg-white shadow-sm">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Status */}
@@ -182,8 +184,18 @@ export default function CustomerOrders() {
                 </select>
               </div>
 
+              <button
+                type="button"
+                onClick={() => setShowMoreFilters((isOpen) => !isOpen)}
+                aria-expanded={showMoreFilters}
+                className="flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#2F6FD6] sm:hidden"
+              >
+                {showMoreFilters ? "Show Less" : "See More"}
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showMoreFilters ? "rotate-180" : ""}`} />
+              </button>
+
               {/* Date From */}
-              <div className="space-y-2 w-full sm:w-48">
+              <div className={`space-y-2 w-full sm:w-48 ${showMoreFilters ? "" : "hidden sm:block"}`}>
                 <Label
                   htmlFor="dateFrom"
                   className="text-sm font-medium text-gray-700"
@@ -203,7 +215,7 @@ export default function CustomerOrders() {
               </div>
 
               {/* Date To */}
-              <div className="space-y-2 w-full sm:w-48">
+              <div className={`space-y-2 w-full sm:w-48 ${showMoreFilters ? "" : "hidden sm:block"}`}>
                 <Label
                   htmlFor="dateTo"
                   className="text-sm font-medium text-gray-700"
@@ -223,7 +235,7 @@ export default function CustomerOrders() {
               </div>
 
               {/* Search */}
-              <div className="space-y-2 flex-1">
+              <div className={`space-y-2 flex-1 ${showMoreFilters ? "" : "hidden sm:block"}`}>
                 <Label
                   htmlFor="search"
                   className="text-sm font-medium text-gray-700"
@@ -240,7 +252,7 @@ export default function CustomerOrders() {
               </div>
 
               {/* Clear */}
-              <div className="flex items-end">
+              <div className={`flex items-end ${showMoreFilters ? "" : "hidden sm:flex"}`}>
                 <Button
                   variant="outline"
                   onClick={clearFilters}

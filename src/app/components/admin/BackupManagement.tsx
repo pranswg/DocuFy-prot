@@ -33,72 +33,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 
-// Mock backup history data
-const generateMockBackups = () => {
-  return [
-    {
-      id: "BKP-2026-05-24-001",
-      timestamp: new Date("2026-05-24T06:00:00"),
-      type: "Automated",
-      status: "Successful" as const,
-      size: "2.47 GB",
-      duration: "4m 23s",
-      storageRegion: "US-East-1",
-      encryption: "AES-256",
-      integrityHash: "a7f3c9d2e8b4f1a6c2d5e9f8b3a1c4d7e2f5a8b9",
-      verificationStatus: "Hash Match Verified" as const,
-    },
-    {
-      id: "BKP-2026-05-23-001",
-      timestamp: new Date("2026-05-23T06:00:00"),
-      type: "Automated",
-      status: "Successful" as const,
-      size: "2.45 GB",
-      duration: "4m 18s",
-      storageRegion: "US-East-1",
-      encryption: "AES-256",
-      integrityHash: "b2e4d6f8a1c3e5g7i9k1m3o5q7s9u1w3",
-      verificationStatus: "Hash Match Verified" as const,
-    },
-    {
-      id: "BKP-2026-05-22-001",
-      timestamp: new Date("2026-05-22T06:00:00"),
-      type: "Automated",
-      status: "Successful" as const,
-      size: "2.43 GB",
-      duration: "4m 15s",
-      storageRegion: "US-East-1",
-      encryption: "AES-256",
-      integrityHash: "c3f5h7j9l1n3p5r7t9v1x3z5a7c9e1g3",
-      verificationStatus: "Hash Match Verified" as const,
-    },
-    {
-      id: "BKP-2026-05-20-001",
-      timestamp: new Date("2026-05-20T06:00:00"),
-      type: "Manual",
-      status: "Successful" as const,
-      size: "2.39 GB",
-      duration: "4m 08s",
-      storageRegion: "US-West-2",
-      encryption: "AES-256",
-      integrityHash: "e5h7j9l1n3p5r7t9v1x3z5b7d9f1h3j5",
-      verificationStatus: "Hash Match Verified" as const,
-    },
-    {
-      id: "BKP-2026-05-19-001",
-      timestamp: new Date("2026-05-19T06:00:00"),
-      type: "Automated",
-      status: "Failed" as const,
-      size: "0 GB",
-      duration: "1m 05s",
-      storageRegion: "US-East-1",
-      encryption: "N/A",
-      integrityHash: "N/A",
-      verificationStatus: "Failed" as const,
-      errorMessage: "Connection timeout to storage provider",
-    },
-  ];
-};
+const generateMockBackups = () => [];
 
 // System health metrics
 const systemHealth = {
@@ -133,7 +68,7 @@ export default function BackupManagement() {
       total: backups.length,
       successful,
       failed,
-      successRate: ((successful / backups.length) * 100).toFixed(1),
+      successRate: backups.length > 0 ? ((successful / backups.length) * 100).toFixed(1) : "0.0",
       lastBackup,
       totalSize: totalSize.toFixed(2),
     };
@@ -345,11 +280,13 @@ export default function BackupManagement() {
               <div>
                 <p className="text-sm text-gray-600 font-medium">Last Backup</p>
                 <p className="text-sm font-bold text-gray-900 mt-2">
-                  {stats.lastBackup.timestamp.toLocaleDateString()}
+                  {stats.lastBackup ? stats.lastBackup.timestamp.toLocaleDateString() : "No backups yet"}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {stats.lastBackup.timestamp.toLocaleTimeString()}
-                </p>
+                {stats.lastBackup && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {stats.lastBackup.timestamp.toLocaleTimeString()}
+                  </p>
+                )}
               </div>
               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                 <Clock className="w-6 h-6 text-gray-600" />
@@ -474,7 +411,15 @@ export default function BackupManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {backups.map((backup) => {
+                {backups.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-16 text-center">
+                      <Database className="mx-auto mb-3 h-10 w-10 text-blue-200" />
+                      <p className="text-sm font-semibold text-gray-500">No backup history yet</p>
+                      <p className="mt-1 text-xs text-gray-400">Run a backup to create the first record.</p>
+                    </td>
+                  </tr>
+                ) : backups.map((backup) => {
                   const statusConfig = getStatusConfig(backup.status);
                   const verificationConfig = getVerificationConfig(backup.verificationStatus);
                   return (

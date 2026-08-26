@@ -93,6 +93,9 @@ type FileData = {
   pageRange: string;
   specificPages: string;
   twoSided: string;
+  margins: string;
+  scale: string;
+  customScale: number;
   notes: string;
 };
 
@@ -249,6 +252,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           pageRange: 'all',
           specificPages: '',
           twoSided: 'no',
+          margins: 'default',
+          scale: 'default',
+          customScale: 100,
           notes: '',
         };
 
@@ -385,6 +391,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
         submittedAt: now,
         paymentVerified: true, // Walk-in payment is immediate
         orderSource: 'walkin' as const,
+        margins: files[0]?.margins || 'default',
+        scale: files[0]?.scale || 'default',
+        customScale: files[0]?.customScale || 100,
         downPaymentRequired: false,
         downPaymentVerified: false,
         attachedFiles: files.map(f => ({
@@ -395,6 +404,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                 f.file.type.toUpperCase().includes('POWERPOINT') || f.file.type.toUpperCase().includes('PRESENTATION') ? 'PowerPoint' :
                 f.file.type.toUpperCase().includes('EXCEL') || f.file.type.toUpperCase().includes('SPREADSHEET') ? 'Excel' :
                 f.file.type.toUpperCase().includes('IMAGE') ? 'Image' : 'Document',
+                  url: URL.createObjectURL(f.file),
           uploadedAt: now.toISOString(),
         })),
       };
@@ -1016,6 +1026,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           <SelectItem value="4">
                             4 Pages per Sheet
                           </SelectItem>
+                          <SelectItem value="6">6 Pages per Sheet</SelectItem>
+                          <SelectItem value="9">9 Pages per Sheet</SelectItem>
+                          <SelectItem value="16">16 Pages per Sheet</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-gray-500">
@@ -1183,6 +1196,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           <SelectItem value="all">
                             All Pages
                           </SelectItem>
+                          <SelectItem value="odd">Odd Pages Only</SelectItem>
+                          <SelectItem value="even">Even Pages Only</SelectItem>
                           <SelectItem value="specific">
                             Specific Pages
                           </SelectItem>
@@ -1202,6 +1217,44 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           className="h-10 mt-2"
                         />
                       )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Margins</Label>
+                        <Select value={fileData.margins} onValueChange={(value) => updateFileOption(fileData.id, "margins", value)}>
+                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="minimum">Minimum</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Scale</Label>
+                        <Select value={fileData.scale} onValueChange={(value) => updateFileOption(fileData.id, "scale", value)}>
+                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="fit">Fit to printable area</SelectItem>
+                            <SelectItem value="paper">Fit to paper</SelectItem>
+                            <SelectItem value="custom">Custom percentage</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {fileData.scale === "custom" && (
+                          <Input
+                            type="number"
+                            min="25"
+                            max="200"
+                            step="5"
+                            value={fileData.customScale || 100}
+                            onChange={(event) => updateFileOption(fileData.id, "customScale", Math.min(200, Math.max(25, Number(event.target.value) || 100)))}
+                            placeholder="Scale percentage"
+                            className="h-10"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     {/* Per-File Notes */}
@@ -1633,6 +1686,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
             pageRange: files.find((f) => f.id === previewFileId)?.pageRange || 'All',
             specificPages:
               files.find((f) => f.id === previewFileId)?.specificPages || '',
+            margins: files.find((f) => f.id === previewFileId)?.margins || 'default',
+            scale: files.find((f) => f.id === previewFileId)?.scale || 'default',
+            customScale: files.find((f) => f.id === previewFileId)?.customScale || 100,
           }}
         />
       )}

@@ -21,6 +21,7 @@ import {
   XCircle,
   CreditCard,
   Info,
+  ChevronDown,
 } from "lucide-react";
 
 // Down payment threshold
@@ -131,6 +132,9 @@ export default function NewPrintRequest() {
     pageRange: string;
     specificPages: string;
     twoSided: string;
+    margins: string;
+    scale: string;
+    customScale: number;
     notes: string;
   };
 
@@ -149,6 +153,9 @@ export default function NewPrintRequest() {
     [key: string]: number;
   }>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showOrderSummary, setShowOrderSummary] = useState(false);
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const [expandedFileSettings, setExpandedFileSettings] = useState<Record<string, boolean>>({});
   const [submittedOrderId, setSubmittedOrderId] = useState("");
   const [availablePaperSizes, setAvailablePaperSizes] = useState<Array<{ id: string; name: string; displayName: string; inStock: boolean }>>([]);
   const [availableAddons, setAvailableAddons] = useState<Array<{
@@ -353,6 +360,9 @@ export default function NewPrintRequest() {
           pageRange: "all",
           specificPages: "",
           twoSided: "no",
+          margins: "default",
+          scale: "default",
+          customScale: 100,
           notes: "",
         };
 
@@ -439,7 +449,7 @@ export default function NewPrintRequest() {
       for (const page of colorAnalysis.colorPages) {
         const pct = colorAnalysis.colorPercentages[page] ?? 0;
         let pricePerPage = pct > 50 ? 5 : 3;
-        if (paperSize === "long" || paperSize === "legal")
+        if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
           pricePerPage += 11;
         if (paperSize === "a3") pricePerPage += 1.5;
         if (twoSided === "yes") pricePerPage -= 0.5;
@@ -448,7 +458,7 @@ export default function NewPrintRequest() {
 
       for (let i = 0; i < colorAnalysis.bwPages.length; i++) {
         let pricePerPage = 1;
-        if (paperSize === "long" || paperSize === "legal")
+        if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
           pricePerPage += 11;
         if (paperSize === "a3") pricePerPage += 1.5;
         if (twoSided === "yes") pricePerPage -= 0.5;
@@ -459,7 +469,7 @@ export default function NewPrintRequest() {
     } else {
       // Standard pricing: Black & White = ₱1/page, Colored (no analysis) = ₱5/page
       let pricePerPage = colorMode === "colored" ? 5 : 1;
-      if (paperSize === "long" || paperSize === "legal")
+      if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
         pricePerPage += 11;
       if (paperSize === "a3") pricePerPage += 1.5;
       if (twoSided === "yes") pricePerPage -= 0.5;
@@ -536,11 +546,17 @@ export default function NewPrintRequest() {
       paperSize:
         files[0]?.paperSize === "a4"
           ? "A4"
-          : files[0]?.paperSize === "legal"
-            ? "Legal"
-            : files[0]?.paperSize === "a3"
-              ? "A3"
-              : "A4",
+          : files[0]?.paperSize === "short"
+            ? "Short"
+            : files[0]?.paperSize === "long"
+              ? "Long"
+              : files[0]?.paperSize === "folio"
+                ? "Folio"
+                : files[0]?.paperSize === "legal"
+                  ? "Legal"
+                  : files[0]?.paperSize === "a3"
+                    ? "A3"
+                    : "A4",
       printType: hasColor ? "Colored" : "Black & White",
       copies:
         files.reduce((sum, f) => sum + f.copies, 0) /
@@ -555,11 +571,27 @@ export default function NewPrintRequest() {
         type: f.file.type.toUpperCase().includes("PDF")
           ? "PDF"
           : "Document",
+        url: URL.createObjectURL(f.file),
         uploadedAt: new Date().toISOString(),
+        paperSize: f.paperSize,
+        orientation: f.orientation,
+        copies: f.copies,
+        twoSided: f.twoSided,
+        pagesPerSheet: f.pagesPerSheet,
+        colorMode: f.colorMode,
+        pageRange: f.pageRange,
+        specificPages: f.specificPages,
+        margins: f.margins,
+        scale: f.scale,
+        customScale: f.customScale,
+        pageCount: f.pageCount,
       })),
       orientation: files[0]?.orientation || "Portrait",
       twoSided: files[0]?.twoSided || "no",
       pagesPerSheet: files[0]?.pagesPerSheet || "1",
+      margins: files[0]?.margins || "default",
+      scale: files[0]?.scale || "default",
+      customScale: files[0]?.customScale || 100,
       colorMode: hasColor ? "color" : "bw",
       pageRange: files[0]?.pageRange || "all",
       notes:
@@ -661,22 +693,22 @@ export default function NewPrintRequest() {
       title="Print Request"
       showBackButton
     >
-      <div className="max-w-4xl mx-auto space-y-3">
+      <div className="max-w-4xl mx-auto space-y-2 sm:space-y-3">
 
         {/* Step Indicator */}
-        <Card className="p-7 sm:p-6 bg-white shadow-sm">
+        <Card className="p-4 sm:p-6 bg-white shadow-sm">
           <div className="flex items-center justify-center w-full">
             {steps.map((step, index) => (
               <React.Fragment key={step.number}>
                 <div className="flex flex-1 flex-col items-center justify-center min-w-0">
                   <div
-                    className={`w-15 h-15 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-colors duration-200 ${
+                    className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-colors duration-200 ${
                       currentStep >= step.number
                         ? "bg-[#2F6FD6] text-white shadow-sm"
                         : "bg-gray-200 text-gray-500"
                     }`}
                   >
-                    <step.icon className="w-6 h-6 sm:w-6 sm:h-6" />
+                    <step.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <p
                     className={`hidden sm:block mt-2 text-[11px] sm:text-sm font-medium leading-tight text-center ${
@@ -691,7 +723,7 @@ export default function NewPrintRequest() {
                 {index < steps.length - 1 && (
                   <div className="flex-shrink-0 px-1 sm:px-3">
                     <div
-                      className={`h-1 w-7 sm:w-12 rounded-full ${
+                        className={`h-1 w-5 sm:w-12 rounded-full ${
                         currentStep > step.number
                           ? "bg-[#2F6FD6]"
                           : "bg-gray-200"
@@ -705,9 +737,9 @@ export default function NewPrintRequest() {
         </Card>
 
         {/* Step Content */}
-        <Card className="p-8 bg-white shadow-sm">
+        <Card className="p-4 sm:p-8 bg-white shadow-sm">
           {currentStep === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 Step 1: Upload Documents
               </h2>
@@ -825,7 +857,7 @@ export default function NewPrintRequest() {
               )}
 
               {/* Upload Area */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-[#2F6FD6] transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-8 text-center hover:border-[#2F6FD6] transition-colors">
                 <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-700 mb-2 font-medium">
                   {files.length === 0
@@ -877,7 +909,7 @@ export default function NewPrintRequest() {
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 Step 2: Print Options for Each File
               </h2>
@@ -885,9 +917,9 @@ export default function NewPrintRequest() {
               {files.map((fileData, index) => (
                 <Card
                   key={fileData.id}
-                  className="p-6 bg-gray-50"
+                  className="p-4 sm:p-6 bg-gray-50"
                 >
-                  <div className="mb-4 pb-4 border-b border-gray-300">
+                  <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-300">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                       <FileText className="w-5 h-5 text-[#2F6FD6] shrink-0" />
                       <span className="truncate block">
@@ -901,7 +933,7 @@ export default function NewPrintRequest() {
 
                   {/* Color Analysis Results */}
                   {fileData.colorAnalysis && (
-                    <div className="mb-6 p-4 bg-white border-2 border-blue-200 rounded-lg">
+                    <div className="mb-3 sm:mb-6 p-3 sm:p-4 bg-white border-2 border-blue-200 rounded-lg">
                       <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Document Analysis Results
@@ -1024,8 +1056,23 @@ export default function NewPrintRequest() {
                     </div>
                   )}
 
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {files.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFileSettings((current) => ({
+                        ...current,
+                        [fileData.id]: !current[fileData.id],
+                      }))}
+                      aria-expanded={expandedFileSettings[fileData.id] || false}
+                      className="mb-3 flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#2F6FD6] sm:hidden"
+                    >
+                      {expandedFileSettings[fileData.id] ? "Hide Print Settings" : "See More Print Settings"}
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedFileSettings[fileData.id] ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
+
+                  <div className={`${files.length > 1 && !expandedFileSettings[fileData.id] ? "hidden sm:block" : "block"} space-y-4 sm:space-y-6`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
                           Paper Size
@@ -1052,7 +1099,7 @@ export default function NewPrintRequest() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="a4" disabled>Loading paper sizes...</SelectItem>
+                              <SelectItem value="a4">A4</SelectItem>
                             )}
                           </SelectContent>
                         </Select>
@@ -1087,7 +1134,7 @@ export default function NewPrintRequest() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
                           Number of Copies
@@ -1166,6 +1213,9 @@ export default function NewPrintRequest() {
                           <SelectItem value="4">
                             4 Pages per Sheet
                           </SelectItem>
+                          <SelectItem value="6">6 Pages per Sheet</SelectItem>
+                          <SelectItem value="9">9 Pages per Sheet</SelectItem>
+                          <SelectItem value="16">16 Pages per Sheet</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-gray-500">
@@ -1333,6 +1383,8 @@ export default function NewPrintRequest() {
                           <SelectItem value="all">
                             All Pages
                           </SelectItem>
+                          <SelectItem value="odd">Odd Pages Only</SelectItem>
+                          <SelectItem value="even">Even Pages Only</SelectItem>
                           <SelectItem value="specific">
                             Specific Pages
                           </SelectItem>
@@ -1352,6 +1404,44 @@ export default function NewPrintRequest() {
                           className="h-10 mt-2"
                         />
                       )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Margins</Label>
+                        <Select value={fileData.margins} onValueChange={(value) => updateFileOption(fileData.id, "margins", value)}>
+                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="minimum">Minimum</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Scale</Label>
+                        <Select value={fileData.scale} onValueChange={(value) => updateFileOption(fileData.id, "scale", value)}>
+                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                          <SelectContent className="w-[min(18rem,calc(100vw-2rem))]">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="fit">Fit to printable area</SelectItem>
+                            <SelectItem value="paper">Fit to paper</SelectItem>
+                            <SelectItem value="custom">Custom percentage</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {fileData.scale === "custom" && (
+                          <Input
+                            type="number"
+                            min="25"
+                            max="200"
+                            step="5"
+                            value={fileData.customScale || 100}
+                            onChange={(event) => updateFileOption(fileData.id, "customScale", Math.min(200, Math.max(25, Number(event.target.value) || 100)))}
+                            placeholder="Scale percentage"
+                            className="h-10"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     {/* Per-File Notes */}
@@ -1378,31 +1468,48 @@ export default function NewPrintRequest() {
                         className="text-sm"
                         maxLength={100}
                       />
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <p className="text-xs text-gray-500 w-full mb-1">
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500 mb-1">
                           Quick templates:
                         </p>
-                        {noteTemplates.map((template, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              const currentNotes =
-                                fileData.notes;
-                              const newNotes = currentNotes
-                                ? `${currentNotes}\n${template}`
-                                : template;
-                              updateFileOption(
-                                fileData.id,
-                                "notes",
-                                newNotes,
-                              );
-                            }}
-                            className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors"
-                          >
-                            + {template}
-                          </button>
-                        ))}
+                        <Select
+                          onValueChange={(template) => {
+                            const currentNotes = fileData.notes;
+                            const newNotes = currentNotes
+                              ? `${currentNotes}\n${template}`
+                              : template;
+                            updateFileOption(fileData.id, "notes", newNotes);
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-black sm:hidden">
+                                    <SelectValue className="text-black" placeholder="Choose a template" />
+                          </SelectTrigger>
+                          <SelectContent className="sm:hidden">
+                            {noteTemplates.map((template) => (
+                              <SelectItem key={template} value={template}>
+                                {template}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="hidden sm:flex flex-wrap gap-2">
+                          {noteTemplates.map((template) => (
+                            <button
+                              key={template}
+                              type="button"
+                              onClick={() => {
+                                const currentNotes = fileData.notes;
+                                const newNotes = currentNotes
+                                  ? `${currentNotes}\n${template}`
+                                  : template;
+                                updateFileOption(fileData.id, "notes", newNotes);
+                              }}
+                              className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors"
+                            >
+                              + {template}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -1422,7 +1529,7 @@ export default function NewPrintRequest() {
 
                     {/* Preview and Apply Settings Buttons */}
                     <div className="pt-3 mt-3 border-t border-gray-200">
-                      <div className="flex gap-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                         <Button
                           type="button"
                           variant="outline"
@@ -1431,7 +1538,7 @@ export default function NewPrintRequest() {
                             setPreviewFileId(fileData.id);
                             setShowPreview(true);
                           }}
-                          className="flex-1 border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
+                          className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200 sm:flex-1"
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           Preview
@@ -1451,6 +1558,9 @@ export default function NewPrintRequest() {
                                 colorMode: fileData.colorMode,
                                 pageRange: fileData.pageRange,
                                 specificPages: fileData.specificPages,
+                                margins: fileData.margins,
+                                scale: fileData.scale,
+                                customScale: fileData.customScale,
                               };
 
                               setFiles(files.map(f => {
@@ -1460,7 +1570,7 @@ export default function NewPrintRequest() {
 
                               toast.success('Print settings applied to all files');
                             }}
-                            className="flex-1 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#F2F7FF] font-medium"
+                            className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#F2F7FF] font-medium sm:flex-1"
                           >
                             <Settings className="w-4 h-4 mr-2" />
                             Apply Settings to All Files
@@ -1484,7 +1594,7 @@ export default function NewPrintRequest() {
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <ShoppingCart className="w-6 h-6 text-[#2F6FD6]" />
                 Step 3: Add-ons (Optional)
@@ -1497,8 +1607,19 @@ export default function NewPrintRequest() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {availableAddons.map((addon) => {
+              {availableAddons.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                  <Package className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+                  <p className="text-sm font-medium text-gray-700">
+                    No add-ons are currently available.
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    You can continue without adding extras to your order.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableAddons.map((addon) => {
                   const quantity =
                     selectedAddons[addon.id] || 0;
                   return (
@@ -1579,8 +1700,9 @@ export default function NewPrintRequest() {
                       </div>
                     </Card>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
 
               {Object.keys(selectedAddons).some(
                 (key) => selectedAddons[key] > 0,
@@ -1636,14 +1758,24 @@ export default function NewPrintRequest() {
           )}
 
           {currentStep === 4 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 Step 4: Order Summary
               </h2>
 
               {/* Inventory Stock Information */}
 
-              <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setShowOrderSummary((isOpen) => !isOpen)}
+                aria-expanded={showOrderSummary}
+                className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#2F6FD6] sm:hidden"
+              >
+                {showOrderSummary ? "Hide Order Summary" : "See Order Summary"}
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showOrderSummary ? "rotate-180" : ""}`} />
+              </button>
+
+              <div className={`space-y-4 ${showOrderSummary ? "" : "hidden sm:block"}`}>
                 <div className="text-sm text-gray-600 mb-4">
                   <strong>Total Files:</strong> {files.length}
                 </div>
@@ -1687,6 +1819,8 @@ export default function NewPrintRequest() {
                             "Short Bond"}
                           {fileData.paperSize === "long" &&
                             "Long Bond"}
+                          {fileData.paperSize === "folio" &&
+                            "Folio"}
                           {fileData.paperSize === "a5" && "A5"}
                           {fileData.paperSize === "a3" && "A3"}
                         </p>
@@ -1799,6 +1933,24 @@ export default function NewPrintRequest() {
                             : ""}
                         </p>
                       </div>
+                      <div>
+                        <p className="text-gray-600">Margins</p>
+                        <p className="font-medium text-gray-900 capitalize">
+                          {fileData.margins}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Scale</p>
+                        <p className="font-medium text-gray-900">
+                          {fileData.scale === "custom"
+                            ? `${fileData.customScale || 100}%`
+                            : fileData.scale === "fit"
+                              ? "Fit to printable area"
+                              : fileData.scale === "paper"
+                                ? "Fit to paper"
+                                : "Default"}
+                        </p>
+                      </div>
                       {fileData.notes && (
                         <div className="col-span-2 mt-2">
                           <p className="text-gray-600">
@@ -1876,9 +2028,23 @@ export default function NewPrintRequest() {
                   </Card>
                 )}
 
+                </div>
+
                 {/* Payment Method Selection */}
-                <Card className="p-6 bg-white border-2 border-[#2F6FD6]">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                <Card className="p-4 sm:p-6 bg-white border-2 border-[#2F6FD6]">
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentOptions((isOpen) => !isOpen)}
+                    aria-expanded={showPaymentOptions}
+                    className="flex w-full items-center justify-between text-left sm:hidden"
+                  >
+                    <span className="text-lg font-semibold text-gray-900">
+                      Select Payment Method
+                    </span>
+                    <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-200 sm:hidden ${showPaymentOptions ? "rotate-180" : ""}`} />
+                  </button>
+                  <div className={`${showPaymentOptions ? "block" : "hidden"} sm:block`}>
+                  <h3 className="mb-3 hidden text-lg font-semibold text-gray-900 sm:mb-6 sm:block">
                     Select Payment Method
                   </h3>
                   <RadioGroup
@@ -1890,7 +2056,7 @@ export default function NewPrintRequest() {
                       }
                     }}
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
                       {/* GCash Option */}
                       <div
                         className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
@@ -1898,7 +2064,7 @@ export default function NewPrintRequest() {
                           !availability.staff.isTimedIn
                             ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
                             : paymentMethod === "gcash"
-                              ? "border-[#2F6FD6] bg-white border-2 border-blue-200 cursor-pointer"
+                              ? "border-[#2F6FD6] bg-blue-50 shadow-md ring-2 ring-[#2F6FD6]/20 scale-[1.01] cursor-pointer"
                               : "border-gray-200 hover:border-gray-300 cursor-pointer"
                         }`}
                         onClick={() => {
@@ -1943,7 +2109,7 @@ export default function NewPrintRequest() {
                       <div
                         className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
                           paymentMethod === "cash"
-                            ? "border-[#2F6FD6] bg-white border-2 border-blue-200 cursor-pointer"
+                            ? "border-[#2F6FD6] bg-blue-50 shadow-md ring-2 ring-[#2F6FD6]/20 scale-[1.01] cursor-pointer"
                             : "border-gray-200 hover:border-gray-300 cursor-pointer"
                         }`}
                         onClick={() => setPaymentMethod("cash")}
@@ -1983,16 +2149,8 @@ export default function NewPrintRequest() {
                       </p>
                     </div>
                   )}
-                </Card>
-
-                <div className="p-6 bg-[#2F6FD6] text-white rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <p className="text-lg">Total Amount</p>
-                    <p className="text-3xl font-semibold">
-                      {formatCurrency(calculateTotal())}
-                    </p>
                   </div>
-                </div>
+                </Card>
 
                 {/* Down Payment Notice — shown when total >= ₱50 */}
                 {calculateTotal() >= DOWN_PAYMENT_THRESHOLD ? (
@@ -2058,6 +2216,14 @@ export default function NewPrintRequest() {
                     </div>
                   </div>
                 ) : null}
+
+                <div className="p-4 sm:p-6 bg-[#2F6FD6] text-white rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg">Total Amount</p>
+                    <p className="text-3xl font-semibold">
+                      {formatCurrency(calculateTotal())}
+                    </p>
+                  </div>
               </div>
             </div>
           )}
@@ -2122,6 +2288,7 @@ export default function NewPrintRequest() {
             files.find((f) => f.id === previewFileId)
               ?.fileName || ""
           }
+          file={files.find((f) => f.id === previewFileId)?.file}
           pageCount={
             files.find((f) => f.id === previewFileId)
               ?.pageCount || 1
@@ -2157,6 +2324,9 @@ export default function NewPrintRequest() {
             specificPages:
               files.find((f) => f.id === previewFileId)
                 ?.specificPages || "",
+            margins: files.find((f) => f.id === previewFileId)?.margins || "default",
+            scale: files.find((f) => f.id === previewFileId)?.scale || "default",
+            customScale: files.find((f) => f.id === previewFileId)?.customScale || 100,
           }}
         />
       )}

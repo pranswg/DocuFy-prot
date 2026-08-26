@@ -15,6 +15,7 @@ import {
   Calendar,
   File,
   ShoppingCart,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -31,6 +32,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { FileAttachments } from "../ui/file-attachments";
+import { PrintPreviewDialog } from "../ui/print-preview-dialog";
 import { dataStore } from "../../utils/dataStore";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 
@@ -62,7 +64,8 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const [showInvoice, setShowInvoice] = useState(false);
   const [showFilePreview, setShowFilePreview] = useState(false);
-  const [previewFileName, setPreviewFileName] = useState("");
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showColorBreakdown, setShowColorBreakdown] = useState(false);
   const [orderData, setOrderData] = useState(
     dataStore.getOrderById(orderId || ""),
@@ -128,8 +131,8 @@ export default function OrderTracking() {
     toast.success("Invoice downloaded successfully!");
   };
 
-  const handleViewFile = (fileName: string) => {
-    setPreviewFileName(fileName);
+  const handleViewFile = (file: any) => {
+    setPreviewFile(file);
     setShowFilePreview(true);
   };
 
@@ -147,10 +150,10 @@ export default function OrderTracking() {
     toast.success(`Downloading ${fileName}...`);
   };
 
-  // Attached files (mock data — in production these come from the server)
-  const attachedFiles = [
-    { name: "research-paper.pdf", size: "3.2 MB", type: "PDF" },
-  ];
+  const attachedFiles = orderData?.attachedFiles || [];
+
+  const getFileOption = (file: any, key: string, fallback: any) =>
+    file?.[key] ?? orderData?.[key as keyof typeof orderData] ?? fallback;
 
   return (
     <Layout
@@ -174,22 +177,22 @@ export default function OrderTracking() {
         {isOnHold && holdReason && (
           <Card className="p-6 bg-white border-2 border-blue-300 shadow-lg">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                 <PauseCircle className="w-6 h-6 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-[#10316B] mb-2 flex items-center gap-2">
                   Order On Hold
-                  <Badge className="bg-amber-200 text-amber-800 hover:bg-amber-200">
+                  <Badge className="bg-blue-100 text-[#1D73EC] hover:bg-blue-100">
                     Action Required
                   </Badge>
                 </h3>
-                <p className="text-sm text-amber-800 mb-3 leading-relaxed">
+                <p className="text-sm text-blue-800 mb-3 leading-relaxed">
                   <strong>Reason:</strong> {holdReason}
                 </p>
                 <div className="bg-white rounded-lg p-3 border border-blue-200">
                   <p className="text-xs text-gray-700">
-                    <strong className="text-amber-900">
+                    <strong className="text-[#10316B]">
                       What to do:
                     </strong>{" "}
                     Please contact our staff or visit the shop
@@ -221,7 +224,7 @@ export default function OrderTracking() {
                   <PackageIcon className="w-5 h-5 text-gray-600" />
                 )}
                 {currentOrderStatus === "Received" && (
-                  <CheckCircle className="w-5 h-5 text-purple-600" />
+                  <CheckCircle className="w-5 h-5 text-[#1D73EC]" />
                 )}
                 {currentOrderStatus === "On Hold" && (
                   <PauseCircle className="w-5 h-5 text-blue-600" />
@@ -247,8 +250,8 @@ export default function OrderTracking() {
                       : currentOrderStatus === "In Queue"
                         ? "bg-blue-100 text-yellow-700"
                         : currentOrderStatus === "On Hold"
-                          ? "bg-amber-100 text-blue-800"
-                          : "bg-purple-100 text-purple-700"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-blue-50 text-blue-700"
               }
             >
               {currentOrderStatus}
@@ -257,10 +260,20 @@ export default function OrderTracking() {
         </Card>
 
         {/* Order Summary */}
-        <Card className="p-6 bg-white shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+        <Card className="p-4 sm:p-6 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setShowOrderDetails((isOpen) => !isOpen)}
+            aria-expanded={showOrderDetails}
+            className="flex w-full items-center justify-between text-left sm:hidden"
+          >
+            <span className="text-xl font-semibold text-gray-900">Order Details</span>
+            <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-200 ${showOrderDetails ? "rotate-180" : ""}`} />
+          </button>
+          <h2 className="mb-6 hidden text-xl font-semibold text-gray-900 sm:block">
             Order Details
           </h2>
+          <div className={`${showOrderDetails ? "block" : "hidden"} sm:block`}>
 
           {/* Basic Information */}
           <div className="mb-6">
@@ -287,8 +300,8 @@ export default function OrderTracking() {
                             : currentOrderStatus === "In Queue"
                               ? "bg-blue-100 text-yellow-700"
                               : currentOrderStatus === "On Hold"
-                                ? "bg-amber-100 text-blue-800"
-                                : "bg-purple-100 text-purple-700"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-blue-50 text-blue-700"
                     }
                   >
                     {currentOrderStatus}
@@ -312,58 +325,68 @@ export default function OrderTracking() {
               <Printer className="w-5 h-5 text-[#2F6FD6]" />
               Printing Details
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
+              {attachedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="rounded-lg border border-blue-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="truncate text-sm font-semibold text-gray-900">{file.name}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleViewFile(file)}
+                      className="shrink-0 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                    >
+                      <Eye className="mr-1.5 h-4 w-4" /> View
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-gray-600">Paper Size</Label>
-                <p className="text-sm font-medium text-gray-900">
-                  {orderData?.paperSize === "a4" && "A4 (210 × 297 mm)"}
-                  {orderData?.paperSize === "letter" && "Letter (8.5 × 11 in)"}
-                  {orderData?.paperSize === "legal" && "Legal (8.5 × 14 in)"}
-                  {orderData?.paperSize === "short" && "Short Bond (8.5 × 11 in)"}
-                  {orderData?.paperSize === "long" && "Long Bond (8.5 × 13 in)"}
-                  {orderData?.paperSize === "a5" && "A5 (148 × 210 mm)"}
-                  {orderData?.paperSize === "a3" && "A3 (297 × 420 mm)"}
-                  {!orderData?.paperSize && "N/A"}
-                </p>
+                <p className="text-sm font-medium text-gray-900">{getFileOption(file, "paperSize", "N/A")}</p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Orientation</Label>
                 <p className="text-sm font-medium text-gray-900 capitalize">
-                  {orderData?.orientation || "N/A"}
+                  {getFileOption(file, "orientation", "N/A")}
                 </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Number of Copies</Label>
-                <p className="text-sm font-medium text-gray-900">{orderData?.copies || 0}</p>
+                <p className="text-sm font-medium text-gray-900">{getFileOption(file, "copies", 0)}</p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Two-Sided Printing</Label>
                 <p className="text-sm font-medium text-gray-900">
-                  {orderData?.twoSided === "yes" ? "Yes (Double-Sided)" : "No (Single-Sided)"}
+                  {getFileOption(file, "twoSided", "no") === "yes" ? "Yes (Double-Sided)" : "No (Single-Sided)"}
                 </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Pages per Sheet</Label>
                 <p className="text-sm font-medium text-gray-900">
-                  {orderData?.pagesPerSheet || "1"} page{orderData?.pagesPerSheet !== "1" ? "s" : ""} per sheet
+                  {getFileOption(file, "pagesPerSheet", "1")} page{getFileOption(file, "pagesPerSheet", "1") !== "1" ? "s" : ""} per sheet
                 </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Color Mode</Label>
                 <p className="text-sm font-medium text-gray-900">
-                  {orderData?.colorMode === "bw" ? "Black & White" : orderData?.colorMode === "colored" ? "Colored" : orderData?.printType || "N/A"}
+                  {getFileOption(file, "colorMode", orderData?.printType || "N/A") === "bw" ? "Black & White" : getFileOption(file, "colorMode", "") === "colored" ? "Colored" : orderData?.printType || "N/A"}
                 </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Page Range</Label>
                 <p className="text-sm font-medium text-gray-900">
-                  {orderData?.pageRange === "all" ? "All Pages" : orderData?.pageRange === "specific" && orderData?.specificPages ? `Pages: ${orderData.specificPages}` : "All Pages"}
+                  {getFileOption(file, "pageRange", "all") === "all" ? "All Pages" : getFileOption(file, "specificPages", "") ? `Pages: ${getFileOption(file, "specificPages", "")}` : "All Pages"}
                 </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Total Pages</Label>
-                <p className="text-sm font-medium text-gray-900">{orderData?.pages || 0} pages</p>
+                <p className="text-sm font-medium text-gray-900">{getFileOption(file, "pageCount", orderData?.pages || 0)} pages</p>
               </div>
+              <div><Label className="text-xs text-gray-600">Margins</Label><p className="text-sm font-medium text-gray-900 capitalize">{getFileOption(file, "margins", "default")}</p></div>
+              <div><Label className="text-xs text-gray-600">Scale</Label><p className="text-sm font-medium text-gray-900">{getFileOption(file, "scale", "default") === "custom" ? `${getFileOption(file, "customScale", 100)}%` : getFileOption(file, "scale", "default")}</p></div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -443,7 +466,11 @@ export default function OrderTracking() {
                 <File className="w-5 h-5 text-[#2F6FD6]" />
                 Attached Files ({orderData.attachedFiles.length})
               </h3>
-              <FileAttachments files={orderData.attachedFiles} orderId={orderId || ""} />
+              <FileAttachments
+                files={orderData.attachedFiles}
+                orderId={orderId || ""}
+                onView={handleViewFile}
+              />
             </div>
           )}
 
@@ -473,6 +500,7 @@ export default function OrderTracking() {
               </div>
             </div>
           </div>
+          </div>
         </Card>
 
         {/* Payment Method and Status */}
@@ -488,7 +516,7 @@ export default function OrderTracking() {
                 Payment Method
               </p>
               <p className="text-base font-semibold text-gray-900">
-                {orderData?.paymentMethod || "Not specified"}
+                {orderData?.paymentMethod === "Cash" ? "Cash on Pickup" : orderData?.paymentMethod || "Not specified"}
               </p>
             </div>
 
@@ -499,7 +527,7 @@ export default function OrderTracking() {
                   <ShoppingCart className="w-5 h-5 text-gray-600" />
                   <div>
                     <p className="font-medium text-gray-900">
-                      Cash on Pickup
+                      Payment at Pickup
                     </p>
                     <p className="text-sm text-gray-600">
                       Pay when you collect your order
@@ -507,7 +535,7 @@ export default function OrderTracking() {
                   </div>
                 </div>
                 <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
-                  Cash
+                  Cash on Pickup
                 </Badge>
               </div>
             ) : orderData?.paymentVerified ? (
@@ -669,48 +697,32 @@ export default function OrderTracking() {
         )}
       </div>
 
-      {/* File Preview Dialog */}
-      <Dialog
-        open={showFilePreview}
-        onOpenChange={setShowFilePreview}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#1D73EC]" />
-              File Preview
-            </DialogTitle>
-            <DialogDescription>
-              Preview the submitted document for this order
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex items-center gap-3 p-4 bg-[#F2F7FF] rounded-lg border border-blue-200 mb-4">
-              <div className="w-12 h-12 bg-white rounded-lg border border-blue-100 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-[#1D73EC]" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {previewFileName}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Submitted document · Order {orderId}
-                </p>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm font-medium">
-                Document preview
-              </p>
-              <p className="text-gray-400 text-xs mt-1">
-                Full preview is available after staff processes
-                the order.
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {showFilePreview && previewFile && (
+        <PrintPreviewDialog
+          open={showFilePreview}
+          onOpenChange={(open) => {
+            setShowFilePreview(open);
+            if (!open) setPreviewFile(null);
+          }}
+          fileName={previewFile.name}
+          fileUrl={previewFile.url}
+          pageCount={previewFile.pageCount || orderData?.pages || 1}
+          options={{
+            paperType: getFileOption(previewFile, "paperSize", orderData?.paperSize || "A4"),
+            paperSize: getFileOption(previewFile, "paperSize", orderData?.paperSize || "A4"),
+            printType: getFileOption(previewFile, "colorMode", orderData?.printType || "Black & White"),
+            copies: getFileOption(previewFile, "copies", orderData?.copies || 1),
+            orientation: getFileOption(previewFile, "orientation", orderData?.orientation || "portrait") as "portrait" | "landscape",
+            pagesPerSheet: getFileOption(previewFile, "pagesPerSheet", orderData?.pagesPerSheet || "1"),
+            twoSided: getFileOption(previewFile, "twoSided", orderData?.twoSided || "no"),
+            pageRange: getFileOption(previewFile, "pageRange", orderData?.pageRange || "all"),
+            specificPages: getFileOption(previewFile, "specificPages", orderData?.specificPages || ""),
+            margins: getFileOption(previewFile, "margins", orderData?.margins || "default"),
+            scale: getFileOption(previewFile, "scale", orderData?.scale || "default"),
+            customScale: getFileOption(previewFile, "customScale", orderData?.customScale || 100),
+          }}
+        />
+      )}
 
       {/* Invoice Preview Dialog */}
       <Dialog open={showInvoice} onOpenChange={setShowInvoice}>

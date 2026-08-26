@@ -30,6 +30,7 @@ interface FileAttachmentsProps {
   files: AttachedFile[];
   orderId: string;
   showDownload?: boolean; // defaults to false — hides download on customer-facing views
+  onView?: (file: AttachedFile) => void;
 }
 
 function getFileExtension(name: string): string {
@@ -472,6 +473,7 @@ export function FileAttachments({
   files,
   orderId,
   showDownload = false,
+  onView,
 }: FileAttachmentsProps) {
   const [previewFile, setPreviewFile] =
     useState<AttachedFile | null>(null);
@@ -537,7 +539,7 @@ export function FileAttachments({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPreviewFile(file)}
+                  onClick={() => onView ? onView(file) : setPreviewFile(file)}
                   className="h-8 px-3 text-xs font-semibold border-[#1D73EC] text-[#1D73EC] hover:bg-[#F2F7FF] gap-1.5 transition-colors"
                 >
                   <Eye className="w-3.5 h-3.5" />

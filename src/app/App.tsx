@@ -12,9 +12,11 @@ import StaffQueueBoard from './components/staff/StaffQueueBoard';
 import StaffOrdersUnified from './components/staff/StaffOrdersUnified';
 import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
+import StaffProfile from './components/staff/StaffProfile';
 import StaffPaymentVerificationUnified from './components/staff/StaffPaymentVerificationUnified';
 import InventoryManagement from './components/staff/InventoryManagement';
 import AdminDashboard from './components/admin/AdminDashboard';
+import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
 import SecurityCenter from './components/admin/SecurityCenter';
 import AuditLogs from './components/admin/AuditLogs';
@@ -118,6 +120,10 @@ const router = createBrowserRouter([
         element: <ProtectedRoute role="staff"><StaffDashboard /></ProtectedRoute>,
       },
       {
+        path: 'profile',
+        element: <ProtectedRoute role="staff"><StaffProfile /></ProtectedRoute>,
+      },
+      {
         path: 'queue',
         element: <ProtectedRoute role="staff"><StaffOrdersUnified /></ProtectedRoute>,
       },
@@ -150,6 +156,10 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>,
+      },
+      {
+        path: 'profile',
+        element: <ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>,
       },
       {
         path: 'walk-in',

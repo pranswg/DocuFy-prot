@@ -56,6 +56,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { FileAttachments } from "../ui/file-attachments";
+import { PrintPreviewDialog } from "../ui/print-preview-dialog";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 
 type OrderType = {
@@ -89,6 +90,9 @@ type OrderType = {
   orientation?: "portrait" | "landscape";
   twoSided?: "yes" | "no";
   pagesPerSheet?: "1" | "2" | "4";
+  margins?: string;
+  scale?: string;
+  customScale?: number;
   colorMode?: "bw" | "color";
   pageRange?: "all" | "specific";
   specificPages?: string;
@@ -103,238 +107,9 @@ type OrderType = {
   lastUpdatedAt?: Date;
 };
 
-// Sample data with realistic varied timestamps
-const initialOrders: OrderType[] = [
-  {
-    id: "ORD-001",
-    customer: "Angela Bishop",
-    status: "received",
-    pages: 45,
-    type: "B&W",
-    notes: "",
-    time: "8:15 am",
-    paperSize: "A4",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T08:15:00"),
-    attachedFiles: [
-      {
-        name: "Thesis_Chapter_1.pdf",
-        size: "2.4 MB",
-        type: "PDF",
-      },
-    ],
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "yes",
-    pagesPerSheet: "1",
-    colorMode: "bw",
-    pageRange: "all",
-  },
-  {
-    id: "ORD-002",
-    customer: "Jack Sterling",
-    status: "received",
-    pages: 28,
-    type: "Colored",
-    notes: "Please rush if possible",
-    time: "8:45 am",
-    paperSize: "Letter",
-    copies: 2,
-    submittedAt: new Date("2024-04-10T08:45:00"),
-    attachedFiles: [
-      {
-        name: "Presentation_Final.pptx",
-        size: "8.1 MB",
-        type: "PowerPoint",
-      },
-    ],
-    paymentVerified: false,
-    paymentReferenceNumber: "GC-20240410-002",
-    orderSource: "online",
-    orientation: "landscape",
-    twoSided: "no",
-    pagesPerSheet: "1",
-    colorMode: "color",
-    pageRange: "all",
-    addons: [
-      { name: "Spiral Binding", quantity: 1, price: 25 },
-    ],
-  },
-  {
-    id: "ORD-003",
-    customer: "Saul Goodman",
-    status: "printing",
-    pages: 65,
-    type: "B&W",
-    notes: "",
-    time: "9:20 am",
-    paperSize: "Legal",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T09:20:00"),
-    attachedFiles: [
-      {
-        name: "Legal_Brief_2024.docx",
-        size: "1.2 MB",
-        type: "Word",
-      },
-    ],
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "yes",
-    pagesPerSheet: "1",
-    colorMode: "bw",
-    pageRange: "specific",
-    specificPages: "1-10, 15, 20-25",
-    statusUpdatedAt: new Date("2024-04-10T10:05:00"),
-  },
-  {
-    id: "ORD-004",
-    customer: "Mark Nowell",
-    status: "inQueue",
-    pages: 12,
-    type: "B&W",
-    notes: "Staple each set",
-    time: "9:35 am",
-    paperSize: "A4",
-    copies: 3,
-    submittedAt: new Date("2024-04-10T09:35:00"),
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "no",
-    pagesPerSheet: "1",
-    colorMode: "bw",
-    pageRange: "all",
-    addons: [{ name: "Stapling", quantity: 3, price: 5 }],
-    statusUpdatedAt: new Date("2024-04-10T09:50:00"),
-  },
-  {
-    id: "ORD-005",
-    customer: "Lori Bechner",
-    status: "completed",
-    pages: 35,
-    type: "Colored",
-    notes: "",
-    time: "7:30 am",
-    paperSize: "A4",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T07:30:00"),
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "yes",
-    pagesPerSheet: "1",
-    colorMode: "color",
-    pageRange: "all",
-    statusUpdatedAt: new Date("2024-04-10T09:15:00"),
-  },
-  {
-    id: "ORD-006",
-    customer: "Emma Wilson",
-    status: "released",
-    pages: 20,
-    type: "B&W",
-    notes: "",
-    time: "7:15 am",
-    paperSize: "A4",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T07:15:00"),
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "no",
-    pagesPerSheet: "2",
-    colorMode: "bw",
-    pageRange: "all",
-    statusUpdatedAt: new Date("2024-04-10T10:30:00"),
-  },
-  {
-    id: "ORD-007",
-    customer: "Mike Brown",
-    status: "canceled",
-    pages: 50,
-    type: "Colored",
-    notes: "Customer cancelled",
-    time: "8:00 am",
-    paperSize: "A4",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T08:00:00"),
-    paymentVerified: false,
-    orderSource: "online",
-    orientation: "landscape",
-    twoSided: "no",
-    pagesPerSheet: "1",
-    colorMode: "color",
-    pageRange: "all",
-    statusUpdatedAt: new Date("2024-04-10T08:30:00"),
-  },
-  {
-    id: "ORD-008",
-    customer: "Sarah Johnson",
-    status: "received",
-    pages: 18,
-    type: "B&W",
-    notes: "",
-    time: "10:20 am",
-    paperSize: "Letter",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T10:20:00"),
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "yes",
-    pagesPerSheet: "1",
-    colorMode: "bw",
-    pageRange: "all",
-  },
-  {
-    id: "ORD-009",
-    customer: "Tom Baker",
-    status: "completed",
-    pages: 42,
-    type: "Colored",
-    notes: "Front page color only",
-    time: "6:45 am",
-    paperSize: "A4",
-    copies: 2,
-    submittedAt: new Date("2024-04-10T06:45:00"),
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "no",
-    pagesPerSheet: "1",
-    colorMode: "color",
-    pageRange: "all",
-    addons: [{ name: "Lamination", quantity: 2, price: 15 }],
-    statusUpdatedAt: new Date("2024-04-10T08:50:00"),
-  },
-  {
-    id: "ORD-010",
-    customer: "Lisa Anderson",
-    status: "onHold",
-    pages: 30,
-    type: "Colored",
-    notes: "",
-    time: "8:30 am",
-    paperSize: "A4",
-    copies: 1,
-    submittedAt: new Date("2024-04-10T08:30:00"),
-    holdReason:
-      "Waiting for customer to confirm paper size change",
-    paymentVerified: true,
-    orderSource: "online",
-    orientation: "portrait",
-    twoSided: "yes",
-    pagesPerSheet: "1",
-    colorMode: "color",
-    pageRange: "all",
-    statusUpdatedAt: new Date("2024-04-10T09:00:00"),
-  },
-].sort(
-  (a, b) => a.submittedAt.getTime() - b.submittedAt.getTime(),
-);
+type AttachedFile = NonNullable<OrderType["attachedFiles"]>[number];
+
+const initialOrders: OrderType[] = [];
 
 // Avatar component for initials
 const Avatar = ({ name }: { name: string }) => {
@@ -347,11 +122,11 @@ const Avatar = ({ name }: { name: string }) => {
 
   const colors = [
     "bg-blue-100 text-blue-700",
-    "bg-orange-100 text-orange-700",
     "bg-blue-100 text-blue-700",
-    "bg-purple-100 text-purple-700",
-    "bg-pink-100 text-pink-700",
-    "bg-cyan-100 text-cyan-700",
+    "bg-blue-100 text-blue-700",
+    "bg-blue-50 text-blue-700",
+    "bg-[#F2F7FF] text-[#1D73EC]",
+    "bg-blue-200 text-blue-800",
   ];
 
   const colorIndex = name.charCodeAt(0) % colors.length;
@@ -410,6 +185,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   });
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<AttachedFile | null>(null);
 
   // Initialize and subscribe to orders store
   useEffect(() => {
@@ -1430,6 +1207,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         files={selectedOrder.attachedFiles}
                         orderId={selectedOrder.id}
                         showDownload={true}
+                        onView={(file) => {
+                          setSelectedFile(file);
+                          setShowPrintPreview(true);
+                        }}
                       />
                     </div>
                   )}
@@ -1476,6 +1257,18 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         : selectedOrder.status}
                   </Badge>
                 </div>
+                {!selectedOrder.paymentVerified && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`${userRole === "admin" ? "/admin" : "/staff"}/payment-verification?orderId=${encodeURIComponent(selectedOrder.id)}`)}
+                    className="border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Verify Payment
+                  </Button>
+                </div>
+                )}
 
                 {/* Payment Status */}
                 <div className="p-4 bg-white border border-gray-200 rounded-xl">
@@ -1968,6 +1761,33 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       </Dialog>
 
       {/* Invoice Preview Dialog */}
+      {showPrintPreview && selectedFile && (
+        <PrintPreviewDialog
+          open={showPrintPreview}
+          onOpenChange={(open) => {
+            setShowPrintPreview(open);
+            if (!open) setSelectedFile(null);
+          }}
+          fileName={selectedFile.name}
+          fileUrl={selectedFile.url}
+          pageCount={selectedOrder.pages || 1}
+          options={{
+            paperType: selectedOrder.paperSize,
+            paperSize: selectedOrder.paperSize,
+            printType: selectedOrder.colorMode === "color" ? "Colored" : "Black & White",
+            copies: selectedOrder.copies || 1,
+            orientation: selectedOrder.orientation as "portrait" | "landscape" | undefined,
+            pagesPerSheet: selectedOrder.pagesPerSheet,
+            twoSided: selectedOrder.twoSided,
+            pageRange: selectedOrder.pageRange,
+            specificPages: selectedOrder.specificPages,
+            margins: selectedOrder.margins,
+            scale: selectedOrder.scale,
+            customScale: selectedOrder.customScale,
+          }}
+        />
+      )}
+
       <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>

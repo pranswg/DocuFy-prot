@@ -403,12 +403,12 @@ export default function LoginPage() {
           )}
 
           <div className="mt-4 text-center text-xs text-gray-500">
-            Didn't receive code?{" "}
+            Need an account?{" "}
             <button
               onClick={() => navigate("/signup")}
               className="text-[#1D73EC] text-xs font-semibold"
             >
-              Resend
+              Create account
             </button>
           </div>
 

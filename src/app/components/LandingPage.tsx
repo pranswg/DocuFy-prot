@@ -15,6 +15,7 @@ import {
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { jobsStore } from "../utils/jobsStore";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,7 @@ export default function LandingPage() {
   };
 
   const content = getContent();
+  const jobs = jobsStore.getActiveJobs();
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -386,92 +388,35 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            <Card className="p-6 bg-white border border-gray-200 hover:border-[#1D73EC] shadow-sm rounded-xl hover:shadow-md transition-all">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-[#1D73EC] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Briefcase className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="text-lg font-bold text-[#1c1f26]">
-                      Part-Time Print Shop Assistant
-                    </h4>
-                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
-                      Active
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                    Assist customers with printing needs,
-                    operate printing equipment, and handle basic
-                    administrative tasks.
-                  </p>
-                  <div className="space-y-1.5 text-sm text-gray-700">
-                    <p>
-                      <span className="font-semibold text-[#1D73EC]">
-                        Salary:
-                      </span>{" "}
-                      ₱150/hour
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[#1D73EC]">
-                        Schedule:
-                      </span>{" "}
-                      Mon-Fri, 3-4 hours/day
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Button
-                onClick={() => navigate("/signup")}
-                className="w-full bg-[#1D73EC] hover:bg-[#10316B] text-white"
-              >
-                Apply Now
-              </Button>
+          {jobs.length === 0 ? (
+            <Card className="border border-gray-200 bg-white p-12 text-center shadow-sm">
+              <Briefcase className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+              <p className="text-lg font-semibold text-gray-500">No open positions right now</p>
+              <p className="mt-1 text-sm text-gray-400">Please check back later for new opportunities.</p>
             </Card>
-
-            <Card className="p-6 bg-white border border-gray-200 hover:border-[#1D73EC] shadow-sm rounded-xl hover:shadow-md transition-all">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-[#1D73EC] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Briefcase className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="text-lg font-bold text-[#1c1f26]">
-                      Student Printing Technician
-                    </h4>
-                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
-                      Active
-                    </Badge>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
+              {jobs.map((job) => (
+                <Card key={job.id} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-[#1D73EC] hover:shadow-md">
+                  <div className="mb-6 flex items-start gap-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
+                      <Briefcase className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <h4 className="text-lg font-bold text-[#1c1f26]">{job.title}</h4>
+                        <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">Active</Badge>
+                      </div>
+                      <p className="mb-4 text-sm leading-relaxed text-gray-600">{job.description}</p>
+                      <p className="text-sm text-gray-700"><span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}</p>
+                      {job.location && <p className="text-sm text-gray-700"><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                    Manage printing queue, troubleshoot printer
-                    issues, and ensure quality output.
-                  </p>
-                  <div className="space-y-1.5 text-sm text-gray-700">
-                    <p>
-                      <span className="font-semibold text-[#1D73EC]">
-                        Salary:
-                      </span>{" "}
-                      ₱180/hour
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[#1D73EC]">
-                        Schedule:
-                      </span>{" "}
-                      Flexible weekday shifts
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Button
-                onClick={() => navigate("/signup")}
-                className="w-full bg-[#1D73EC] hover:bg-[#10316B] text-white"
-              >
-                Apply Now
-              </Button>
-            </Card>
-          </div>
+                  <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="w-full bg-[#1D73EC] text-white hover:bg-[#10316B]">Apply Now</Button>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

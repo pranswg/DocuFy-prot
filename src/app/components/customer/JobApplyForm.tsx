@@ -35,6 +35,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { applicationsStore } from "../../utils/applicationsStore";
+import { jobsStore } from "../../utils/jobsStore";
 
 const menuItems = [
   {
@@ -59,16 +60,10 @@ const menuItems = [
   },
 ];
 
-const JOB_TITLES: Record<string, string> = {
-  "JOB-001": "Part-Time Print Shop Assistant",
-  "JOB-002": "Graphic Designer",
-  "JOB-003": "Customer Service Representative",
-};
-
 export default function JobApplyForm() {
   const navigate = useNavigate();
   const { jobId } = useParams();
-  const jobTitle = JOB_TITLES[jobId || ""] || "Open Position";
+  const jobTitle = jobsStore.getJobById(jobId || "")?.title || "Open Position";
 
   const [showSuccessDialog, setShowSuccessDialog] =
     useState(false);

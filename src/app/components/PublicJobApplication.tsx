@@ -9,30 +9,7 @@ import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { toast } from 'sonner';
 import logoImage from 'figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
-
-// Mock job data (shared with admin job board)
-const mockJobs = [
-  {
-    id: 'JOB-001',
-    title: 'Part-Time Print Shop Assistant',
-    description: 'Assist customers with printing needs, operate printing equipment, and handle basic administrative tasks.',
-    requirements: 'Good communication skills, basic computer knowledge, flexible schedule',
-    salary: '₱150/hour',
-    schedule: 'Mon-Fri, 3-4 hours/day',
-    status: 'active' as const,
-    postedDate: new Date('2026-04-10'),
-  },
-  {
-    id: 'JOB-002',
-    title: 'Student Printing Technician',
-    description: 'Manage printing queue, troubleshoot printer issues, and ensure quality output.',
-    requirements: 'Tech-savvy, detail-oriented, previous printing experience preferred',
-    salary: '₱180/hour',
-    schedule: 'Flexible weekday shifts',
-    status: 'active' as const,
-    postedDate: new Date('2026-04-08'),
-  },
-];
+import { jobsStore } from '../utils/jobsStore';
 
 export default function PublicJobApplication() {
   const navigate = useNavigate();
@@ -48,7 +25,7 @@ export default function PublicJobApplication() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  const job = mockJobs.find(j => j.id === jobId);
+  const job = jobsStore.getJobById(jobId || '');
 
   if (!job) {
     return (

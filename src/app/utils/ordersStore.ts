@@ -23,6 +23,9 @@ type OrderType = {
   orientation?: string;
   twoSided?: string;
   pagesPerSheet?: string;
+  margins?: string;
+  scale?: string;
+  customScale?: number;
   colorMode?: string;
   pageRange?: string;
   totalPages?: number;
@@ -184,6 +187,9 @@ class OrdersStore {
       orientation: order.orientation,
       twoSided: order.twoSided,
       pagesPerSheet: order.pagesPerSheet,
+      margins: order.margins,
+      scale: order.scale,
+      customScale: order.customScale,
       colorMode: order.colorMode,
       pageRange: order.pageRange,
       specificPages: order.specificPages,
@@ -221,6 +227,9 @@ class OrdersStore {
       orientation: order.orientation as 'portrait' | 'landscape' | undefined,
       twoSided: order.twoSided as 'yes' | 'no' | undefined,
       pagesPerSheet: order.pagesPerSheet as '1' | '2' | '4' | undefined,
+      margins: order.margins,
+      scale: order.scale,
+      customScale: order.customScale,
       colorMode: order.colorMode as 'bw' | 'color' | undefined,
       pageRange: order.pageRange as 'all' | 'specific' | undefined,
       specificPages: order.specificPages,

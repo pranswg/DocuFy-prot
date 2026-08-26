@@ -32,22 +32,21 @@ export const useAuth = () => {
   return context;
 };
 
-// Mock users database - MFA is MANDATORY for all users
+// Test accounts for local UI testing only
 const mockUsers = [
   {
     email: 'customer@test.com',
     password: 'customer123',
-    name: 'Ethan Laureen',
+    name: 'Customer User',
     role: 'customer' as const,
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPEHPK3PXP',
     passwordHistory: [] as string[],
   },
   {
-    // Demo suspended account — 5 no-shows, account suspended
     email: 'suspended@test.com',
     password: 'suspended123',
-    name: 'Maria Santos',
+    name: 'Suspended User',
     role: 'customer' as const,
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPEHPK3PXP',
@@ -56,7 +55,7 @@ const mockUsers = [
   {
     email: 'staff@test.com',
     password: 'staff123',
-    name: 'Heaven Rica',
+    name: 'Staff User',
     role: 'staff' as const,
     mfaEnabled: true,
     mfaSecret: 'HXDMVJECJJWSRB3H',

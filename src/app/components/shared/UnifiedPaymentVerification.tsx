@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import {
   CreditCard,
   Search,
@@ -98,6 +99,7 @@ interface UnifiedPaymentVerificationProps {
 }
 
 export default function UnifiedPaymentVerification({ menuItems, userRole }: UnifiedPaymentVerificationProps) {
+  const [searchParams] = useSearchParams();
   const [payments, setPayments] = useState<PaymentType[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPayment, setSelectedPayment] =
@@ -122,6 +124,18 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     const unsubscribe = dataStore.subscribe(loadPayments);
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const orderId = searchParams.get("orderId");
+    if (!orderId || payments.length === 0) return;
+
+    const payment = payments.find((item) => item.orderId === orderId);
+    if (payment) {
+      setStatusFilter("all");
+      setSelectedPayment(payment);
+      setShowDialog(true);
+    }
+  }, [payments, searchParams]);
 
   const handleVerifyPayment = (
     status: "verified" | "rejected",
@@ -357,7 +371,15 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-[#F2F7FF]">
-                {filteredPayments.map((payment) => (
+                {filteredPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-16 text-center">
+                      <CreditCard className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+                      <p className="text-sm font-semibold text-gray-500">No payments to verify</p>
+                      <p className="mt-1 text-xs text-gray-400">Payment records will appear here when customers place orders.</p>
+                    </td>
+                  </tr>
+                ) : filteredPayments.map((payment) => (
                   <tr
                     key={payment.id}
                     className="hover:bg-[#F2F7FF]/50 transition-colors cursor-pointer group"

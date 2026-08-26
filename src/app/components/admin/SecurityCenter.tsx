@@ -36,131 +36,20 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 
-// Mock security data
-const generateSecurityMetrics = () => {
-  return {
-    totalLogins24h: 147,
-    failedLogins24h: 23,
-    suspiciousActivities: 5,
-    blockedAttempts: 12,
-    activeSessions: 42,
-    mfaEnabled: 89,
-    accountLockouts: 3,
-    unusualAccess: 8,
-  };
-};
+const generateSecurityMetrics = () => ({
+  totalLogins24h: 0,
+  failedLogins24h: 0,
+  suspiciousActivities: 0,
+  blockedAttempts: 0,
+  activeSessions: 0,
+  mfaEnabled: 0,
+  accountLockouts: 0,
+  unusualAccess: 0,
+});
 
-const generateRecentAuthEvents = () => {
-  return [
-    {
-      id: "AUTH-001",
-      timestamp: new Date(Date.now() - 5 * 60 * 1000),
-      username: "admin@test.com",
-      eventType: "Login Success",
-      ipAddress: "192.168.1.105",
-      location: "Manila, Philippines",
-      device: "Chrome 125 / Windows 11",
-      status: "success" as const,
-      mfaVerified: true,
-    },
-    {
-      id: "AUTH-002",
-      timestamp: new Date(Date.now() - 15 * 60 * 1000),
-      username: "unknown@test.com",
-      eventType: "Login Failed",
-      ipAddress: "203.124.52.19",
-      location: "Unknown",
-      device: "Firefox 124 / Ubuntu",
-      status: "failed" as const,
-      mfaVerified: false,
-      reason: "Invalid credentials",
-    },
-    {
-      id: "AUTH-003",
-      timestamp: new Date(Date.now() - 30 * 60 * 1000),
-      username: "customer@test.com",
-      eventType: "MFA Verified",
-      ipAddress: "192.168.1.110",
-      location: "Manila, Philippines",
-      device: "Safari 17 / macOS 14",
-      status: "success" as const,
-      mfaVerified: true,
-    },
-    {
-      id: "AUTH-004",
-      timestamp: new Date(Date.now() - 45 * 60 * 1000),
-      username: "attacker@malicious.com",
-      eventType: "Brute Force Blocked",
-      ipAddress: "45.142.212.61",
-      location: "Moscow, Russia",
-      device: "Python-requests/2.28",
-      status: "blocked" as const,
-      mfaVerified: false,
-      reason: "15 rapid attempts detected",
-    },
-    {
-      id: "AUTH-005",
-      timestamp: new Date(Date.now() - 60 * 60 * 1000),
-      username: "staff@test.com",
-      eventType: "Session Expired",
-      ipAddress: "192.168.1.112",
-      location: "Manila, Philippines",
-      device: "Edge 124 / Windows 10",
-      status: "expired" as const,
-      mfaVerified: true,
-    },
-    {
-      id: "AUTH-006",
-      timestamp: new Date(Date.now() - 90 * 60 * 1000),
-      username: "customer@test.com",
-      eventType: "Impossible Travel Detected",
-      ipAddress: "85.214.132.55",
-      location: "Berlin, Germany",
-      device: "Chrome 124 / Android 13",
-      status: "flagged" as const,
-      mfaVerified: false,
-      reason: "Login 10 min after Manila login",
-    },
-  ];
-};
+const generateRecentAuthEvents = () => [];
 
-const generateActiveSessions = () => {
-  return [
-    {
-      id: "SESS-001",
-      username: "admin@test.com",
-      role: "Admin",
-      ipAddress: "192.168.1.105",
-      location: "Manila, Philippines",
-      device: "Chrome 125 / Windows 11",
-      loginTime: new Date(Date.now() - 120 * 60 * 1000),
-      lastActivity: new Date(Date.now() - 2 * 60 * 1000),
-      status: "active" as const,
-    },
-    {
-      id: "SESS-002",
-      username: "staff@test.com",
-      role: "Staff",
-      ipAddress: "192.168.1.112",
-      location: "Manila, Philippines",
-      device: "Edge 124 / Windows 10",
-      loginTime: new Date(Date.now() - 180 * 60 * 1000),
-      lastActivity: new Date(Date.now() - 5 * 60 * 1000),
-      status: "active" as const,
-    },
-    {
-      id: "SESS-003",
-      username: "customer@test.com",
-      role: "Customer",
-      ipAddress: "192.168.1.110",
-      location: "Manila, Philippines",
-      device: "Safari 17 / macOS 14",
-      loginTime: new Date(Date.now() - 45 * 60 * 1000),
-      lastActivity: new Date(Date.now() - 25 * 60 * 1000),
-      status: "idle" as const,
-    },
-  ];
-};
+const generateActiveSessions = () => [];
 
 export default function SecurityCenter() {
   const navigate = useNavigate();

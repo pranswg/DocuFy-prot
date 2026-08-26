@@ -103,9 +103,9 @@ export default function CustomerDashboard() {
       case "In Queue":
         return "bg-blue-100 text-yellow-700";
       case "On Hold":
-        return "bg-amber-100 text-blue-800";
+        return "bg-blue-100 text-blue-800";
       case "Received":
-        return "bg-purple-100 text-purple-700";
+        return "bg-blue-50 text-blue-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -113,22 +113,18 @@ export default function CustomerDashboard() {
 
   return (
     <Layout menuItems={menuItems} title="Dashboard">
-      <div className="space-y-6 h-auto overflow-visible pb-10 max-w-7xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 h-auto overflow-visible pb-6 sm:pb-10 max-w-7xl mx-auto">
 
         {/* Welcome Message */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Welcome back, {user?.name?.split(' ')[0] || 'User'}!
           </h1>
-          <p className="text-gray-600">
-            Here's what's happening with your print orders
-            today.
-          </p>
         </div>
 
         {/* Application Notifications */}
         {notifications.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {notifications.slice(0, 3).map((notification) => (
               <div
                 key={notification.id}
@@ -141,7 +137,7 @@ export default function CustomerDashboard() {
                     handleNotificationClick(notification);
                   }
                 } : undefined}
-                className={`p-4 rounded-xl border-2 ${
+                className={`p-3 sm:p-4 rounded-xl border-2 ${
                   notification.read
                     ? 'bg-white border-gray-200'
                     : 'bg-blue-50 border-blue-300'
@@ -214,35 +210,39 @@ export default function CustomerDashboard() {
           ].map((kpi) => (
             <Card
               key={kpi.key}
-              className={`p-3 sm:p-4 border-2 shadow-sm transition-all group ${
-                kpi.key === "kpi-com"
-                  ? "bg-[#1D73EC] border-[#1D73EC] text-white"
-                  : "bg-white border-blue-200"
-              }`}
+                onClick={kpi.click}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") kpi.click();
+                }}
+                className="group min-h-[5.25rem] cursor-pointer rounded-xl border border-blue-400/70 bg-[#1D73EC] p-2.5 shadow-md transition-all hover:-translate-y-0.5 hover:border-[#10316B] hover:bg-[#1557b8] hover:shadow-lg sm:min-h-0 sm:rounded-lg sm:p-4"
             >
-              <p className={`text-[11px] sm:text-sm font-medium truncate ${kpi.key === "kpi-com" ? "text-white" : "text-gray-600"}`}>
-                {kpi.label}
-              </p>
-              <div className="flex items-center justify-between gap-1 mt-2">
-                <p className={`text-2xl sm:text-3xl font-bold ${kpi.key === "kpi-com" ? "text-white" : "text-gray-900"}`}>
-                  {kpi.val}
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-blue-100 sm:text-sm sm:normal-case sm:tracking-normal">
+                  {kpi.label}
                 </p>
-                <kpi.icon className={`w-7 h-7 sm:w-9 sm:h-9 opacity-50 transition-all duration-300 ${kpi.key === "kpi-com" ? "text-white opacity-100" : "text-blue-600"}`} />
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 sm:h-8 sm:w-8">
+                  <kpi.icon className="h-3.5 w-3.5 text-white transition-transform duration-300 group-hover:scale-110 sm:h-4 sm:w-4" />
+                </span>
               </div>
-              <p className={`hidden sm:block text-xs mt-1 truncate ${kpi.key === "kpi-com" ? "text-blue-100" : "text-gray-500"}`}>
+              <p className="mt-2 text-2xl font-bold leading-none text-white sm:mt-3 sm:text-3xl">
+                {kpi.val}
+              </p>
+              <p className="mt-1 hidden truncate text-xs text-blue-100 sm:block">
                 {kpi.desc}
               </p>
             </Card>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
           {/* Left Column: Quick Actions */}
           <div className="lg:col-span-1 flex flex-col">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4 ml-1">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-4 ml-1">
               Quick Actions
             </h3>
-            <div className="flex flex-col gap-2 flex-grow">
+            <div className="grid grid-cols-3 gap-2 flex-grow lg:grid-cols-1">
               {[
                 {
                   key: "qa-1",
@@ -267,10 +267,10 @@ export default function CustomerDashboard() {
                   key={action.key}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex flex-row items-center justify-center gap-4 p-7 bg-white border border-slate-200 rounded-lg hover:bg-[#2F6FD6] transition-all shadow-sm group cursor-pointer flex-1"
+                  className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all group hover:bg-[#2F6FD6] sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4 lg:p-7"
                 >
-                  <action.icon className="w-7 h-7 flex-shrink-0 text-[#2F6FD6] group-hover:text-white" />
-                  <p className="font-bold text-lg text-gray-900 group-hover:text-white text-left leading-tight">
+                  <action.icon className="w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0 text-[#2F6FD6] group-hover:text-white" />
+                  <p className="text-center text-[10px] font-semibold leading-tight text-gray-900 group-hover:text-white sm:text-sm lg:text-lg sm:text-left">
                     {action.label}
                   </p>
                 </button>
@@ -280,75 +280,73 @@ export default function CustomerDashboard() {
 
           {/* Right Column: Recent Orders */}
           <div className="lg:col-span-3">
-            <Card className="p-6 bg-white shadow-sm border border-slate-100 h-full flex flex-col">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <Card className="p-3 sm:p-6 bg-white shadow-sm border border-slate-100 h-full flex flex-col">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-6 gap-3 sm:gap-4">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
                     Recent Orders
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Track your recent print requests
-                  </p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/customer/orders")}
-                  className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white cursor-pointer"
-                >
-                  View All Orders
-                </Button>
               </div>
 
               <div className="overflow-x-auto flex-grow">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b-2 border-gray-200">
-                      <th className="text-left py-4 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 sm:py-4 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">
                         Order ID
                       </th>
-                      <th className="text-left py-4 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 sm:py-4 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">
                         Status
                       </th>
-                      <th className="text-left py-4 px-4 text-sm font-semibold text-gray-700">
+                      <th className="hidden sm:table-cell text-left py-2 sm:py-4 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">
                         Total
                       </th>
-                      <th className="text-left py-4 px-4 text-sm font-semibold text-gray-700">
+                      <th className="hidden sm:table-cell text-left py-2 sm:py-4 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">
                         Date
                       </th>
-                      <th className="text-center py-4 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-center py-2 sm:py-4 px-1 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">
                         Action
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentOrders.map((order) => (
+                    {recentOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-16 text-center">
+                          <Package className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+                          <p className="text-sm font-semibold text-gray-500">No recent orders</p>
+                          <p className="mt-1 text-xs text-gray-400">Your print requests will appear here after you place an order.</p>
+                        </td>
+                      </tr>
+                    ) : recentOrders.map((order) => (
                       <tr
                         key={order.id}
                         className="border-b hover:bg-blue-50/50 transition-colors"
                       >
-                        <td className="py-4 px-4">
+                        <td className="py-3 sm:py-4 px-2 sm:px-4">
                           <span className="font-semibold text-gray-900">
                             {order.id}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-3 sm:py-4 px-2 sm:px-4">
                           <Badge
                             className={`${getStatusColor(order.status)} font-medium text-[#120a01]`}
                           >
                             {order.status}
                           </Badge>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-4">
                           <span className="font-semibold text-gray-900">
                             {order.total || "₱0.00"}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-4">
                           <span className="text-gray-600 text-sm">
                             {order.date || "N/A"}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-3 sm:py-4 px-1 sm:px-4 text-center">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -357,7 +355,7 @@ export default function CustomerDashboard() {
                                 `/customer/track/${order.id}`,
                               )
                             }
-                            className="text-[#2F6FD6] hover:bg-blue-100 cursor-pointer"
+                            className="h-8 px-2 text-xs sm:text-sm text-[#2F6FD6] hover:bg-blue-100 cursor-pointer"
                           >
                             View Details
                           </Button>
@@ -367,19 +365,25 @@ export default function CustomerDashboard() {
                   </tbody>
                 </table>
               </div>
+              <Button
+                onClick={() => navigate("/customer/orders")}
+                className="mt-3 h-10 w-full bg-white text-[#2F6FD6] hover:bg-gray-100 sm:mt-5 sm:w-auto sm:self-end cursor-pointer"
+              >
+                View All Orders
+              </Button>
             </Card>
           </div>
         </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Card className="p-6 bg-[#1D73EC] text-white shadow-lg border-none">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
-                <Clock className="w-7 h-7 text-white" />
+          <Card className="p-4 sm:p-6 bg-[#1D73EC] text-white shadow-lg border-none">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
               </div>
               <div>
-                <h4 className="text-lg font-bold mb-3">
+                <h4 className="text-base sm:text-lg font-bold mb-2 sm:mb-3">
                   Shop Hours
                 </h4>
                 <div className="space-y-2 text-sm text-white/95">
@@ -395,13 +399,13 @@ export default function CustomerDashboard() {
             </div>
           </Card>
 
-          <Card className="p-6 bg-[#1D73EC] text-white shadow-lg border-none">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-7 h-7 text-white" />
+          <Card className="p-4 sm:p-6 bg-[#1D73EC] text-white shadow-lg border-none">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
               </div>
               <div>
-                <h4 className="text-lg font-bold mb-3">
+                <h4 className="text-base sm:text-lg font-bold mb-2 sm:mb-3">
                   Quick Tips
                 </h4>
                 <div className="space-y-2 text-sm text-white/95">
