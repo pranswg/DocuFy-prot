@@ -16,6 +16,7 @@ import {
   File,
   ShoppingCart,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -31,6 +32,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
 import { PrintPreviewDialog } from "../ui/print-preview-dialog";
 import { dataStore } from "../../utils/dataStore";
@@ -67,6 +69,8 @@ export default function OrderTracking() {
   const [previewFile, setPreviewFile] = useState<any>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showColorBreakdown, setShowColorBreakdown] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   const [orderData, setOrderData] = useState(
     dataStore.getOrderById(orderId || ""),
   );
@@ -101,6 +105,7 @@ export default function OrderTracking() {
 
   const currentOrderStatus = orderData?.status || "Received";
   const holdReason = orderData?.holdReason;
+  const canCancelOrder = ["Received", "In Queue", "On Hold"].includes(currentOrderStatus);
 
   // Determine if order is completed or released
   const isOrderCompleted =
@@ -148,6 +153,19 @@ export default function OrderTracking() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
     toast.success(`Downloading ${fileName}...`);
+  };
+
+  const handleCancelOrder = () => {
+    if (!orderId || !cancellationReason.trim()) return;
+
+    dataStore.updateOrder(orderId, {
+      status: "Canceled",
+      cancellationReason: cancellationReason.trim(),
+    });
+
+    setShowCancelDialog(false);
+    setCancellationReason("");
+    toast.success("Order has been canceled successfully.");
   };
 
   const attachedFiles = orderData?.attachedFiles || [];
@@ -223,6 +241,9 @@ export default function OrderTracking() {
                 {currentOrderStatus === "Released" && (
                   <PackageIcon className="w-5 h-5 text-gray-600" />
                 )}
+                {currentOrderStatus === "Canceled" && (
+                  <X className="w-5 h-5 text-red-600" />
+                )}
                 {currentOrderStatus === "Received" && (
                   <CheckCircle className="w-5 h-5 text-[#1D73EC]" />
                 )}
@@ -276,7 +297,7 @@ export default function OrderTracking() {
           <div className={`${showOrderDetails ? "block" : "hidden"} sm:block`}>
 
           {/* Basic Information */}
-          <div className="mb-6">
+          <div className="mb-3">
             <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <FileText className="w-5 h-5 text-[#2F6FD6]" />
               Basic Information
@@ -316,11 +337,17 @@ export default function OrderTracking() {
                 <Label className="text-xs text-gray-600">Total Amount</Label>
                 <p className="font-semibold text-[#2F6FD6] text-lg">{orderData?.total || "N/A"}</p>
               </div>
+              <div>
+                <Label className="text-xs text-gray-600">Order Time</Label>
+                <p className="font-semibold text-gray-900">
+                  {orderData?.date ? new Date(orderData.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Printing Details */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <Printer className="w-5 h-5 text-[#2F6FD6]" />
               Printing Details
@@ -328,16 +355,8 @@ export default function OrderTracking() {
             <div className="space-y-3">
               {attachedFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="rounded-lg border border-blue-200 bg-white p-3">
-                  <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="mb-3">
                     <p className="truncate text-sm font-semibold text-gray-900">{file.name}</p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleViewFile(file)}
-                      className="shrink-0 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                    >
-                      <Eye className="mr-1.5 h-4 w-4" /> View
-                    </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
               <div>
@@ -461,7 +480,7 @@ export default function OrderTracking() {
 
           {/* Attached Files */}
           {orderData?.attachedFiles && orderData.attachedFiles.length > 0 && (
-            <div className="mb-6">
+            <div className="mb-4 rounded-lg bg-gray-50 p-4">
               <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <File className="w-5 h-5 text-[#2F6FD6]" />
                 Attached Files ({orderData.attachedFiles.length})
@@ -499,6 +518,22 @@ export default function OrderTracking() {
                 <span className="text-2xl font-bold text-[#2F6FD6]">{orderData?.total || "₱0.00"}</span>
               </div>
             </div>
+
+            {canCancelOrder && (
+              <div className="mt-5 pt-4 border-t border-blue-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCancellationReason("");
+                    setShowCancelDialog(true);
+                  }}
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                >
+                  Cancel Order
+                </Button>
+              </div>
+            )}
           </div>
           </div>
         </Card>
@@ -538,7 +573,7 @@ export default function OrderTracking() {
                   Cash on Pickup
                 </Badge>
               </div>
-            ) : orderData?.paymentVerified ? (
+            ) : orderData?.status === "Canceled" ? null : orderData?.paymentVerified ? (
               <div className="flex items-center justify-between p-4 bg-white border-2 border-blue-300 rounded-lg">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-600" />
@@ -1054,6 +1089,49 @@ export default function OrderTracking() {
               onClick={() => setShowColorBreakdown(false)}
             >
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-500" />
+              </div>
+              <DialogTitle className="text-xl">Cancel Order</DialogTitle>
+            </div>
+            <DialogDescription className="text-base">
+              Are you sure you want to cancel this order? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="cancel-reason">Reason for Cancellation *</Label>
+              <Textarea
+                id="cancel-reason"
+                placeholder="Please state the reason for cancellation..."
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                rows={4}
+                required
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              Keep Order
+            </Button>
+            <Button
+              onClick={handleCancelOrder}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!cancellationReason.trim()}
+            >
+              Confirm Cancellation
             </Button>
           </DialogFooter>
         </DialogContent>

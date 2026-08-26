@@ -104,11 +104,6 @@ interface Staff {
     priority: string;
     dueDate: string;
   }[];
-  auditLogs: {
-    timestamp: string;
-    action: string;
-    details: string;
-  }[];
 }
 
 const staffData: Staff[] = [
@@ -228,24 +223,6 @@ const staffData: Staff[] = [
         dueDate: "2026-04-30",
       },
     ],
-    auditLogs: [
-      {
-        timestamp: "2026-04-21 10:30 AM",
-        action: "Updated Order Status",
-        details:
-          "Changed ORD-002 from 'In Queue' to 'Printing'",
-      },
-      {
-        timestamp: "2026-04-21 09:15 AM",
-        action: "Added Inventory",
-        details: "Added 500 sheets of Bond Paper - Short",
-      },
-      {
-        timestamp: "2026-04-20 04:45 PM",
-        action: "Completed Order",
-        details: "Marked ORD-001 as completed",
-      },
-    ],
   },
   {
     id: "EMP-002",
@@ -327,18 +304,6 @@ const staffData: Staff[] = [
         status: "Completed",
         priority: "Medium",
         dueDate: "2026-04-22",
-      },
-    ],
-    auditLogs: [
-      {
-        timestamp: "2026-04-21 02:30 PM",
-        action: "Printed Order",
-        details: "Completed printing for ORD-008",
-      },
-      {
-        timestamp: "2026-04-21 11:00 AM",
-        action: "Updated Inventory",
-        details: "Used 50 sheets of Glossy Paper",
       },
     ],
   },
@@ -427,18 +392,6 @@ const staffData: Staff[] = [
         status: "Pending",
         priority: "Low",
         dueDate: "2026-04-28",
-      },
-    ],
-    auditLogs: [
-      {
-        timestamp: "2026-04-21 03:00 PM",
-        action: "Verified Payment",
-        details: "Approved payment for ORD-004",
-      },
-      {
-        timestamp: "2026-04-21 10:00 AM",
-        action: "Created Order",
-        details: "Created new order ORD-010 for customer",
       },
     ],
   },
@@ -570,7 +523,6 @@ export default function Staff() {
       permissions: [],
       attendanceLogs: [],
       tasks: [],
-      auditLogs: [],
     };
 
     setStaff([...staff, staffMember]);

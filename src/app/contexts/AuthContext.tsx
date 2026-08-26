@@ -9,15 +9,18 @@ export interface User {
   role: 'customer' | 'staff' | 'admin';
   mfaEnabled?: boolean;
   mfaVerified?: boolean;
+  profileImage?: string;
 }
 
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => { success: boolean; requiresMFA?: boolean };
   verifyMFA: (code: string) => boolean;
+  cancelMFA: () => void;
   enableMFA: () => string;
   disableMFA: () => void;
   signup: (data: any) => boolean;
+  updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
   sendPasswordResetCode: (email: string) => boolean;
@@ -42,15 +45,7 @@ const mockUsers = [
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPEHPK3PXP',
     passwordHistory: [] as string[],
-  },
-  {
-    email: 'suspended@test.com',
-    password: 'suspended123',
-    name: 'Suspended User',
-    role: 'customer' as const,
-    mfaEnabled: true,
-    mfaSecret: 'JBSWY3DPEHPK3PXP',
-    passwordHistory: [] as string[],
+    profileImage: undefined,
   },
   {
     email: 'staff@test.com',
@@ -60,6 +55,7 @@ const mockUsers = [
     mfaEnabled: true,
     mfaSecret: 'HXDMVJECJJWSRB3H',
     passwordHistory: [] as string[],
+    profileImage: undefined,
   },
   {
     email: 'admin@test.com',
@@ -69,6 +65,7 @@ const mockUsers = [
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPFQQHO33S',
     passwordHistory: [] as string[],
+    profileImage: undefined,
   },
 ];
 
@@ -109,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: pendingMFAUser.role,
           mfaEnabled: true,
           mfaVerified: true,
+          profileImage: pendingMFAUser.profileImage,
         });
         setPendingMFAUser(null);
         return true;
@@ -117,6 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     return false;
+  };
+
+  const cancelMFA = () => {
+    setPendingMFAUser(null);
   };
 
   const enableMFA = () => {
@@ -159,12 +161,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mfaEnabled: true,
       mfaSecret: Math.random().toString(36).substring(2, 15),
       passwordHistory: [] as string[],
+      profileImage: data.profileImage || undefined,
     };
     mockUsers.push(newUser);
+    setUser({
+      name: fullName,
+      email: data.email,
+      role: 'customer',
+      mfaEnabled: true,
+      mfaVerified: true,
+      profileImage: data.profileImage || undefined,
+    });
     toast.success(
       'Account created! MFA is required for all accounts. You will be prompted to verify on login.'
     );
     return true;
+  };
+
+  const updateProfile = (data: Partial<User> & { profileImage?: string | null }) => {
+    setUser((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        ...data,
+        profileImage: Object.prototype.hasOwnProperty.call(data, "profileImage")
+          ? data.profileImage || undefined
+          : current.profileImage,
+      };
+    });
   };
 
   const logout = () => {
@@ -223,7 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Update the current user's session state if they're logged in
       if (user && user.email === email) {
-        setUser({ ...user, name: user.name, email: user.email, role: user.role, mfaEnabled: user.mfaEnabled });
+        setUser({ ...user, name: user.name, email: user.email, role: user.role, mfaEnabled: user.mfaEnabled, profileImage: user.profileImage });
       }
 
       return true; // Success will be shown by the calling component
@@ -239,9 +263,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         login,
         verifyMFA,
+        cancelMFA,
         enableMFA,
         disableMFA,
         signup,
+        updateProfile,
         logout,
         resetPassword,
         sendPasswordResetCode,

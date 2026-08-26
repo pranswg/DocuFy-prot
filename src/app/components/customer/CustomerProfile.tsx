@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -31,11 +31,12 @@ const defaultProfileData = {
 export default function CustomerProfile() {
   const navigate = useNavigate();
   // Layout will be updated with showBackButton prop below
-  const { user, enableMFA, disableMFA, resetPassword } = useAuth();
+  const { user, enableMFA, disableMFA, resetPassword, updateProfile, logout } = useAuth();
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showMFADialog, setShowMFADialog] = useState(false);
+  const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
   const [mfaSecret, setMfaSecret] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -84,6 +85,16 @@ export default function CustomerProfile() {
     };
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(() => {
+    const savedImage = localStorage.getItem('customer_profile_image');
+    return savedImage || user?.profileImage || null;
+  });
+
+  useEffect(() => {
+    if (user?.profileImage) {
+      setProfileImage(user.profileImage);
+    }
+  }, [user?.profileImage]);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -122,12 +133,34 @@ export default function CustomerProfile() {
     }
   }, [user]);
 
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Please choose an image smaller than 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      setProfileImage(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = () => {
     setShowSaveDialog(true);
   };
 
   const confirmSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    if (profileImage) {
+      localStorage.setItem('customer_profile_image', profileImage);
+    } else {
+      localStorage.removeItem('customer_profile_image');
+    }
+    updateProfile({ profileImage });
     setIsEditing(false);
     setShowSavedMessage(true);
     setShowSaveDialog(false);
@@ -185,7 +218,12 @@ export default function CustomerProfile() {
   };
 
   const handleDisableMFA = () => {
+    setShowDisableMFADialog(true);
+  };
+
+  const confirmDisableMFA = () => {
     disableMFA();
+    setShowDisableMFADialog(false);
     toast.success('Multi-factor authentication disabled');
   };
 
@@ -208,10 +246,29 @@ export default function CustomerProfile() {
 
         {/* Profile Card */}
         <Card className="p-8 bg-white shadow-sm">
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex flex-col gap-5 mb-8 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 bg-[#1D73EC] rounded-full flex items-center justify-center text-white text-2xl font-semibold">
-                {user?.name?.charAt(0) || 'U'}
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-[#1D73EC] text-2xl font-semibold text-white ring-4 ring-white shadow-sm">
+                {profileImage ? (
+                  <img src={profileImage} alt="Profile preview" className="h-full w-full rounded-full object-cover" />
+                ) : (
+                  user?.name?.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'U'
+                )}
+                {isEditing && (
+                  <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1D73EC] text-white shadow-lg ring-2 ring-white">
+                    <Camera className="h-4 w-4" />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
+                  </label>
+                )}
+                {isEditing && profileImage && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileImage(null)}
+                    className="absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Remove photo
+                  </button>
+                )}
               </div>
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900">{user?.name}</h2>
@@ -226,18 +283,19 @@ export default function CustomerProfile() {
                 Edit Profile
               </Button>
             ) : (
-              <div className="flex gap-2">
+              <div className={`flex w-full flex-col gap-2 sm:w-auto sm:flex-row ${profileImage ? "pt-8" : ""}`}>
                 <Button
-                  variant="outline"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-[#2F6FD6] hover:bg-[#2557b8]"
+                  className="order-1 w-full bg-[#2F6FD6] hover:bg-[#2557b8] sm:order-2 sm:w-auto"
                   onClick={handleSave}
                 >
                   Save Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditing(false)}
+                  className="order-2 w-full sm:order-1 sm:w-auto"
+                >
+                  Cancel
                 </Button>
               </div>
             )}
@@ -320,55 +378,62 @@ export default function CustomerProfile() {
 
         {/* Security Section */}
         <Card className="p-8 bg-white shadow-sm">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Security</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-3">Security</h3>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between pb-4 border-b">
+          <div className="space-y-2">
+            <div className="flex flex-col items-start gap-2 border-b pb-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium text-gray-900">Password</p>
-                <p className="text-sm text-gray-500 mt-1">Change your account password</p>
+                <p className="mt-1 hidden text-sm text-gray-500 sm:block">Change your account password</p>
               </div>
               <Button
                 variant="outline"
                 onClick={() => setShowChangePasswordDialog(true)}
-                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
+                className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200 sm:w-auto"
               >
                 <Key className="w-4 h-4 mr-2" />
                 Change Password
               </Button>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <div>
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-gray-900">Multi-Factor Authentication</p>
-                  {user?.mfaEnabled && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                      Enabled
-                    </span>
-                  )}
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="mt-1 hidden text-sm text-gray-500 sm:block">
                   {user?.mfaEnabled
                     ? 'Additional security layer is active'
                     : 'Add an extra layer of security to your account'}
                 </p>
               </div>
-              <Button
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <Button
                 variant="outline"
                 onClick={user?.mfaEnabled ? handleDisableMFA : handleEnableMFA}
-                className={
+                className={`w-full sm:w-auto ${
                   user?.mfaEnabled
-                    ? 'border-blue-300 text-red-400 hover:bg-white border-2 border-blue-200'
+                    ? 'border-blue-600 text-blue-600 hover:bg-blue-50 border-2 border-blue-200'
                     : 'border-blue-600 text-blue-600 hover:bg-white border-2 border-blue-200'
-                }
+                }`}
               >
                 <Shield className="w-4 h-4 mr-2" />
                 {user?.mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
-              </Button>
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
+
+        <div className="pb-4">
+          <Button
+            variant="outline"
+            onClick={logout}
+            className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
+          >
+            Sign Out
+          </Button>
+        </div>
       </div>
 
       {/* Save Confirmation Dialog */}
@@ -454,6 +519,21 @@ export default function CustomerProfile() {
             >
               Done
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDisableMFADialog} onOpenChange={setShowDisableMFADialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable MFA?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disable multi-factor authentication? This will reduce the security of your account.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
+            <Button onClick={confirmDisableMFA} className="bg-[#1D73EC] text-white hover:bg-[#10316B]">Disable MFA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -72,6 +72,7 @@ export default function Layout({
   );
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
   const [isSIEMOpen, setIsSIEMOpen] = useState(false);
@@ -142,6 +143,15 @@ export default function Layout({
     const unsubscribe = inventoryStore.subscribe(checkInventory);
     return unsubscribe;
   }, []);
+
+  const getInitials = (value?: string) => {
+    if (!value) return "U";
+    const letters = value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
+    return letters || "U";
+  };
+
+  const profileImage = user?.profileImage;
+  const profileInitial = getInitials(user?.name || user?.email || "User");
 
   const displayTitle =
     title ||
@@ -347,6 +357,7 @@ export default function Layout({
           type="button"
           onClick={() => {
             setIsProfileOpen(!isProfileOpen);
+            setIsTopProfileOpen(false);
             setIsNotificationOpen(false);
             setIsSIEMOpen(false);
           }}
@@ -357,8 +368,12 @@ export default function Layout({
             isMobile || isSidebarExpanded ? "w-full px-3 py-2.5" : "mx-auto h-11 w-11 justify-center"
           } ${isProfileOpen ? "bg-white/15" : "hover:bg-white/10"}`}
         >
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#1D73EC] font-bold text-xs uppercase flex-shrink-0">
-            {user?.email?.[0]}
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#1D73EC] font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
+            {profileImage ? (
+              <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              profileInitial
+            )}
           </div>
           {(isMobile || isSidebarExpanded) && (
             <div className="min-w-0 flex-1 text-left">
@@ -666,14 +681,35 @@ export default function Layout({
               )}
             </div>
 
+            <div className="relative">
             <button
               type="button"
-              onClick={() => navigate(`/${user?.role}/profile`)}
+              onClick={() => {
+                setIsTopProfileOpen(!isTopProfileOpen);
+                setIsProfileOpen(false);
+                setIsNotificationOpen(false);
+                setIsSIEMOpen(false);
+              }}
               aria-label="Open profile"
+              aria-expanded={isTopProfileOpen}
+              aria-haspopup="menu"
               className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
             >
-              <img src={logoImage} alt="DocuFy profile" className="h-10 w-10 rounded-full bg-[#1D73EC]/10 p-0.5 shadow-sm" />
+              <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
+                {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
+              </div>
             </button>
+            {isTopProfileOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl">
+                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <User className="h-4 w-4" /> Profile Settings
+                </button>
+                <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </button>
+              </div>
+            )}
+            </div>
 
           </div>
         </header>

@@ -11,9 +11,6 @@ import {
   Briefcase,
   Settings,
   ShoppingCart,
-  Shield,
-  FileCheck,
-  Database,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -61,20 +58,5 @@ export const adminMenuItems = [
     label: "Content Management",
     path: "/admin/content",
     icon: <Settings className="w-5 h-5" />,
-  },
-  {
-    label: "Security Center",
-    path: "/admin/security-center",
-    icon: <Shield className="w-5 h-5" />,
-  },
-  {
-    label: "Audit Logs",
-    path: "/admin/audit-logs",
-    icon: <FileCheck className="w-5 h-5" />,
-  },
-  {
-    label: "Backup & Integrity",
-    path: "/admin/backup-management",
-    icon: <Database className="w-5 h-5" />,
   },
 ];

@@ -18,13 +18,14 @@ import { Alert, AlertDescription } from "./ui/alert";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, verifyMFA, user } = useAuth();
+  const { login, verifyMFA, logout, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [requiresMFA, setRequiresMFA] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState("");
   const [mfaCode, setMfaCode] = useState([
     "",
     "",
@@ -76,6 +77,21 @@ export default function LoginPage() {
     }
   };
 
+  const handleBackToLogin = () => {
+    logout();
+    window.location.replace("/login");
+  };
+
+  const handleResendMFA = () => {
+    setMfaCode(["", "", "", "", "", ""]);
+    setError("");
+    setMfaMessage("A new verification code has been sent. Please check your email.");
+    setTimeout(() => {
+      setMfaMessage("");
+      mfaInputRefs.current[0]?.focus();
+    }, 3000);
+  };
+
   const handleMFAInputChange = (
     index: number,
     value: string,
@@ -113,7 +129,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex font-poppins overflow-hidden">
+    <div className="min-h-[100dvh] flex font-poppins overflow-y-auto">
 
       {/* Left Side - Logo & Illustration */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#1c1f26] items-center justify-center min-h-screen">
@@ -139,7 +155,7 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-            DocuFy<span className="text-[#1D73EC]"></span>
+            DocuFy PSMS<span className="text-[#1D73EC]"></span>
           </h1>
           <h2 className="text-xl font-medium text-white mb-4">
             Your Complete Printing Solution
@@ -152,23 +168,16 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-8 bg-white relative z-10 overflow-y-auto min-h-screen">
+      <div className="w-full lg:w-1/2 flex flex-col justify-start lg:justify-center px-5 sm:px-12 lg:px-16 py-5 sm:py-8 bg-white relative z-10 min-h-[100dvh]">
         <div className="max-w-md w-full mx-auto">
           {/* Mobile Only Header */}
-          <div className="lg:hidden flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#1D73EC] p-1.5 rounded-lg text-white">
-                <Printer size={20} strokeWidth={2.5} />
-              </div>
-              <span className="font-semibold text-lg text-[#1c1f26] tracking-tight">
-                DocuFy
-              </span>
+          <div className="lg:hidden mb-8 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logoImage} alt="DocuFy Logo" className="h-12 w-12 object-contain" />
+              <h1 className="truncate text-xl font-bold text-[#1c1f26]">DocuFy PSMS</h1>
             </div>
-            <button
-              onClick={() => navigate("/")}
-              className="text-xs text-gray-500 flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3 h-3" /> Home
+            <button onClick={() => navigate("/")} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#1D73EC]">
+              <ArrowLeft className="h-3.5 w-3.5" /> Home
             </button>
           </div>
 
@@ -181,42 +190,46 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full border-gray-200 text-[#1c1f26] h-10 text-sm mb-4"
-            onClick={() => {}}
-          >
-            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            Continue with Google
-          </Button>
+          {!requiresMFA && (
+            <>
+              <Button
+                variant="outline"
+                className="w-full border-gray-200 text-[#1c1f26] h-10 text-sm mb-4"
+                onClick={() => {}}
+              >
+                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                Continue with Google
+              </Button>
 
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-100"></div>
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase">
-              <span className="bg-white px-2 text-gray-400">
-                Or continue with email
-              </span>
-            </div>
-          </div>
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-100"></div>
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase">
+                  <span className="bg-white px-2 text-gray-400">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {requiresMFA ? (
             <form
@@ -266,6 +279,11 @@ export default function LoginPage() {
                 <p className="text-[10px] text-gray-500 text-center">
                   Enter the code from your email
                 </p>
+                {mfaMessage && (
+                  <p className="text-[10px] text-green-600 text-center font-medium">
+                    {mfaMessage}
+                  </p>
+                )}
               </div>
 
               {error && (
@@ -289,16 +307,22 @@ export default function LoginPage() {
 
               <Button
                 type="button"
-                variant="ghost"
-                onClick={() => {
-                  setRequiresMFA(false);
-                  setMfaCode(["", "", "", "", "", ""]);
-                  setError("");
-                }}
-                className="w-full text-sm"
+                onClick={handleBackToLogin}
+                className="w-full border border-blue-200 bg-[#F2F7FF] text-sm text-[#1D73EC] hover:bg-blue-100"
               >
                 Back to Login
               </Button>
+
+              <p className="text-center text-xs text-gray-600">
+                Did not receive your code?{" "}
+                <button
+                  type="button"
+                  onClick={handleResendMFA}
+                  className="font-semibold text-[#1D73EC] hover:underline"
+                >
+                  Resend
+                </button>
+              </p>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
@@ -402,24 +426,17 @@ export default function LoginPage() {
             </form>
           )}
 
-          <div className="mt-4 text-center text-xs text-gray-500">
-            Need an account?{" "}
-            <button
-              onClick={() => navigate("/signup")}
-              className="text-[#1D73EC] text-xs font-semibold"
-            >
-              Create account
-            </button>
-          </div>
-
-          <div className="mt-6 p-3 bg-[#F2F7FF] rounded-lg text-[10px] text-gray-500 border border-blue-50">
-            <p className="font-semibold text-[#10316B] mb-1">Demo access:</p>
-            <div className="grid grid-cols-1 gap-0.5">
-              <div><span className="text-[#1D73EC]">Customer:</span> customer@test.com / customer123</div>
-              <div><span className="text-[#1D73EC]">Staff:</span> staff@test.com / staff123</div>
-              <div><span className="text-[#10316B]">Admin:</span> admin@test.com / admin123</div>
+          {!requiresMFA && (
+            <div className="mt-4 text-center text-xs text-gray-500">
+              Need an account?{" "}
+              <button
+                onClick={() => navigate("/signup")}
+                className="text-[#1D73EC] text-xs font-semibold"
+              >
+                Create account
+              </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -18,9 +18,6 @@ import InventoryManagement from './components/staff/InventoryManagement';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
-import SecurityCenter from './components/admin/SecurityCenter';
-import AuditLogs from './components/admin/AuditLogs';
-import BackupManagement from './components/admin/BackupManagement';
 import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Inventory from './components/admin/Inventory';
@@ -196,18 +193,6 @@ const router = createBrowserRouter([
       {
         path: 'content',
         element: <ProtectedRoute role="admin"><ContentManagement /></ProtectedRoute>,
-      },
-      {
-        path: 'security-center',
-        element: <ProtectedRoute role="admin"><SecurityCenter /></ProtectedRoute>,
-      },
-      {
-        path: 'audit-logs',
-        element: <ProtectedRoute role="admin"><AuditLogs /></ProtectedRoute>,
-      },
-      {
-        path: 'backup-management',
-        element: <ProtectedRoute role="admin"><BackupManagement /></ProtectedRoute>,
       },
     ],
   },

@@ -258,7 +258,7 @@ export default function PaymentVerification() {
                 onClick={() =>
                   setShowPaymentMethodSelector(true)
                 }
-                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
+                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors"
               >
                 Change Payment Method
               </Button>

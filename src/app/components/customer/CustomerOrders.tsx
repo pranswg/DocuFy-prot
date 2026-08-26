@@ -7,26 +7,15 @@ import {
   Package,
   X,
   Calendar,
-  XCircle,
-  AlertTriangle,
   ChevronDown,
+  Eye,
 } from "lucide-react";
-import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "../ui/dialog";
-import { Textarea } from "../ui/textarea";
 import { dataStore, type Order } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -63,10 +52,8 @@ export default function CustomerOrders() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [showCancelDialog, setShowCancelDialog] = useState<boolean>(false);
-  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
-  const [cancellationReason, setCancellationReason] = useState<string>("");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -93,34 +80,6 @@ export default function CustomerOrders() {
       case "Canceled":    return "bg-red-100 text-red-700";
       default:            return "bg-gray-100 text-gray-700";
     }
-  };
-
-  const handleCancelClick = (orderId: string, status: string) => {
-    // Allow cancellation only for Received, In Queue, or On Hold statuses
-    const cancellableStatuses = ["Received", "In Queue", "On Hold"];
-    if (!cancellableStatuses.includes(status)) {
-      toast.error('Only orders with "Received", "In Queue", or "On Hold" status can be canceled.');
-      return;
-    }
-
-    // Cancel immediately without confirmation dialog
-    dataStore.updateOrder(orderId, {
-      status: "Canceled",
-    });
-    toast.success("Order has been canceled successfully.");
-  };
-
-  const confirmCancelOrder = () => {
-    // This function is no longer needed but kept for compatibility
-    if (!orderToCancel) return;
-
-    dataStore.updateOrder(orderToCancel, {
-      status: "Canceled",
-    });
-    setShowCancelDialog(false);
-    setOrderToCancel(null);
-    setCancellationReason("");
-    toast.success("Order has been canceled successfully.");
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -160,7 +119,7 @@ export default function CustomerOrders() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Status */}
-              <div className="space-y-2 w-full sm:w-48">
+              <div className="hidden space-y-2 w-full sm:block sm:w-48">
                 <Label
                   htmlFor="status-filter"
                   className="text-sm font-medium text-gray-700"
@@ -251,6 +210,37 @@ export default function CustomerOrders() {
                 />
               </div>
 
+              <div className="relative space-y-2 w-full sm:hidden">
+                <Label htmlFor="mobile-status-filter">Status</Label>
+                <button
+                  id="mobile-status-filter"
+                  type="button"
+                  onClick={() => setShowStatusMenu((isOpen) => !isOpen)}
+                  aria-expanded={showStatusMenu}
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm"
+                >
+                  <span>{selectedStatus === "All" ? "All Status" : selectedStatus}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showStatusMenu ? "rotate-180" : ""}`} />
+                </button>
+                {showStatusMenu && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+                    {["All", "In Queue", "Received", "Printing", "Completed", "Released", "On Hold", "Canceled"].map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStatus(status);
+                          setShowStatusMenu(false);
+                        }}
+                        className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-blue-50 ${selectedStatus === status ? "bg-blue-50 font-semibold text-[#2F6FD6]" : "text-gray-700"}`}
+                      >
+                        {status === "All" ? "All Status" : status}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Clear */}
               <div className={`flex items-end ${showMoreFilters ? "" : "hidden sm:flex"}`}>
                 <Button
@@ -293,22 +283,19 @@ export default function CustomerOrders() {
                     Document
                   </th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
-                    Pages
-                  </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Status
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                    Pages
+                  </th>
+                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Total
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Date
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Time
-                  </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
-                    Action
                   </th>
                 </tr>
               </thead>
@@ -316,7 +303,7 @@ export default function CustomerOrders() {
                 {filteredOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="py-16 text-center text-sm text-gray-400"
                     >
                       No orders found.
@@ -326,16 +313,24 @@ export default function CustomerOrders() {
                   filteredOrders.map((order) => (
                     <tr
                       key={order.id}
-                      className="border-b hover:bg-gray-50 transition-colors"
+                      className="cursor-pointer border-b hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate(`/customer/track/${order.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/customer/track/${order.id}`);
+                        }
+                      }}
+                      tabIndex={0}
                     >
                       <td className="py-4 px-4 text-sm font-medium text-gray-900">
                         {order.id}
                       </td>
                       <td className="py-4 px-4 text-sm text-gray-900">
-                        {order.fileName || "N/A"}
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">
-                        {order.pages || 0}
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Eye className="h-5 w-5 shrink-0 text-[#1D73EC]" aria-hidden="true" />
+                          <span className="max-w-[8rem] truncate sm:max-w-none">{order.fileName || "N/A"}</span>
+                        </div>
                       </td>
                       <td className="py-4 px-4">
                         <Badge
@@ -344,47 +339,21 @@ export default function CustomerOrders() {
                           {order.status}
                         </Badge>
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-gray-900">
+                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
+                        {order.pages || 0}
+                      </td>
+                      <td className="hidden sm:table-cell py-4 px-4 text-sm font-medium text-gray-900">
                         {order.total}
                       </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">
+                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
                         {new Date(order.date).toLocaleDateString()}
                       </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">
+                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
                         {new Date(order.date).toLocaleTimeString("en-US", {
                           hour: "numeric",
                           minute: "2-digit",
                           hour12: true,
                         })}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              navigate(`/customer/track/${order.id}`)
-                            }
-                            className="bg-[#F2F7FF] border-2 border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-semibold transition-all shadow-sm"
-                          >
-                            Track
-                          </Button>
-                          <Button
-                            size="sm"
-                            className={
-                              ["Received", "In Queue", "On Hold"].includes(order.status)
-                                ? "bg-white text-gray-900 border-2 border-gray-300 hover:bg-[#2F6FD6] hover:text-white hover:border-[#2F6FD6] transition-all font-semibold"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }
-                            onClick={() =>
-                              handleCancelClick(order.id, order.status)
-                            }
-                            disabled={!["Received", "In Queue", "On Hold"].includes(order.status)}
-                          >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Cancel
-                          </Button>
-                        </div>
                       </td>
                     </tr>
                   ))
@@ -395,53 +364,6 @@ export default function CustomerOrders() {
         </Card>
       </div>
 
-      {/* ── Cancel Dialog ──────────────────────────────────────── */}
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-400" />
-              </div>
-              <DialogTitle className="text-xl">Cancel Order</DialogTitle>
-            </div>
-            <DialogDescription className="text-base">
-              Are you sure you want to cancel order {orderToCancel}? This
-              action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="cancellationReason">
-                Reason for Cancellation *
-              </Label>
-              <Textarea
-                id="cancellationReason"
-                placeholder="Please provide a reason..."
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                rows={4}
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowCancelDialog(false)}
-            >
-              Keep Order
-            </Button>
-            <Button
-              onClick={confirmCancelOrder}
-              className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={!cancellationReason.trim()}
-            >
-              Cancel Order
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }

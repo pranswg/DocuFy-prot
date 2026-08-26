@@ -102,6 +102,7 @@ export default function NewPrintRequest() {
   const [isProcessingFile, setIsProcessingFile] =
     useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showColorPricing, setShowColorPricing] = useState(false);
   const [previewFileId, setPreviewFileId] = useState<
     string | null
   >(null);
@@ -711,13 +712,14 @@ export default function NewPrintRequest() {
                     <step.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <p
-                    className={`hidden sm:block mt-2 text-[11px] sm:text-sm font-medium leading-tight text-center ${
+                    className={`mt-2 text-[10px] font-medium leading-tight text-center sm:text-sm ${
                       currentStep >= step.number
                         ? "text-gray-900"
                         : "text-gray-500"
                     }`}
                   >
-                    {step.title}
+                    <span className="sm:hidden">{step.title.split(" ")[0]}</span>
+                    <span className="hidden sm:inline">{step.title}</span>
                   </p>
                 </div>
                 {index < steps.length - 1 && (
@@ -865,8 +867,7 @@ export default function NewPrintRequest() {
                     : "Add More Files"}
                 </p>
                 <p className="text-sm text-gray-500 mb-2">
-                  Supported formats: PDF, DOC, DOCX, PPT, PPTX,
-                  XLS, XLSX, TXT, JPG, PNG
+                  Supported formats: PDF, DOC, DOCX, JPG, PNG
                 </p>
                 <div className="bg-white border-2 border-blue-200 border border-blue-300 rounded-lg p-3 mb-4 max-w-lg mx-auto">
                   <div className="flex items-start gap-2">
@@ -1228,20 +1229,6 @@ export default function NewPrintRequest() {
                       <Label className="text-sm font-medium">
                         Color Mode
                       </Label>
-                      {fileData.colorAnalysis && (
-                        <div className="mb-2 px-3 py-2 bg-white border-2 border-blue-200 rounded-lg">
-                          <p className="text-xs font-medium text-[#000000]">
-                            Auto-pricing applied from document
-                            analysis
-                          </p>
-                          <p className="text-xs mt-0.5 text-[#000000]">
-                            Colored mode prices pages
-                            individually: &gt;50% color =
-                            ₱5/page · ≤50% color = ₱3/page · B&amp;W
-                            = ₱1/page
-                          </p>
-                        </div>
-                      )}
                       <RadioGroup
                         value={fileData.colorMode}
                         onValueChange={(value) =>
@@ -1288,78 +1275,20 @@ export default function NewPrintRequest() {
                           <div className="flex-1">
                             <p className="font-medium text-gray-900 text-sm">
                               Colored
-                              {fileData.colorAnalysis && (
-                                <span className="ml-2 text-xs font-normal bg-white border-2 border-blue-200 px-1.5 py-0.5 rounded text-[#000308]">
-                                  Analysis-based pricing
-                                </span>
-                              )}
                             </p>
-                            {fileData.colorAnalysis ? (
-                              <div className="text-xs text-gray-600 mt-0.5 space-y-0.5">
-                                {(() => {
-                                  const highColor =
-                                    fileData.colorAnalysis.colorPages.filter(
-                                      (p) =>
-                                        (fileData.colorAnalysis!
-                                          .colorPercentages[
-                                          p
-                                        ] ?? 0) > 50,
-                                    ).length;
-                                  const lowColor =
-                                    fileData.colorAnalysis.colorPages.filter(
-                                      (p) =>
-                                        (fileData.colorAnalysis!
-                                          .colorPercentages[
-                                          p
-                                        ] ?? 0) <= 50,
-                                    ).length;
-                                  const bwCount =
-                                    fileData.colorAnalysis
-                                      .bwPages.length;
-                                  return (
-                                    <>
-                                      {highColor > 0 && (
-                                        <span className="block">
-                                          ₱5/page × {highColor}{" "}
-                                          page
-                                          {highColor !== 1
-                                            ? "s"
-                                            : ""}{" "}
-                                          (&gt;50% color)
-                                        </span>
-                                      )}
-                                      {lowColor > 0 && (
-                                        <span className="block">
-                                          ₱3/page × {lowColor}{" "}
-                                          page
-                                          {lowColor !== 1
-                                            ? "s"
-                                            : ""}{" "}
-                                          (≤50% color)
-                                        </span>
-                                      )}
-                                      {bwCount > 0 && (
-                                        <span className="block">
-                                          ₱1/page × {bwCount}{" "}
-                                          B&amp;W page
-                                          {bwCount !== 1
-                                            ? "s"
-                                            : ""}
-                                        </span>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-gray-600">
-                                ₱5.00 per page (analysis
-                                pending)
-                              </p>
-                            )}
+                            <p className="text-xs text-gray-600 mt-0.5">Analysis-based pricing</p>
                           </div>
                         </label>
                       </RadioGroup>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowColorPricing(true)}
+                        className="w-full border-2 border-[#2F6FD6] text-[#2F6FD6] font-semibold hover:bg-[#F2F7FF]"
+                      >
+                        <Info className="mr-2 h-4 w-4" />
+                        See Colored Pricing Breakdown
+                      </Button>
                     </div>
 
                     <div className="space-y-2">
@@ -2031,7 +1960,7 @@ export default function NewPrintRequest() {
                 </div>
 
                 {/* Payment Method Selection */}
-                <Card className="p-4 sm:p-6 bg-white border-2 border-[#2F6FD6]">
+                <Card className="p-4 sm:p-6 bg-white border-2 border-gray-200">
                   <button
                     type="button"
                     onClick={() => setShowPaymentOptions((isOpen) => !isOpen)}
@@ -2060,29 +1989,16 @@ export default function NewPrintRequest() {
                       {/* GCash Option */}
                       <div
                         className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
-                          !availability.admin.isTimedIn &&
-                          !availability.staff.isTimedIn
-                            ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
-                            : paymentMethod === "gcash"
-                              ? "border-[#2F6FD6] bg-blue-50 shadow-md ring-2 ring-[#2F6FD6]/20 scale-[1.01] cursor-pointer"
-                              : "border-gray-200 hover:border-gray-300 cursor-pointer"
+                          paymentMethod === "gcash"
+                            ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
+                            : "border-gray-200 hover:border-gray-400 cursor-pointer"
                         }`}
-                        onClick={() => {
-                          if (
-                            availability.admin.isTimedIn ||
-                            availability.staff.isTimedIn
-                          ) {
-                            setPaymentMethod("gcash");
-                          }
-                        }}
+                        onClick={() => setPaymentMethod("gcash")}
                       >
                         <RadioGroupItem
                           value="gcash"
                           id="gcash"
-                          disabled={
-                            !availability.admin.isTimedIn &&
-                            !availability.staff.isTimedIn
-                          }
+                          disabled={false}
                         />
                         <div className="flex items-center gap-3 flex-1">
                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -2096,10 +2012,7 @@ export default function NewPrintRequest() {
                               GCash
                             </Label>
                             <p className="text-xs text-gray-500">
-                              {!availability.admin.isTimedIn &&
-                              !availability.staff.isTimedIn
-                                ? "Currently unavailable"
-                                : "Pay via GCash mobile wallet"}
+                              Pay via GCash mobile wallet
                             </p>
                           </div>
                         </div>
@@ -2109,8 +2022,8 @@ export default function NewPrintRequest() {
                       <div
                         className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
                           paymentMethod === "cash"
-                            ? "border-[#2F6FD6] bg-blue-50 shadow-md ring-2 ring-[#2F6FD6]/20 scale-[1.01] cursor-pointer"
-                            : "border-gray-200 hover:border-gray-300 cursor-pointer"
+                            ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
+                            : "border-gray-200 hover:border-gray-400 cursor-pointer"
                         }`}
                         onClick={() => setPaymentMethod("cash")}
                       >
@@ -2153,8 +2066,14 @@ export default function NewPrintRequest() {
                 </Card>
 
                 {/* Down Payment Notice — shown when total >= ₱50 */}
-                {calculateTotal() >= DOWN_PAYMENT_THRESHOLD ? (
-                  <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                {(() => {
+                  const total = calculateTotal();
+                  const requiresDownPayment = total >= DOWN_PAYMENT_THRESHOLD;
+                  const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
+
+                  if (requiresDownPayment) {
+                    return (
+                    <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <CreditCard className="w-5 h-5 text-amber-600" />
@@ -2177,7 +2096,7 @@ export default function NewPrintRequest() {
                               Down Payment Due
                             </p>
                             <p className="text-2xl font-bold text-amber-700">
-                              {formatCurrency(calculateTotal() * 0.5)}
+                              {formatCurrency(downPaymentValue)}
                             </p>
                           </div>
                           <div className="p-3 bg-white rounded-lg border border-amber-200">
@@ -2185,7 +2104,7 @@ export default function NewPrintRequest() {
                               Balance on Pickup
                             </p>
                             <p className="text-2xl font-bold text-gray-700">
-                              {formatCurrency(calculateTotal() * 0.5)}
+                              {formatCurrency(downPaymentValue)}
                             </p>
                           </div>
                         </div>
@@ -2205,17 +2124,25 @@ export default function NewPrintRequest() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : calculateTotal() > 0 ? (
-                  <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                      <p className="text-sm text-blue-800">
-                        <strong>No down payment required.</strong> Your order total is below ₱{DOWN_PAYMENT_THRESHOLD}.00 — pay in full upon pickup or via GCash.
-                      </p>
                     </div>
-                  </div>
-                ) : null}
+                    );
+                  }
+
+                  if (total > 0) {
+                    return (
+                      <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <p className="text-sm text-blue-800">
+                            <strong>No down payment required.</strong> Your order total is below ₱{DOWN_PAYMENT_THRESHOLD}.00 — pay in full upon pickup or via GCash.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
 
                 <div className="p-4 sm:p-6 bg-[#2F6FD6] text-white rounded-lg">
                   <div className="flex items-center justify-between">
@@ -2332,6 +2259,23 @@ export default function NewPrintRequest() {
       )}
 
       {/* Success Modal */}
+      <Dialog open={showColorPricing} onOpenChange={setShowColorPricing}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Colored Pricing Breakdown</DialogTitle>
+            <DialogDescription>
+              Colored mode uses document analysis so each page is priced by its detected content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
+            <div className="flex justify-between gap-4"><span>Black and white page</span><strong>₱1.00</strong></div>
+            <div className="flex justify-between gap-4"><span>Colored page less than 50%</span><strong>₱3.00</strong></div>
+            <div className="flex justify-between gap-4"><span>Colored page more than 50%</span><strong>₱5.00</strong></div>
+          </div>
+          <p className="text-xs text-gray-500">Paper size, copies, duplex printing, and pages per sheet are applied to the final total.</p>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2352,41 +2296,47 @@ export default function NewPrintRequest() {
                 : "Print Request Received!"}
             </DialogTitle>
             <DialogDescription className="text-center space-y-4 pt-4">
-              {calculateTotal() >= DOWN_PAYMENT_THRESHOLD ? (
-                <>
-                  <p className="text-gray-700">
-                    Your order has been submitted and placed <strong>On Hold</strong>. A down payment must be made before printing can begin.
-                  </p>
-                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left space-y-2">
-                    <p className="text-sm font-bold text-amber-800">Down Payment Summary</p>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Order Total</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(calculateTotal())}</span>
+              {(() => {
+                const total = calculateTotal();
+                const requiresDownPayment = total >= DOWN_PAYMENT_THRESHOLD;
+                const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
+
+                return requiresDownPayment ? (
+                  <>
+                    <p className="text-gray-700">
+                      Your order has been submitted and placed <strong>On Hold</strong>. A down payment must be made before printing can begin.
+                    </p>
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left space-y-2">
+                      <p className="text-sm font-bold text-amber-800">Down Payment Summary</p>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Order Total</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(total)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t border-amber-200 pt-2">
+                        <span className="text-amber-800 font-bold">Down Payment (50%)</span>
+                        <span className="font-bold text-amber-700">{formatCurrency(downPaymentValue)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Balance on Pickup</span>
+                        <span className="font-semibold text-gray-700">{formatCurrency(downPaymentValue)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm border-t border-amber-200 pt-2">
-                      <span className="text-amber-800 font-bold">Down Payment (50%)</span>
-                      <span className="font-bold text-amber-700">{formatCurrency(calculateTotal() * 0.5)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Balance on Pickup</span>
-                      <span className="font-semibold text-gray-700">{formatCurrency(calculateTotal() * 0.5)}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    Pay <strong>{formatCurrency(calculateTotal() * 0.5)}</strong> via{" "}
-                    <strong>{paymentMethod === "gcash" ? "GCash" : "Cash at the shop"}</strong>, then inform staff to verify. Your order will be queued for printing once verified.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-gray-700">
-                    Your print request has been successfully received by our admin/staff team.
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    You can track your order status from the <strong>My Orders</strong> page or proceed to payment verification if required.
-                  </p>
-                </>
-              )}
+                    <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      Pay <strong>{formatCurrency(downPaymentValue)}</strong> via{" "}
+                      <strong>{paymentMethod === "gcash" ? "GCash" : "Cash at the shop"}</strong>, then inform staff to verify. Your order will be queued for printing once verified.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-700">
+                      Your print request has been successfully received by our admin/staff team.
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      You can track your order status from the <strong>My Orders</strong> page or proceed to payment verification if required.
+                    </p>
+                  </>
+                );
+              })()}
               <div className="bg-[#F2F7FF] p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-gray-600 mb-1">Order ID</p>
                 <p className="font-mono font-semibold text-[#10316B]">

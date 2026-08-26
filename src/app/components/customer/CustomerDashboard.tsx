@@ -191,8 +191,6 @@ export default function CustomerDashboard() {
             {
               key: "kpi-prg",
               label: "Active Orders",
-              // allActive = received + inQueue + printing + onHold
-              // total = allActive + allFinished, so Total = Active + Completed ✓
               val: stats.allActive,
               icon: Clock,
               click: () => navigate("/customer/orders"),
@@ -201,7 +199,6 @@ export default function CustomerDashboard() {
             {
               key: "kpi-com",
               label: "Completed",
-              // allFinished = completed + released
               val: stats.allFinished,
               icon: CheckCircle,
               click: () => navigate("/customer/orders"),
@@ -210,20 +207,21 @@ export default function CustomerDashboard() {
           ].map((kpi) => (
             <Card
               key={kpi.key}
-                onClick={kpi.click}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") kpi.click();
-                }}
-                className="group min-h-[5.25rem] cursor-pointer rounded-xl border border-blue-400/70 bg-[#1D73EC] p-2.5 shadow-md transition-all hover:-translate-y-0.5 hover:border-[#10316B] hover:bg-[#1557b8] hover:shadow-lg sm:min-h-0 sm:rounded-lg sm:p-4"
+              onClick={kpi.click}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") kpi.click();
+              }}
+              className="group min-h-[4.5rem] cursor-pointer rounded-xl border border-blue-400/70 bg-[#1D73EC] p-2 shadow-md transition-all hover:-translate-y-0.5 hover:border-[#10316B] hover:bg-[#1557b8] hover:shadow-lg sm:min-h-0 sm:rounded-lg sm:p-4"
             >
               <div className="flex items-center justify-between gap-1">
-                <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-blue-100 sm:text-sm sm:normal-case sm:tracking-normal">
-                  {kpi.label}
+                <p className="max-w-[70%] text-left text-[10px] font-semibold tracking-wide text-blue-100 sm:max-w-none sm:text-sm sm:normal-case sm:tracking-normal">
+                  <span className="block sm:inline">{kpi.label.split(" ").slice(0, 2).join(" ")}</span>
+                  {kpi.label.split(" ").length > 2 && <span className="block sm:inline"> {kpi.label.split(" ").slice(2).join(" ")}</span>}
                 </p>
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 sm:h-8 sm:w-8">
-                  <kpi.icon className="h-3.5 w-3.5 text-white transition-transform duration-300 group-hover:scale-110 sm:h-4 sm:w-4" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 shadow-sm transition-all duration-300 sm:h-8 sm:w-8 lg:h-14 lg:w-14 lg:group-hover:scale-110 lg:group-hover:shadow-[0_0_26px_rgba(255,255,255,0.8)]">
+                  <kpi.icon className="h-3.8 w-3.8 text-white sm:h-4 sm:w-4 lg:h-8 lg:w-8" />
                 </span>
               </div>
               <p className="mt-2 text-2xl font-bold leading-none text-white sm:mt-3 sm:text-3xl">
@@ -270,7 +268,7 @@ export default function CustomerDashboard() {
                   className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all group hover:bg-[#2F6FD6] sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4 lg:p-7"
                 >
                   <action.icon className="w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0 text-[#2F6FD6] group-hover:text-white" />
-                  <p className="text-center text-[10px] font-semibold leading-tight text-gray-900 group-hover:text-white sm:text-sm lg:text-lg sm:text-left">
+                  <p className="text-center text-xs font-semibold leading-tight text-gray-900 group-hover:text-white sm:text-sm lg:text-lg sm:text-left">
                     {action.label}
                   </p>
                 </button>
@@ -316,7 +314,8 @@ export default function CustomerDashboard() {
                         <td colSpan={5} className="py-16 text-center">
                           <Package className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
                           <p className="text-sm font-semibold text-gray-500">No recent orders</p>
-                          <p className="mt-1 text-xs text-gray-400">Your print requests will appear here after you place an order.</p>
+                          <p className="mt-1 text-xs text-gray-400">Your print requests will appear</p>
+                          <p className="text-xs text-gray-400">here once you have placed an order.</p>
                         </td>
                       </tr>
                     ) : recentOrders.map((order) => (

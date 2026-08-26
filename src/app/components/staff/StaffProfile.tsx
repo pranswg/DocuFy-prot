@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, Boxes, BriefcaseBusiness, AlertCircle } from 'lucide-react';
+import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, Boxes, BriefcaseBusiness, AlertCircle, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -34,11 +34,13 @@ const defaultProfileData = {
 
 export default function StaffProfile() {
   const navigate = useNavigate();
-  const { user, enableMFA, disableMFA, resetPassword } = useAuth();
+  const { user, enableMFA, disableMFA, resetPassword, updateProfile, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
   const [mfaEnabled, setMfaEnabled] = useState(user?.mfaEnabled || false);
+  const [profileImage, setProfileImage] = useState<string | null>(() => user?.profileImage || null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -86,6 +88,18 @@ export default function StaffProfile() {
     };
   });
 
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Please choose an image smaller than 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setProfileImage(typeof reader.result === 'string' ? reader.result : null);
+    reader.readAsDataURL(file);
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     const nameParts = (user?.name || '').split(' ');
@@ -125,6 +139,8 @@ export default function StaffProfile() {
 
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    localStorage.setItem('staff_profile_image', profileImage || '');
+    updateProfile({ profileImage });
     setIsEditing(false);
     setShowSavedMessage(true);
     setTimeout(() => setShowSavedMessage(false), 3000);
@@ -176,14 +192,19 @@ export default function StaffProfile() {
 
   const handleToggleMFA = () => {
     if (mfaEnabled) {
-      disableMFA();
-      setMfaEnabled(false);
-      toast.success('MFA disabled');
+      setShowDisableMFADialog(true);
     } else {
       enableMFA();
       setMfaEnabled(true);
       toast.success('MFA enabled');
     }
+  };
+
+  const confirmDisableMFA = () => {
+    disableMFA();
+    setMfaEnabled(false);
+    setShowDisableMFADialog(false);
+    toast.success('MFA disabled');
   };
 
   return (
@@ -216,8 +237,17 @@ export default function StaffProfile() {
           <div className="flex flex-col md:flex-row gap-6 mb-6">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-4">
-              <div className="w-32 h-32 bg-[#1D73EC] rounded-full flex items-center justify-center">
-                <User className="w-16 h-16 text-white" />
+              <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-[#1D73EC] text-3xl font-semibold text-white">
+                {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full rounded-full object-cover" /> : (user?.name || 'User').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase()}
+                {isEditing && (
+                  <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1D73EC] text-white shadow-lg ring-2 ring-white">
+                    <Camera className="h-4 w-4" />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
+                  </label>
+                )}
+                {isEditing && profileImage && (
+                  <button type="button" onClick={() => setProfileImage(null)} className="absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-red-600 hover:underline">Remove photo</button>
+                )}
               </div>
               <Badge className="bg-green-100 text-blue-700 font-medium">Staff Member</Badge>
             </div>
@@ -340,9 +370,11 @@ export default function StaffProfile() {
             </Button>
 
             <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">Multi-Factor Authentication (MFA)</p>
-                <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-gray-900">Multi-Factor Authentication (MFA)</p>
+                </div>
+                <p className="hidden text-sm text-gray-500 sm:block">Add an extra layer of security to your account</p>
               </div>
               <button
                 onClick={handleToggleMFA}
@@ -359,7 +391,21 @@ export default function StaffProfile() {
             </div>
           </div>
         </Card>
+        <Button variant="outline" onClick={logout} className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700">Sign Out</Button>
       </div>
+
+      <Dialog open={showDisableMFADialog} onOpenChange={setShowDisableMFADialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable MFA?</DialogTitle>
+            <DialogDescription>Are you sure you want to disable multi-factor authentication? This will reduce the security of your account.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
+            <Button onClick={confirmDisableMFA} className="bg-[#1D73EC] text-white hover:bg-[#10316B]">Disable MFA</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Change Password Dialog */}
       <Dialog open={showChangePasswordDialog} onOpenChange={setShowChangePasswordDialog}>

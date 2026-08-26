@@ -29,6 +29,7 @@ export interface Order {
   customerEmail: string;
   status: 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled';
   holdReason?: string;
+  cancellationReason?: string;
   total: string;
   date: string;
   paperType?: string;

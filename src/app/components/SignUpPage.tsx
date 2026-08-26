@@ -34,6 +34,22 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Please choose an image smaller than 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      setProfileImage(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +71,7 @@ export default function SignUpPage() {
       );
       return;
     }
-    signup(formData);
+    signup({ ...formData, profileImage: profileImage ?? undefined });
     toast.success("Account created successfully!");
     navigate("/customer/dashboard");
   };
@@ -114,7 +130,7 @@ export default function SignUpPage() {
                 <Printer size={20} strokeWidth={2.5} />
               </div>
               <span className="font-semibold text-lg text-[#1c1f26] tracking-tight">
-                DocuFy.
+                DocuFy PSMS
               </span>
             </div>
             <button
@@ -132,6 +148,32 @@ export default function SignUpPage() {
             <p className="text-sm text-gray-500 mt-1">
               Join our printing community today.
             </p>
+          </div>
+
+          <div className="mb-4 flex items-center justify-center lg:justify-start gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-[#1D73EC] bg-[#EAF2FF] text-xl font-bold text-[#1D73EC] flex items-center justify-center">
+              {profileImage ? (
+                <img src={profileImage} alt="Profile preview" className="h-full w-full object-cover" />
+              ) : (
+                (formData.firstName || formData.lastName) ? `${(formData.firstName || "")[0] || ""}${(formData.lastName || "")[0] || ""}`.toUpperCase() || "U" : "U"
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <label className="inline-flex cursor-pointer items-center rounded-lg bg-[#1D73EC] px-3 py-2 text-xs font-medium text-white">
+                  Upload photo
+                  <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setProfileImage(null)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600"
+                >
+                  Skip
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500">Optional. Default initials are used if skipped.</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -396,15 +438,6 @@ export default function SignUpPage() {
               Log in
             </button>
           </div>
-
-          <div className="mt-4 p-3 bg-white border-2 border-blue-200/50 rounded-lg flex items-start gap-2">
-            <Info className="text-[#1D73EC] shrink-0 w-4 h-4 mt-0.5" />
-            <p className="text-[10px] text-gray-500 leading-relaxed">
-              <strong className="text-[#10316B]">Note:</strong>{" "}
-              Staff accounts are managed by administrators and
-              cannot sign up here.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -414,7 +447,7 @@ export default function SignUpPage() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-[#10316B]">Terms and Conditions</DialogTitle>
             <DialogDescription className="text-gray-600">
-              Last updated: April 27, 2026
+              Last updated: August 26, 2026
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-sm text-gray-700 leading-relaxed">

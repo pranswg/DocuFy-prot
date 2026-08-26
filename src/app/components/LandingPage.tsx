@@ -86,24 +86,24 @@ export default function LandingPage() {
 
       {/* Header */}
       <header className="border-b border-gray-200 bg-white backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <img
               src={logoImage}
               alt="DocuFy Logo"
-              className="w-12 h-12 rounded-full"
+              className="h-10 w-10 rounded-full sm:h-12 sm:w-12"
             />
             <div>
-              <h1 className="text-xl font-bold text-[#1c1f26]">
-                DocuFy
+              <h1 className="truncate text-base font-bold text-[#1c1f26] sm:text-xl">
+                DocuFy PSMS
               </h1>
-              <p className="text-xs text-gray-500">
+              <p className="hidden text-xs text-gray-500 sm:block">
                 Your Printing Companion
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-8">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-8">
             <nav className="hidden md:flex items-center gap-6">
               <button
                 onClick={() => scrollToSection("home")}
@@ -134,7 +134,7 @@ export default function LandingPage() {
             <Button
               variant="outline"
               onClick={() => navigate("/login")}
-              className="border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
+              className="h-9 border-[#1D73EC] px-3 text-xs text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white sm:h-10 sm:px-4 sm:text-sm"
             >
               Log In
             </Button>
@@ -145,23 +145,23 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section
         id="home"
-        className="bg-white w-full py-12 sm:py-20 relative z-10"
+        className="bg-white w-full py-10 sm:py-20 relative z-10"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12 items-center">
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#1D73EC]/20 text-[#1D73EC] rounded-full text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-[#1D73EC] rounded-full animate-pulse"></span>
                 {content.heroSubtitle}
               </div>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1c1f26] mb-6 leading-tight">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1c1f26] mb-5 leading-tight">
                 {content.heroTitle.split(",")[0]},
                 <br />
                 <span className="text-[#1D73EC]">
                   {content.heroTitle.split(",")[1]?.trim()}
                 </span>
               </h2>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-xl">
+              <p className="text-base sm:text-xl text-gray-600 mb-7 max-w-xl">
                 {content.heroDescription}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -193,13 +193,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="hidden lg:flex items-center justify-center">
+            <div className="flex items-center justify-center lg:flex">
               <div className="relative">
-                <div className="w-96 h-96 bg-[#1D73EC] rounded-full flex items-center justify-center shadow-2xl">
+                <div className="flex h-48 w-48 items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:h-72 sm:w-72 lg:h-96 lg:w-96">
                   <img
                     src={logoImage}
                     alt="DocuFy"
-                    className="w-64 h-64 rounded-full"
+                    className="h-32 w-32 rounded-full sm:h-48 sm:w-48 lg:h-64 lg:w-64"
                   />
                 </div>
               </div>

@@ -1302,6 +1302,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </div>
                 )}
 
+                {selectedOrder.cancellationReason && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" /> Cancellation Reason
+                    </p>
+                    <p className="text-sm text-red-900 leading-relaxed">
+                      {selectedOrder.cancellationReason}
+                    </p>
+                  </div>
+                )}
+
                 {/* Special Instructions */}
                 {selectedOrder.notes && (
                   <div className="bg-white border-2 border-blue-200 rounded-xl p-4">
