@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "./ui/dialog";
-import logoImage from "figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
+import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 
 export default function LandingPage() {
   const navigate = useNavigate();

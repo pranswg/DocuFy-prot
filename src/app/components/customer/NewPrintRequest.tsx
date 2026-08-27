@@ -1013,7 +1013,7 @@ export default function NewPrintRequest() {
                           </div>
                         )}
                         {fileData.colorAnalysis.colorPages.length > 0 && showDetectedPages[fileData.id] && (
-                          <div className="mt-3 pt-3 border-t border-green-200">
+                          <div className="mt-3 pt-3 border-t border-blue-200">
                             <p className="text-xs text-blue-700 font-medium mb-2">
                               Color Intensity by Page:
                             </p>
@@ -2285,7 +2285,7 @@ export default function NewPrintRequest() {
                   <CreditCard className="w-10 h-10 text-amber-600" />
                 </div>
               ) : (
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
                   <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
               )}

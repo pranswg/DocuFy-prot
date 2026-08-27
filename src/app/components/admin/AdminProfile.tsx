@@ -229,7 +229,7 @@ export default function AdminProfile() {
                     <Save className="w-4 h-4 mr-2" />
                     {isEditing ? 'Save Changes' : 'Edit Profile'}
                   </Button>
-                  <Badge className="bg-green-100 text-blue-700 font-medium">{formData.workStatus}</Badge>
+                  <Badge className="bg-blue-100 text-blue-700 font-medium">{formData.workStatus}</Badge>
                 </div>
               </div>
 

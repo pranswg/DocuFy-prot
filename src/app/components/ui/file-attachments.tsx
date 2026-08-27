@@ -93,14 +93,14 @@ function FileIcon({
     case "pdf":
       return <FileText className={`${cls} text-red-500`} />;
     case "image":
-      return <FileImage className={`${cls} text-purple-500`} />;
+      return <FileImage className={`${cls} text-blue-500`} />;
     case "spreadsheet":
       return (
-        <FileSpreadsheet className={`${cls} text-green-600`} />
+        <FileSpreadsheet className={`${cls} text-blue-600`} />
       );
     case "presentation":
       return (
-        <Presentation className={`${cls} text-orange-500`} />
+        <Presentation className={`${cls} text-blue-500`} />
       );
     case "document":
       return <FileText className={`${cls} text-[#1D73EC]`} />;
@@ -116,11 +116,11 @@ function FileBadgeColor(file: AttachedFile): string {
     case "pdf":
       return "bg-red-50 text-red-700 border-red-200";
     case "image":
-      return "bg-purple-50 text-purple-700 border-purple-200";
+      return "bg-blue-50 text-blue-700 border-blue-200";
     case "spreadsheet":
-      return "bg-green-50 text-green-700 border-green-200";
+      return "bg-blue-50 text-blue-700 border-blue-200";
     case "presentation":
-      return "bg-orange-50 text-orange-700 border-orange-200";
+      return "bg-blue-50 text-blue-700 border-blue-200";
     case "document":
       return "bg-blue-50 text-blue-700 border-blue-200";
     default:

@@ -88,8 +88,8 @@ const getStatusBadgeClass = (status: OrderType["status"]) => {
     case "completed":  return "bg-white border-2 border-blue-200 text-blue-700";
     case "printing":   return "bg-white border-2 border-blue-200 text-blue-700";
     case "inQueue":    return "bg-white border-2 border-blue-200 text-blue-800";
-    case "received":   return "bg-purple-50 text-purple-700 border-purple-200";
-    case "onHold":     return "bg-orange-50 text-orange-700 border-orange-200";
+    case "received":   return "bg-blue-50 text-blue-700 border-blue-200";
+    case "onHold":     return "bg-blue-50 text-blue-700 border-blue-200";
     case "released":   return "bg-gray-50 text-gray-700 border-gray-200";
     case "canceled":   return "bg-white border-2 border-blue-200 text-red-500";
     default:           return "bg-gray-50 text-gray-700 border-gray-200";
@@ -106,10 +106,10 @@ const getStatusLabel = (status: OrderType["status"]) => {
 // Status icon — mirrors summary cards in StaffQueueBoard
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case "received": return <FileText className="w-3.5 h-3.5 text-purple-600" />;
+    case "received": return <FileText className="w-3.5 h-3.5 text-blue-600" />;
     case "inQueue":  return <Clock    className="w-3.5 h-3.5 text-blue-600"   />;
     case "printing": return <Printer  className="w-3.5 h-3.5 text-blue-600"   />;
-    case "onHold":   return <AlertCircle className="w-3.5 h-3.5 text-orange-600" />;
+    case "onHold":   return <AlertCircle className="w-3.5 h-3.5 text-blue-600" />;
     default:         return null;
   }
 };
@@ -274,10 +274,10 @@ export default function StaffDashboard() {
               {/* Mini status pills — counts derived from ordersStore (same as Orders page) */}
               <div className="hidden md:flex items-center gap-2 mr-4">
                 {[
-                  { key: "received", label: "Received", bg: "bg-purple-100", text: "text-purple-700", count: stats.received },
+                  { key: "received", label: "Received", bg: "bg-blue-100", text: "text-blue-700", count: stats.received },
                   { key: "inQueue",  label: "In Queue", bg: "bg-amber-100",  text: "text-blue-800",   count: stats.inQueue  },
                   { key: "printing", label: "Printing", bg: "bg-blue-100",   text: "text-blue-700",   count: stats.printing },
-                  { key: "onHold",   label: "On Hold",  bg: "bg-orange-100", text: "text-orange-700", count: stats.onHold   },
+                  { key: "onHold",   label: "On Hold",  bg: "bg-blue-100", text: "text-blue-700", count: stats.onHold   },
                 ].map((pill) => (
                   <span
                     key={pill.key}
@@ -336,7 +336,7 @@ export default function StaffDashboard() {
                               <p className="font-semibold text-sm text-[#1c1f26]">{order.customer}</p>
                               {order.notes && (
                                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                  <AlertCircle className="w-3 h-3 text-orange-500" />
+                                  <AlertCircle className="w-3 h-3 text-blue-500" />
                                   Has notes
                                 </p>
                               )}
@@ -373,7 +373,7 @@ export default function StaffDashboard() {
                             className={`text-xs font-medium ${
                               order.orderSource === "online"
                                 ? "bg-white border-2 border-blue-200 text-blue-700"
-                                : "bg-purple-50 text-purple-700 border-purple-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
                             }`}
                           >
                             {order.orderSource === "online" ? "Online" : "Walk-in"}

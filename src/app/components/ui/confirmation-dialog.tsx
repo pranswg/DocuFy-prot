@@ -97,7 +97,7 @@ export function ConfirmationDialog({
             )}
           </div>
 
-          <div className="bg-white border-2 border-blue-200 border border-green-200 rounded-lg p-3">
+          <div className="bg-white border-2 border-blue-200 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-amber-800">
               <strong>Warning:</strong> This action requires confirmation for maximum protection.
             </p>

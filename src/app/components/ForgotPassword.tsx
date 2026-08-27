@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useAuth } from '../contexts/AuthContext';
 import { PasswordStrengthIndicator, validatePassword } from './ui/password-strength-indicator';
-import logoImage from 'figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
+import logoImage from '../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();

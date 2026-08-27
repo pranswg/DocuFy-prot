@@ -2,3 +2,10 @@
 @source '../**/*.{js,ts,jsx,tsx}';
 
 @import 'tw-animate-css';
+
+@layer base {
+  button:not(:disabled):not([data-cursor-default]),
+  [role='button']:not(:disabled):not([data-cursor-default]) {
+    cursor: pointer;
+  }
+}

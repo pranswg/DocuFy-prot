@@ -339,7 +339,7 @@ export default function ReportsView({
                       <td className="px-6 py-4">
                         <Badge className={
                           item.status === 'In Stock' ? 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-0' :
-                          item.status === 'Low Stock' ? 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-0' :
+                          item.status === 'Low Stock' ? 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-0' :
                           'bg-red-100 text-red-700 hover:bg-blue-100 border-0'
                         }>
                           {item.status}

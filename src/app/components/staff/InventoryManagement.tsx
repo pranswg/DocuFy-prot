@@ -638,7 +638,7 @@ export default function Inventory() {
 
               {editingItem && (
                 <>
-                  <div className="p-3 bg-white border-2 border-blue-200 border border-green-200 rounded-lg">
+                  <div className="p-3 bg-white border-2 border-blue-200 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-900">
                       <strong>Editing:</strong> {editingItem.itemName} ({editingItem.category})
                     </p>

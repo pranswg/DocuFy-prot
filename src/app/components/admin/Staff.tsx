@@ -451,7 +451,7 @@ export default function Staff() {
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case "high":
-        return "bg-green-700 text-white";
+        return "bg-blue-700 text-white";
       case "medium":
         return "bg-white border-2 border-blue-2000 text-white";
       case "low":
@@ -466,7 +466,7 @@ export default function Staff() {
       case "completed":
         return "bg-green-600 text-white";
       case "in progress":
-        return "bg-green-100 text-blue-700";
+        return "bg-blue-100 text-blue-700";
       case "pending":
         return "bg-gray-100 text-gray-700";
       default:

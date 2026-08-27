@@ -249,7 +249,7 @@ export default function StaffProfile() {
                   <button type="button" onClick={() => setProfileImage(null)} className="absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-red-600 hover:underline">Remove photo</button>
                 )}
               </div>
-              <Badge className="bg-green-100 text-blue-700 font-medium">Staff Member</Badge>
+              <Badge className="bg-blue-100 text-blue-700 font-medium">Staff Member</Badge>
             </div>
 
             {/* Info with Employment ID and Work Status in Header */}
@@ -271,7 +271,7 @@ export default function StaffProfile() {
                     <Save className="w-4 h-4 mr-2" />
                     {isEditing ? 'Save Changes' : 'Edit Profile'}
                   </Button>
-                  <Badge className="bg-green-100 text-blue-700 font-medium">{formData.workStatus}</Badge>
+                  <Badge className="bg-blue-100 text-blue-700 font-medium">{formData.workStatus}</Badge>
                 </div>
               </div>
 

@@ -76,7 +76,7 @@ export default function CustomerOrders() {
       case "Printing":    return "bg-blue-100 text-blue-700";
       case "In Queue":    return "bg-yellow-100 text-yellow-700";
       case "On Hold":     return "bg-amber-100 text-amber-800";
-      case "Received":    return "bg-purple-100 text-purple-700";
+      case "Received":    return "bg-blue-100 text-blue-700";
       case "Canceled":    return "bg-red-100 text-red-700";
       default:            return "bg-gray-100 text-gray-700";
     }

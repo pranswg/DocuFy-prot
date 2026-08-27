@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Upload,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -36,6 +37,7 @@ import {
 } from "../ui/dialog";
 import { applicationsStore } from "../../utils/applicationsStore";
 import { jobsStore } from "../../utils/jobsStore";
+import { useIsMobile } from "../ui/use-mobile";
 
 const menuItems = [
   {
@@ -64,9 +66,11 @@ export default function JobApplyForm() {
   const navigate = useNavigate();
   const { jobId } = useParams();
   const jobTitle = jobsStore.getJobById(jobId || "")?.title || "Open Position";
+  const isMobile = useIsMobile();
 
   const [showSuccessDialog, setShowSuccessDialog] =
     useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -186,6 +190,97 @@ export default function JobApplyForm() {
         <p className="text-xs text-red-500">{errors[id]}</p>
       )}
     </div>
+  );
+
+  const termsBody = (
+    <>
+      <p className="mb-3 font-semibold text-gray-900">
+        Applicant Consent and Liability Waiver
+      </p>
+
+      <p className="mb-2">
+        By submitting this job application to{" "}
+        <strong>
+          DocuFy Printing Shop Management System
+        </strong>
+        , I acknowledge and agree to the following
+        terms:
+      </p>
+
+      <ul className="list-disc list-inside space-y-2 mb-3">
+        <li>
+          I certify that all information provided in
+          this application is true, accurate, and
+          complete to the best of my knowledge.
+        </li>
+        <li>
+          I understand that any false or misleading
+          information may result in immediate
+          disqualification or termination of
+          employment.
+        </li>
+        <li>
+          I authorize DocuFy to verify the
+          information provided and to contact
+          references listed in my application.
+        </li>
+        <li>
+          I understand that submitting this
+          application does not guarantee employment
+          or an interview.
+        </li>
+        <li>
+          I acknowledge that DocuFy reserves the
+          right to modify, postpone, or cancel any
+          job opening at any time without prior
+          notice.
+        </li>
+      </ul>
+
+      <p className="mb-2 font-semibold text-gray-900">
+        Liability Waiver:
+      </p>
+
+      <p className="mb-2">
+        I acknowledge that{" "}
+        <strong>
+          DocuFy Printing Shop Management System
+        </strong>{" "}
+        and its representatives shall not be held
+        liable for:
+      </p>
+
+      <ul className="list-disc list-inside space-y-2">
+        <li>
+          Any delays, errors, or technical issues in
+          the application submission or review
+          process.
+        </li>
+        <li>
+          Any decisions made regarding my
+          application, including rejection or
+          non-response.
+        </li>
+        <li>
+          Any personal, financial, or professional
+          consequences resulting from the
+          application process or employment
+          relationship.
+        </li>
+        <li>
+          Loss or unauthorized access to any
+          documents or information submitted as part
+          of this application.
+        </li>
+      </ul>
+
+      <p className="mt-3 text-xs text-gray-500">
+        This agreement is governed by applicable
+        labor laws and regulations. By proceeding,
+        you confirm that you have read, understood,
+        and agree to these terms.
+      </p>
+    </>
   );
 
   return (
@@ -350,7 +445,7 @@ export default function JobApplyForm() {
                     type="text"
                     value={formData.position}
                     readOnly
-                    className="bg-[#F2F7FF] border-green-200 text-[#10316B] font-semibold cursor-default pointer-events-none"
+                    className="bg-[#F2F7FF] border-blue-200 text-[#10316B] font-semibold cursor-default pointer-events-none"
                   />
                 </div>
 
@@ -547,94 +642,22 @@ export default function JobApplyForm() {
                   Conditions
                 </h3>
 
-                <div className="bg-white border border-blue-200 rounded p-4 mb-4 max-h-48 overflow-y-auto text-sm text-gray-700">
-                  <p className="mb-3 font-semibold text-gray-900">
-                    Applicant Consent and Liability Waiver
-                  </p>
-
-                  <p className="mb-2">
-                    By submitting this job application to{" "}
-                    <strong>
-                      DocuFy Printing Shop Management System
-                    </strong>
-                    , I acknowledge and agree to the following
-                    terms:
-                  </p>
-
-                  <ul className="list-disc list-inside space-y-2 mb-3">
-                    <li>
-                      I certify that all information provided in
-                      this application is true, accurate, and
-                      complete to the best of my knowledge.
-                    </li>
-                    <li>
-                      I understand that any false or misleading
-                      information may result in immediate
-                      disqualification or termination of
-                      employment.
-                    </li>
-                    <li>
-                      I authorize DocuFy to verify the
-                      information provided and to contact
-                      references listed in my application.
-                    </li>
-                    <li>
-                      I understand that submitting this
-                      application does not guarantee employment
-                      or an interview.
-                    </li>
-                    <li>
-                      I acknowledge that DocuFy reserves the
-                      right to modify, postpone, or cancel any
-                      job opening at any time without prior
-                      notice.
-                    </li>
-                  </ul>
-
-                  <p className="mb-2 font-semibold text-gray-900">
-                    Liability Waiver:
-                  </p>
-
-                  <p className="mb-2">
-                    I acknowledge that{" "}
-                    <strong>
-                      DocuFy Printing Shop Management System
-                    </strong>{" "}
-                    and its representatives shall not be held
-                    liable for:
-                  </p>
-
-                  <ul className="list-disc list-inside space-y-2">
-                    <li>
-                      Any delays, errors, or technical issues in
-                      the application submission or review
-                      process.
-                    </li>
-                    <li>
-                      Any decisions made regarding my
-                      application, including rejection or
-                      non-response.
-                    </li>
-                    <li>
-                      Any personal, financial, or professional
-                      consequences resulting from the
-                      application process or employment
-                      relationship.
-                    </li>
-                    <li>
-                      Loss or unauthorized access to any
-                      documents or information submitted as part
-                      of this application.
-                    </li>
-                  </ul>
-
-                  <p className="mt-3 text-xs text-gray-500">
-                    This agreement is governed by applicable
-                    labor laws and regulations. By proceeding,
-                    you confirm that you have read, understood,
-                    and agree to these terms.
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className={`w-full mb-4 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold ${
+                    isMobile
+                      ? "bg-[#1D73EC] text-white shadow-sm"
+                      : "bg-white border-2 border-[#1D73EC] text-[#1D73EC] transition-all hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md hover:border-[#2F6FD6]"
+                  }`}
+                >
+                  <Eye
+                    className={`w-5 h-5 ${
+                      isMobile ? "" : "transition-colors group-hover:text-white"
+                    }`}
+                  />
+                  View Terms and Conditions
+                </button>
 
                 <div className="flex items-start gap-3">
                   <input
@@ -714,7 +737,7 @@ export default function JobApplyForm() {
         </Card>
 
         {/* Info */}
-        <Card className="p-5 bg-[#F2F7FF] border border-green-200">
+        <Card className="p-5 bg-[#F2F7FF] border border-blue-200">
           <p className="text-sm text-gray-700">
             <strong className="text-[#10316B]">Note:</strong>{" "}
             After submitting your application, our team will
@@ -723,6 +746,30 @@ export default function JobApplyForm() {
           </p>
         </Card>
       </div>
+
+      {/* Terms and Conditions Preview Dialog */}
+      <Dialog open={showTerms} onOpenChange={setShowTerms}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B] flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" /> Terms and
+              Conditions
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[65vh] overflow-y-auto text-sm text-gray-700 pr-1">
+            {termsBody}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={() => setShowTerms(false)}
+              className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

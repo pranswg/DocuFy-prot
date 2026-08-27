@@ -43,11 +43,28 @@ const menuItems = [
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: 'bg-gray-100 text-gray-700 border-gray-200',
-  'Under Review': 'bg-white border-2 border-blue-200 text-blue-700 border-green-200',
-  'For Interview': 'bg-purple-50 text-purple-700 border-purple-200',
-  Approved: 'bg-white border-2 border-blue-200 text-blue-700 border-green-200',
-  Rejected: 'bg-white border-2 border-blue-200 text-red-500 border-green-200',
+  'Under Review': 'bg-white border-2 border-blue-200 text-blue-700 border-blue-200',
+  'For Interview': 'bg-blue-50 text-blue-700 border-blue-200',
+  Approved: 'bg-white border-2 border-blue-200 text-blue-700 border-blue-200',
+  Rejected: 'bg-white border-2 border-blue-200 text-red-500 border-blue-200',
 };
+
+/** Open a Blob/File (in-memory PDF/image) in a new tab using the browser's native viewer. */
+function openBlobInNewTab(blob: Blob | undefined | null) {
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!win) {
+    // Popup may be blocked: fall back to an anchor click (still native viewer).
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener,noreferrer';
+    a.click();
+  }
+  // Revoke after the tab has had time to fetch the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export default function JobBoard() {
   const navigate = useNavigate();
@@ -185,7 +202,7 @@ export default function JobBoard() {
                           <div className="min-w-0">
                             <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                              <Badge className="border border-green-200 border-2 bg-white text-xs text-blue-700">
+                              <Badge className="border border-blue-200 border-2 bg-white text-xs text-blue-700">
                                 {job.type}
                               </Badge>
                               <span className="text-xs text-gray-400">·</span>
@@ -313,12 +330,12 @@ export default function JobBoard() {
 
                       {/* Interview Banner */}
                       {app.status === 'For Interview' && app.interviewDate && (
-                        <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                           <div className="flex items-center gap-2 mb-2">
-                            <Calendar className="w-4 h-4 text-purple-600" />
-                            <span className="font-semibold text-purple-900 text-sm">Interview Scheduled</span>
+                            <Calendar className="w-4 h-4 text-blue-600" />
+                            <span className="font-semibold text-blue-900 text-sm">Interview Scheduled</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm text-purple-800">
+                          <div className="grid grid-cols-2 gap-3 text-sm text-blue-800">
                             <div>
                               <span className="font-medium">Date: </span>
                               {new Date(app.interviewDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -336,7 +353,7 @@ export default function JobBoard() {
                       )}
 
                       {app.status === 'Under Review' && (
-                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-green-200 rounded-xl flex items-start gap-3">
+                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-blue-200 rounded-xl flex items-start gap-3">
                           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                           <p className="text-sm text-blue-900">
                             Your application is currently being reviewed by our team. We'll notify you of any updates soon.
@@ -345,7 +362,7 @@ export default function JobBoard() {
                       )}
 
                       {app.status === 'Approved' && (
-                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-green-200 rounded-xl flex items-start gap-3">
+                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-blue-200 rounded-xl flex items-start gap-3">
                           <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                           <p className="text-sm text-blue-900 font-medium">
                             Congratulations! Your application has been approved. We'll contact you soon with next steps.
@@ -354,7 +371,7 @@ export default function JobBoard() {
                       )}
 
                       {app.status === 'Rejected' && (
-                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-green-200 rounded-xl">
+                        <div className="mt-4 p-4 bg-white border-2 border-blue-200 border border-blue-200 rounded-xl">
                           <p className="text-sm text-red-900">
                             We appreciate your interest. Unfortunately, we've decided to move forward with other candidates at this time.
                           </p>
@@ -369,7 +386,7 @@ export default function JobBoard() {
         )}
 
         {/* Info Card */}
-        <Card className="border border-green-200 bg-[#F2F7FF] p-4 sm:p-6">
+        <Card className="border border-blue-200 bg-[#F2F7FF] p-4 sm:p-6">
           <div className="flex items-start gap-3">
             <Briefcase className="mt-0.5 h-5 w-5 shrink-0 text-[#1D73EC]" />
             <div>
@@ -475,14 +492,27 @@ export default function JobBoard() {
                   </div>
                   <div className="p-4">
                     {selectedApp.portfolioType === 'file' ? (
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {selectedApp.portfolioFileName || 'Uploaded File'}
-                          </p>
-                          <p className="text-xs text-gray-500">PDF/Image Upload</p>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedApp.portfolioFileName || 'Uploaded File'}
+                            </p>
+                            <p className="text-xs text-gray-500">PDF/Image Upload</p>
+                          </div>
                         </div>
+                        {selectedApp.portfolioFile && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => openBlobInNewTab(selectedApp.portfolioFile)}
+                          >
+                            <Eye className="mr-1.5 h-4 w-4" />
+                            View
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <a
@@ -505,25 +535,25 @@ export default function JobBoard() {
 
               {/* Interview Details if applicable */}
               {selectedApp.status === 'For Interview' && selectedApp.interviewDate && (
-                <div className="rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-purple-200">
-                    <p className="text-xs font-semibold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-blue-200">
+                    <p className="text-xs font-semibold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" /> Interview Schedule
                     </p>
                   </div>
-                  <div className="p-4 grid grid-cols-2 gap-4 text-sm text-purple-900">
+                  <div className="p-4 grid grid-cols-2 gap-4 text-sm text-blue-900">
                     <div>
-                      <p className="text-xs text-purple-600 mb-0.5">Date</p>
+                      <p className="text-xs text-blue-600 mb-0.5">Date</p>
                       <p className="font-semibold">
                         {new Date(selectedApp.interviewDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-purple-600 mb-0.5">Time</p>
+                      <p className="text-xs text-blue-600 mb-0.5">Time</p>
                       <p className="font-semibold">{selectedApp.interviewTime}</p>
                     </div>
                     <div className="col-span-2">
-                      <p className="text-xs text-purple-600 mb-0.5">Location</p>
+                      <p className="text-xs text-blue-600 mb-0.5">Location</p>
                       <p className="font-semibold">{selectedApp.interviewLocation}</p>
                     </div>
                   </div>

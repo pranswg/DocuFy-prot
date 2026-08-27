@@ -23,7 +23,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import logoImage from "figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
+import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 import { inventoryStore } from "../utils/inventoryStore";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
@@ -229,7 +229,7 @@ export default function Layout({
       case 'unusual_access':
         return { icon: Clock, color: 'bg-yellow-100 text-yellow-600' };
       case 'repeated_failures':
-        return { icon: XCircle, color: 'bg-orange-100 text-orange-600' };
+        return { icon: XCircle, color: 'bg-blue-100 text-blue-600' };
       default:
         return { icon: AlertTriangle, color: 'bg-gray-100 text-gray-600' };
     }
@@ -240,7 +240,7 @@ export default function Layout({
       case 'critical':
         return 'bg-red-100 text-red-700 border-red-200';
       case 'high':
-        return 'bg-orange-100 text-orange-700 border-orange-200';
+        return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'medium':
         return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'low':
@@ -253,7 +253,7 @@ export default function Layout({
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'order':
-        return { icon: PackageIcon, color: 'bg-green-100 text-green-600' };
+        return { icon: PackageIcon, color: 'bg-blue-100 text-blue-600' };
       case 'payment':
         return { icon: AlertTriangle, color: 'bg-yellow-100 text-yellow-600' };
       case 'inventory':
@@ -427,7 +427,7 @@ export default function Layout({
     <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
       {isMobile ? (
         <Sheet open={isNavigationOpen} onOpenChange={setIsNavigationOpen}>
-          <SheetContent side="left" showClose={false} className="w-[min(18rem,85vw)] bg-[#1D73EC] p-0 text-white">
+          <SheetContent side="left" showClose={false} className="w-[min(16rem,57vw)] bg-[#1D73EC] p-0 text-white">
             <SheetHeader className="sr-only">
               <SheetTitle>Primary navigation</SheetTitle>
               <SheetDescription>Navigate through your DocuFy account.</SheetDescription>

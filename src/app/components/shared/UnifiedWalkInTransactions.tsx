@@ -635,7 +635,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                       className={`p-4 rounded-lg border-2 ${
                         analyzingFileId === fileData.id
                           ? 'bg-white border-2 border-blue-200 border-blue-300'
-                          : 'bg-white border-2 border-blue-200 border-green-200'
+                          : 'bg-white border-2 border-blue-200 border-blue-200'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -843,7 +843,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           </div>
                         )}
                         {fileData.colorAnalysis.colorPages.length > 0 && showDetectedPages[fileData.id] && (
-                          <div className="mt-3 pt-3 border-t border-green-200">
+                          <div className="mt-3 pt-3 border-t border-blue-200">
                             <p className="text-xs text-blue-700 font-medium mb-2">
                               Color Intensity by Page:
                             </p>
@@ -1598,16 +1598,16 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
               </div>
 
               {/* Walk-in Payment Notice */}
-              <div className="p-5 bg-green-50 border-2 border-green-300 rounded-lg">
+              <div className="p-5 bg-blue-50 border-2 border-blue-300 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-bold text-green-900 mb-1 flex items-center gap-2">
+                    <h4 className="font-bold text-blue-900 mb-1 flex items-center gap-2">
                       Walk-in Payment
                     </h4>
-                    <p className="text-sm text-green-800">
+                    <p className="text-sm text-blue-800">
                       Payment will be collected immediately upon transaction completion. The order will be processed right away and payment is verified automatically.
                     </p>
                   </div>

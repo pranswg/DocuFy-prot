@@ -613,7 +613,7 @@ export default function Inventory() {
 
               {editingItem && (
                 <>
-                  <div className="p-3 bg-white border-2 border-blue-200 border border-green-200 rounded-lg">
+                  <div className="p-3 bg-white border-2 border-blue-200 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-900">
                       <strong>Editing:</strong> {editingItem.itemName} ({editingItem.category})
                     </p>
@@ -760,7 +760,7 @@ export default function Inventory() {
               </Button>
               <Button
                 onClick={confirmArchive}
-                className="bg-green-600 hover:bg-amber-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Archive Item
               </Button>

@@ -156,11 +156,10 @@ const Avatar = ({ name }: { name: string }) => {
 
   const colors = [
     "bg-blue-100 text-blue-700",
-    "bg-orange-100 text-orange-700",
     "bg-blue-100 text-blue-700",
-    "bg-purple-100 text-purple-700",
-    "bg-pink-100 text-pink-700",
-    "bg-cyan-100 text-cyan-700",
+    "bg-blue-100 text-blue-700",
+    "bg-blue-100 text-blue-700",
+    "bg-blue-100 text-blue-700",
   ];
 
   const colorIndex = name.charCodeAt(0) % colors.length;
@@ -662,7 +661,7 @@ export default function AdminOrders() {
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "received" ? "border-purple-200 bg-purple-50" : "border-gray-100 hover:border-purple-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "received" ? "border-blue-200 bg-blue-50" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "received"
@@ -673,8 +672,8 @@ export default function AdminOrders() {
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-purple-100 rounded-lg">
-                  <FileText className="w-4 h-4 text-purple-600" />
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <FileText className="w-4 h-4 text-blue-600" />
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
                   Received
@@ -762,7 +761,7 @@ export default function AdminOrders() {
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "onHold" ? "border-orange-200 bg-orange-50" : "border-gray-100 hover:border-orange-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "onHold" ? "border-blue-200 bg-blue-50" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "onHold" ? "all" : "onHold",
@@ -771,8 +770,8 @@ export default function AdminOrders() {
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-orange-100 rounded-lg">
-                  <AlertCircle className="w-4 h-4 text-orange-600" />
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-blue-600" />
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
                   On Hold
@@ -934,7 +933,7 @@ export default function AdminOrders() {
                                   </p>
                                   {order.notes && (
                                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                      <AlertCircle className="w-3 h-3 text-orange-500" />
+                                      <AlertCircle className="w-3 h-3 text-blue-500" />
                                       Has notes
                                     </p>
                                   )}
@@ -1002,10 +1001,10 @@ export default function AdminOrders() {
                                         ? "bg-white border-2 border-blue-200 text-blue-800 border-blue-200"
                                         : order.status ===
                                             "received"
-                                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
                                           : order.status ===
                                               "onHold"
-                                            ? "bg-orange-50 text-orange-700 border-orange-200"
+                                            ? "bg-blue-50 text-blue-700 border-blue-200"
                                             : order.status ===
                                                 "canceled"
                                               ? "bg-white border-2 border-blue-200 text-red-500 border-blue-200"
@@ -1025,7 +1024,7 @@ export default function AdminOrders() {
                                 className={`text-xs font-medium ${
                                   order.orderSource === "online"
                                     ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                                    : "bg-purple-50 text-purple-700 border-purple-200"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
                                 }`}
                               >
                                 {order.orderSource === "online"
@@ -1210,8 +1209,8 @@ export default function AdminOrders() {
 
                 {/* Document Analysis Results */}
                 {selectedOrder.colorAnalysis && (
-                  <div className="bg-blue-50 border border-purple-200 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-purple-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                       <FileText className="w-4 h-4" /> Document
                       Analysis Results
                     </p>
@@ -1220,7 +1219,7 @@ export default function AdminOrders() {
                         <p className="text-xs text-gray-600 mb-1">
                           Color Pages Detected
                         </p>
-                        <p className="font-bold text-purple-700 text-lg">
+                        <p className="font-bold text-blue-700 text-lg">
                           {
                             selectedOrder.colorAnalysis
                               .colorPages.length
@@ -1277,12 +1276,12 @@ export default function AdminOrders() {
                             .map((page) => (
                               <div
                                 key={page}
-                                className="flex justify-between items-center bg-purple-50 px-2 py-1 rounded"
+                                className="flex justify-between items-center bg-blue-50 px-2 py-1 rounded"
                               >
                                 <span className="text-gray-700">
                                   Page {page}:
                                 </span>
-                                <span className="font-semibold text-purple-700">
+                                <span className="font-semibold text-blue-700">
                                   {
                                     selectedOrder.colorAnalysis!
                                       .colorPercentages[page]
@@ -1293,7 +1292,7 @@ export default function AdminOrders() {
                             ))}
                           {selectedOrder.colorAnalysis
                             .colorPages.length > 9 && (
-                            <div className="flex items-center justify-center bg-purple-100 px-2 py-1 rounded text-purple-700 font-medium">
+                            <div className="flex items-center justify-center bg-blue-100 px-2 py-1 rounded text-blue-700 font-medium">
                               +
                               {selectedOrder.colorAnalysis
                                 .colorPages.length - 9}{" "}
@@ -1421,7 +1420,7 @@ export default function AdminOrders() {
                     className={`text-sm font-medium ${
                       selectedOrder.orderSource === "online"
                         ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                        : "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
                     }`}
                   >
                     {selectedOrder.orderSource === "online"
@@ -1455,10 +1454,10 @@ export default function AdminOrders() {
                             ? "bg-white border-2 border-blue-200 text-blue-800 border-blue-200"
                             : selectedOrder.status ===
                                 "received"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
                               : selectedOrder.status ===
                                   "onHold"
-                                ? "bg-orange-50 text-orange-700 border-orange-200"
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
                                 : selectedOrder.status ===
                                     "canceled"
                                   ? "bg-white border-2 border-blue-200 text-red-500 border-blue-200"
@@ -1494,12 +1493,12 @@ export default function AdminOrders() {
 
                 {/* Hold Reason */}
                 {selectedOrder.holdReason && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-orange-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                       <AlertCircle className="w-4 h-4" /> Hold
                       Reason
                     </p>
-                    <p className="text-sm text-orange-900 leading-relaxed">
+                    <p className="text-sm text-blue-900 leading-relaxed">
                       {selectedOrder.holdReason}
                     </p>
                   </div>
@@ -1554,8 +1553,8 @@ export default function AdminOrders() {
                     }
                     className={
                       selectedOrder.status === "received"
-                        ? "bg-purple-600 hover:bg-purple-700"
-                        : "hover:bg-purple-50 hover:border-purple-300"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "hover:bg-blue-50 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("received")
@@ -1626,8 +1625,8 @@ export default function AdminOrders() {
                     }
                     className={
                       selectedOrder.status === "onHold"
-                        ? "bg-orange-600 hover:bg-orange-700"
-                        : "hover:bg-orange-50 hover:border-orange-300"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "hover:bg-blue-50 hover:border-blue-300"
                     }
                     onClick={() => handleUpdateStatus("onHold")}
                   >
@@ -1710,9 +1709,9 @@ export default function AdminOrders() {
             {/* Received Status Form */}
             {pendingStatus === "received" && (
               <div className="space-y-4">
-                <Alert className="bg-purple-50 border-purple-200">
-                  <AlertCircle className="h-4 w-4 text-purple-600" />
-                  <AlertDescription className="text-purple-900">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900">
                     Mark this order as received and ready for
                     processing.
                   </AlertDescription>
@@ -1946,9 +1945,9 @@ export default function AdminOrders() {
             {/* On Hold Status Form */}
             {pendingStatus === "onHold" && (
               <div className="space-y-4">
-                <Alert className="bg-orange-50 border-orange-200">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-orange-900">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900">
                     Put this order on hold with a reason for the
                     customer.
                   </AlertDescription>
@@ -2047,7 +2046,7 @@ export default function AdminOrders() {
               onClick={confirmStatusUpdate}
               className={
                 pendingStatus === "received"
-                  ? "bg-purple-600 hover:bg-purple-700"
+                  ? "bg-blue-600 hover:bg-blue-700"
                   : pendingStatus === "inQueue"
                     ? "bg-blue-600 hover:bg-blue-700"
                     : pendingStatus === "printing"
@@ -2055,7 +2054,7 @@ export default function AdminOrders() {
                       : pendingStatus === "completed"
                         ? "bg-blue-600 hover:bg-blue-700"
                         : pendingStatus === "onHold"
-                          ? "bg-orange-600 hover:bg-orange-700"
+                          ? "bg-blue-600 hover:bg-blue-700"
                           : pendingStatus === "released"
                             ? "bg-gray-600 hover:bg-gray-700"
                             : "bg-red-600 hover:bg-red-700"

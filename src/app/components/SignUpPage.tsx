@@ -1,4 +1,4 @@
-import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "figma:asset/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -15,7 +15,7 @@ import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { useAuth } from "../contexts/AuthContext";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ImageWithFallback } from "./shared/ImageWithFallback";
 import { PasswordStrengthIndicator, validatePassword } from "./ui/password-strength-indicator";
 
 export default function SignUpPage() {
@@ -85,7 +85,7 @@ export default function SignUpPage() {
       {/* Left Side - Logo & Illustration */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#10316B] items-center justify-center">
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1758518725921-1eb74ed293be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidXNpbmVzcyUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzc1ODI4NTk2fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+          src="https://images.unsplash.com/photo-1758518725921-1eb74ed293be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidXNpbmVzcyUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzc1ODI4NTk2fDA&ixlib=rb-4.1.0&q=80&w=1080"
           alt="Modern Printing Services"
           className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
         />

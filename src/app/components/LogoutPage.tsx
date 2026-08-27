@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router';
 import { CheckCircle2, ArrowRight, Printer, Home, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { ImageWithFallback } from './shared/ImageWithFallback';
 
 export default function LogoutPage() {
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ export default function LogoutPage() {
       {/* Left Side - Logo & Illustration */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#1c1f26] overflow-hidden items-center justify-center">
         <ImageWithFallback 
-          src="https://images.unsplash.com/photo-1516889454133-d3cd87326a6b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjB3b3Jrc3BhY2UlMjBtaW5pbWFsJTIwYmx1ZXxlbnwxfHx8fDE3NzU4Mjg1NjN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+          src="https://images.unsplash.com/photo-1516889454133-d3cd87326a6b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjB3b3Jrc3BhY2UlMjBtaW5pbWFsJTIwYmx1ZXxlbnwxfHx8fDE3NzU4Mjg1NjN8MA&ixlib=rb-4.1.0&q=80&w=1080"
           alt="Friendly Workspace"
           className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
         />

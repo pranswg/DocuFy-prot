@@ -178,7 +178,7 @@ export default function CustomerDashboard() {
         )}
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4">
           {[
             {
               key: "kpi-tot",
@@ -213,21 +213,21 @@ export default function CustomerDashboard() {
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") kpi.click();
               }}
-              className="group min-h-[4.5rem] cursor-pointer rounded-xl border border-blue-400/70 bg-[#1D73EC] p-2 shadow-md transition-all hover:-translate-y-0.5 hover:border-[#10316B] hover:bg-[#1557b8] hover:shadow-lg sm:min-h-0 sm:rounded-lg sm:p-4"
+              className="group min-h-[4.5rem] cursor-pointer rounded-xl border border-blue-400/70 bg-[#1D73EC] p-2 shadow-md transition-all hover:-translate-y-0.5 hover:border-[#10316B] hover:bg-[#1557b8] hover:shadow-lg sm:min-h-0 sm:rounded-lg sm:p-4 md:cursor-pointer md:border md:border-slate-100 md:bg-white md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:bg-[#2F6FD6] md:hover:text-white md:hover:shadow-md"
             >
-              <div className="flex items-center justify-between gap-1">
-                <p className="max-w-[70%] text-left text-[10px] font-semibold tracking-wide text-blue-100 sm:max-w-none sm:text-sm sm:normal-case sm:tracking-normal">
+              <div className="flex items-center justify-between gap-1 md:justify-between md:items-start">
+                <p className="max-w-[70%] text-left text-[10px] font-semibold tracking-wide text-blue-100 sm:max-w-none sm:text-sm sm:normal-case sm:tracking-normal md:text-base md:font-bold md:text-slate-700 md:group-hover:text-white">
                   <span className="block sm:inline">{kpi.label.split(" ").slice(0, 2).join(" ")}</span>
                   {kpi.label.split(" ").length > 2 && <span className="block sm:inline"> {kpi.label.split(" ").slice(2).join(" ")}</span>}
                 </p>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 shadow-sm transition-all duration-300 sm:h-8 sm:w-8 lg:h-14 lg:w-14 lg:group-hover:scale-110 lg:group-hover:shadow-[0_0_26px_rgba(255,255,255,0.8)]">
-                  <kpi.icon className="h-3.8 w-3.8 text-white sm:h-4 sm:w-4 lg:h-8 lg:w-8" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 shadow-sm transition-all duration-300 sm:h-8 sm:w-8 lg:h-8 lg:w-8 md:rounded-none md:bg-transparent md:shadow-none md:h-5 md:w-5 md:opacity-50 md:group-hover:scale-110 md:group-hover:opacity-100">
+                  <kpi.icon className="h-3.8 w-3.8 text-white sm:h-4 sm:w-4 lg:h-4 lg:w-4 md:h-5 md:w-5 md:text-[#2F6FD6] md:group-hover:text-white" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-bold leading-none text-white sm:mt-3 sm:text-3xl">
+              <p className="mt-2 text-2xl font-bold leading-none text-white sm:mt-3 sm:text-3xl md:text-3xl md:text-slate-900 md:group-hover:text-white">
                 {kpi.val}
               </p>
-              <p className="mt-1 hidden truncate text-xs text-blue-100 sm:block">
+              <p className="mt-1 hidden truncate text-xs text-blue-100 sm:block md:text-[11px] md:text-slate-400 md:uppercase md:font-medium md:group-hover:text-blue-100">
                 {kpi.desc}
               </p>
             </Card>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import logoImage from "figma:asset/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+import { ImageWithFallback } from "./shared/ImageWithFallback";
+import logoImage from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
 import {
   ArrowLeft,
   Printer,
@@ -134,7 +134,7 @@ export default function LoginPage() {
       {/* Left Side - Logo & Illustration */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#1c1f26] items-center justify-center min-h-screen">
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1595142545813-06fee27f3dcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBwcmludCUyMHNob3AlMjBwcmludGluZyUyMHNlcnZpY2VzfGVufDF8fHx8MTc3NTgyODU1OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+          src="https://images.unsplash.com/photo-1595142545813-06fee27f3dcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBwcmludCUyMHNob3AlMjBwcmludGluZyUyMHNlcnZpY2VzfGVufDF8fHx8MTc3NTgyODU1OXww&ixlib=rb-4.1.0&q=80&w=1080"
           alt="Modern Print Shop"
           className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay"
         />
@@ -280,7 +280,7 @@ export default function LoginPage() {
                   Enter the code from your email
                 </p>
                 {mfaMessage && (
-                  <p className="text-[10px] text-green-600 text-center font-medium">
+                  <p className="text-[10px] text-blue-600 text-center font-medium">
                     {mfaMessage}
                   </p>
                 )}

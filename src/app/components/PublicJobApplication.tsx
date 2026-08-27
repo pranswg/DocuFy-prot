@@ -8,7 +8,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { toast } from 'sonner';
-import logoImage from 'figma:asset/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
+import logoImage from '../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
 import { jobsStore } from '../utils/jobsStore';
 
 export default function PublicJobApplication() {
