@@ -22,3 +22,13 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Project docs / misc files not required for the system
+ATTRIBUTIONS.md
+COMPLETED_FEATURES.md
+IMPLEMENTATION_GUIDE.md
+IMPLEMENTATION_STATUS.md
+QUICK_FIXES.md
+default_shadcn_theme.css
+guidelines/
+pnpm-workspace.yaml

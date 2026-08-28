@@ -24,7 +24,6 @@ import Inventory from './components/admin/Inventory';
 import Staff from './components/admin/Staff';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
-import Reports from './components/admin/Reports';
 import ContentManagement from './components/admin/ContentManagement';
 import OrderTracking from './components/customer/OrderTracking';
 import JobBoard from './components/customer/JobBoard';
@@ -187,10 +186,6 @@ const router = createBrowserRouter([
       {
         path: 'job-board',
         element: <ProtectedRoute role="admin"><JobBoardManagement /></ProtectedRoute>,
-      },
-      {
-        path: 'reports',
-        element: <ProtectedRoute role="admin"><Reports /></ProtectedRoute>,
       },
       {
         path: 'content',

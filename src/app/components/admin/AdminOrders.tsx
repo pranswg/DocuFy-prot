@@ -82,11 +82,6 @@ const menuItems = [
     icon: <Users className="w-5 h-5" />,
   },
   {
-    label: "Reports",
-    path: "/admin/reports",
-    icon: <FileText className="w-5 h-5" />,
-  },
-  {
     label: "Job Board",
     path: "/admin/job-board",
     icon: <Briefcase className="w-5 h-5" />,
