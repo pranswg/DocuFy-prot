@@ -20,6 +20,7 @@ import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVeri
 import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Staff from './components/admin/Staff';
+import InventoryManagement from './components/admin/InventoryManagement';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
 import ContentManagement from './components/admin/ContentManagement';
@@ -164,6 +165,10 @@ const router = createBrowserRouter([
       {
         path: 'orders',
         element: <ProtectedRoute role="admin"><AdminOrdersUnified /></ProtectedRoute>,
+      },
+      {
+        path: 'inventory',
+        element: <ProtectedRoute role="admin"><InventoryManagement /></ProtectedRoute>,
       },
       {
         path: 'staff',

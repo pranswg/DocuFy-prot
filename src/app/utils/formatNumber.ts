@@ -4,8 +4,9 @@
  * @param decimals - Number of decimal places (default: 2)
  * @returns Formatted string with commas
  */
-export function formatNumber(value: number, decimals: number = 2): string {
-  return value.toLocaleString('en-US', {
+export function formatNumber(value: number | null | undefined, decimals: number = 2): string {
+  const safe = Number(value) || 0;
+  return safe.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

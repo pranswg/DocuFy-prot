@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -52,6 +52,7 @@ import {
 } from "../ui/dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
+import { inventoryStore } from "../../utils/inventoryStore";
 import { notificationStore } from "../../utils/notificationStore";
 
 const ALLOWED_FILE_TYPES = {
@@ -154,16 +155,36 @@ export default function NewPrintRequest() {
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [expandedFileSettings, setExpandedFileSettings] = useState<Record<string, boolean>>({});
   const [submittedOrderId, setSubmittedOrderId] = useState("");
-  const [availablePaperSizes] = useState<Array<{ id: string; name: string; displayName: string; inStock: boolean }>>([
-    { id: 'paper-a4', name: 'a4', displayName: 'A4', inStock: true },
-    { id: 'paper-short', name: 'short', displayName: 'Short (8.5 x 11 in)', inStock: true },
-    { id: 'paper-long', name: 'long', displayName: 'Long (8.5 x 13 in)', inStock: true },
-    { id: 'paper-folio', name: 'folio', displayName: 'Folio (8.5 x 13 in)', inStock: true },
-  ]);
-  const [availableAddons] = useState<Array<{
-    id: string; name: string; price: number; inStock: boolean;
-    unit: string; category: string; description: string;
-  }>>([]);
+  const [availablePaperSizes, setAvailablePaperSizes] = useState<
+    Array<{
+      id: string;
+      name: string;
+      displayName: string;
+      inStock: boolean;
+    }>
+  >([]);
+  const [availableAddons, setAvailableAddons] = useState<
+    Array<{
+      id: string;
+      name: string;
+      price: number;
+      inStock: boolean;
+      unit: string;
+      category: string;
+      description: string;
+    }>
+  >([]);
+
+  // Load available paper sizes and add-ons from inventory
+  useEffect(() => {
+    const load = () => {
+      setAvailablePaperSizes(inventoryStore.getPaperSizeOptions());
+      setAvailableAddons(inventoryStore.getAddons());
+    };
+    load();
+    const unsubscribe = inventoryStore.subscribe(load);
+    return unsubscribe;
+  }, []);
 
   // Note templates
   const noteTemplates = [
@@ -519,11 +540,9 @@ export default function NewPrintRequest() {
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
-      status: isGcash
+      status: isGcash || requiresDownPayment
         ? ("Awaiting Payment" as const)
-        : requiresDownPayment
-          ? ("On Hold" as const)
-          : ("Received" as const),
+        : ("Received" as const),
       holdReason: isGcash
         ? `GCash payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
         : requiresDownPayment
@@ -607,6 +626,18 @@ export default function NewPrintRequest() {
 
     dataStore.addOrder(newOrder);
 
+    // Deduct paper from inventory based on the order (sheets used = pages/sheet x copies)
+    const paperBySize: Record<string, number> = {};
+    files.forEach((f) => {
+      const pps = parseInt(f.pagesPerSheet || "1", 10) || 1;
+      const sheets = Math.ceil(f.pageCount / pps) * (f.copies || 1);
+      const size = f.paperSize || "a4";
+      paperBySize[size] = (paperBySize[size] || 0) + sheets;
+    });
+    Object.entries(paperBySize).forEach(([size, pieces]) => {
+      inventoryStore.deductPaperPieces(size, pieces);
+    });
+
     // Send notifications to admin and staff about new print request
     const notifTitle = isGcash
       ? 'New Order — Payment Verification Pending'
@@ -614,7 +645,7 @@ export default function NewPrintRequest() {
     const notifMsg = isGcash
       ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting GCash payment verification. Amount: ₱${Math.round(total)}.`
       : requiresDownPayment
-        ? `New order #${orderId} from ${user?.email || 'customer'} is On Hold — down payment of ₱${Math.round(downPaymentAmount)} required.`
+        ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
         : `New print request #${orderId} from ${user?.email || 'customer'}. ${files.length} file(s), ${totalPages} pages total.`;
 
     notificationStore.addNotification('order', notifTitle, notifMsg, {
@@ -2076,8 +2107,8 @@ export default function NewPrintRequest() {
                         </h4>
                         <p className="text-sm text-amber-800 mb-3 leading-relaxed">
                           Orders totaling <strong>₱{DOWN_PAYMENT_THRESHOLD}.00 or more</strong> require a{" "}
-                          <strong>50% down payment</strong> before printing begins. Your order will be placed{" "}
-                          <strong>On Hold</strong> until the down payment is verified by Admin or Staff.
+                          <strong>50% down payment</strong> before printing begins. Your order will stay{" "}
+                          <strong>awaiting payment verification</strong> until the down payment is verified by Admin or Staff.
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                           <div className="p-3 bg-white rounded-lg border border-amber-200">
@@ -2293,7 +2324,7 @@ export default function NewPrintRequest() {
                 return requiresDownPayment ? (
                   <>
                     <p className="text-gray-700">
-                      Your order has been submitted and placed <strong>On Hold</strong>. A down payment must be made before printing can begin.
+                      Your order has been submitted and placed <strong>awaiting payment verification</strong>. A down payment must be made and verified before printing can begin.
                     </p>
                     <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left space-y-2">
                       <p className="text-sm font-bold text-amber-800">Down Payment Summary</p>

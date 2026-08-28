@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   CreditCard,
   Package,
+  Boxes,
   Users,
   Briefcase,
   Settings,
@@ -31,6 +32,11 @@ export const adminMenuItems = [
     label: "Walk-in Transactions",
     path: "/admin/walk-in",
     icon: <ShoppingCart className="w-5 h-5" />,
+  },
+  {
+    label: "Inventory",
+    path: "/admin/inventory",
+    icon: <Boxes className="w-5 h-5" />,
   },
   {
     label: "Staff",
