@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -154,8 +154,13 @@ export default function NewPrintRequest() {
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [expandedFileSettings, setExpandedFileSettings] = useState<Record<string, boolean>>({});
   const [submittedOrderId, setSubmittedOrderId] = useState("");
-  const [availablePaperSizes, setAvailablePaperSizes] = useState<Array<{ id: string; name: string; displayName: string; inStock: boolean }>>([]);
-  const [availableAddons, setAvailableAddons] = useState<Array<{
+  const [availablePaperSizes] = useState<Array<{ id: string; name: string; displayName: string; inStock: boolean }>>([
+    { id: 'paper-a4', name: 'a4', displayName: 'A4', inStock: true },
+    { id: 'paper-short', name: 'short', displayName: 'Short (8.5 x 11 in)', inStock: true },
+    { id: 'paper-long', name: 'long', displayName: 'Long (8.5 x 13 in)', inStock: true },
+    { id: 'paper-folio', name: 'folio', displayName: 'Folio (8.5 x 13 in)', inStock: true },
+  ]);
+  const [availableAddons] = useState<Array<{
     id: string; name: string; price: number; inStock: boolean;
     unit: string; category: string; description: string;
   }>>([]);
@@ -170,18 +175,6 @@ export default function NewPrintRequest() {
     "Please fold in half",
     "Bind on left side",
   ];
-
-  // Load available paper sizes and add-ons from inventory
-  useEffect(() => {
-    setAvailablePaperSizes(dataStore.getAvailablePaperSizes());
-    setAvailableAddons(dataStore.getAvailableAddons());
-    const unsub = dataStore.subscribe(() => {
-      setAvailablePaperSizes(dataStore.getAvailablePaperSizes());
-      setAvailableAddons(dataStore.getAvailableAddons());
-    });
-    return unsub;
-  }, []);
-
 
   const detectPageCount = async (
     file: File,
@@ -1689,8 +1682,6 @@ export default function NewPrintRequest() {
               <h2 className="text-xl font-semibold text-gray-900">
                 Step 4: Order Summary
               </h2>
-
-              {/* Inventory Stock Information */}
 
               <button
                 type="button"

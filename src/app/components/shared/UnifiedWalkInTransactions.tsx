@@ -16,7 +16,6 @@ import {
   X,
   FileText,
   Eye,
-  Boxes,
   Info,
   LayoutDashboard,
   Users,
@@ -32,7 +31,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Textarea } from '../ui/textarea';
 import { ordersStore } from '../../utils/ordersStore';
-import { deductInventoryForWalkIn } from '../../utils/inventoryIntegration';
 import { formatCurrency } from '../../utils/formatNumber';
 import { AVAILABLE_ADDONS, type Addon } from '../../utils/constants';
 import { PrintPreviewDialog } from '../ui/print-preview-dialog';
@@ -68,7 +66,6 @@ const staffMenuItems = [
   { label: 'Orders', path: '/staff/queue', icon: <Package className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
-  { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
 ];
 
 
@@ -97,12 +94,6 @@ type FileData = {
   scale: string;
   customScale: number;
   notes: string;
-};
-
-type SupplyItem = {
-  name: string;
-  quantity: number;
-  price: number;
 };
 
 interface UnifiedWalkInTransactionsProps {
@@ -410,33 +401,6 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
       };
 
       ordersStore.addOrder(newOrder);
-
-      // Deduct inventory for each file
-      files.forEach(file => {
-        deductInventoryForWalkIn(transactionId, [
-          {
-            service: `${file.colorMode === 'colored' ? 'Colored' : 'B&W'} Print - ${file.paperSize}`,
-            quantity: file.pageCount * file.copies,
-            itemType: 'service' as const,
-          }
-        ]);
-      });
-    }
-
-    // Deduct inventory for addons
-    const addonItems = Object.entries(selectedAddons)
-      .filter(([_, qty]) => qty > 0)
-      .map(([addonId, qty]) => {
-        const addon = AVAILABLE_ADDONS.find(a => a.id === addonId);
-        return {
-          service: addon?.name || '',
-          quantity: qty,
-          itemType: 'supply' as const,
-        };
-      });
-
-    if (addonItems.length > 0) {
-      deductInventoryForWalkIn(transactionId, addonItems);
     }
 
     toast.success(

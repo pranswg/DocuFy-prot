@@ -5,7 +5,6 @@ import {
   CreditCard,
   Package,
   ShoppingCart,
-  Boxes,
 } from 'lucide-react';
 
 const staffMenuItems = [
@@ -28,11 +27,6 @@ const staffMenuItems = [
     label: 'Payment Verification',
     path: '/staff/payment-verification',
     icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: 'Inventory',
-    path: '/staff/inventory',
-    icon: <Boxes className="w-5 h-5" />,
   },
 ];
 

@@ -148,7 +148,6 @@ const staffData: Staff[] = [
     permissions: [
       "view_orders",
       "edit_orders",
-      "manage_inventory",
       "view_reports",
     ],
     tasks: [
@@ -168,7 +167,7 @@ const staffData: Staff[] = [
       },
       {
         id: "TSK-003",
-        title: "Inventory check for toner",
+        title: "Printer toner check",
         status: "Pending",
         priority: "Low",
         dueDate: "2026-04-30",
@@ -751,7 +750,6 @@ export default function Staff() {
                             {[
                               "view_orders",
                               "edit_orders",
-                              "manage_inventory",
                               "view_reports",
                               "verify_payments",
                             ].map((permission) => {

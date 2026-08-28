@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
-import { inventoryStore } from "../utils/inventoryStore";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
 import { toast } from "sonner";
@@ -90,9 +89,6 @@ export default function Layout({
   const [siemUnreadCount, setSiemUnreadCount] = useState(0);
   const [siemCriticalCount, setSiemCriticalCount] = useState(0);
 
-  // Track low inventory items
-  const [lowInventoryItems, setLowInventoryItems] = useState<string[]>([]);
-
   useEffect(() => {
     localStorage.setItem(
       "sidebarExpanded",
@@ -130,23 +126,6 @@ export default function Layout({
     const unsubscribe = siemAlertStore.subscribe(updateSIEMAlerts);
     return unsubscribe;
   }, [user?.role]);
-
-  // Check for low inventory items (threshold: 100 for paper, 10 for supplies)
-  useEffect(() => {
-    const checkInventory = () => {
-      const items = inventoryStore.getItems();
-      const lowItems = items.filter(item => {
-        if (item.archived) return false;
-        const threshold = item.category === 'Paper' ? 100 : 10;
-        return item.currentStock <= threshold;
-      }).map(item => item.itemName);
-      setLowInventoryItems(lowItems);
-    };
-
-    checkInventory();
-    const unsubscribe = inventoryStore.subscribe(checkInventory);
-    return unsubscribe;
-  }, []);
 
   const getInitials = (value?: string) => {
     if (!value) return "U";
@@ -251,8 +230,6 @@ export default function Layout({
         return { icon: PackageIcon, color: 'bg-blue-100 text-blue-600' };
       case 'payment':
         return { icon: AlertTriangle, color: 'bg-yellow-100 text-yellow-600' };
-      case 'inventory':
-        return { icon: AlertCircle, color: 'bg-red-100 text-red-600' };
       case 'status_update':
         return { icon: CheckCircle, color: 'bg-blue-100 text-blue-600' };
       default:

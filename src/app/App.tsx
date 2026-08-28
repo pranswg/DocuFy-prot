@@ -14,13 +14,11 @@ import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
 import StaffProfile from './components/staff/StaffProfile';
 import StaffPaymentVerificationUnified from './components/staff/StaffPaymentVerificationUnified';
-import InventoryManagement from './components/staff/InventoryManagement';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
 import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
-import Inventory from './components/admin/Inventory';
 import Staff from './components/admin/Staff';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
@@ -137,10 +135,6 @@ const router = createBrowserRouter([
         path: 'payment-verification',
         element: <ProtectedRoute role="staff"><StaffPaymentVerificationUnified /></ProtectedRoute>,
       },
-      {
-        path: 'inventory',
-        element: <ProtectedRoute role="staff"><InventoryManagement /></ProtectedRoute>,
-      },
     ],
   },
   {
@@ -170,10 +164,6 @@ const router = createBrowserRouter([
       {
         path: 'orders',
         element: <ProtectedRoute role="admin"><AdminOrdersUnified /></ProtectedRoute>,
-      },
-      {
-        path: 'inventory',
-        element: <ProtectedRoute role="admin"><Inventory /></ProtectedRoute>,
       },
       {
         path: 'staff',

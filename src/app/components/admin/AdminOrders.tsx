@@ -19,7 +19,6 @@ import {
   CreditCard,
   Package,
   LayoutGrid,
-  Boxes,
   Users,
   UserPlus,
   Briefcase,
@@ -29,7 +28,6 @@ import {
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { ordersStore } from "../../utils/ordersStore";
-import { deductInventoryForOrder } from "../../utils/inventoryIntegration";
 import { notificationStore } from "../../utils/notificationStore";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -70,11 +68,6 @@ const menuItems = [
     label: "Orders",
     path: "/admin/orders",
     icon: <Package className="w-5 h-5" />,
-  },
-  {
-    label: "Inventory",
-    path: "/admin/inventory",
-    icon: <Boxes className="w-5 h-5" />,
   },
   {
     label: "Staff",
@@ -404,50 +397,9 @@ export default function AdminOrders() {
     );
 
     if (pendingStatus === "completed") {
-      // Deduct inventory when order is completed
-      const orderDetails = {
-        id: selectedOrder.id,
-        pages: selectedOrder.pages,
-        copies: selectedOrder.copies,
-        paperSize: selectedOrder.paperSize,
-        type: selectedOrder.type,
-        colorMode: selectedOrder.colorMode,
-        pagesPerSheet: selectedOrder.pagesPerSheet,
-        addons: selectedOrder.addons,
-      };
-
-      const inventoryDeducted =
-        deductInventoryForOrder(orderDetails);
-
-      const totalPagesUsed =
-        selectedOrder.pages * selectedOrder.copies;
-      const reamsUsed = (totalPagesUsed / 500).toFixed(2);
-
-      if (inventoryDeducted) {
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">
-              Order {selectedOrder.id} completed!
-            </span>
-            <span className="text-sm">
-              Inventory deducted: {totalPagesUsed} pages (
-              {reamsUsed} reams)
-            </span>
-          </div>,
-        );
-      } else {
-        toast.warning(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">
-              Order {selectedOrder.id} completed!
-            </span>
-            <span className="text-sm">
-              Warning: Some inventory items could not be
-              deducted
-            </span>
-          </div>,
-        );
-      }
+      toast.success(
+        `Order ${selectedOrder.id} completed!`,
+      );
     } else {
       toast.success(
         `Order ${selectedOrder.id} updated to ${pendingStatus === "inQueue" ? "In Queue" : pendingStatus} successfully!`,
