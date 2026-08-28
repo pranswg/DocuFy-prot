@@ -50,7 +50,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
-import { attendanceStore } from "../../utils/attendanceStore";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
 import { notificationStore } from "../../utils/notificationStore";
@@ -144,9 +143,6 @@ export default function NewPrintRequest() {
   const [gcashAccount, setGcashAccount] = useState<
     "admin" | "staff" | ""
   >("admin");
-  const [availability, setAvailability] = useState(() =>
-    attendanceStore.getAvailability(),
-  );
   const [analyzingFileId, setAnalyzingFileId] = useState<
     string | null
   >(null);
@@ -174,15 +170,6 @@ export default function NewPrintRequest() {
     "Please fold in half",
     "Bind on left side",
   ];
-
-  // Subscribe to attendance updates for real-time availability
-  useEffect(() => {
-    const unsubscribe = attendanceStore.subscribe(() => {
-      setAvailability(attendanceStore.getAvailability());
-    });
-    return unsubscribe;
-  }, []);
-
 
   // Load available paper sizes and add-ons from inventory
   useEffect(() => {
@@ -518,6 +505,7 @@ export default function NewPrintRequest() {
 
     const total = calculateTotal();
     const orderId = dataStore.getNextOrderId();
+    const isGcash = paymentMethod === "gcash";
 
     // Calculate total pages for all files
     const totalPages = files.reduce(
@@ -538,10 +526,16 @@ export default function NewPrintRequest() {
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
-      status: requiresDownPayment ? ("On Hold" as const) : ("Received" as const),
-      holdReason: requiresDownPayment
-        ? `Down payment required: ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}). Please pay this amount via ${paymentMethod === "gcash" ? "GCash" : "Cash"} before your order can be processed.`
-        : undefined,
+      status: isGcash
+        ? ("Awaiting Payment" as const)
+        : requiresDownPayment
+          ? ("On Hold" as const)
+          : ("Received" as const),
+      holdReason: isGcash
+        ? `GCash payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
+        : requiresDownPayment
+          ? `Down payment required: ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}). Please pay this amount via Cash before your order can be processed.`
+          : undefined,
       total: `₱${Math.round(total)}`,
       date: new Date().toISOString().split("T")[0],
       paperSize:
@@ -621,10 +615,14 @@ export default function NewPrintRequest() {
     dataStore.addOrder(newOrder);
 
     // Send notifications to admin and staff about new print request
-    const notifTitle = requiresDownPayment ? 'New Order — Down Payment Required' : 'New Print Request';
-    const notifMsg = requiresDownPayment
-      ? `New order #${orderId} from ${user?.email || 'customer'} is On Hold — down payment of ₱${Math.round(downPaymentAmount)} required.`
-      : `New print request #${orderId} from ${user?.email || 'customer'}. ${files.length} file(s), ${totalPages} pages total.`;
+    const notifTitle = isGcash
+      ? 'New Order — Payment Verification Pending'
+      : requiresDownPayment ? 'New Order — Down Payment Required' : 'New Print Request';
+    const notifMsg = isGcash
+      ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting GCash payment verification. Amount: ₱${Math.round(total)}.`
+      : requiresDownPayment
+        ? `New order #${orderId} from ${user?.email || 'customer'} is On Hold — down payment of ₱${Math.round(downPaymentAmount)} required.`
+        : `New print request #${orderId} from ${user?.email || 'customer'}. ${files.length} file(s), ${totalPages} pages total.`;
 
     notificationStore.addNotification('order', notifTitle, notifMsg, {
       clickable: true,

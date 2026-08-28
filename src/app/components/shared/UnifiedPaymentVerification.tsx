@@ -146,8 +146,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       dataStore.updateOrder(selectedPayment.orderId, {
         paymentVerified: status === "verified",
         paymentReferenceNumber: selectedPayment.reference,
-        // Auto-update order status to "In Queue" when payment is verified
-        ...(status === "verified" ? { status: "In Queue" as const } : {}),
+        // Auto-update order status to "Received" when payment is verified so the order enters the queue
+        ...(status === "verified" ? { status: "Received" as const } : {}),
       });
 
       setPayments((prev) =>
@@ -158,7 +158,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       setSelectedPayment({ ...selectedPayment, status });
       toast.success(
         status === "verified"
-          ? "Payment verified and order moved to In Queue"
+          ? "Payment verified! Order has been added to the queue."
           : `Payment marked as ${status}`
       );
 

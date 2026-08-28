@@ -189,9 +189,9 @@ export default function JobBoard() {
               return (
                 <Card
                   key={job.id}
-                  className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+                  className={`overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md ${isExpanded ? "gap-0" : ""}`}
                 >
-                  <div className="p-4 sm:p-6">
+                  <div className={`p-4 sm:p-6 ${isExpanded ? "pb-2 sm:pb-2" : ""}`}>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-[#F2F7FF]">
                         <Briefcase className="h-6 w-6 text-[#1D73EC]" />
@@ -201,8 +201,8 @@ export default function JobBoard() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                              <Badge className="border border-blue-200 border-2 bg-white text-xs text-blue-700">
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <Badge className="border-0 bg-white px-1 text-xs text-blue-700">
                                 {job.type}
                               </Badge>
                               <span className="text-xs text-gray-400">·</span>
@@ -254,7 +254,7 @@ export default function JobBoard() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:px-6 sm:py-5">
+                    <div className="border-t border-gray-100 bg-gray-50/50 px-4 pt-2 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
                       <p className="text-sm leading-relaxed text-gray-700">{job.description}</p>
                       {!application && (
                         <div className="mt-4">
@@ -296,7 +296,7 @@ export default function JobBoard() {
                 const job = jobs.find((j) => j.id === app.jobId);
 
                 return (
-                  <Card key={app.id} className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
+<Card key={app.id} className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
                     <div className="p-4 sm:p-6">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-3 sm:gap-4">

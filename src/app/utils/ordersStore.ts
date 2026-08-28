@@ -7,7 +7,7 @@ type OrderType = {
   pages: number;
   type: string;
   notes: string;
-  status: 'received' | 'inQueue' | 'printing' | 'completed' | 'released' | 'canceled' | 'onHold';
+  status: 'received' | 'inQueue' | 'printing' | 'completed' | 'released' | 'canceled' | 'onHold' | 'awaitingPayment';
   time: string;
   paperSize: string;
   copies: number;
@@ -179,7 +179,7 @@ class OrdersStore {
       paperSize: order.paperSize,
       printType: order.type === 'Colored' ? 'Colored' : 'Black & White',
       copies: order.copies,
-      paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
+      paymentMethod: order.paymentMethod || (order.orderSource === 'walkin' ? 'Cash' : 'GCash'),
       fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
       pages: order.pages,
       attachedFiles: order.attachedFiles || [],
@@ -222,6 +222,7 @@ class OrdersStore {
       attachedFiles: order.attachedFiles || (order.fileName ? [{ name: order.fileName, size: '0 MB', type: 'PDF' }] : []),
       paymentVerified: order.paymentVerified || false,
       paymentReferenceNumber: order.paymentReferenceNumber,
+      paymentMethod: order.paymentMethod,
       orderSource: order.orderSource || (order.paymentMethod === 'Cash' ? 'walkin' : 'online'),
       customerEmail: order.customerEmail,
       orientation: order.orientation as 'portrait' | 'landscape' | undefined,
@@ -244,8 +245,8 @@ class OrdersStore {
     };
   }
 
-  private convertStatus(status: OrderType['status']): 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' {
-    const statusMap: Record<OrderType['status'], 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled'> = {
+  private convertStatus(status: OrderType['status']): 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment' {
+    const statusMap: Record<OrderType['status'], 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment'> = {
       'received': 'Received',
       'inQueue': 'In Queue',
       'printing': 'Printing',
@@ -253,6 +254,7 @@ class OrdersStore {
       'released': 'Released',
       'canceled': 'Canceled',
       'onHold': 'On Hold',
+      'awaitingPayment': 'Awaiting Payment',
     };
     return statusMap[status];
   }
@@ -266,6 +268,7 @@ class OrdersStore {
       'Released': 'released',
       'Canceled': 'canceled',
       'On Hold': 'onHold',
+      'Awaiting Payment': 'awaitingPayment',
     };
     return statusMap[status] || 'received';
   }

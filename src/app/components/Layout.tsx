@@ -29,13 +29,8 @@ import { notificationStore, type Notification } from "../utils/notificationStore
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
 import { toast } from "sonner";
 import { useIsMobile } from "./ui/use-mobile";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "./ui/sheet";
+import { usePresence } from "./ui/use-presence";
+import { useMobileNav } from "../contexts/MobileNavContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -47,6 +42,7 @@ interface LayoutProps {
   title?: string;
   showBackButton?: boolean;
   backButtonPath?: string;
+  hideMobileBackButton?: boolean;
 }
 
 export default function Layout({
@@ -55,11 +51,13 @@ export default function Layout({
   title,
   showBackButton = false,
   backButtonPath,
+  hideMobileBackButton = false,
 }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
+  const { open: isMobileNavOpen, setOpen: setMobileNavOpen } = useMobileNav();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(
     () => {
@@ -76,6 +74,12 @@ export default function Layout({
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
   const [isSIEMOpen, setIsSIEMOpen] = useState(false);
+
+  // Keep panels mounted while animating closed
+  const sidebarProfilePresence = usePresence(isProfileOpen, 200);
+  const topProfilePresence = usePresence(isTopProfileOpen, 200);
+  const notificationPresence = usePresence(isNotificationOpen, 200);
+  const siemPresence = usePresence(isSIEMOpen, 200);
 
   // Track notifications
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -163,17 +167,8 @@ export default function Layout({
     setIsNavigationOpen(!isMobile);
   }, [isMobile]);
 
-  useEffect(() => {
-    if (isMobile) {
-      setIsNavigationOpen(false);
-    }
-  }, [isMobile, location.pathname]);
-
   const handleNavigation = (path: string) => {
     navigate(path);
-    if (isMobile) {
-      setIsNavigationOpen(false);
-    }
   };
 
   const handleLogout = () => {
@@ -390,8 +385,8 @@ export default function Layout({
           )}
         </button>
 
-        {isProfileOpen && (
-          <div className={`absolute bottom-full mb-2 ${isMobile || isSidebarExpanded ? "left-3 right-3" : "left-[72px] w-56"} bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20`}>
+        {sidebarProfilePresence && (
+          <div className={`absolute bottom-full mb-2 ${sidebarProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-bottom-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"} ${isMobile || isSidebarExpanded ? "left-3 right-3" : "left-[72px] w-56"} bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20`}>
             <div className="px-4 py-3 border-b border-gray-100">
               <p className="text-xs font-bold text-gray-900 truncate">{user?.email}</p>
               <p className="text-[10px] text-gray-500 capitalize mt-0.5">{user?.role} Account</p>
@@ -425,17 +420,7 @@ export default function Layout({
 
   return (
     <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
-      {isMobile ? (
-        <Sheet open={isNavigationOpen} onOpenChange={setIsNavigationOpen}>
-          <SheetContent side="left" showClose={false} className="w-[min(16rem,57vw)] bg-[#1D73EC] p-0 text-white">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Primary navigation</SheetTitle>
-              <SheetDescription>Navigate through your DocuFy account.</SheetDescription>
-            </SheetHeader>
-            <div className="flex h-full w-full flex-col">{navigation}</div>
-          </SheetContent>
-        </Sheet>
-      ) : (
+      {!isMobile && (
         <aside
           aria-label="Primary navigation"
           className={`h-screen overflow-y-auto custom-scrollbar bg-[#1D73EC] flex flex-col z-30 shadow-2xl transition-all duration-300 ease-in-out flex-shrink-0 relative ${
@@ -453,15 +438,15 @@ export default function Layout({
             {isMobile ? (
               <button
                 type="button"
-                onClick={() => setIsNavigationOpen(!isNavigationOpen)}
-                aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
-                aria-expanded={isNavigationOpen}
+                onClick={() => setMobileNavOpen(!isMobileNavOpen)}
+                aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
+                aria-expanded={isMobileNavOpen}
                 className="rounded-xl p-2 text-[#1D73EC] transition-all duration-200 hover:bg-[#F2F7FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
               >
-                <Menu className={`h-6 w-6 transition-transform duration-200 ${isNavigationOpen ? "rotate-90" : "rotate-0"}`} />
+                <Menu className={`h-6 w-6 transition-transform duration-200 ${isMobileNavOpen ? "rotate-90" : "rotate-0"}`} />
               </button>
             ) : null}
-            {isMobile && (showBackButton || !location.pathname.endsWith("/dashboard")) && (
+            {isMobile && !hideMobileBackButton && (showBackButton || !location.pathname.endsWith("/dashboard")) && (
               <button
                 type="button"
                 onClick={() => backButtonPath ? navigate(backButtonPath) : navigate(-1)}
@@ -499,13 +484,13 @@ export default function Layout({
                     </span>
                   )}
                 </button>
-                {isSIEMOpen && (
+                {siemPresence && (
                   <>
                     <div
-                      className="fixed inset-0 z-10"
+                      className={`fixed inset-0 z-10 ${siemPresence.isClosing ? "animate-out fade-out-0 duration-200" : "animate-in fade-in-0 duration-200"}`}
                       onClick={() => setIsSIEMOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-red-200 z-20">
+                    <div className={`absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-red-200 z-20 ${siemPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
                       <div className="px-4 py-3 border-b border-red-100 bg-red-50">
                         <div className="flex items-center gap-2">
                           <Shield className="w-4 h-4 text-red-600" />
@@ -611,16 +596,16 @@ export default function Layout({
                 )}
               </button>
 
-              {isNotificationOpen && (
+              {notificationPresence && (
                 <>
                   <div
-                    className="fixed inset-0 z-10"
+                    className={`fixed inset-0 z-10 ${notificationPresence.isClosing ? "animate-out fade-out-0 duration-200" : "animate-in fade-in-0 duration-200"}`}
                     onClick={() => {
                       setIsNotificationOpen(false);
                       setIsSIEMOpen(false);
                     }}
                   />
-                  <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-20">
+                  <div className={`absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
                     <div className="px-4 py-3 border-b border-gray-100">
                       <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
                     </div>
@@ -699,8 +684,8 @@ export default function Layout({
                 {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
               </div>
             </button>
-            {isTopProfileOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl">
+            {topProfilePresence && (
+              <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
                 <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
                   <User className="h-4 w-4" /> Profile Settings
                 </button>

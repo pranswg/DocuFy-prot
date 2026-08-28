@@ -313,7 +313,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         newStatus === "released"
       )
     ) {
-      const sortedOrders = [...orders].sort(
+      const sortedOrders = [...queueOrders].sort(
         (a, b) =>
           a.submittedAt.getTime() - b.submittedAt.getTime(),
       );
@@ -541,8 +541,15 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     return "";
   };
 
+  // QUEUE-VISIBLE ORDERS: orders still awaiting payment verification are excluded
+  // from the Orders/queue list until staff/admin verifies them (they then enter as Received).
+  const queueOrders = useMemo(
+    () => orders.filter((o) => o.status !== "awaitingPayment"),
+    [orders],
+  );
+
   const filteredOrders = useMemo(() => {
-    let filtered = orders;
+    let filtered = queueOrders;
 
     // SYSTEM-WIDE SORTING: Sort by most recent status update (newest first)
     // This ensures orders with recent updates appear at the top
@@ -590,7 +597,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
     return filtered;
   }, [
-    orders,
+    queueOrders,
     searchQuery,
     sortColumn,
     sortDirection,
@@ -710,13 +717,13 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 </p>
               </div>
               <p className="text-xl font-bold text-[#1c1f26] ml-10">
-                {orders.length}
+                {queueOrders.length}
               </p>
             </div>
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "received" ? "border-blue-200 bg-blue-50" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "received" ? "bg-yellow-50 border-yellow-300 shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "received"
@@ -727,8 +734,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <FileText className="w-4 h-4 text-blue-600" />
+                <div className="p-1.5 bg-white/60 rounded-lg">
+                  <FileText className="w-4 h-4 text-[#4A5568]" />
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
                   Received
@@ -741,7 +748,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "inQueue" ? "border-blue-200 bg-white border-2 border-blue-200" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "inQueue" ? "bg-[#D69E2E] border-[#D69E2E] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "inQueue" ? "all" : "inQueue",
@@ -750,21 +757,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-amber-100 rounded-lg">
-                  <Clock className="w-4 h-4 text-blue-600" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "inQueue" ? "bg-white/15" : "bg-white/60"}`}>
+                  <Clock className={`w-4 h-4 ${statusFilter === "inQueue" ? "text-white" : "text-[#D69E2E]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "inQueue" ? "text-white" : "text-gray-500"}`}>
                   In Queue
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "inQueue" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.inQueue}
               </p>
             </div>
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "printing" ? "border-blue-200 bg-white border-2 border-blue-200" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "printing" ? "bg-[#3182CE] border-[#3182CE] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "printing"
@@ -775,14 +782,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <Printer className="w-4 h-4 text-blue-600" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "printing" ? "bg-white/15" : "bg-white/60"}`}>
+                  <Printer className={`w-4 h-4 ${statusFilter === "printing" ? "text-white" : "text-[#3182CE]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "printing" ? "text-white" : "text-gray-500"}`}>
                   Printing
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "printing" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.printing}
               </p>
             </div>
@@ -791,7 +798,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 shrink-0">
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "completed" ? "border-blue-200 bg-white border-2 border-blue-200" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "completed" ? "bg-[#38A169] border-[#38A169] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "completed"
@@ -802,21 +809,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "completed" ? "bg-white/15" : "bg-white/60"}`}>
+                  <CheckCircle className={`w-4 h-4 ${statusFilter === "completed" ? "text-white" : "text-[#38A169]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "completed" ? "text-white" : "text-gray-500"}`}>
                   Completed
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "completed" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.completed}
               </p>
             </div>
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "onHold" ? "border-blue-200 bg-blue-50" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "onHold" ? "bg-[#DD6B20] border-[#DD6B20] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "onHold" ? "all" : "onHold",
@@ -825,21 +832,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <AlertCircle className="w-4 h-4 text-blue-600" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "onHold" ? "bg-white/15" : "bg-white/60"}`}>
+                  <AlertCircle className={`w-4 h-4 ${statusFilter === "onHold" ? "text-white" : "text-[#DD6B20]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "onHold" ? "text-white" : "text-gray-500"}`}>
                   On Hold
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "onHold" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.onHold}
               </p>
             </div>
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "released" ? "border-gray-200 bg-gray-50" : "border-gray-100 hover:border-gray-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "released" ? "bg-[#0D9488] border-[#0D9488] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "released"
@@ -850,21 +857,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-gray-100 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-gray-600" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "released" ? "bg-white/15" : "bg-white/60"}`}>
+                  <CheckCircle className={`w-4 h-4 ${statusFilter === "released" ? "text-white" : "text-[#0D9488]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "released" ? "text-white" : "text-gray-500"}`}>
                   Released
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "released" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.released}
               </p>
             </div>
           </Card>
 
           <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "canceled" ? "border-blue-200 bg-white border-2 border-blue-200" : "border-gray-100 hover:border-blue-200"}`}
+            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "canceled" ? "bg-[#718096] border-[#718096] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
             onClick={() =>
               setStatusFilter(
                 statusFilter === "canceled"
@@ -875,14 +882,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           >
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <XCircle className="w-4 h-4 text-red-400" />
+                <div className={`p-1.5 rounded-lg ${statusFilter === "canceled" ? "bg-white/15" : "bg-white/60"}`}>
+                  <XCircle className={`w-4 h-4 ${statusFilter === "canceled" ? "text-white" : "text-[#718096]"}`} />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className={`text-xs font-medium ${statusFilter === "canceled" ? "text-white" : "text-gray-500"}`}>
                   Canceled
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
+              <p className={`text-xl font-bold ml-10 ${statusFilter === "canceled" ? "text-white" : "text-[#1c1f26]"}`}>
                 {stats.canceled}
               </p>
             </div>

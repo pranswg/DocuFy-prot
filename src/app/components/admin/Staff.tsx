@@ -12,8 +12,6 @@ import {
   User,
   Mail,
   Phone,
-  Calendar,
-  Clock,
   CheckCircle,
   XCircle,
   Plus,
@@ -88,15 +86,6 @@ interface Staff {
     type: string;
   }[];
   permissions: string[];
-  attendanceLogs: {
-    date: string;
-    morningTimeIn: string;
-    morningTimeOut: string;
-    afternoonTimeIn: string;
-    afternoonTimeOut: string;
-    totalHours: number;
-    status: 'Complete' | 'Half-Day' | 'Incomplete' | 'Late';
-  }[];
   tasks: {
     id: string;
     title: string;
@@ -162,44 +151,6 @@ const staffData: Staff[] = [
       "manage_inventory",
       "view_reports",
     ],
-    attendanceLogs: [
-      {
-        date: "2026-04-21",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-20",
-        morningTimeIn: "08:05 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:10 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-19",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-18",
-        morningTimeIn: "08:15 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 8.75,
-        status: "Late",
-      },
-    ],
     tasks: [
       {
         id: "TSK-001",
@@ -261,35 +212,6 @@ const staffData: Staff[] = [
       },
     ],
     permissions: ["view_orders", "edit_orders"],
-    attendanceLogs: [
-      {
-        date: "2026-04-21",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-20",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-19",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 4,
-        status: "Half-Day",
-      },
-    ],
     tasks: [
       {
         id: "TSK-004",
@@ -349,35 +271,6 @@ const staffData: Staff[] = [
       },
     ],
     permissions: ["view_orders", "verify_payments"],
-    attendanceLogs: [
-      {
-        date: "2026-04-21",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-20",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-      {
-        date: "2026-04-19",
-        morningTimeIn: "08:00 AM",
-        morningTimeOut: "12:00 PM",
-        afternoonTimeIn: "01:00 PM",
-        afternoonTimeOut: "05:00 PM",
-        totalHours: 9,
-        status: "Complete",
-      },
-    ],
     tasks: [
       {
         id: "TSK-006",
@@ -521,7 +414,6 @@ export default function Staff() {
       allowances: [],
       paymentHistory: [],
       permissions: [],
-      attendanceLogs: [],
       tasks: [],
     };
 
@@ -543,8 +435,7 @@ export default function Staff() {
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div>
             <p className="text-gray-600 mt-1">
-              Manage staff profiles, attendance, tasks, and
-              payroll
+              Manage staff profiles, tasks, and payroll
             </p>
           </div>
           <div className="flex gap-2">
@@ -705,19 +596,16 @@ export default function Staff() {
                 </div>
               </DialogTitle>
               <DialogDescription>
-                View and manage staff details, attendance, and permissions
+                View and manage staff details and permissions
               </DialogDescription>
             </DialogHeader>
 
             {selectedStaff && (
               <>
                 <Tabs defaultValue="profile" className="mt-4">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="profile">
                       Profile
-                    </TabsTrigger>
-                    <TabsTrigger value="attendance">
-                      Attendance
                     </TabsTrigger>
                     <TabsTrigger value="access">
                       Access
@@ -814,110 +702,6 @@ export default function Staff() {
                         </Badge>
                       </div>
                     </Card>
-                  </TabsContent>
-
-                  {/* Attendance Tab */}
-                  <TabsContent
-                    value="attendance"
-                    className="space-y-4"
-                  >
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-[#2F6FD6]" />
-                          Attendance Logs
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {selectedStaff.attendanceLogs.map(
-                          (log, index) => (
-                            <div
-                              key={index}
-                              className="p-4 bg-gray-50 rounded-xl border border-gray-100"
-                            >
-                              {/* Date row + status badge */}
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-gray-400" />
-                                  <p className="font-bold text-gray-900 text-sm">
-                                    {log.date}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 font-medium">
-                                    {log.totalHours}h total
-                                  </span>
-                                  <Badge
-                                    className={
-                                      log.status === "Complete"
-                                        ? "bg-green-100 text-green-700 border-green-200"
-                                        : log.status === "Late"
-                                        ? "bg-amber-100 text-amber-700 border-amber-200"
-                                        : log.status === "Half-Day"
-                                        ? "bg-blue-100 text-blue-700 border-blue-200"
-                                        : "bg-gray-100 text-gray-600 border-gray-200"
-                                    }
-                                  >
-                                    {log.status}
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              {/* Morning / Afternoon grid */}
-                              <div className="grid grid-cols-2 gap-2">
-                                {/* Morning */}
-                                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-2">
-                                    Morning
-                                  </p>
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500 font-medium">Time In</span>
-                                      <span className="font-bold text-gray-800">
-                                        {log.morningTimeIn || "——"}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500 font-medium">Time Out</span>
-                                      <span className="font-bold text-gray-800">
-                                        {log.morningTimeOut || "——"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Afternoon */}
-                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">
-                                    Afternoon
-                                  </p>
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500 font-medium">Time In</span>
-                                      <span className="font-bold text-gray-800">
-                                        {log.afternoonTimeIn || "——"}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500 font-medium">Time Out</span>
-                                      <span className="font-bold text-gray-800">
-                                        {log.afternoonTimeOut || "——"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ),
-                        )}
-                        {selectedStaff.attendanceLogs.length === 0 && (
-                          <p className="text-gray-500 text-sm text-center py-4">
-                            No attendance records found
-                          </p>
-                        )}
-                      </div>
-                    </Card>
-
                   </TabsContent>
 
                   {/* Access Tab */}

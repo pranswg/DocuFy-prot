@@ -10,10 +10,6 @@ import {
   AlertCircle,
   CreditCard,
   Boxes,
-  LogIn,
-  LogOut,
-  FileText,
-  Printer,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -22,7 +18,6 @@ import { Badge } from "../ui/badge";
 // ── Single source of truth: ordersStore only (same store used by Orders page) ──
 import { ordersStore } from "../../utils/ordersStore";
 import type { OrderType } from "../../utils/ordersStore";
-import AttendanceWidget from "../AttendanceWidget";
 import { useAuth } from "../../contexts/AuthContext";
 
 const menuItems = [
@@ -101,17 +96,6 @@ const getStatusLabel = (status: OrderType["status"]) => {
   if (status === "inQueue") return "In Queue";
   if (status === "onHold")  return "On Hold";
   return status.charAt(0).toUpperCase() + status.slice(1);
-};
-
-// Status icon — mirrors summary cards in StaffQueueBoard
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "received": return <FileText className="w-3.5 h-3.5 text-blue-600" />;
-    case "inQueue":  return <Clock    className="w-3.5 h-3.5 text-blue-600"   />;
-    case "printing": return <Printer  className="w-3.5 h-3.5 text-blue-600"   />;
-    case "onHold":   return <AlertCircle className="w-3.5 h-3.5 text-blue-600" />;
-    default:         return null;
-  }
 };
 
 // Human-readable "time ago"
@@ -266,28 +250,6 @@ export default function StaffDashboard() {
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-bold text-slate-800">Active Orders</h3>
-                <p className="text-[10px] text-[#1D73EC] font-bold uppercase mt-0.5 tracking-widest">
-                  Newest updates first · Live from Orders page
-                </p>
-              </div>
-
-              {/* Mini status pills — counts derived from ordersStore (same as Orders page) */}
-              <div className="hidden md:flex items-center gap-2 mr-4">
-                {[
-                  { key: "received", label: "Received", bg: "bg-blue-100", text: "text-blue-700", count: stats.received },
-                  { key: "inQueue",  label: "In Queue", bg: "bg-amber-100",  text: "text-blue-800",   count: stats.inQueue  },
-                  { key: "printing", label: "Printing", bg: "bg-blue-100",   text: "text-blue-700",   count: stats.printing },
-                  { key: "onHold",   label: "On Hold",  bg: "bg-blue-100", text: "text-blue-700", count: stats.onHold   },
-                ].map((pill) => (
-                  <span
-                    key={pill.key}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${pill.bg} ${pill.text}`}
-                  >
-                    {getStatusIcon(pill.key)}
-                    {pill.label}
-                    <span className="ml-0.5 font-bold">{pill.count}</span>
-                  </span>
-                ))}
               </div>
 
               <Button
@@ -457,11 +419,6 @@ export default function StaffDashboard() {
 
         {/* SIDEBAR CONTENT (Right) */}
         <div className="lg:col-span-3 flex flex-col pt-[68px]">
-          {/* Attendance Section */}
-          <div className="mb-6">
-            <AttendanceWidget />
-          </div>
-
           {/* Quick Actions Section */}
           <Card className="p-6 bg-white border border-slate-100 shadow-sm flex-1 flex flex-col">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h3>

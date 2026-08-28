@@ -105,13 +105,14 @@ export default function OrderTracking() {
 
   const currentOrderStatus = orderData?.status || "Received";
   const holdReason = orderData?.holdReason;
-  const canCancelOrder = ["Received", "In Queue", "On Hold"].includes(currentOrderStatus);
+  const canCancelOrder = ["Received", "In Queue", "On Hold", "Awaiting Payment"].includes(currentOrderStatus);
 
   // Determine if order is completed or released
   const isOrderCompleted =
     currentOrderStatus === "Completed" ||
     currentOrderStatus === "Released";
   const isOnHold = currentOrderStatus === "On Hold";
+  const isAwaitingPayment = currentOrderStatus === "Awaiting Payment";
 
   const handleDownloadInvoice = () => {
     if (!invoiceData) {
@@ -224,6 +225,36 @@ export default function OrderTracking() {
           </Card>
         )}
 
+        {/* Awaiting Payment Alert */}
+        {isAwaitingPayment && (
+          <Card className="p-6 bg-white border-2 border-amber-300 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  Awaiting Payment Verification
+                  <Badge className="bg-amber-100 text-amber-800">
+                    Payment Pending
+                  </Badge>
+                </h3>
+                <p className="text-sm text-amber-800 mb-3 leading-relaxed">
+                  <strong>Details:</strong> {holdReason || "Your GCash payment is pending verification."}
+                </p>
+                <div className="bg-white rounded-lg p-3 border border-amber-200">
+                  <p className="text-xs text-gray-700">
+                    <strong className="text-amber-900">
+                      What to do:
+                    </strong>{" "}
+                    Once Admin or Staff verifies your GCash payment, your order will be added to the print queue automatically. You can track its progress here.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Current Status Banner */}
         <Card className="p-5 bg-white shadow-sm border-l-4 border-[#1D73EC]">
           <div className="flex items-center justify-between">
@@ -250,6 +281,9 @@ export default function OrderTracking() {
                 {currentOrderStatus === "On Hold" && (
                   <PauseCircle className="w-5 h-5 text-blue-600" />
                 )}
+                {currentOrderStatus === "Awaiting Payment" && (
+                  <Clock className="w-5 h-5 text-amber-600" />
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-medium">
@@ -272,7 +306,9 @@ export default function OrderTracking() {
                         ? "bg-blue-100 text-yellow-700"
                         : currentOrderStatus === "On Hold"
                           ? "bg-blue-100 text-blue-800"
-                          : "bg-blue-50 text-blue-700"
+                          : currentOrderStatus === "Awaiting Payment"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-blue-50 text-blue-700"
               }
             >
               {currentOrderStatus}
@@ -322,7 +358,9 @@ export default function OrderTracking() {
                               ? "bg-blue-100 text-yellow-700"
                               : currentOrderStatus === "On Hold"
                                 ? "bg-blue-100 text-blue-800"
-                                : "bg-blue-50 text-blue-700"
+                                : currentOrderStatus === "Awaiting Payment"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-blue-50 text-blue-700"
                     }
                   >
                     {currentOrderStatus}

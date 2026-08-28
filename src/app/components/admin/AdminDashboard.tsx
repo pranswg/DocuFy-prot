@@ -12,7 +12,6 @@ import {
   TrendingUp,
   AlertCircle,
   Box,
-  Clock,
   ChevronDown,
   Settings,
   CheckCircle,
@@ -39,7 +38,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { dataStore } from "../../utils/dataStore";
-import AttendanceWidget from "../AttendanceWidget";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 
 const chartData = {
@@ -327,9 +325,6 @@ export default function AdminDashboard() {
 
         {/* SIDEBAR CONTENT (Right) */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Attendance Section */}
-          <AttendanceWidget />
-
           {/* Quick Actions Section */}
           <Card className="p-6 bg-white border border-slate-100 shadow-sm">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">

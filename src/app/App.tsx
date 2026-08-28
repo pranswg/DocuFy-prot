@@ -30,6 +30,8 @@ import OrderTracking from './components/customer/OrderTracking';
 import JobBoard from './components/customer/JobBoard';
 import JobApplyForm from './components/customer/JobApplyForm';
 import ProtectedRoute from './components/ProtectedRoute';
+import { MobileNavProvider } from './contexts/MobileNavContext';
+import MobileNavSheet from './components/shared/MobileNavSheet';
 
 // Simple error boundary component
 function ErrorBoundary() {
@@ -201,7 +203,12 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <MobileNavProvider>
+        <RouterProvider router={router} />
+        {/* Persistent mobile sidebar — lives outside the router tree so it can
+            animate closed while the next page mounts during navigation. */}
+        <MobileNavSheet router={router} />
+      </MobileNavProvider>
     </AuthProvider>
   );
 }

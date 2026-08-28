@@ -27,7 +27,7 @@ export interface Order {
   customerId: string;
   customerName: string;
   customerEmail: string;
-  status: 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled';
+  status: 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment';
   holdReason?: string;
   cancellationReason?: string;
   total: string;

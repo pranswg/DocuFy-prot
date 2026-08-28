@@ -104,6 +104,8 @@ export default function CustomerDashboard() {
         return "bg-blue-100 text-yellow-700";
       case "On Hold":
         return "bg-blue-100 text-blue-800";
+      case "Awaiting Payment":
+        return "bg-yellow-100 text-yellow-800";
       case "Received":
         return "bg-blue-50 text-blue-700";
       default:
