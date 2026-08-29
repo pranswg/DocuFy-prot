@@ -17,9 +17,11 @@ import {
   Plus,
   Minus,
   ShoppingCart,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
+import StaffTimeInGate from "../shared/StaffTimeInGate";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -45,6 +47,11 @@ const menuItems = [
     label: "Dashboard",
     path: "/staff/dashboard",
     icon: <LayoutDashboard className="w-5 h-5" />,
+  },
+  {
+    label: "Clock-In & Timesheet",
+    path: "/staff/timesheet",
+    icon: <Clock className="w-5 h-5" />,
   },
   {
     label: "Orders",
@@ -283,7 +290,8 @@ export default function Inventory() {
 
   return (
     <Layout menuItems={menuItems} title="Inventory" showBackButton>
-      <div className="space-y-6">
+      <StaffTimeInGate>
+        <div className="space-y-6">
         {/* Add Item Buttons */}
         <div className="flex gap-3 justify-between">
           <div className="flex gap-3">
@@ -787,6 +795,7 @@ export default function Inventory() {
           </DialogContent>
         </Dialog>
       </div>
+      </StaffTimeInGate>
     </Layout>
   );
 }

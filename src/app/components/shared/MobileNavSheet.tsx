@@ -11,6 +11,7 @@ import {
   CreditCard,
   ShoppingCart,
   Boxes,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMobileNav } from "../../contexts/MobileNavContext";
@@ -60,6 +61,11 @@ const staffMenuItems: MenuItem[] = [
     label: "Dashboard",
     path: "/staff/dashboard",
     icon: <LayoutDashboard className="w-5 h-5" />,
+  },
+  {
+    label: "Clock-In & Timesheet",
+    path: "/staff/timesheet",
+    icon: <Clock className="w-5 h-5" />,
   },
   {
     label: "Orders",

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
+import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { deductInventoryForOrder } from "../../utils/inventoryIntegration";
 import { notificationStore } from "../../utils/notificationStore";
@@ -666,7 +667,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
   return (
     <Layout menuItems={menuItems} title="Orders" showBackButton>
-      <div className="flex flex-col space-y-6">
+      <StaffTimeInGate>
+        <div className="flex flex-col space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
           <div className="flex items-center gap-4">
@@ -2070,6 +2072,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </StaffTimeInGate>
     </Layout>
   );
 }

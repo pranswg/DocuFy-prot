@@ -5,7 +5,7 @@ import {
   CreditCard,
   Package,
   ShoppingCart,
-  Boxes,
+  Clock,
 } from 'lucide-react';
 
 const staffMenuItems = [
@@ -13,6 +13,11 @@ const staffMenuItems = [
     label: 'Dashboard',
     path: '/staff/dashboard',
     icon: <LayoutDashboard className="w-5 h-5" />,
+  },
+  {
+    label: 'Clock-In & Timesheet',
+    path: '/staff/timesheet',
+    icon: <Clock className="w-5 h-5" />,
   },
   {
     label: 'Orders',
@@ -28,11 +33,6 @@ const staffMenuItems = [
     label: 'Payment Verification',
     path: '/staff/payment-verification',
     icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: 'Inventory',
-    path: '/staff/inventory',
-    icon: <Boxes className="w-5 h-5" />,
   },
 ];
 

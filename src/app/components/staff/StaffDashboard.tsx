@@ -27,6 +27,11 @@ const menuItems = [
     icon: <LayoutGrid className="w-5 h-5" />,
   },
   {
+    label: "Clock-In & Timesheet",
+    path: "/staff/timesheet",
+    icon: <Clock className="w-5 h-5" />,
+  },
+  {
     label: "Orders",
     path: "/staff/queue",
     icon: <Package className="w-5 h-5" />,
@@ -424,10 +429,11 @@ export default function StaffDashboard() {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h3>
             <div className="flex flex-col gap-3 h-full justify-between">
               {[
-                { id: "qa-que", label: "Manage Queue",    icon: LayoutGrid,  path: "/staff/queue" },
-                { id: "qa-wal", label: "Walk-in Order",   icon: ShoppingCart, path: "/staff/walk-in" },
-                { id: "qa-inv", label: "Check Inventory", icon: Boxes,        path: "/staff/inventory" },
-                { id: "qa-pay", label: "Verify Payments", icon: CreditCard,   path: "/staff/payment-verification" },
+                { id: "qa-clock", label: "Clock In / Time Out", icon: Clock,           path: "/staff/timesheet" },
+                { id: "qa-que", label: "Manage Queue",        icon: LayoutGrid,       path: "/staff/queue" },
+                { id: "qa-wal", label: "Walk-in Order",       icon: ShoppingCart,     path: "/staff/walk-in" },
+                { id: "qa-inv", label: "Check Inventory",     icon: Boxes,            path: "/staff/inventory" },
+                { id: "qa-pay", label: "Verify Payments",     icon: CreditCard,       path: "/staff/payment-verification" },
               ].map((action) => (
                 <button
                   key={action.id}

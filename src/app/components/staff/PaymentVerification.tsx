@@ -8,7 +8,6 @@ import {
   XCircle,
   Clock,
   Eye,
-  Boxes,
   Users,
   FileText,
   UserPlus,
@@ -59,11 +58,6 @@ const menuItems = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: "Inventory",
-    path: "/staff/inventory",
-    icon: <Boxes className="w-5 h-5" />,
   },
 ];
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Kanban, LayoutDashboard, ShoppingCart, User, Search, Clock, CheckCircle, XCircle, ArrowLeft, ChevronDown, ChevronUp, Printer, FileText, AlertCircle, AlertTriangle, CreditCard, Package, LayoutGrid, Boxes, Users, UserPlus, Briefcase, File } from 'lucide-react';
+import { Kanban, LayoutDashboard, ShoppingCart, User, Search, Clock, CheckCircle, XCircle, ArrowLeft, ChevronDown, ChevronUp, Printer, FileText, AlertCircle, AlertTriangle, CreditCard, Package, LayoutGrid, Users, UserPlus, Briefcase, File } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { ordersStore } from '../../utils/ordersStore';
@@ -23,7 +23,6 @@ const menuItems = [
   { label: 'Orders', path: '/staff/queue', icon: <Package className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
-  { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
 ];
 
 type OrderType = {

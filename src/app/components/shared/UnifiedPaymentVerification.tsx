@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
+import StaffTimeInGate from "./StaffTimeInGate";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -235,7 +236,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
   return (
     <Layout menuItems={menuItems} title="Payment Verification" showBackButton>
-      <div className="flex flex-col h-full max-w-[1800px] mx-auto font-poppins">
+      <StaffTimeInGate>
+        <div className="flex flex-col h-full max-w-[1800px] mx-auto font-poppins">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
           <div>
@@ -728,6 +730,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           </div>
         </DialogContent>
       </Dialog>
+      </StaffTimeInGate>
     </Layout>
   );
 }

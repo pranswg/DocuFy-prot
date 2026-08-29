@@ -20,6 +20,7 @@ export interface AuthContextType {
   enableMFA: () => string;
   disableMFA: () => void;
   signup: (data: any) => boolean;
+  registerStaff: (data: { name: string; email: string; password: string }) => { success: boolean; message?: string };
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
@@ -178,6 +179,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  const registerStaff = (data: { name: string; email: string; password: string }) => {
+    if (!data.name || !data.email || !data.password) {
+      return { success: false, message: 'All fields are required.' };
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      return { success: false, message: 'Please enter a valid email address.' };
+    }
+    if (mockUsers.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
+      return { success: false, message: 'An account with this email already exists.' };
+    }
+    const newStaff: any = {
+      email: data.email,
+      password: data.password,
+      name: data.name,
+      role: 'staff' as const,
+      mfaEnabled: true,
+      mfaSecret: Math.random().toString(36).substring(2, 15),
+      passwordHistory: [] as string[],
+      profileImage: undefined,
+      isAdminRegistered: true,
+    };
+    mockUsers.push(newStaff);
+    toast.success(`Staff account for ${data.name} created. They can sign in with the email and password.`);
+    return { success: true };
+  };
+
   const updateProfile = (data: Partial<User> & { profileImage?: string | null }) => {
     setUser((current) => {
       if (!current) return current;
@@ -267,6 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         enableMFA,
         disableMFA,
         signup,
+        registerStaff,
         updateProfile,
         logout,
         resetPassword,

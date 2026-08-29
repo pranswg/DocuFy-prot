@@ -22,6 +22,8 @@ import {
   Award,
   ClipboardList,
   Eye,
+  EyeOff,
+  Info,
   Ban,
   UserCheck,
   Search,
@@ -36,6 +38,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
+import { PasswordStrengthIndicator, validatePassword } from "../ui/password-strength-indicator";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Tabs,
   TabsContent,
@@ -291,6 +295,7 @@ const staffData: Staff[] = [
 ];
 
 export default function Staff() {
+  const { registerStaff } = useAuth();
   const [staff, setStaff] =
     useState<Staff[]>([]);
   const [archivedStaff, setArchivedStaff] = useState<Staff[]>([]);
@@ -309,9 +314,14 @@ export default function Staff() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [newStaff, setNewStaff] = useState({
+    fullName: "",
     email: "",
+    password: "",
+    confirmPassword: "",
     startDate: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const displayStaff = showArchived ? archivedStaff : staff;
 
@@ -368,42 +378,48 @@ export default function Staff() {
   };
 
   const handleAddStaff = () => {
-    if (!newStaff.email) {
+    const name = newStaff.fullName.trim();
+    const email = newStaff.email.trim();
+    const password = newStaff.password;
+
+    if (!name) {
+      toast.error("Please enter the staff member's full name");
+      return;
+    }
+
+    if (!email) {
       toast.error("Please enter an email address");
       return;
     }
 
-    // Find user in mock database (simulating customer database)
-    const mockUsers = [
-      {
-        email: 'customer@test.com',
-        name: 'Ethan Laureen',
-        phone: '+63 917 234 5678',
-      },
-      {
-        email: 'suspended@test.com',
-        name: 'Maria Santos',
-        phone: '+63 917 345 6789',
-      },
-    ];
-
-    const existingUser = mockUsers.find(u => u.email === newStaff.email);
-    if (!existingUser) {
-      toast.error("Email not found in customer database");
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast.error("Password does not meet security requirements");
       return;
     }
 
-    // Check if already staff
-    if (staff.some(s => s.email === newStaff.email)) {
-      toast.error("This user is already a staff member");
+    if (password !== newStaff.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (staff.some((s) => s.email.toLowerCase() === email.toLowerCase())) {
+      toast.error("This email is already a staff member");
+      return;
+    }
+
+    // Register the brand-new staff account so they can sign in
+    const result = registerStaff({ name, email, password });
+    if (!result.success) {
+      toast.error(result.message || "Could not create staff account");
       return;
     }
 
     const staffMember: Staff = {
       id: `EMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      name: existingUser.name,
-      email: existingUser.email,
-      phone: existingUser.phone,
+      name,
+      email: email.toLowerCase(),
+      phone: "Not set",
       role: "Staff",
       status: "Active",
       joinDate: newStaff.startDate || new Date().toISOString().split("T")[0],
@@ -413,18 +429,23 @@ export default function Staff() {
       salary: 0,
       allowances: [],
       paymentHistory: [],
-      permissions: [],
+      permissions: ["view_orders", "edit_orders"],
       tasks: [],
     };
 
     setStaff([...staff, staffMember]);
     setNewStaff({
+      fullName: "",
       email: "",
+      password: "",
+      confirmPassword: "",
       startDate: "",
     });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setShowAddDialog(false);
     toast.success(
-      `${staffMember.name} has been upgraded to Staff!`,
+      `${staffMember.name} has been registered as Staff!\nThey can sign in using the email and password you set.`,
     );
   };
 
@@ -438,16 +459,16 @@ export default function Staff() {
               Manage staff profiles, tasks, and payroll
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col w-full sm:w-auto gap-2 sm:flex-row">
             <Button
               variant={showArchived ? "outline" : "default"}
-              className={showArchived ? "" : "bg-[#2F6FD6] hover:bg-[#1e5bb8]"}
+              className={`h-11 sm:h-10 w-full sm:w-auto ${showArchived ? "" : "bg-[#2F6FD6] hover:bg-[#1e5bb8]"}`}
               onClick={() => setShowArchived(!showArchived)}
             >
               {showArchived ? "Show Active" : `Show Archived (${archivedStaff.length})`}
             </Button>
             <Button
-              className="bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -885,23 +906,47 @@ export default function Staff() {
           </DialogContent>
         </Dialog>
 
-        {/* Add Staff Dialog */}
+        {/* Register New Staff Dialog */}
         <Dialog
           open={showAddDialog}
-          onOpenChange={setShowAddDialog}
+          onOpenChange={(open) => {
+            setShowAddDialog(open);
+            if (!open) {
+              setShowPassword(false);
+              setShowConfirmPassword(false);
+            }
+          }}
         >
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-[#10316B]">Add Staff</DialogTitle>
+              <DialogTitle className="text-[#10316B]">Register New Staff</DialogTitle>
               <DialogDescription>
-                Enter the customer email to upgrade their account to Staff. All profile information will be retrieved automatically.
+                Create a brand-new staff account. The staff member can sign in with the email and
+                password you set below.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Customer Email *</Label>
+                <Label htmlFor="fullName">Full Name *</Label>
                 <Input
-                  id="email"
+                  id="fullName"
+                  type="text"
+                  value={newStaff.fullName}
+                  onChange={(e) =>
+                    setNewStaff({
+                      ...newStaff,
+                      fullName: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. Maria Santos"
+                  className="h-11 bg-white text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="staffEmail">Email Address *</Label>
+                <Input
+                  id="staffEmail"
                   type="email"
                   value={newStaff.email}
                   onChange={(e) =>
@@ -910,16 +955,77 @@ export default function Staff() {
                       email: e.target.value,
                     })
                   }
-                  placeholder="customer@example.com"
+                  placeholder="staff@example.com"
+                  className="h-11 bg-white text-sm"
                 />
                 <p className="text-xs text-gray-500">
-                  Email must exist in the customer database
+                  Used to sign in to the new staff account
                 </p>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="staffPassword">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="staffPassword"
+                      type={showPassword ? "text" : "password"}
+                      value={newStaff.password}
+                      onChange={(e) =>
+                        setNewStaff({
+                          ...newStaff,
+                          password: e.target.value,
+                        })
+                      }
+                      placeholder="Enter password"
+                      className="h-11 bg-white text-sm pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="staffConfirmPassword">Confirm *</Label>
+                  <div className="relative">
+                    <Input
+                      id="staffConfirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={newStaff.confirmPassword}
+                      onChange={(e) =>
+                        setNewStaff({
+                          ...newStaff,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      placeholder="Confirm password"
+                      className="h-11 bg-white text-sm pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {newStaff.password && (
+                <PasswordStrengthIndicator password={newStaff.password} />
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date *</Label>
+                <Label htmlFor="staffStartDate">Start Date</Label>
                 <Input
-                  id="startDate"
+                  id="staffStartDate"
                   type="date"
                   value={newStaff.startDate}
                   onChange={(e) =>
@@ -928,21 +1034,34 @@ export default function Staff() {
                       startDate: e.target.value,
                     })
                   }
+                  className="h-11 bg-white text-sm"
                 />
               </div>
+
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-xs text-blue-800 flex items-start gap-2 leading-relaxed">
+                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    The new account can sign in immediately with these credentials. They must Time
+                    In on the staff dashboard before processing orders or verifying payments.
+                  </span>
+                </p>
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button
                 variant="outline"
+                className="h-11 w-full sm:w-auto"
                 onClick={() => setShowAddDialog(false)}
               >
                 Cancel
               </Button>
               <Button
-                className="bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+                className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
                 onClick={handleAddStaff}
               >
-                Add Staff
+                <UserPlus className="w-4 h-4 mr-2" />
+                Register Staff
               </Button>
             </DialogFooter>
           </DialogContent>

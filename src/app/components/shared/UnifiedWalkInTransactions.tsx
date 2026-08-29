@@ -21,9 +21,11 @@ import {
   LayoutDashboard,
   Users,
   Briefcase,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
+import StaffTimeInGate from './StaffTimeInGate';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -65,6 +67,7 @@ const ALLOWED_FILE_TYPES = {
 
 const staffMenuItems = [
   { label: 'Dashboard', path: '/staff/dashboard', icon: <LayoutGrid className="w-5 h-5" /> },
+  { label: 'Clock-In & Timesheet', path: '/staff/timesheet', icon: <Clock className="w-5 h-5" /> },
   { label: 'Orders', path: '/staff/queue', icon: <Package className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
@@ -487,7 +490,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
 
   return (
     <Layout menuItems={menuItems} title="Walk-in Transactions" showBackButton>
-      <div className="max-w-4xl mx-auto space-y-8">
+      <StaffTimeInGate>
+        <div className="max-w-4xl mx-auto space-y-8">
         {/* Step Indicator */}
         <Card className="p-6 bg-white shadow-sm">
           <div className="flex items-center justify-between">
@@ -1727,6 +1731,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </StaffTimeInGate>
     </Layout>
   );
 }

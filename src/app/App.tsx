@@ -13,6 +13,7 @@ import StaffOrdersUnified from './components/staff/StaffOrdersUnified';
 import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
 import StaffProfile from './components/staff/StaffProfile';
+import StaffTimesheet from './components/staff/StaffTimesheet';
 import StaffPaymentVerificationUnified from './components/staff/StaffPaymentVerificationUnified';
 import InventoryManagement from './components/staff/InventoryManagement';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -22,6 +23,7 @@ import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Inventory from './components/admin/Inventory';
 import Staff from './components/admin/Staff';
+import AdminAttendancePage from './components/admin/AdminAttendance';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
 import Reports from './components/admin/Reports';
@@ -123,6 +125,10 @@ const router = createBrowserRouter([
         element: <ProtectedRoute role="staff"><StaffProfile /></ProtectedRoute>,
       },
       {
+        path: 'timesheet',
+        element: <ProtectedRoute role="staff"><StaffTimesheet /></ProtectedRoute>,
+      },
+      {
         path: 'queue',
         element: <ProtectedRoute role="staff"><StaffOrdersUnified /></ProtectedRoute>,
       },
@@ -179,6 +185,10 @@ const router = createBrowserRouter([
       {
         path: 'staff',
         element: <ProtectedRoute role="admin"><Staff /></ProtectedRoute>,
+      },
+      {
+        path: 'attendance',
+        element: <ProtectedRoute role="admin"><AdminAttendancePage /></ProtectedRoute>,
       },
       {
         path: 'jobs',

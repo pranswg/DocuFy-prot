@@ -11,6 +11,7 @@ import {
   Briefcase,
   Settings,
   ShoppingCart,
+  Clock,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -43,6 +44,11 @@ export const adminMenuItems = [
     label: "Staff",
     path: "/admin/staff",
     icon: <Users className="w-5 h-5" />,
+  },
+  {
+    label: "Attendance",
+    path: "/admin/attendance",
+    icon: <Clock className="w-5 h-5" />,
   },
   {
     label: "Reports",
