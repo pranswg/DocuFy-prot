@@ -54,7 +54,6 @@ import {
   SelectValue,
 } from "../ui/select";
 import { FileAttachments } from "../ui/file-attachments";
-import { PrintPreviewDialog } from "../ui/print-preview-dialog";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 
 type OrderType = {
@@ -105,7 +104,6 @@ type OrderType = {
   lastUpdatedAt?: Date;
 };
 
-type AttachedFile = NonNullable<OrderType["attachedFiles"]>[number];
 
 const initialOrders: OrderType[] = [];
 
@@ -183,8 +181,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   });
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<AttachedFile | null>(null);
 
   // Initialize and subscribe to orders store
   useEffect(() => {
@@ -1172,8 +1168,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         orderId={selectedOrder.id}
                         showDownload={true}
                         onView={(file) => {
-                          setSelectedFile(file);
-                          setShowPrintPreview(true);
+                          // Live file preview is currently unavailable/being rebuilt.
                         }}
                       />
                     </div>
@@ -1734,34 +1729,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Invoice Preview Dialog */}
-      {showPrintPreview && selectedFile && (
-        <PrintPreviewDialog
-          open={showPrintPreview}
-          onOpenChange={(open) => {
-            setShowPrintPreview(open);
-            if (!open) setSelectedFile(null);
-          }}
-          fileName={selectedFile.name}
-          fileUrl={selectedFile.url}
-          pageCount={selectedOrder.pages || 1}
-          options={{
-            paperType: selectedOrder.paperSize,
-            paperSize: selectedOrder.paperSize,
-            printType: selectedOrder.colorMode === "color" ? "Colored" : "Black & White",
-            copies: selectedOrder.copies || 1,
-            orientation: selectedOrder.orientation as "portrait" | "landscape" | undefined,
-            pagesPerSheet: selectedOrder.pagesPerSheet,
-            twoSided: selectedOrder.twoSided,
-            pageRange: selectedOrder.pageRange,
-            specificPages: selectedOrder.specificPages,
-            margins: selectedOrder.margins,
-            scale: selectedOrder.scale,
-            customScale: selectedOrder.customScale,
-          }}
-        />
-      )}
 
       <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
         <DialogContent className="max-w-4xl max-h-[90vh]">

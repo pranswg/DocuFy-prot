@@ -34,7 +34,6 @@ import {
 } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
-import { PrintPreviewDialog } from "../ui/print-preview-dialog";
 import { dataStore } from "../../utils/dataStore";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 
@@ -65,8 +64,6 @@ export default function OrderTracking() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [showInvoice, setShowInvoice] = useState(false);
-  const [showFilePreview, setShowFilePreview] = useState(false);
-  const [previewFile, setPreviewFile] = useState<any>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showColorBreakdown, setShowColorBreakdown] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -138,8 +135,7 @@ export default function OrderTracking() {
   };
 
   const handleViewFile = (file: any) => {
-    setPreviewFile(file);
-    setShowFilePreview(true);
+    // Live file preview is currently unavailable/being rebuilt.
   };
 
   const handleDownloadFile = (fileName: string) => {
@@ -769,33 +765,6 @@ export default function OrderTracking() {
           </Card>
         )}
       </div>
-
-      {showFilePreview && previewFile && (
-        <PrintPreviewDialog
-          open={showFilePreview}
-          onOpenChange={(open) => {
-            setShowFilePreview(open);
-            if (!open) setPreviewFile(null);
-          }}
-          fileName={previewFile.name}
-          fileUrl={previewFile.url}
-          pageCount={previewFile.pageCount || orderData?.pages || 1}
-          options={{
-            paperType: getFileOption(previewFile, "paperSize", orderData?.paperSize || "A4"),
-            paperSize: getFileOption(previewFile, "paperSize", orderData?.paperSize || "A4"),
-            printType: getFileOption(previewFile, "colorMode", orderData?.printType || "Black & White"),
-            copies: getFileOption(previewFile, "copies", orderData?.copies || 1),
-            orientation: getFileOption(previewFile, "orientation", orderData?.orientation || "portrait") as "portrait" | "landscape",
-            pagesPerSheet: getFileOption(previewFile, "pagesPerSheet", orderData?.pagesPerSheet || "1"),
-            twoSided: getFileOption(previewFile, "twoSided", orderData?.twoSided || "no"),
-            pageRange: getFileOption(previewFile, "pageRange", orderData?.pageRange || "all"),
-            specificPages: getFileOption(previewFile, "specificPages", orderData?.specificPages || ""),
-            margins: getFileOption(previewFile, "margins", orderData?.margins || "default"),
-            scale: getFileOption(previewFile, "scale", orderData?.scale || "default"),
-            customScale: getFileOption(previewFile, "customScale", orderData?.customScale || 100),
-          }}
-        />
-      )}
 
       {/* Invoice Preview Dialog */}
       <Dialog open={showInvoice} onOpenChange={setShowInvoice}>

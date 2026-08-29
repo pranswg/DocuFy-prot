@@ -33,7 +33,6 @@ import { Textarea } from '../ui/textarea';
 import { ordersStore } from '../../utils/ordersStore';
 import { formatCurrency } from '../../utils/formatNumber';
 import { AVAILABLE_ADDONS, type Addon } from '../../utils/constants';
-import { PrintPreviewDialog } from '../ui/print-preview-dialog';
 import { dataStore } from '../../utils/dataStore';
 import { adminMenuItems } from '../../utils/adminMenuItems';
 import {
@@ -105,8 +104,6 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
   const [currentStep, setCurrentStep] = useState(1);
   const [fileError, setFileError] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewFileId, setPreviewFileId] = useState<string | null>(null);
   const [showAllAnalysis, setShowAllAnalysis] = useState<{ [fileId: string]: boolean }>({});
   const [showDetectedPages, setShowDetectedPages] = useState<{ [fileId: string]: boolean }>({});
   const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
@@ -1268,8 +1265,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setPreviewFileId(fileData.id);
-                          setShowPreview(true);
+                          // Live file preview is currently unavailable/being rebuilt.
                         }}
                         className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
                       >
@@ -1622,40 +1618,6 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           </div>
         </Card>
       </div>
-
-      {/* Print Preview Dialog */}
-      {previewFileId && (
-        <PrintPreviewDialog
-          open={showPreview}
-          onOpenChange={setShowPreview}
-          fileName={files.find((f) => f.id === previewFileId)?.fileName || ''}
-          pageCount={files.find((f) => f.id === previewFileId)?.pageCount || 1}
-          options={{
-            paperType:
-              files.find((f) => f.id === previewFileId)?.paperSize || 'Short',
-            paperSize:
-              files.find((f) => f.id === previewFileId)?.paperSize || 'Short',
-            printType:
-              files.find((f) => f.id === previewFileId)?.colorMode === 'colored'
-                ? 'Colored'
-                : 'Black & White',
-            copies: files.find((f) => f.id === previewFileId)?.copies || 1,
-            orientation:
-              (files.find((f) => f.id === previewFileId)?.orientation as
-                | 'portrait'
-                | 'landscape') || 'portrait',
-            pagesPerSheet:
-              files.find((f) => f.id === previewFileId)?.pagesPerSheet || '1',
-            twoSided: files.find((f) => f.id === previewFileId)?.twoSided || 'No',
-            pageRange: files.find((f) => f.id === previewFileId)?.pageRange || 'All',
-            specificPages:
-              files.find((f) => f.id === previewFileId)?.specificPages || '',
-            margins: files.find((f) => f.id === previewFileId)?.margins || 'default',
-            scale: files.find((f) => f.id === previewFileId)?.scale || 'default',
-            customScale: files.find((f) => f.id === previewFileId)?.customScale || 100,
-          }}
-        />
-      )}
 
       {/* Cancel Confirmation Dialog */}
       <Dialog open={showCancelConfirmDialog} onOpenChange={setShowCancelConfirmDialog}>
