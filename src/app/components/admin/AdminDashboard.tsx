@@ -4,28 +4,18 @@ import {
   LayoutDashboard,
   CreditCard,
   Package,
-  Boxes,
   Users,
   FileText,
   UserPlus,
   Briefcase,
   TrendingUp,
   AlertCircle,
-  Box,
   ChevronDown,
   Settings,
   CheckCircle,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "../ui/dialog";
 import {
   LineChart,
   Line,
@@ -56,8 +46,6 @@ export default function AdminDashboard() {
   const [salesTimeframe, setSalesTimeframe] = useState<"Weekly" | "Yearly">("Weekly");
   const [ordersTimeframe, setOrdersTimeframe] = useState<"Weekly" | "Yearly">("Weekly");
   const [stats, setStats] = useState(dataStore.getOrderStats());
-  const [lowStock, setLowStock] = useState(dataStore.getLowStockItems());
-  const [showLowStockModal, setShowLowStockModal] = useState(false);
   const activeStaffCount = 0;
 
   const EmptyChartState = ({ label }: { label: string }) => (
@@ -71,7 +59,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
       setStats(dataStore.getOrderStats());
-      setLowStock(dataStore.getLowStockItems());
     });
     return () => {
       unsubscribe();
@@ -298,29 +285,7 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
-            {/* Low Stock Alert Banner */}
-            {lowStock.length > 0 && (
-              <button
-                onClick={() => setShowLowStockModal(true)}
-                className="mt-5 w-full flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors text-left group"
-              >
-                <div className="flex items-center gap-3">
-                  <Boxes className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-amber-800">
-                      Low Stock Alert
-                    </p>
-                    <p className="text-xs text-amber-600 font-medium">
-                      {lowStock.length} item{lowStock.length > 1 ? "s" : ""} below reorder level
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-amber-700 bg-amber-200 px-3 py-1 rounded-full">
-                  View Details
-                </span>
-              </button>
-            )}
-          </Card>
+            </Card>
         </div>
 
         {/* SIDEBAR CONTENT (Right) */}
@@ -344,12 +309,6 @@ export default function AdminDashboard() {
                   icon: Package,
                   path: "/admin/orders",
                 },
-                {
-                  id: "qa-inv",
-                  label: "Check Inventory",
-                  icon: Box,
-                  path: "/admin/inventory",
-                },
               ].map((action) => (
                 <button
                   key={action.id}
@@ -369,69 +328,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Low Stock Dialog */}
-      <Dialog
-        open={showLowStockModal}
-        onOpenChange={setShowLowStockModal}
-      >
-        <DialogContent className="max-w-2xl bg-white border-slate-200">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Boxes className="w-6 h-6 text-[#2F6FD6]" /> Low
-              Stock Alerts
-            </DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
-            {lowStock.length === 0 ? (
-              <p className="text-center py-4 text-base font-bold text-slate-600">
-                All items are well-stocked!
-              </p>
-            ) : (
-              lowStock.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 bg-slate-50 border border-slate-100 rounded-lg flex justify-between items-center"
-                >
-                  <div>
-                    <h4 className="text-base font-bold text-slate-800">
-                      {item.name}
-                    </h4>
-                    <p className="text-xs font-bold text-slate-400 uppercase">
-                      {item.category}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-base font-bold text-red-500">
-                      {item.quantity} {item.unit}
-                    </p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">
-                      Stock Left
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowLowStockModal(false)}
-              className="font-bold"
-            >
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                setShowLowStockModal(false);
-                navigate("/admin/inventory");
-              }}
-              className="bg-[#2F6FD6] text-white font-bold"
-            >
-              Manage Inventory
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </Layout>
+      </Layout>
   );
 }

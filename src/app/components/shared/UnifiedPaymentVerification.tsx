@@ -66,8 +66,11 @@ function generatePaymentsFromOrders(): PaymentType[] {
         paymentStatus = "verified";
       } else if (order.status === 'Canceled') {
         paymentStatus = "rejected";
-      } else if (order.paymentMethod === 'Cash' || order.paymentMethod === 'cash') {
-        // Cash payments are auto-verified since they pay on pickup
+      } else if ((order.paymentMethod === 'Cash' || order.paymentMethod === 'cash') &&
+        !(order.downPaymentRequired && !order.downPaymentVerified)) {
+        // Cash payments are auto-verified since they pay on pickup — UNLESS a
+        // down payment is required but hasn't been verified yet (then it stays
+        // pending here and the order is kept out of the queue until approved).
         paymentStatus = "verified";
       } else if (order.paymentReferenceNumber && !order.paymentVerified) {
         paymentStatus = "pending";
@@ -146,6 +149,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       // This ensures Order List and Payment Verification are connected
       dataStore.updateOrder(selectedPayment.orderId, {
         paymentVerified: status === "verified",
+        downPaymentVerified: status === "verified",
         paymentReferenceNumber: selectedPayment.reference,
         // Auto-update order status to "Received" when payment is verified so the order enters the queue
         ...(status === "verified" ? { status: "Received" as const } : {}),

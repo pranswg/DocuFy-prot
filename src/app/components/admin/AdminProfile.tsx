@@ -322,7 +322,7 @@ export default function AdminProfile() {
               'Manage Users & Accounts',
               'Payment Verification',
               'Order Management',
-              'Inventory Control',
+              'Manage shop operations and staff',
               'Staff Management',
               'Generate Reports',
               'System Configuration',

@@ -10,7 +10,6 @@ import {
   Briefcase,
   CreditCard,
   ShoppingCart,
-  Boxes,
   Clock,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -81,11 +80,6 @@ const staffMenuItems: MenuItem[] = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: "Inventory",
-    path: "/staff/inventory",
-    icon: <Boxes className="w-5 h-5" />,
   },
 ];
 

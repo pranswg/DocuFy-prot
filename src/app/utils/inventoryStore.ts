@@ -1,26 +1,36 @@
-// Inventory store for tracking inventory items, stock levels, and transactions
-import { notificationStore } from './notificationStore';
-
-export type InventoryTransaction = {
-  id: string;
-  type: 'add' | 'sell' | 'adjust' | 'deduct';
-  quantity: number;
-  date: Date;
-  note?: string;
-  orderId?: string; // Reference to order if transaction was from an order
-  transactionId?: string; // Reference to walk-in transaction if applicable
-};
+// Centralized inventory store for supply/consumable tracking.
+// Persisted to localStorage. Tracks stock in/out and flags low-stock items.
 
 export type InventoryItem = {
   id: string;
-  itemName: string;
-  category: string;
-  quantityAdded: number;
-  quantitySold: number;
+  name: string;
+  category: string; // e.g. Paper, Ink, School supplies, Add-ons
+  brand?: string;
+  unit: string; // ream, piece, box, bottle, etc.
   currentStock: number;
-  dateAdded: Date;
+  minimumStock: number;
+  price?: number; // sell price per unit (used for order add-ons)
+  paperSize?: string; // size code for Paper items: 'a4' | 'short' | 'legal' | ...
+  pcsPerUnit?: number; // pieces per unit (paper ream = 500); defaults to 1
   archived?: boolean;
-  transactions: InventoryTransaction[];
+  lastUpdated?: string;
+};
+
+export type PaperSizeOption = {
+  id: string;
+  name: string;
+  displayName: string;
+  inStock: boolean;
+};
+
+export type AddonOption = {
+  id: string;
+  name: string;
+  price: number;
+  inStock: boolean;
+  unit: string;
+  category: string;
+  description: string;
 };
 
 type Subscriber = () => void;
@@ -34,46 +44,41 @@ class InventoryStore {
     this.loadFromLocalStorage();
   }
 
-  // Initialize from localStorage on first access
   private loadFromLocalStorage(): void {
     if (this.initialized) return;
 
     try {
-      const INVENTORY_VERSION = '3.0'; // Increment this to force inventory reset
+      const INVENTORY_VERSION = '2.0'; // Increment to force a reset
       const storedVersion = localStorage.getItem('inventoryStoreVersion');
       const stored = localStorage.getItem('inventoryStore');
 
-      // Reset inventory if version changed or no stored data
       if (!stored || storedVersion !== INVENTORY_VERSION) {
-        console.log('Resetting inventory to empty state (version mismatch or first load)');
-        this.items = this.getDefaultInventory();
+        this.items = this.getDefaultItems();
         localStorage.setItem('inventoryStoreVersion', INVENTORY_VERSION);
         this.saveToLocalStorage();
       } else {
         const parsed = JSON.parse(stored);
-        this.items = parsed.map((item: any) => ({
-          ...item,
-          dateAdded: new Date(item.dateAdded),
-          transactions: item.transactions.map((t: any) => ({
-            ...t,
-            date: new Date(t.date),
-          })),
-        }));
+        this.items = Array.isArray(parsed)
+          ? parsed.map(item => this.normalizeItem(item))
+          : [];
       }
     } catch (error) {
       console.error('Failed to load inventory from localStorage:', error);
-      this.items = this.getDefaultInventory();
+      this.items = this.getDefaultItems();
     }
 
     this.initialized = true;
   }
 
-  // Get default inventory items
-  private getDefaultInventory(): InventoryItem[] {
-    return [];
+  // Backfill pcsPerUnit for existing Paper items that were saved before it
+  // existed: a Paper ream is 500 pieces, other paper units default to 1.
+  private normalizeItem(item: InventoryItem): InventoryItem {
+    if (item.category === 'Paper' && item.pcsPerUnit == null) {
+      return { ...item, pcsPerUnit: item.unit === 'ream' ? 500 : 1 };
+    }
+    return item;
   }
 
-  // Save to localStorage
   private saveToLocalStorage(): void {
     try {
       localStorage.setItem('inventoryStore', JSON.stringify(this.items));
@@ -82,268 +87,193 @@ class InventoryStore {
     }
   }
 
-  // Check and send low inventory notifications
-  private checkLowInventoryNotification(item: InventoryItem): void {
-    // Define thresholds: 100 for paper, 10 for supplies and add-ons
-    const threshold = item.category === 'Paper' ? 100 : 10;
-
-    if (item.currentStock <= threshold && !item.archived) {
-      // Check if a notification for this item was already sent in the last 24 hours
-      const existingNotifications = notificationStore.getNotifications();
-      const recentNotification = existingNotifications.find(n =>
-        n.type === 'inventory' &&
-        n.message.includes(item.itemName) &&
-        new Date().getTime() - n.timestamp.getTime() < 24 * 60 * 60 * 1000 // 24 hours
-      );
-
-      if (!recentNotification) {
-        // Send notification to admin
-        notificationStore.addNotification(
-          'inventory',
-          'Low Inventory Alert',
-          `${item.itemName} is running low. Current stock: ${item.currentStock}. Please restock soon.`,
-          {
-            clickable: true,
-            relatedRoute: '/admin/inventory',
-            recipientRole: 'admin',
-          }
-        );
-
-        // Send notification to staff
-        notificationStore.addNotification(
-          'inventory',
-          'Low Inventory Alert',
-          `${item.itemName} is running low. Current stock: ${item.currentStock}. Please inform admin.`,
-          {
-            clickable: true,
-            relatedRoute: '/staff/inventory',
-            recipientRole: 'staff',
-          }
-        );
-      }
-    }
+  private getDefaultItems(): InventoryItem[] {
+    return [
+      { id: 'inv-paper-a4', name: 'Bond Paper (A4)', category: 'Paper', brand: '', unit: 'ream', currentStock: 15, minimumStock: 3, paperSize: 'a4', pcsPerUnit: 500 },
+      { id: 'inv-paper-short', name: 'Bond Paper (Short)', category: 'Paper', brand: '', unit: 'ream', currentStock: 12, minimumStock: 3, paperSize: 'short', pcsPerUnit: 500 },
+      { id: 'inv-paper-legal', name: 'Bond Paper (Legal)', category: 'Paper', brand: '', unit: 'ream', currentStock: 8, minimumStock: 2, paperSize: 'legal', pcsPerUnit: 500 },
+      { id: 'inv-ink-black', name: 'Printer Ink (Black)', category: 'Ink', brand: 'Epson', unit: 'bottle', currentStock: 5, minimumStock: 2, pcsPerUnit: 1 },
+      { id: 'inv-ballpen', name: 'Ballpen (Black)', category: 'School supplies', brand: '', unit: 'piece', currentStock: 30, minimumStock: 10, pcsPerUnit: 1 },
+      { id: 'inv-staples', name: 'Staples', category: 'Add-ons', brand: '', unit: 'box', currentStock: 15, minimumStock: 4, price: 5, pcsPerUnit: 1, description: 'Box of staples for binding printed sets.' },
+    ];
   }
 
-  // Get all inventory items
   getItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
     return [...this.items];
   }
 
-  // Get a specific item by ID
-  getItem(id: string): InventoryItem | undefined {
+  getActiveItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
+    return this.items.filter(item => !item.archived);
+  }
+
+  getArchivedItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
+    return this.items.filter(item => item.archived);
+  }
+
+  getItemById(id: string): InventoryItem | undefined {
+    this.loadFromLocalStorage();
     return this.items.find(item => item.id === id);
   }
 
-  // Get item by name and category
-  getItemByNameAndCategory(itemName: string, category: string): InventoryItem | undefined {
-    return this.items.find(
-      item => item.itemName === itemName && item.category === category && !item.archived
-    );
-  }
-
-  // Add a new inventory item
-  addItem(item: Omit<InventoryItem, 'id' | 'currentStock' | 'transactions'>): InventoryItem {
-    const newId = `INV-${String(this.items.length + 1).padStart(3, '0')}`;
-
-    const initialTransaction: InventoryTransaction = {
-      id: `TXN-${Date.now()}`,
-      type: 'add',
-      quantity: item.quantityAdded,
-      date: new Date(),
-      note: 'Initial stock',
-    };
-
-    const newItem: InventoryItem = {
-      ...item,
-      id: newId,
-      currentStock: item.quantityAdded - item.quantitySold,
-      transactions: [initialTransaction],
-    };
-
-    this.items.push(newItem);
+  addItem(item: InventoryItem): void {
+    this.loadFromLocalStorage();
+    this.items = [...this.items, { ...item, lastUpdated: new Date().toISOString().split('T')[0] }];
     this.saveToLocalStorage();
     this.notify();
-    return newItem;
   }
 
-  // Update an existing item
   updateItem(id: string, updates: Partial<InventoryItem>): void {
-    const index = this.items.findIndex(item => item.id === id);
-    if (index !== -1) {
-      this.items[index] = { ...this.items[index], ...updates };
-      // Recalculate current stock
-      this.items[index].currentStock =
-        this.items[index].quantityAdded - this.items[index].quantitySold;
-      this.saveToLocalStorage();
-      this.notify();
-    }
-  }
-
-  // Add quantity to an existing item
-  addQuantity(id: string, quantity: number, note?: string): void {
-    const index = this.items.findIndex(item => item.id === id);
-    if (index !== -1) {
-      const transaction: InventoryTransaction = {
-        id: `TXN-${Date.now()}`,
-        type: 'add',
-        quantity,
-        date: new Date(),
-        note,
-      };
-
-      this.items[index].quantityAdded += quantity;
-      this.items[index].currentStock += quantity;
-      this.items[index].transactions.push(transaction);
-
-      this.saveToLocalStorage();
-      this.notify();
-    }
-  }
-
-  // Deduct quantity from an item (for sales/usage)
-  deductQuantity(
-    itemName: string,
-    category: string,
-    quantity: number,
-    note?: string,
-    orderId?: string,
-    transactionId?: string
-  ): boolean {
-    const item = this.getItemByNameAndCategory(itemName, category);
-    if (!item) {
-      console.warn(`Item not found: ${itemName} (${category})`);
-      return false;
-    }
-
-    if (item.currentStock < quantity) {
-      console.warn(`Insufficient stock for ${itemName}. Available: ${item.currentStock}, Requested: ${quantity}`);
-      return false;
-    }
-
-    const index = this.items.findIndex(i => i.id === item.id);
-    if (index !== -1) {
-      const transaction: InventoryTransaction = {
-        id: `TXN-${Date.now()}`,
-        type: 'deduct',
-        quantity,
-        date: new Date(),
-        note,
-        orderId,
-        transactionId,
-      };
-
-      this.items[index].quantitySold += quantity;
-      this.items[index].currentStock -= quantity;
-      this.items[index].transactions.push(transaction);
-
-      // Check for low inventory and send notification if needed
-      this.checkLowInventoryNotification(this.items[index]);
-
-      this.saveToLocalStorage();
-      this.notify();
-      return true;
-    }
-
-    return false;
-  }
-
-  // Reduce quantity (manual adjustment)
-  reduceQuantity(id: string, quantity: number, note?: string): boolean {
-    const index = this.items.findIndex(item => item.id === id);
-    if (index === -1) return false;
-
-    if (this.items[index].currentStock < quantity) {
-      console.warn(`Insufficient stock. Available: ${this.items[index].currentStock}, Requested: ${quantity}`);
-      return false;
-    }
-
-    const transaction: InventoryTransaction = {
-      id: `TXN-${Date.now()}`,
-      type: 'adjust',
-      quantity: -quantity,
-      date: new Date(),
-      note,
-    };
-
-    this.items[index].quantityAdded -= quantity;
-    this.items[index].currentStock -= quantity;
-    this.items[index].transactions.push(transaction);
-
-    // Check for low inventory and send notification if needed
-    this.checkLowInventoryNotification(this.items[index]);
-
+    this.loadFromLocalStorage();
+    this.items = this.items.map(item =>
+      item.id === id
+        ? { ...item, ...updates, lastUpdated: new Date().toISOString().split('T')[0] }
+        : item
+    );
     this.saveToLocalStorage();
     this.notify();
-    return true;
   }
 
-  // Archive an item
   archiveItem(id: string): void {
     this.updateItem(id, { archived: true });
   }
 
-  // Unarchive an item
   unarchiveItem(id: string): void {
     this.updateItem(id, { archived: false });
   }
 
-  // Get transaction history for an item
-  getTransactions(id: string): InventoryTransaction[] {
-    const item = this.items.find(item => item.id === id);
-    return item ? [...item.transactions] : [];
+  deleteItem(id: string): void {
+    this.loadFromLocalStorage();
+    this.items = this.items.filter(item => item.id !== id);
+    this.saveToLocalStorage();
+    this.notify();
   }
 
-  // Get available stock for a specific item name
-  getAvailableStock(itemName: string): number {
-    const item = this.items.find(
-      item => item.itemName === itemName && !item.archived
+  // Stock In (restocking): add quantity
+  stockIn(id: string, quantity: number): InventoryItem | undefined {
+    if (quantity <= 0) return undefined;
+    const item = this.getItemById(id);
+    if (!item) return undefined;
+    const updated = { ...item, currentStock: item.currentStock + quantity };
+    this.updateItem(id, { currentStock: updated.currentStock });
+    return updated;
+  }
+
+  // Stock Out (usage/sale): deduct quantity, never below zero
+  stockOut(id: string, quantity: number): { success: boolean; message: string; item?: InventoryItem } {
+    if (quantity <= 0) return { success: false, message: 'Quantity must be greater than zero.' };
+    const item = this.getItemById(id);
+    if (!item) return { success: false, message: 'Item not found.' };
+    if (item.currentStock < quantity) {
+      return { success: false, message: `Not enough stock. Only ${item.currentStock} ${item.unit}(s) available.` };
+    }
+    const updated = { ...item, currentStock: item.currentStock - quantity };
+    this.updateItem(id, { currentStock: updated.currentStock });
+    return { success: true, message: 'Stock deducted.', item: updated };
+  }
+
+  isLowStock(item: InventoryItem): boolean {
+    return item.currentStock <= item.minimumStock;
+  }
+
+  getLowStockItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
+    return this.items.filter(item => !item.archived && this.isLowStock(item));
+  }
+
+  // Piece count for an item: currentStock (units) x pieces-per-unit (paper ream = 500)
+  getItemPieces(item: InventoryItem): number {
+    return Math.round(item.currentStock * (item.pcsPerUnit || 1));
+  }
+
+  getPaperItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
+    return this.items.filter(item => !item.archived && item.category === 'Paper');
+  }
+
+  getPaperItemBySize(paperSize: string): InventoryItem | undefined {
+    this.loadFromLocalStorage();
+    return this.items.find(
+      item => !item.archived && item.category === 'Paper' && item.paperSize === paperSize
     );
-    return item ? item.currentStock : 0;
   }
 
-  // Check if item is in stock
-  isInStock(itemName: string, requiredQuantity: number = 1): boolean {
-    const availableStock = this.getAvailableStock(itemName);
-    return availableStock >= requiredQuantity;
+  // Total paper pieces remaining across all paper items (for the inventory card)
+  getPapersLeftPieces(): number {
+    return this.getPaperItems().reduce(
+      (sum, item) => sum + this.getItemPieces(item),
+      0
+    );
   }
 
-  // Calculate totals
-  getTotals() {
-    const activeItems = this.items.filter(item => !item.archived);
-    return {
-      totalItems: this.items.length,
-      activeItems: activeItems.length,
-      totalAdded: activeItems.reduce((sum, item) => sum + item.quantityAdded, 0),
-      totalSold: activeItems.reduce((sum, item) => sum + item.quantitySold, 0),
-      remainingStock: activeItems.reduce((sum, item) => sum + item.currentStock, 0),
-    };
+  // Deduct paper pieces for an order, matched by paper size.
+  // Returns how many pieces were actually deducted for that size.
+  deductPaperPieces(paperSize: string, pieces: number): number {
+    if (pieces <= 0) return 0;
+    const item = this.getPaperItemBySize(paperSize);
+    if (!item) return 0;
+
+    const pcsPerUnit = item.pcsPerUnit || 1;
+    const unitsToDeduct = pieces / pcsPerUnit;
+    const newStock = Math.max(0, item.currentStock - unitsToDeduct);
+    const deductedUnits = item.currentStock - newStock;
+    const deductedPieces = Math.round(deductedUnits * pcsPerUnit);
+
+    this.updateItem(item.id, { currentStock: newStock });
+    return deductedPieces;
   }
 
-  // Subscribe to changes
+  // Paper size options for the customer order form (from Paper items)
+  getPaperSizeOptions(): PaperSizeOption[] {
+    this.loadFromLocalStorage();
+    return this.items
+      .filter(item => !item.archived && item.paperSize)
+      .map(item => ({
+        id: item.id,
+        name: item.paperSize as string,
+        displayName: this.paperDisplayName(item.paperSize as string),
+        inStock: item.currentStock > 0,
+      }));
+  }
+
+  // Add-on options for the customer order form (from Add-ons category items)
+  getAddons(): AddonOption[] {
+    this.loadFromLocalStorage();
+    return this.items
+      .filter(item => !item.archived && item.category === 'Add-ons')
+      .map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price || 0,
+        inStock: item.currentStock > 0,
+        unit: item.unit || 'piece',
+        category: 'supplies',
+        description: `${item.name} for printing needs`,
+      }));
+  }
+
+  private paperDisplayName(code: string): string {
+    switch (code) {
+      case 'a4': return 'A4';
+      case 'short': return 'Short (8.5 x 11 in)';
+      case 'legal': return 'Legal (8.5 x 14 in)';
+      case 'long': return 'Long (8.5 x 13 in)';
+      case 'folio': return 'Folio (8.5 x 13 in)';
+      case 'a3': return 'A3';
+      default: return code;
+    }
+  }
+
   subscribe(callback: Subscriber): () => void {
     this.subscribers.add(callback);
     return () => this.subscribers.delete(callback);
   }
 
-  // Notify subscribers
   private notify(): void {
     this.subscribers.forEach(callback => callback());
   }
-
-  // Clear all data (for testing)
-  clear(): void {
-    this.items = [];
-    this.saveToLocalStorage();
-    this.notify();
-  }
-
-  // Reset to default inventory
-  reset(): void {
-    this.items = this.getDefaultInventory();
-    this.saveToLocalStorage();
-    this.notify();
-  }
 }
 
-// Export singleton instance
 export const inventoryStore = new InventoryStore();

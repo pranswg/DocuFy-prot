@@ -9,7 +9,6 @@ import {
   TrendingUp,
   AlertCircle,
   CreditCard,
-  Boxes,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -45,11 +44,6 @@ const menuItems = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: "Inventory",
-    path: "/staff/inventory",
-    icon: <Boxes className="w-5 h-5" />,
   },
 ];
 
@@ -432,7 +426,6 @@ export default function StaffDashboard() {
                 { id: "qa-clock", label: "Clock In / Time Out", icon: Clock,           path: "/staff/timesheet" },
                 { id: "qa-que", label: "Manage Queue",        icon: LayoutGrid,       path: "/staff/queue" },
                 { id: "qa-wal", label: "Walk-in Order",       icon: ShoppingCart,     path: "/staff/walk-in" },
-                { id: "qa-inv", label: "Check Inventory",     icon: Boxes,            path: "/staff/inventory" },
                 { id: "qa-pay", label: "Verify Payments",     icon: CreditCard,       path: "/staff/payment-verification" },
               ].map((action) => (
                 <button

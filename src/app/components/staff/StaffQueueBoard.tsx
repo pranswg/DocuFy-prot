@@ -4,7 +4,6 @@ import { Kanban, LayoutDashboard, ShoppingCart, User, Search, Clock, CheckCircle
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { ordersStore } from '../../utils/ordersStore';
-import { deductInventoryForOrder } from '../../utils/inventoryIntegration';
 import { notificationStore } from '../../utils/notificationStore';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -16,7 +15,6 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { FileAttachments } from '../ui/file-attachments';
-import { dataStore } from '../../utils/dataStore';
 
 const menuItems = [
   { label: 'Dashboard', path: '/staff/dashboard', icon: <LayoutGrid className="w-5 h-5" /> },
@@ -275,38 +273,7 @@ export default function StaffQueueBoard() {
     );
 
     if (pendingStatus === 'completed') {
-      // Deduct inventory when order is completed
-      const orderDetails = {
-        id: selectedOrder.id,
-        pages: selectedOrder.pages,
-        copies: selectedOrder.copies,
-        paperSize: selectedOrder.paperSize,
-        type: selectedOrder.type,
-        colorMode: selectedOrder.colorMode,
-        pagesPerSheet: selectedOrder.pagesPerSheet,
-        addons: selectedOrder.addons,
-      };
-
-      const inventoryDeducted = deductInventoryForOrder(orderDetails);
-
-      const totalPagesUsed = selectedOrder.pages * selectedOrder.copies;
-      const reamsUsed = (totalPagesUsed / 500).toFixed(2);
-
-      if (inventoryDeducted) {
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">Order {selectedOrder.id} completed!</span>
-            <span className="text-sm">Inventory deducted: {totalPagesUsed} pages ({reamsUsed} reams)</span>
-          </div>
-        );
-      } else {
-        toast.warning(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">Order {selectedOrder.id} completed!</span>
-            <span className="text-sm">Warning: Some inventory items could not be deducted</span>
-          </div>
-        );
-      }
+      toast.success(`Order ${selectedOrder.id} completed!`);
     } else {
       toast.success(`Order ${selectedOrder.id} updated to ${pendingStatus === 'inQueue' ? 'In Queue' : pendingStatus} successfully!`);
     }

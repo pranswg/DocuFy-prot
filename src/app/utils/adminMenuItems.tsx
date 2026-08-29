@@ -7,7 +7,6 @@ import {
   Package,
   Boxes,
   Users,
-  FileText,
   Briefcase,
   Settings,
   ShoppingCart,
@@ -49,11 +48,6 @@ export const adminMenuItems = [
     label: "Attendance",
     path: "/admin/attendance",
     icon: <Clock className="w-5 h-5" />,
-  },
-  {
-    label: "Reports",
-    path: "/admin/reports",
-    icon: <FileText className="w-5 h-5" />,
   },
   {
     label: "Job Board",

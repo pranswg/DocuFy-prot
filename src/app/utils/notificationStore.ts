@@ -1,7 +1,7 @@
 // Centralized notification store
 type Notification = {
   id: string;
-  type: 'order' | 'payment' | 'inventory' | 'status_update';
+  type: 'order' | 'payment' | 'status_update';
   title: string;
   message: string;
   timestamp: Date;

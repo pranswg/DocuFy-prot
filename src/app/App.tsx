@@ -15,18 +15,16 @@ import StaffDashboard from './components/staff/StaffDashboard';
 import StaffProfile from './components/staff/StaffProfile';
 import StaffTimesheet from './components/staff/StaffTimesheet';
 import StaffPaymentVerificationUnified from './components/staff/StaffPaymentVerificationUnified';
-import InventoryManagement from './components/staff/InventoryManagement';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
 import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
-import Inventory from './components/admin/Inventory';
 import Staff from './components/admin/Staff';
 import AdminAttendancePage from './components/admin/AdminAttendance';
+import InventoryManagement from './components/admin/InventoryManagement';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
-import Reports from './components/admin/Reports';
 import ContentManagement from './components/admin/ContentManagement';
 import OrderTracking from './components/customer/OrderTracking';
 import JobBoard from './components/customer/JobBoard';
@@ -144,10 +142,6 @@ const router = createBrowserRouter([
         path: 'payment-verification',
         element: <ProtectedRoute role="staff"><StaffPaymentVerificationUnified /></ProtectedRoute>,
       },
-      {
-        path: 'inventory',
-        element: <ProtectedRoute role="staff"><InventoryManagement /></ProtectedRoute>,
-      },
     ],
   },
   {
@@ -180,7 +174,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'inventory',
-        element: <ProtectedRoute role="admin"><Inventory /></ProtectedRoute>,
+        element: <ProtectedRoute role="admin"><InventoryManagement /></ProtectedRoute>,
       },
       {
         path: 'staff',
@@ -197,10 +191,6 @@ const router = createBrowserRouter([
       {
         path: 'job-board',
         element: <ProtectedRoute role="admin"><JobBoardManagement /></ProtectedRoute>,
-      },
-      {
-        path: 'reports',
-        element: <ProtectedRoute role="admin"><Reports /></ProtectedRoute>,
       },
       {
         path: 'content',
