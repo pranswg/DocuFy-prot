@@ -196,6 +196,28 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
 
+  // Live clock + date (Philippine time, UTC+8) for the Orders header
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const pinTime = (d: Date) =>
+    new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const phTime = pinTime(now);
+  const headerTime = phTime.toLocaleTimeString("en-PH", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  const headerDate = phTime.toLocaleDateString("en-PH", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
   // Initialize and subscribe to orders store
   useEffect(() => {
     // Initialize store with initial orders if empty
@@ -642,6 +664,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               <p className="text-sm text-gray-500 mt-0.5">
                 Monitor and manage all print jobs
               </p>
+              <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-600">
+                <Clock className="w-4 h-4 text-[#2F6FD6]" />
+                <span className="font-semibold tabular-nums">
+                  {headerTime}
+                </span>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-500">{headerDate}</span>
+              </div>
             </div>
           </div>
 
@@ -654,17 +684,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-white border-gray-200 focus-visible:ring-[#1D73EC] rounded-lg"
               />
-            </div>
-
-            <div className="flex items-center gap-2 text-sm text-gray-600 ml-4">
-              <Clock className="w-4 h-4" />
-              <span className="font-semibold">
-                {new Date().toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </span>
             </div>
           </div>
         </div>

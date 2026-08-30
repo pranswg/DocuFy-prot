@@ -514,7 +514,7 @@ export default function Staff() {
             Manage staff accounts, roles, and access permissions.
           </p>
           <Button
-            className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+            className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             onClick={() => setShowAddDialog(true)}
           >
             <UserPlus className="w-4 h-4 mr-2" />
@@ -834,7 +834,7 @@ export default function Staff() {
               Cancel
             </Button>
             <Button
-              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={handleAddStaff}
             >
               <UserPlus className="w-4 h-4 mr-2" />
@@ -950,7 +950,7 @@ export default function Staff() {
               Cancel
             </Button>
             <Button
-              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={handleSaveEdit}
             >
               Save Changes

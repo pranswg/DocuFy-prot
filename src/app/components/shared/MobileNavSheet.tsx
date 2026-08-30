@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useSyncExternalStore } from "react";
+import React, { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import {
   LogOut,
   User,
@@ -106,6 +106,17 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profilePresence = usePresence(isProfileOpen, 200);
+
+  // Preserve the nav scroll position across open/close (the Radix sheet
+  // unmounts its content when closed, which would otherwise reset scrolling).
+  const navRef = useRef<HTMLDivElement>(null);
+  const savedNavScrollTop = useRef(0);
+
+  useEffect(() => {
+    if (open && navRef.current) {
+      navRef.current.scrollTop = savedNavScrollTop.current;
+    }
+  }, [open]);
 
   // React to route changes so nav highlights stay in sync even though this
   // component lives outside the router tree (it must persist across pages so
@@ -215,6 +226,10 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           </div>
 
           <nav
+            ref={navRef}
+            onScroll={(e) => {
+              savedNavScrollTop.current = e.currentTarget.scrollTop;
+            }}
             aria-label="Primary navigation"
             className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
           >

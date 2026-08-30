@@ -167,7 +167,7 @@ export default function PaymentMethodsManagement() {
             here instantly update the customer side.
           </p>
           <Button
-            className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+            className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             onClick={openAdd}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -450,7 +450,7 @@ export default function PaymentMethodsManagement() {
               Cancel
             </Button>
             <Button
-              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={handleSave}
             >
               {editingId ? (

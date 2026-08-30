@@ -21,12 +21,16 @@ import {
   Clock,
   Upload,
   ArrowLeft,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
-import { announcementsStore } from "../utils/announcementsStore";
+import {
+  announcementsStore,
+  type Announcement,
+} from "../utils/announcementsStore";
 import { toast } from "sonner";
 import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
@@ -85,6 +89,9 @@ export default function Layout({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Track announcements (merged into the bell dropdown alongside notifications)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
   // Track announcements unread (sidebar badge)
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [urgentAnnouncements, setUrgentAnnouncements] = useState(0);
@@ -123,6 +130,17 @@ export default function Layout({
     const unsubscribe = notificationStore.subscribe(updateNotifications);
     return unsubscribe;
   }, [user?.role, user?.email]);
+
+  // Subscribe to announcements and merge them into the bell dropdown
+  useEffect(() => {
+    const updateAnnouncements = () => {
+      const list = announcementsStore.getAnnouncementsFor(user?.email || "");
+      setAnnouncements(list);
+    };
+    updateAnnouncements();
+    const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
+    return unsubscribe;
+  }, [user?.email]);
 
   // Subscribe to SIEM alerts (admin only)
   useEffect(() => {
@@ -191,7 +209,13 @@ export default function Layout({
 
   const handleMarkAllRead = () => {
     notificationStore.markAllAsRead(user?.role, user?.email);
+    announcementsStore.markAllRead(user?.email || "");
     toast.success('All notifications marked as read');
+  };
+
+  const handleAnnouncementClick = (announcement: Announcement) => {
+    announcementsStore.markRead(announcement.id, user?.email || "");
+    setIsNotificationOpen(false);
   };
 
   const handleSIEMAlertClick = (alert: SIEMAlert) => {
@@ -264,6 +288,63 @@ export default function Layout({
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
   };
+
+  // Combined unread count = order/payment notifications + announcements
+  const combinedUnread = unreadCount + unreadAnnouncements;
+
+  // Merge announcements and order/payment notifications into one chronological
+  // feed for the bell dropdown so both kinds show in the same list.
+  type BellItem = {
+    key: string;
+    read: boolean;
+    title: string;
+    message: string;
+    timestamp: Date;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    unreadDot: string;
+    onClick: () => void;
+    clickable: boolean;
+  };
+
+  const bellItems: BellItem[] = [
+    ...announcements.map((a) => {
+      const read = a.readBy.includes(user?.email || "");
+      const meta =
+        a.priority === "emergency"
+          ? { icon: AlertTriangle, color: "bg-red-100 text-red-600", unreadDot: "bg-red-500" }
+          : a.priority === "important"
+            ? { icon: AlertTriangle, color: "bg-amber-100 text-amber-600", unreadDot: "bg-amber-500" }
+            : { icon: Megaphone, color: "bg-blue-100 text-blue-600", unreadDot: "bg-blue-500" };
+      return {
+        key: a.id,
+        read,
+        title: a.title,
+        message: a.message,
+        timestamp: new Date(a.sentAt),
+        icon: meta.icon,
+        color: meta.color,
+        unreadDot: meta.unreadDot,
+        onClick: () => handleAnnouncementClick(a),
+        clickable: true,
+      };
+    }),
+    ...notifications.map((n) => {
+      const meta = getNotificationIcon(n.type);
+      return {
+        key: n.id,
+        read: n.read,
+        title: n.title,
+        message: n.message,
+        timestamp: n.timestamp,
+        icon: meta.icon,
+        color: meta.color,
+        unreadDot: "bg-blue-500",
+        onClick: () => handleNotificationClick(n),
+        clickable: n.clickable,
+      };
+    }),
+  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   const navigation = (
     <>
@@ -589,15 +670,15 @@ export default function Layout({
                   setIsProfileOpen(false);
                   setIsSIEMOpen(false);
                 }}
-                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                aria-label={`Notifications${combinedUnread > 0 ? `, ${combinedUnread} unread` : ''}`}
                 aria-expanded={isNotificationOpen}
                 aria-haspopup="true"
                 className={`p-2 rounded-xl border transition-all relative ${isNotificationOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
               >
                 <Bell className="w-5 h-5 text-gray-600" />
-                {unreadCount > 0 && (
+                {combinedUnread > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {combinedUnread > 99 ? '99+' : combinedUnread}
                   </span>
                 )}
               </button>
@@ -616,50 +697,47 @@ export default function Layout({
                       <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
+                      {bellItems.length === 0 ? (
                         <div className="p-8 text-center">
                           <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                           <p className="text-xs text-gray-500">No notifications</p>
                         </div>
                       ) : (
-                        notifications.map((notification, index) => {
-                          const { icon: Icon, color } = getNotificationIcon(notification.type);
-                          return (
-                            <div
-                              key={notification.id}
-                              role={notification.clickable ? "button" : undefined}
-                              tabIndex={notification.clickable ? 0 : undefined}
-                              className={`p-4 ${index !== notifications.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50 transition-colors ${notification.clickable ? 'cursor-pointer' : ''} ${!notification.read ? 'bg-blue-50/50' : ''}`}
-                              onClick={() => handleNotificationClick(notification)}
-                              onKeyDown={notification.clickable ? (event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  handleNotificationClick(notification);
-                                }
-                              } : undefined}
-                            >
-                              <div className="flex gap-3">
-                                <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                  <Icon className="w-4 h-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs ${!notification.read ? 'font-bold' : 'font-medium'} text-gray-900`}>
-                                    {notification.title}
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                    {notification.message}
-                                  </p>
-                                  <p className="text-[10px] text-gray-400 mt-1">
-                                    {formatTimeAgo(notification.timestamp)}
-                                  </p>
-                                </div>
-                                {!notification.read && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1" />
-                                )}
+                        bellItems.map((item, index) => (
+                          <div
+                            key={item.key}
+                            role={item.clickable ? "button" : undefined}
+                            tabIndex={item.clickable ? 0 : undefined}
+                            className={`p-4 ${index !== bellItems.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50 transition-colors ${item.clickable ? 'cursor-pointer' : ''} ${!item.read ? 'bg-blue-50/50' : ''}`}
+                            onClick={item.onClick}
+                            onKeyDown={item.clickable ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                item.onClick();
+                              }
+                            } : undefined}
+                          >
+                            <div className="flex gap-3">
+                              <div className={`w-8 h-8 ${item.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                <item.icon className="w-4 h-4" />
                               </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs ${!item.read ? 'font-bold' : 'font-medium'} text-gray-900`}>
+                                  {item.title}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                  {item.message}
+                                </p>
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  {formatTimeAgo(item.timestamp)}
+                                </p>
+                              </div>
+                              {!item.read && (
+                                <div className={`w-2 h-2 ${item.unreadDot} rounded-full flex-shrink-0 mt-1`} />
+                              )}
                             </div>
-                          );
-                        })
+                          </div>
+                        ))
                       )}
                     </div>
                     <div className="px-4 py-2.5 border-t border-gray-100">

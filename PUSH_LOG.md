@@ -124,3 +124,13 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Login page**: filled-blue "Log In" button + redesigned MFA "Verify" pill with press animation; "Back to Login" as a clean text-link with arrow.
 - **Google Maps**: embedded a no-API-key Maps iframe in the landing page *Location* card behind a "Shop Location" button + mini window, and added a "Shop Location" button + map dialog to the customer dashboard (right of the welcome back message).
 - **Merge**: resolved 5 conflicting files by keeping both feature sets (`LandingPage`, `ContentManagement`, `CustomerDashboard`, `JobBoard` hand-merged; `Staff.tsx` adopted the collaborator's authoritative rewrite). Build passes (2386 modules).
+
+---
+
+## August 31, 2026 04:55 AM (PHT) — prans
+- Post-merge UI/UX session pushed directly to `testbranch2` (4 requests).
+- **Task 1 — Live clock & date in Orders header**: `shared/UnifiedOrders.tsx` now shows a live PHT clock (updates every second) + full date (`weekday, month day, year`) under the page subtitle on the shared admin/staff Orders page.
+- **Task 2 — Sidebar scroll preservation**: the mobile nav sheet (`shared/MobileNavSheet.tsx`) preserves the nav scroll position across open/close (the Radix sheet unmounts its content when closed; a `navRef` + saved `scrollTop` restores it on reopen). Desktop sidebar already persisted naturally.
+- **Task 3 — Uniform buttons (Choose File reference)**: converted the remaining filled-blue primary CTAs in collaborator-added files (not covered by the earlier system-wide restyle) to the uniform white + light-blue-outline (`border-2 border-blue-200`, blue-fill-on-hover) style: `shared/NotificationsPage.tsx` (Create/Send Notification), `admin/Staff.tsx` (Add Staff / Create Staff Account / Save Changes), `admin/PricingManagement.tsx` (Save Changes), `admin/PaymentMethodsManagement.tsx` (Add Payment Method / Save). Kept AGENTS.md exclusions (destructive/red, amber warnings, green positive, status chips, nav, stateful Clock-In, and the reverted Place Order/Next Step CTAs).
+- **Task 4 — Unified notifications (show both in each)**: made the bell dropdown AND the `/notifications` page show the SAME combined feed of admin announcements (`announcementsStore`) + order/payment/status system notifications (`notificationStore`). Bell dropdown (`Layout.tsx`) merges both kinds into one chronological list (announcements get priority-colored icons Megaphone/amber/red), and its unread badge now sums announcements + system notifications. The Notifications page adds a system-notification subscription, merges them into the "Notifications" section sorted newest-first with matching cards, and its unread count/mark-all-read covers both stores.
+- Build passes (2386 modules).

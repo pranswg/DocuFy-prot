@@ -257,7 +257,7 @@ export default function PricingManagement() {
               Cancel
             </Button>
             <Button
-              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={handleSave}
             >
               <Edit2 className="w-4 h-4 mr-2" /> Save Changes

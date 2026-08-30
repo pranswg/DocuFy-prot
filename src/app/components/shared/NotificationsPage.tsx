@@ -19,6 +19,7 @@ import {
   Plus,
   Trash2,
   CheckCheck,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -43,6 +44,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   announcementsStore,
@@ -53,6 +55,10 @@ import {
   type AnnouncementType,
   type AnnouncementPriority,
 } from "../../utils/announcementsStore";
+import {
+  notificationStore,
+  type Notification,
+} from "../../utils/notificationStore";
 
 const customerMenuItems = [
   {
@@ -141,9 +147,13 @@ export default function NotificationsPage() {
   const { user } = useAuth();
   const email = user?.email || "";
   const isAdmin = user?.role === "admin";
+  const navigate = useNavigate();
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [selected, setSelected] = useState<Announcement | null>(null);
+
+  // Order/payment/status system notifications shown alongside announcements
+  const [systemNotifications, setSystemNotifications] = useState<Notification[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
@@ -158,6 +168,14 @@ export default function NotificationsPage() {
     return unsubscribe;
   }, [email]);
 
+  useEffect(() => {
+    const load = () =>
+      setSystemNotifications(notificationStore.getNotifications(user?.role, user?.email));
+    load();
+    const unsubscribe = notificationStore.subscribe(load);
+    return unsubscribe;
+  }, [user?.role, user?.email]);
+
   const menuItems =
     user?.role === "admin"
       ? adminMenuItems
@@ -169,20 +187,44 @@ export default function NotificationsPage() {
   const important = announcements.filter((a) => a.priority === "important");
   const regular = announcements.filter((a) => a.priority === "regular");
 
-  const unread = announcements.filter((a) => !a.readBy.includes(email)).length;
+  const unreadAnnouncements = announcements.filter((a) => !a.readBy.includes(email)).length;
+  const unreadSystem = systemNotifications.filter((n) => !n.read).length;
+  const unread = unreadAnnouncements + unreadSystem;
   const unreadUrgent = [...emergency, ...important].filter(
     (a) => !a.readBy.includes(email),
   ).length;
 
   const isRead = (a: Announcement) => a.readBy.includes(email);
 
+  // Combined "Notifications" feed: regular announcements + system (order/payment)
+  // notifications, newest first.
+  const regularFeed: (Announcement | Notification)[] = [
+    ...regular,
+    ...systemNotifications,
+  ].sort((a, b) => {
+    const timeOf = (x: Announcement | Notification) =>
+      "sentAt" in x ? new Date(x.sentAt).getTime() : x.timestamp.getTime();
+    return timeOf(b) - timeOf(a);
+  });
+
   const openNotification = (announcement: Announcement) => {
     announcementsStore.markRead(announcement.id, email);
     setSelected(announcement);
   };
 
+  const openSystemNotification = (n: Notification) => {
+    notificationStore.markAsRead(n.id);
+    if (n.clickable && n.relatedRoute) {
+      navigate(n.relatedRoute);
+    } else if (n.clickable && n.relatedOrderId && user) {
+      if (user.role === "customer") navigate(`/customer/track/${n.relatedOrderId}`);
+      else navigate(`/${user.role}/orders`);
+    }
+  };
+
   const handleMarkAllRead = () => {
     announcementsStore.markAllRead(email);
+    notificationStore.markAllAsRead(user?.role, user?.email);
     toast.success("All notifications marked as read");
   };
 
@@ -376,6 +418,67 @@ export default function NotificationsPage() {
     );
   };
 
+  // System (order/payment/status) notification card, styled to match the
+  // regular announcement cards so both kinds read as one unified feed.
+  const SYSTEM_META: Record<
+    string,
+    { icon: React.ComponentType<{ className?: string }>; color: string }
+  > = {
+    order: { icon: Package, color: "bg-[#F2F7FF] text-[#1D73EC]" },
+    payment: { icon: AlertTriangle, color: "bg-amber-50 text-amber-600" },
+    status_update: { icon: CheckCircle, color: "bg-[#F2F7FF] text-[#1D73EC]" },
+  };
+
+  const renderSystemCard = (n: Notification) => {
+    const meta = SYSTEM_META[n.type] || { icon: Bell, color: "bg-gray-100 text-gray-600" };
+    const Icon = meta.icon;
+    const read = n.read;
+    return (
+      <Card
+        key={n.id}
+        className={`p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+          read ? "bg-white border-gray-100" : "bg-[#F2F7FF]/60 border-[#1D73EC]/25"
+        }`}
+        onClick={() => openSystemNotification(n)}
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              read ? "bg-gray-100 text-gray-400" : meta.color
+            }`}
+          >
+            <Icon className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!read && <span className="w-2 h-2 rounded-full bg-[#1D73EC]" />}
+                </div>
+                <h3
+                  className={`text-sm mt-1.5 ${
+                    read ? "font-semibold text-gray-900" : "font-bold text-gray-900"
+                  }`}
+                >
+                  {n.title}
+                </h3>
+                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                  {n.message}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              {formatSentTime(n.timestamp.toISOString())}
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderFeedItem = (item: Announcement | Notification) =>
+    "sentAt" in item ? renderRegularCard(item as Announcement) : renderSystemCard(item as Notification);
+
   return (
     <Layout menuItems={menuItems} title="Notifications">
       <div className="space-y-6">
@@ -395,7 +498,7 @@ export default function NotificationsPage() {
           </div>
           {isAdmin && (
             <Button
-              className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowCreate(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -431,14 +534,14 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {announcements.length === 0 ? (
+        {announcements.length === 0 && systemNotifications.length === 0 ? (
           <Card className="p-16 text-center">
             <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Bell className="w-8 h-8 text-[#1D73EC]/40" />
             </div>
             <p className="text-gray-600 font-medium">No notifications yet</p>
             <p className="text-sm text-gray-400 mt-1">
-              Admin announcements will appear here.
+              Admin announcements and order updates will appear here.
             </p>
           </Card>
         ) : (
@@ -471,7 +574,7 @@ export default function NotificationsPage() {
                   Notifications
                 </h3>
               </div>
-              {regular.length === 0 ? (
+              {regularFeed.length === 0 ? (
                 <Card className="py-12 text-center">
                   <div className="w-14 h-14 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
                     <Bell className="w-7 h-7 text-[#1D73EC]/40" />
@@ -482,7 +585,7 @@ export default function NotificationsPage() {
                   </p>
                 </Card>
               ) : (
-                <div className="space-y-3">{regular.map(renderRegularCard)}</div>
+                <div className="space-y-3">{regularFeed.map(renderFeedItem)}</div>
               )}
             </section>
           </>
@@ -623,10 +726,10 @@ export default function NotificationsPage() {
             <Button
               className={`h-11 w-full sm:w-auto ${
                 priority === "emergency"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : priority === "important"
-                    ? "bg-amber-500 hover:bg-amber-600"
-                    : "bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : priority === "important"
+                      ? "bg-amber-500 hover:bg-amber-600"
+                      : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               }`}
               onClick={handleSend}
             >
