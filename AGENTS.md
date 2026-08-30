@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## PUSH LOG (IMPORTANT)
+Keep **PUSH_LOG.md** up to date on EVERY push. Whenever anyone (you or a collaborator) pushes to the remote, add a new entry at the BOTTOM of `PUSH_LOG.md`: a new date heading, the **Philippine time (PHT, UTC+8)** of the push, whose push it was, and a short summary of what that push did. New entries go below the previous date's entry so the log reads oldest → newest. (Local-only merges are NOT logged.)
+
 ## Project State Summary
 React 18 + Vite + TS frontend prototype ("DocuFy PSMS"). No backend; mock/localStorage data. Roles: customer, staff, admin.
 
@@ -40,6 +43,7 @@ React 18 + Vite + TS frontend prototype ("DocuFy PSMS"). No backend; mock/localS
   - **Roster**: new `src/app/utils/staffRoster.ts` — `SEEDED_STAFF` (Heaven Rica, Robert Chen, Katie Perry + Miguel Santos, Ana Dela Cruz) merged with any staff seen in attendanceStore logs; `getStaffRoster()` + `seedDemoAttendance()` (idempotent, TODAY only: Robert On Time 8h, Katie Late 9:42, Miguel Overtime 10h05m, Heaven On Leave, Ana Absent; never touches staff@test.com clock flow).
 - Nav: Timesheet appears in staff menus as Clock-In & Timesheet after Dashboard in MobileNavSheet, StaffDashboard (also a "Clock In / Time Out" Quick Action), StaffOrdersUnified, StaffPaymentVerificationUnified, UnifiedWalkInTransactions.staffMenuItems, StaffProfile, and StaffTimesheet's own menuItems.
 - MERGE WITH REMOTE (2026-08-30, commit 150eff71): pulled Francis' `testbranch2` commits — Reports feature removed (Reports.tsx/ReportsView.tsx, /admin/reports route + menu, docs, README rework); inventory rebuilt ADMIN-ONLY (new `InventoryManagement.tsx` + v2 `inventoryStore` with paper-piece tracking + down-payment gating in UnifiedPaymentVerification); `staff/InventoryManagement.tsx` and `utils/inventoryIntegration.ts` DELETED — all dead `/staff/inventory` nav links and the `inventoryIntegration` import (StaffQueueBoard) removed on both sides; `COLLABORATION_GUIDE.md` added (workflow: pull → commit → pull/merge → push on testbranch2). Post-merge build passes; zero references to `inventoryIntegration` / `/staff/inventory`.
+- LOCAL MERGE (2026-08-30, on testbranch2, NO PUSH): fetched collaborator's `testbranch2` latest (d89aa5fc, 3 commits — staff clock-in/registration via 322e5a24 + admin attendance monitoring, merge commit 150eff71) and fast-forwarded local testbranch2 onto it. Then merged my PDF-preview-removal branch `testbranch-pdf` (40a2c710) into local testbranch2 — this combined the collaborator's ATTENDANCE feature with the FILE/PRINT PREVIEW REMOVAL (see the "FILE/PRINT PREVIEW REMOVED SYSTEM-WIDE" note above) while KEEPING the inventory system. Clean auto-merge (0 conflicts; the two sides edited different sections of AGENTS.md / UnifiedOrders.tsx / UnifiedWalkInTransactions.tsx). `pdfjs-dist` removed from package.json+lockfile and pruned from node_modules; `print-preview-dialog.tsx` deleted; preview buttons inert. Build passes; pdf.worker chunk gone. `testbranch-pdf` left intact for later deletion (disregard).
 
 ### Pending / Notes
 - Supabase integration NOT in place: jobs = localStorage (per-browser); portfolio File objects are in-memory only (no cross-session sharing; admin preview needs File present in session). Real multi-device sharing requires backend.
