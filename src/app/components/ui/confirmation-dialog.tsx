@@ -28,7 +28,7 @@ export function ConfirmationDialog({
   onConfirm,
   title,
   description,
-  confirmationPhrase = "DocuFy",
+  confirmationPhrase = "Docufy",
   destructive = true,
 }: ConfirmationDialogProps) {
   const [inputValue, setInputValue] = useState('');

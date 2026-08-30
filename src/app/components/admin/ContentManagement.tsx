@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
+import { pricingStore, type PricingValues } from "../../utils/pricingStore";
 import {
   LayoutDashboard,
   CreditCard,
@@ -46,8 +47,6 @@ interface LandingPageContent {
   feature1: string;
   feature2: string;
   feature3: string;
-  bwPrice: string;
-  colorPrice: string;
   bindingPrice: string;
   hoursMonFri: string;
   hoursSat: string;
@@ -79,8 +78,6 @@ export default function ContentManagement() {
         feature1: "Upload documents instantly",
         feature2: "Real-time order tracking",
         feature3: "Secure payment verification",
-        bwPrice: "1",
-        colorPrice: "5",
         bindingPrice: "20",
         hoursMonFri: "8:00 AM - 6:00 PM",
         hoursSat: "9:00 AM - 4:00 PM",
@@ -89,15 +86,21 @@ export default function ContentManagement() {
           "Palawan State University - Main Campus",
         locationRoom: "Ground Floor, Room 105",
         locationBuilding: "Near the Library Entrance",
-        aboutTitle: "About DocuFy",
+        aboutTitle: "About Docufy",
         aboutSubtitle: "Your printing companion",
         aboutBody:
-          "DocuFy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
+          "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
       };
     });
 
   const [showPreview, setShowPreview] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+  useEffect(() => {
+    const load = () => setPricing(pricingStore.getPricing());
+    return pricingStore.subscribe(load);
+  }, []);
 
   const saveLandingContent = () => {
     localStorage.setItem(
@@ -227,45 +230,14 @@ export default function ContentManagement() {
               <h2 className="text-xl font-bold text-gray-900 mb-6">
                 Services & Pricing
               </h2>
+              <div className="mb-6 rounded-lg bg-[#F2F7FF] border border-[#2F6FD6]/20 p-4 text-sm text-[#10316B]">
+                Per-page prices for Black &amp; White, Color, and paper-size
+                surcharges are now managed in{" "}
+                <strong>Pricing Management</strong>. Changes there apply
+                here and to the landing page automatically — no need to edit
+                them in content.
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="bwPrice">
-                    Black & White (₱ per page)
-                  </Label>
-                  <Input
-                    id="bwPrice"
-                    type="number"
-                    step="1"
-                    value={landingContent.bwPrice}
-                    onChange={(e) =>
-                      setLandingContent({
-                        ...landingContent,
-                        bwPrice: e.target.value,
-                      })
-                    }
-                    placeholder="1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="colorPrice">
-                    Color Printing (₱ per page)
-                  </Label>
-                  <Input
-                    id="colorPrice"
-                    type="number"
-                    step="1"
-                    value={landingContent.colorPrice}
-                    onChange={(e) =>
-                      setLandingContent({
-                        ...landingContent,
-                        colorPrice: e.target.value,
-                      })
-                    }
-                    placeholder="5"
-                  />
-                </div>
-
                 <div>
                   <Label htmlFor="bindingPrice">
                     Binding & Finishing (₱ starting at)
@@ -395,7 +367,7 @@ export default function ContentManagement() {
 
             <Card className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
-                About DocuFy Section
+                About Docufy Section
               </h2>
               <div className="space-y-4">
                 <div>
@@ -409,7 +381,7 @@ export default function ContentManagement() {
                         aboutTitle: e.target.value,
                       })
                     }
-                    placeholder="About DocuFy"
+                    placeholder="About Docufy"
                   />
                 </div>
                 <div>
@@ -437,7 +409,7 @@ export default function ContentManagement() {
                         aboutBody: e.target.value,
                       })
                     }
-                    placeholder="Describe what DocuFy is and what services it provides..."
+                    placeholder="Describe what Docufy is and what services it provides..."
                     rows={6}
                   />
                 </div>
@@ -519,13 +491,13 @@ export default function ContentManagement() {
                     Black & White
                   </p>
                   <p className="text-2xl font-bold text-[#1D73EC]">
-                    ₱{landingContent.bwPrice}
+                    ₱{pricing.bw.toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border">
                   <p className="text-xs text-gray-500 mb-1">Color</p>
                   <p className="text-2xl font-bold text-[#1D73EC]">
-                    ₱{landingContent.colorPrice}
+                    ₱{pricing.colorHigh.toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border">
@@ -574,10 +546,10 @@ export default function ContentManagement() {
               </div>
             </div>
 
-            {/* About DocuFy Preview */}
+            {/* About Docufy Preview */}
             <div className="border rounded-lg p-6 bg-[#1D73EC] text-white">
               <h3 className="text-sm font-semibold text-blue-200 uppercase mb-3">
-                About DocuFy Section
+                About Docufy Section
               </h3>
               <h2 className="text-2xl font-bold mb-2">
                 {landingContent.aboutTitle}

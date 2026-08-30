@@ -9,6 +9,7 @@ import {
   TrendingUp,
   AlertCircle,
   CreditCard,
+  Bell,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -44,6 +45,11 @@ const menuItems = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
+  },
+  {
+    label: "Notifications",
+    path: "/staff/notifications",
+    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

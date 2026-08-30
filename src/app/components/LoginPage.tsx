@@ -61,7 +61,11 @@ export default function LoginPage() {
     setError("");
     const result = login(email, password);
     if (!result.success) {
-      setError("Invalid email or password");
+      setError(
+        result.reason === "inactive"
+          ? "This account has been deactivated. Please contact your administrator."
+          : "Invalid email or password",
+      );
     } else if (result.requiresMFA) {
       setRequiresMFA(true);
     }
@@ -150,12 +154,12 @@ export default function LoginPage() {
           <div className="w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-2xl p-1 bg-white">
             <img
               src={logoImage}
-              alt="DocuFy Logo"
+              alt="Docufy Logo"
               className="w-full h-full object-contain rounded-full"
             />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-            DocuFy PSMS<span className="text-[#1D73EC]"></span>
+            Docufy PSMS<span className="text-[#1D73EC]"></span>
           </h1>
           <h2 className="text-xl font-medium text-white mb-4">
             Your Complete Printing Solution
@@ -173,8 +177,8 @@ export default function LoginPage() {
           {/* Mobile Only Header */}
           <div className="lg:hidden mb-8 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={logoImage} alt="DocuFy Logo" className="h-12 w-12 object-contain" />
-              <h1 className="truncate text-xl font-bold text-[#1c1f26]">DocuFy PSMS</h1>
+              <img src={logoImage} alt="Docufy Logo" className="h-12 w-12 object-contain" />
+              <h1 className="truncate text-xl font-bold text-[#1c1f26]">Docufy PSMS</h1>
             </div>
             <button onClick={() => navigate("/")} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#1D73EC]">
               <ArrowLeft className="h-3.5 w-3.5" /> Home

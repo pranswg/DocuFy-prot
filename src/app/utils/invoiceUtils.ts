@@ -1,6 +1,8 @@
 // Invoice utilities for dynamic invoice generation
 // Ensures consistent invoice data across Admin, Staff, and Customer modules
 
+import { pricingStore } from './pricingStore';
+
 export interface InvoiceData {
   invoiceNumber: string;
   orderId: string;
@@ -111,13 +113,15 @@ export function generateInvoiceData(orderData: any): InvoiceData {
  * Calculate printing cost based on pages, copies, and color mode
  */
 function calculatePrintingCost(pages: number, copies: number, colorMode: string): number {
-  let pricePerPage = 1; // Default B&W price
+  const pricing = pricingStore.getPricing();
+
+  let pricePerPage = pricing.bw; // Default B&W price
 
   const colorModeStr = (colorMode || '').toLowerCase();
   if (colorModeStr.includes('color') || colorModeStr === 'colored') {
-    pricePerPage = 5; // Colored pages
+    pricePerPage = pricing.colorHigh; // Colored pages
   } else if (colorModeStr === 'bw' || colorModeStr === 'black & white') {
-    pricePerPage = 1; // B&W pages
+    pricePerPage = pricing.bw; // B&W pages
   }
 
   return pages * copies * pricePerPage;
@@ -191,7 +195,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData): string {
 </head>
 <body>
   <div class="header">
-    <div class="logo">DocuFy</div>
+    <div class="logo">Docufy</div>
     <p style="color: #666;">Printing Services</p>
     <p style="font-size: 12px;">Room 4, Palawan State University - Main Campus, TBI Building, Puerto Princesa City, 5300 Palawan</p>
   </div>
@@ -284,7 +288,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData): string {
   </div>
 
   <div class="footer">
-    <p>Thank you for choosing DocuFy!</p>
+    <p>Thank you for choosing Docufy!</p>
     <p>For inquiries, please contact us at support@docufy.com</p>
     <p style="margin-top: 15px; font-size: 10px;">Generated on ${new Date().toLocaleString()}</p>
   </div>

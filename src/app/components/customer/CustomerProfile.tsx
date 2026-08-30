@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield, Camera } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Package, Bell, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -16,6 +16,7 @@ const menuItems = [
   { label: 'Print Request', path: '/customer/new-request', icon: <FileText className="w-5 h-5" /> },
   { label: 'My Orders', path: '/customer/orders', icon: <Package className="w-5 h-5" /> },
   { label: 'Job Board', path: '/customer/job-board', icon: <Briefcase className="w-5 h-5" /> },
+  { label: 'Notifications', path: '/customer/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
 const STORAGE_KEY = 'customer_profile_data';

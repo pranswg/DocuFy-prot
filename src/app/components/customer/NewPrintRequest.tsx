@@ -22,10 +22,10 @@ import {
   CreditCard,
   Info,
   ChevronDown,
+  QrCode,
+  Bell,
 } from "lucide-react";
 
-// Down payment threshold
-const DOWN_PAYMENT_THRESHOLD = 50;
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -48,11 +48,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "../ui/dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
 import { inventoryStore } from "../../utils/inventoryStore";
 import { notificationStore } from "../../utils/notificationStore";
+import {
+  paymentMethodsStore,
+  type PaymentMethodType,
+} from "../../utils/paymentMethodsStore";
+import {
+  pricingStore,
+  calcPagePrice,
+  formatPrice,
+  type PricingValues,
+} from "../../utils/pricingStore";
+import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
 
 const ALLOWED_FILE_TYPES = {
   "application/pdf": ".pdf",
@@ -91,6 +103,11 @@ const menuItems = [
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
   },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
+  },
 ];
 
 export default function NewPrintRequest() {
@@ -101,6 +118,12 @@ export default function NewPrintRequest() {
   const [isProcessingFile, setIsProcessingFile] =
     useState(false);
   const [showColorPricing, setShowColorPricing] = useState(false);
+  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+  const downPaymentThreshold = pricing.downPaymentThreshold;
+  useEffect(() => {
+    const load = () => setPricing(pricingStore.getPricing());
+    return pricingStore.subscribe(load);
+  }, []);
   const [showAllAnalysis, setShowAllAnalysis] = useState<{
     [fileId: string]: boolean;
   }>({});
@@ -136,9 +159,8 @@ export default function NewPrintRequest() {
 
   const [files, setFiles] = useState<FileData[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [gcashAccount, setGcashAccount] = useState<
-    "admin" | "staff" | ""
-  >("admin");
+  const [onlineMethods, setOnlineMethods] = useState<PaymentMethodType[]>([]);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [analyzingFileId, setAnalyzingFileId] = useState<
     string | null
   >(null);
@@ -180,6 +202,26 @@ export default function NewPrintRequest() {
     const unsubscribe = inventoryStore.subscribe(load);
     return unsubscribe;
   }, []);
+
+  // Live online payment methods that admin manages
+  useEffect(() => {
+    const loadMethods = () =>
+      setOnlineMethods(paymentMethodsStore.getPaymentMethods());
+    loadMethods();
+    const unsubscribe = paymentMethodsStore.subscribe(loadMethods);
+    return unsubscribe;
+  }, []);
+
+  const selectedMethod = onlineMethods.find(
+    (m) => m.name === paymentMethod,
+  );
+  const isOnline =
+    paymentMethod !== "" && paymentMethod !== "cash";
+
+  const viewMethodQR = (name: string) => {
+    setPaymentMethod(name);
+    setShowQRModal(true);
+  };
 
   // Note templates
   const noteTemplates = [
@@ -436,42 +478,37 @@ export default function NewPrintRequest() {
     } = fileData;
     const validCopies = Math.max(1, copies);
 
-    let baseTotal = 0;
+    // Build one per-page color percentage per actual page so colored
+    // documents can mix rates (analysis) and standard requests stay flat:
+    // no analysis → colored = highest color rate, B&W = B&W rate.
+    const pageColorPcts: number[] = [];
 
     if (colorMode === "colored" && colorAnalysis) {
-      // Per-page pricing based on detected color percentage:
-      // >50% color → ₱5/page | ≤50% color → ₱3/page | B&W → ₱1/page
-      let total = 0;
-
       for (const page of colorAnalysis.colorPages) {
-        const pct = colorAnalysis.colorPercentages[page] ?? 0;
-        let pricePerPage = pct > 50 ? 5 : 3;
-        if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
-          pricePerPage += 11;
-        if (paperSize === "a3") pricePerPage += 1.5;
-        if (twoSided === "yes") pricePerPage -= 0.5;
-        total += pricePerPage;
+        pageColorPcts.push(colorAnalysis.colorPercentages[page] ?? 0);
       }
-
       for (let i = 0; i < colorAnalysis.bwPages.length; i++) {
-        let pricePerPage = 1;
-        if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
-          pricePerPage += 11;
-        if (paperSize === "a3") pricePerPage += 1.5;
-        if (twoSided === "yes") pricePerPage -= 0.5;
-        total += pricePerPage;
+        pageColorPcts.push(0);
       }
-
-      baseTotal = total * validCopies;
     } else {
-      // Standard pricing: Black & White = ₱1/page, Colored (no analysis) = ₱5/page
-      let pricePerPage = colorMode === "colored" ? 5 : 1;
-      if (paperSize === "long" || paperSize === "folio" || paperSize === "legal")
-        pricePerPage += 11;
-      if (paperSize === "a3") pricePerPage += 1.5;
-      if (twoSided === "yes") pricePerPage -= 0.5;
-      baseTotal = pageCount * validCopies * pricePerPage;
+      // No analysis: every page is priced the same — colored = highest
+      // color rate, B&W = B&W rate.
+      for (let i = 0; i < pageCount; i++) {
+        pageColorPcts.push(colorMode === "colored" ? 100 : 0);
+      }
     }
+
+    let total = 0;
+    for (const pct of pageColorPcts) {
+      total += calcPagePrice(pricing, {
+        colorMode: colorMode === "colored" ? "colored" : "bw",
+        colorPct: pct,
+        paperSize,
+        twoSided,
+      });
+    }
+
+    let baseTotal = total * validCopies;
 
     // Pages per sheet discount
     const pagesPerSheetNum = parseInt(pagesPerSheet);
@@ -507,14 +544,11 @@ export default function NewPrintRequest() {
       return;
     }
 
-    if (paymentMethod === "gcash" && !gcashAccount) {
-      // Auto-set gcash account
-      setGcashAccount("admin");
-    }
-
     const total = calculateTotal();
     const orderId = dataStore.getNextOrderId();
-    const isGcash = paymentMethod === "gcash";
+    const isOnline =
+      paymentMethod !== "" && paymentMethod !== "cash";
+    const methodLabel = isOnline ? paymentMethod : "Cash";
 
     // Calculate total pages for all files
     const totalPages = files.reduce(
@@ -526,7 +560,7 @@ export default function NewPrintRequest() {
     );
 
     // Down payment logic
-    const requiresDownPayment = total >= DOWN_PAYMENT_THRESHOLD;
+    const requiresDownPayment = total >= downPaymentThreshold;
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Create order in dataStore
@@ -535,11 +569,11 @@ export default function NewPrintRequest() {
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
-      status: isGcash || requiresDownPayment
+      status: isOnline || requiresDownPayment
         ? ("Awaiting Payment" as const)
         : ("Received" as const),
-      holdReason: isGcash
-        ? `GCash payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
+      holdReason: isOnline
+        ? `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
         : requiresDownPayment
           ? `Down payment required: ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}). Please pay this amount via Cash before your order can be processed.`
           : undefined,
@@ -563,8 +597,7 @@ export default function NewPrintRequest() {
       copies:
         files.reduce((sum, f) => sum + f.copies, 0) /
         files.length, // Average copies
-      paymentMethod:
-        paymentMethod === "gcash" ? "GCash" : "Cash",
+      paymentMethod: isOnline ? methodLabel : "Cash",
       fileName: files[0]?.fileName || "document.pdf",
       pages: totalPages,
       attachedFiles: files.map((f) => ({
@@ -634,11 +667,11 @@ export default function NewPrintRequest() {
     });
 
     // Send notifications to admin and staff about new print request
-    const notifTitle = isGcash
+    const notifTitle = isOnline
       ? 'New Order — Payment Verification Pending'
       : requiresDownPayment ? 'New Order — Down Payment Required' : 'New Print Request';
-    const notifMsg = isGcash
-      ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting GCash payment verification. Amount: ₱${Math.round(total)}.`
+    const notifMsg = isOnline
+      ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting ${methodLabel} payment verification. Amount: ₱${Math.round(total)}.`
       : requiresDownPayment
         ? `New order #${orderId} from ${user?.email || 'customer'} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
         : `New print request #${orderId} from ${user?.email || 'customer'}. ${files.length} file(s), ${totalPages} pages total.`;
@@ -659,9 +692,7 @@ export default function NewPrintRequest() {
     const orderData = {
       orderId,
       total,
-      paymentMethod,
-      gcashAccount:
-        paymentMethod === "gcash" ? gcashAccount : undefined,
+      paymentMethod: isOnline ? methodLabel : "cash",
       timestamp: new Date().toISOString(),
       downPaymentRequired: requiresDownPayment,
       downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
@@ -675,19 +706,17 @@ export default function NewPrintRequest() {
       orderId,
       total,
       paymentMethod,
-      gcashAccount,
       files,
     });
 
     setSubmittedOrderId(orderId);
 
-    // For GCash payments, navigate directly to Payment Verification
+    // For online payments, navigate directly to Payment Verification
     // Success modal will show after payment verification is completed
-    if (paymentMethod === "gcash") {
+    if (isOnline) {
       navigate(`/customer/payment/${orderId}`, {
         state: {
-          paymentMethod,
-          gcashAccount,
+          paymentMethod: methodLabel,
           total,
           showSuccessAfter: true, // Flag to show success modal after payment
         },
@@ -892,7 +921,7 @@ export default function NewPrintRequest() {
                     <p className="text-xs text-blue-800 text-left">
                       <strong>Preferred Format: PDF</strong>
                       <br />
-                      DocuFy will not take responsibility for
+                      Docufy will not take responsibility for
                       any formatting errors or issues with Word
                       (.docx), PowerPoint (.pptx), or other
                       non-PDF files.
@@ -1197,7 +1226,7 @@ export default function NewPrintRequest() {
                               Single-Sided
                             </SelectItem>
                             <SelectItem value="yes">
-                              Double-Sided (₱0.50 savings/page)
+                              Double-Sided (₱{pricing.duplexSavings.toFixed(2)} savings/page)
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1273,7 +1302,7 @@ export default function NewPrintRequest() {
                               Black and White
                             </p>
                             <p className="text-xs text-gray-600">
-                              ₱1.00 per page — all pages printed
+                              {formatPrice(pricing.bw)} per page — all pages printed
                               in grayscale
                             </p>
                           </div>
@@ -1820,7 +1849,7 @@ export default function NewPrintRequest() {
                                   <>
                                     {highColor > 0 && (
                                       <span className="block">
-                                        ₱5/page × {highColor}{" "}
+                                        {formatPrice(pricing.colorHigh)}/page × {highColor}{" "}
                                         page
                                         {highColor !== 1
                                           ? "s"
@@ -1830,7 +1859,7 @@ export default function NewPrintRequest() {
                                     )}
                                     {lowColor > 0 && (
                                       <span className="block">
-                                        ₱3/page × {lowColor}{" "}
+                                        {formatPrice(pricing.colorLow)}/page × {lowColor}{" "}
                                         page
                                         {lowColor !== 1
                                           ? "s"
@@ -1840,7 +1869,7 @@ export default function NewPrintRequest() {
                                     )}
                                     {bwCount > 0 && (
                                       <span className="block">
-                                        ₱1/page × {bwCount} B&amp;W
+                                        {formatPrice(pricing.bw)}/page × {bwCount} B&amp;W
                                         page
                                         {bwCount !== 1
                                           ? "s"
@@ -1990,45 +2019,54 @@ export default function NewPrintRequest() {
                   </h3>
                   <RadioGroup
                     value={paymentMethod}
-                    onValueChange={(value) => {
-                      setPaymentMethod(value);
-                      if (value !== "gcash") {
-                        setGcashAccount("");
-                      }
-                    }}
+                    onValueChange={setPaymentMethod}
                   >
                     <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
-                      {/* GCash Option */}
-                      <div
-                        className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
-                          paymentMethod === "gcash"
-                            ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
-                            : "border-gray-200 hover:border-gray-400 cursor-pointer"
-                        }`}
-                        onClick={() => setPaymentMethod("gcash")}
-                      >
-                        <RadioGroupItem
-                          value="gcash"
-                          id="gcash"
-                          disabled={false}
-                        />
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
-                          </div>
-                          <div>
-                            <Label
-                              htmlFor="gcash"
-                              className="font-semibold text-gray-900 cursor-pointer"
+                      {/* Online Payment Options (managed by admin) */}
+                      {onlineMethods.map((method) => (
+                        <div
+                          key={method.id}
+                          className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
+                            paymentMethod === method.name
+                              ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
+                              : "border-gray-200 hover:border-gray-400 cursor-pointer"
+                          }`}
+                          onClick={() => setPaymentMethod(method.name)}
+                        >
+                          <RadioGroupItem
+                            value={method.name}
+                            id={`pm-${method.id}`}
+                            disabled={false}
+                          />
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                              <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <Label
+                                htmlFor={`pm-${method.id}`}
+                                className="font-semibold text-gray-900 cursor-pointer"
+                              >
+                                {method.name}
+                              </Label>
+                              <p className="text-xs text-gray-500">
+                                Pay via {method.name} mobile wallet
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                viewMethodQR(method.name);
+                              }}
+                              className="flex items-center gap-1 text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] shrink-0"
                             >
-                              GCash
-                            </Label>
-                            <p className="text-xs text-gray-500">
-                              Pay via GCash mobile wallet
-                            </p>
+                              <QrCode className="w-3.5 h-3.5" />
+                              View QR
+                            </button>
                           </div>
                         </div>
-                      </div>
+                      ))}
 
                       {/* Cash on Pickup Option */}
                       <div
@@ -2063,24 +2101,24 @@ export default function NewPrintRequest() {
                     </div>
                   </RadioGroup>
 
-                  {/* GCash Note */}
-                  {paymentMethod === "gcash" && (
+                  {/* Online Payment Note */}
+                  {isOnline && (
                     <div className="mt-6">
                       <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <strong>Note:</strong> You will be
                         redirected to payment verification after
-                        placing your order. Please upload your
-                        GCash payment receipt there.
+                        placing your order. Please upload your{" "}
+                        {paymentMethod} payment receipt there.
                       </p>
                     </div>
                   )}
                   </div>
                 </Card>
 
-                {/* Down Payment Notice — shown when total >= ₱50 */}
+                {/* Down Payment Notice — shown when total >= threshold */}
                 {(() => {
                   const total = calculateTotal();
-                  const requiresDownPayment = total >= DOWN_PAYMENT_THRESHOLD;
+                  const requiresDownPayment = total >= downPaymentThreshold;
                   const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
 
                   if (requiresDownPayment) {
@@ -2098,7 +2136,7 @@ export default function NewPrintRequest() {
                           </span>
                         </h4>
                         <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                          Orders totaling <strong>₱{DOWN_PAYMENT_THRESHOLD}.00 or more</strong> require a{" "}
+                          Orders totaling <strong>₱{downPaymentThreshold.toFixed(2)} or more</strong> require a{" "}
                           <strong>50% down payment</strong> before printing begins. Your order will stay{" "}
                           <strong>awaiting payment verification</strong> until the down payment is verified by Admin or Staff.
                         </p>
@@ -2125,8 +2163,8 @@ export default function NewPrintRequest() {
                           <p className="text-xs text-amber-800">
                             Pay the down payment via{" "}
                             <strong>
-                              {paymentMethod === "gcash"
-                                ? "GCash"
+                              {isOnline
+                                ? paymentMethod
                                 : paymentMethod === "cash"
                                   ? "Cash at the shop"
                                   : "your chosen payment method"}
@@ -2146,7 +2184,7 @@ export default function NewPrintRequest() {
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
                           <p className="text-sm text-blue-800">
-                            <strong>No down payment required.</strong> Your order total is below ₱{DOWN_PAYMENT_THRESHOLD}.00 — pay in full upon pickup or via GCash.
+                            <strong>No down payment required.</strong> Your order total is below ₱{downPaymentThreshold.toFixed(2)} — pay in full via your chosen payment method.
                           </p>
                         </div>
                       </div>
@@ -2228,11 +2266,44 @@ export default function NewPrintRequest() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
-            <div className="flex justify-between gap-4"><span>Black and white page</span><strong>₱1.00</strong></div>
-            <div className="flex justify-between gap-4"><span>Colored page less than 50%</span><strong>₱3.00</strong></div>
-            <div className="flex justify-between gap-4"><span>Colored page more than 50%</span><strong>₱5.00</strong></div>
+            <div className="flex justify-between gap-4"><span>Black and white page</span><strong>{formatPrice(pricing.bw)}</strong></div>
+            <div className="flex justify-between gap-4"><span>Colored page less than 50%</span><strong>{formatPrice(pricing.colorLow)}</strong></div>
+            <div className="flex justify-between gap-4"><span>Colored page more than 50%</span><strong>{formatPrice(pricing.colorHigh)}</strong></div>
           </div>
           <p className="text-xs text-gray-500">Paper size, copies, duplex printing, and pages per sheet are applied to the final total.</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Payment QR Code Modal */}
+      <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">
+              {selectedMethod ? `${selectedMethod.name} QR Code` : "Payment QR Code"}
+            </DialogTitle>
+            <DialogDescription>
+              Scan the QR code to pay, or download it for later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedMethod && onlineMethods.some((m) => m.id === selectedMethod.id) ? (
+              <PaymentMethodQRPanel method={selectedMethod} />
+            ) : (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                This payment method is no longer available. Please choose another
+                method.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto h-10"
+              onClick={() => setShowQRModal(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2240,7 +2311,7 @@ export default function NewPrintRequest() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex justify-center mb-4">
-              {calculateTotal() >= DOWN_PAYMENT_THRESHOLD ? (
+              {calculateTotal() >= downPaymentThreshold ? (
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
                   <CreditCard className="w-10 h-10 text-amber-600" />
                 </div>
@@ -2251,14 +2322,14 @@ export default function NewPrintRequest() {
               )}
             </div>
             <DialogTitle className="text-center text-xl">
-              {calculateTotal() >= DOWN_PAYMENT_THRESHOLD
+              {calculateTotal() >= downPaymentThreshold
                 ? "Order Submitted — Down Payment Required"
                 : "Print Request Received!"}
             </DialogTitle>
             <DialogDescription className="text-center space-y-4 pt-4">
               {(() => {
                 const total = calculateTotal();
-                const requiresDownPayment = total >= DOWN_PAYMENT_THRESHOLD;
+                const requiresDownPayment = total >= downPaymentThreshold;
                 const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
 
                 return requiresDownPayment ? (
@@ -2283,7 +2354,7 @@ export default function NewPrintRequest() {
                     </div>
                     <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
                       Pay <strong>{formatCurrency(downPaymentValue)}</strong> via{" "}
-                      <strong>{paymentMethod === "gcash" ? "GCash" : "Cash at the shop"}</strong>, then inform staff to verify. Your order will be queued for printing once verified.
+                      <strong>{isOnline ? paymentMethod : "Cash at the shop"}</strong>, then inform staff to verify. Your order will be queued for printing once verified.
                     </p>
                   </>
                 ) : (
@@ -2310,11 +2381,10 @@ export default function NewPrintRequest() {
               variant="outline"
               onClick={() => {
                 setShowSuccessModal(false);
-                if (paymentMethod === "gcash") {
+                if (isOnline) {
                   navigate(`/customer/payment/${submittedOrderId}`, {
                     state: {
                       paymentMethod,
-                      gcashAccount,
                       total: calculateTotal()
                     },
                   });
@@ -2324,7 +2394,7 @@ export default function NewPrintRequest() {
               }}
               className="flex-1"
             >
-              {paymentMethod === "gcash" ? "Proceed to Payment" : "Track Order"}
+              {isOnline ? "Proceed to Payment" : "Track Order"}
             </Button>
             <Button
               onClick={() => {

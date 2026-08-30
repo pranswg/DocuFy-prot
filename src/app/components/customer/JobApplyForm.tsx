@@ -14,6 +14,7 @@ import {
   Upload,
   AlertCircle,
   Eye,
+  Bell,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -59,6 +60,11 @@ const menuItems = [
     label: "Job Board",
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
+  },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
   },
 ];
 
@@ -201,7 +207,7 @@ export default function JobApplyForm() {
       <p className="mb-2">
         By submitting this job application to{" "}
         <strong>
-          DocuFy Printing Shop Management System
+          Docufy Printing Shop Management System
         </strong>
         , I acknowledge and agree to the following
         terms:
@@ -220,7 +226,7 @@ export default function JobApplyForm() {
           employment.
         </li>
         <li>
-          I authorize DocuFy to verify the
+          I authorize Docufy to verify the
           information provided and to contact
           references listed in my application.
         </li>
@@ -230,7 +236,7 @@ export default function JobApplyForm() {
           or an interview.
         </li>
         <li>
-          I acknowledge that DocuFy reserves the
+          I acknowledge that Docufy reserves the
           right to modify, postpone, or cancel any
           job opening at any time without prior
           notice.
@@ -244,7 +250,7 @@ export default function JobApplyForm() {
       <p className="mb-2">
         I acknowledge that{" "}
         <strong>
-          DocuFy Printing Shop Management System
+          Docufy Printing Shop Management System
         </strong>{" "}
         and its representatives shall not be held
         liable for:

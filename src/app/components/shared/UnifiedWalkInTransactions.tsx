@@ -21,6 +21,7 @@ import {
   Users,
   Briefcase,
   Clock,
+  Bell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
@@ -34,6 +35,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Textarea } from '../ui/textarea';
 import { ordersStore } from '../../utils/ordersStore';
 import { formatCurrency } from '../../utils/formatNumber';
+import { pricingStore, calcPagePrice, formatPrice, type PricingValues } from '../../utils/pricingStore';
 import { AVAILABLE_ADDONS, type Addon } from '../../utils/constants';
 import { dataStore } from '../../utils/dataStore';
 import { adminMenuItems } from '../../utils/adminMenuItems';
@@ -68,6 +70,7 @@ const staffMenuItems = [
   { label: 'Orders', path: '/staff/queue', icon: <Package className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
+  { label: 'Notifications', path: '/staff/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
 
@@ -111,6 +114,11 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
   const [showDetectedPages, setShowDetectedPages] = useState<{ [fileId: string]: boolean }>({});
   const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
   const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
+  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+  useEffect(() => {
+    const load = () => setPricing(pricingStore.getPricing());
+    return pricingStore.subscribe(load);
+  }, []);
 
   // Customer type selection
   const [customerType, setCustomerType] = useState('walkin');
@@ -296,44 +304,41 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
     );
   };
 
-  // UPDATED: Pricing logic to match Customer Print Request exactly
+  // Pricing logic shared with the customer print request (centralized price store)
   const calculateFileTotal = (fileData: FileData) => {
     const { pageCount, copies, colorMode, paperSize, twoSided, colorAnalysis, pagesPerSheet } = fileData;
     const validCopies = Math.max(1, copies);
 
-    let baseTotal = 0;
+    // Per explicit page: build its color percentage so colored documents mix rates
+    // (analysis) and standard requests stay flat (colored = high color rate).
+    const pageColorPcts: number[] = [];
 
     if (colorMode === 'colored' && colorAnalysis) {
-      // Per-page pricing based on detected color percentage:
-      // >50% color → ₱5/page | ≤50% color → ₱3/page | B&W → ₱1/page
-      let total = 0;
-
       for (const page of colorAnalysis.colorPages) {
-        const pct = colorAnalysis.colorPercentages[page] ?? 0;
-        let pricePerPage = pct > 50 ? 5 : 3;
-        if (paperSize === 'long' || paperSize === 'legal') pricePerPage += 11;
-        if (paperSize === 'a3') pricePerPage += 1.5;
-        if (twoSided === 'yes') pricePerPage -= 0.5;
-        total += pricePerPage;
+        pageColorPcts.push(colorAnalysis.colorPercentages[page] ?? 0);
       }
-
       for (let i = 0; i < colorAnalysis.bwPages.length; i++) {
-        let pricePerPage = 1;
-        if (paperSize === 'long' || paperSize === 'legal') pricePerPage += 11;
-        if (paperSize === 'a3') pricePerPage += 1.5;
-        if (twoSided === 'yes') pricePerPage -= 0.5;
-        total += pricePerPage;
+        pageColorPcts.push(0);
       }
-
-      baseTotal = total * validCopies;
     } else {
-      // Standard pricing: Black & White = ₱1/page, Colored (no analysis) = ₱5/page
-      let pricePerPage = colorMode === 'colored' ? 5 : 1;
-      if (paperSize === 'long' || paperSize === 'legal') pricePerPage += 11;
-      if (paperSize === 'a3') pricePerPage += 1.5;
-      if (twoSided === 'yes') pricePerPage -= 0.5;
-      baseTotal = pageCount * validCopies * pricePerPage;
+      // No analysis: every page is priced the same — colored = highest
+      // color rate, B&W = B&W rate.
+      for (let i = 0; i < pageCount; i++) {
+        pageColorPcts.push(colorMode === 'colored' ? 100 : 0);
+      }
     }
+
+    let total = 0;
+    for (const pct of pageColorPcts) {
+      total += calcPagePrice(pricing, {
+        colorMode: colorMode === 'colored' ? 'colored' : 'bw',
+        colorPct: pct,
+        paperSize,
+        twoSided,
+      });
+    }
+
+    let baseTotal = total * validCopies;
 
     // Pages per sheet discount
     const pagesPerSheetNum = parseInt(pagesPerSheet);
@@ -675,7 +680,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                     <p className="text-xs text-blue-800 text-left">
                       <strong>Preferred Format: PDF</strong>
                       <br />
-                      DocuFy will not take responsibility for any formatting errors or issues with
+                      Docufy will not take responsibility for any formatting errors or issues with
                       Word (.docx), PowerPoint (.pptx), or other non-PDF files.
                     </p>
                   </div>
@@ -878,7 +883,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                             <SelectItem value="short">Short Bond (8.5 × 11 in)</SelectItem>
                             <SelectItem value="long">Long Bond (8.5 × 13 in)</SelectItem>
                             <SelectItem value="a5">A5 (148 × 210 mm)</SelectItem>
-                            <SelectItem value="a3">A3 (297 × 420 mm) +₱1.50/page</SelectItem>
+                            <SelectItem value="a3">A3 (297 × 420 mm) +{formatPrice(pricing.sizeA3)}/page</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -957,7 +962,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                               Single-Sided
                             </SelectItem>
                             <SelectItem value="yes">
-                              Double-Sided (₱0.50 savings/page)
+                              Double-Sided (₱{pricing.duplexSavings.toFixed(2)} savings/page)
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1015,8 +1020,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           <p className="text-xs mt-0.5 text-[#000000]">
                             Colored mode prices pages
                             individually: &gt;50% color =
-                            ₱5/page · ≤50% color = ₱3/page · B&amp;W
-                            = ₱1/page
+                            {formatPrice(pricing.colorHigh)}/page · ≤50% color = {formatPrice(pricing.colorLow)}/page · B&amp;W
+                            = {formatPrice(pricing.bw)}/page
                           </p>
                         </div>
                       )}
@@ -1047,7 +1052,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                               Black and White
                             </p>
                             <p className="text-xs text-gray-600">
-                              ₱1.00 per page — all pages printed
+                              {formatPrice(pricing.bw)} per page — all pages printed
                               in grayscale
                             </p>
                           </div>
@@ -1098,7 +1103,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                     <>
                                       {highColor > 0 && (
                                         <span className="block">
-                                          ₱5/page × {highColor}{" "}
+                                          {formatPrice(pricing.colorHigh)}/page × {highColor}{" "}
                                           page
                                           {highColor !== 1
                                             ? "s"
@@ -1108,7 +1113,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                       )}
                                       {lowColor > 0 && (
                                         <span className="block">
-                                          ₱3/page × {lowColor}{" "}
+                                          {formatPrice(pricing.colorLow)}/page × {lowColor}{" "}
                                           page
                                           {lowColor !== 1
                                             ? "s"
@@ -1118,7 +1123,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                       )}
                                       {bwCount > 0 && (
                                         <span className="block">
-                                          ₱1/page × {bwCount}{" "}
+                                          {formatPrice(pricing.bw)}/page × {bwCount}{" "}
                                           B&amp;W page
                                           {bwCount !== 1
                                             ? "s"
@@ -1131,7 +1136,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                               </div>
                             ) : (
                               <p className="text-xs text-gray-600">
-                                ₱5.00 per page (analysis
+                                {formatPrice(pricing.colorHigh)} per page (analysis
                                 pending)
                               </p>
                             )}

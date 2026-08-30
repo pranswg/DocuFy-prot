@@ -16,8 +16,8 @@ import {
   Eye,
   Smartphone,
   CheckCircle2,
-  ScanLine,
   Banknote,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -34,6 +34,11 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { dataStore } from "../../utils/dataStore";
+import {
+  paymentMethodsStore,
+  type PaymentMethodType,
+} from "../../utils/paymentMethodsStore";
+import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
 
 const menuItems = [
   {
@@ -56,19 +61,23 @@ const menuItems = [
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
   },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
+  },
 ];
-
-// Sample GCash QR Code (placeholder)
-const GCASH_QR_CODE =
-  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PGcgZmlsbD0iYmxhY2siPjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgeD0iMjAiIHk9IjIwIi8+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiB4PSI0MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjUwIiB5PSIyMCIvPjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgeD0iNjAiIHk9IjIwIi8+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiB4PSI4MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjExMCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjE0MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjE1MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjE2MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjE3MCIgeT0iMjAiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHg9IjIwIiB5PSIzMCIvPjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgeD0iODAiIHk9IjMwIi8+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiB4PSIxNDAiIHk9IjMwIi8+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiB4PSIxNzAiIHk9IjMwIi8+PC9nPjwvc3ZnPg==";
 
 export default function PaymentVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const { orderId } = useParams();
   const [paymentMethod, setPaymentMethod] = useState<
-    "gcash" | "cash"
-  >("gcash"); // Only GCash or Cash on Pickup
+    string
+  >(""); // method name or "cash"
+  const [onlineMethods, setOnlineMethods] = useState<
+    PaymentMethodType[]
+  >([]);
   const [
     showPaymentMethodSelector,
     setShowPaymentMethodSelector,
@@ -83,6 +92,22 @@ export default function PaymentVerification() {
   >(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
+  const selectedMethod = isOnline
+    ? paymentMethodsStore.findByName(paymentMethod)
+    : undefined;
+  const methodUnavailable =
+    isOnline && !onlineMethods.some((m) => m.name === paymentMethod);
+
+  // Live online payment methods that admin manages
+  useEffect(() => {
+    const loadMethods = () =>
+      setOnlineMethods(paymentMethodsStore.getPaymentMethods());
+    loadMethods();
+    const unsubscribe = paymentMethodsStore.subscribe(loadMethods);
+    return unsubscribe;
+  }, []);
 
   // Load payment method from navigation state or localStorage
   useEffect(() => {
@@ -104,6 +129,13 @@ export default function PaymentVerification() {
       }
     }
   }, [location.state, orderId]);
+
+  // Default to the first available online method if none chosen yet
+  useEffect(() => {
+    if (!paymentMethod && onlineMethods.length > 0) {
+      setPaymentMethod(onlineMethods[0].name);
+    }
+  }, [onlineMethods, paymentMethod]);
 
   // Simulate OCR scanning to extract reference number from image
   const scanReferenceNumber = async (file: File) => {
@@ -164,9 +196,11 @@ export default function PaymentVerification() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (paymentMethod === "gcash") {
+    if (paymentMethod !== "cash") {
       if (!referenceNumber.trim()) {
-        toast.error("Please enter a GCash reference number");
+        toast.error(
+          `Please enter a ${selectedMethod?.name || "payment"} reference number`,
+        );
         return;
       }
 
@@ -186,6 +220,14 @@ export default function PaymentVerification() {
 
     // Show success dialog instead of navigating immediately
     setShowSuccessDialog(true);
+  };
+
+  const selectMethod = (value: string) => {
+    setPaymentMethod(value);
+    setShowPaymentMethodSelector(false);
+    setReferenceNumber("");
+    setProofFile(null);
+    setImagePreviewUrl(null);
   };
 
   return (
@@ -226,29 +268,27 @@ export default function PaymentVerification() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      paymentMethod === "gcash"
+                      isOnline
                         ? "bg-[#007DFF]"
                         : "bg-blue-600"
                     }`}
                   >
-                    {paymentMethod === "gcash" && (
+                    {isOnline ? (
                       <Smartphone className="w-6 h-6 text-white" />
-                    )}
-                    {paymentMethod === "cash" && (
+                    ) : (
                       <Banknote className="w-6 h-6 text-white" />
                     )}
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">
-                      {paymentMethod === "gcash" && "GCash"}
-                      {paymentMethod === "cash" &&
-                        "Cash on Pickup"}
+                      {isOnline
+                        ? paymentMethod
+                        : "Cash on Pickup"}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {paymentMethod === "gcash" &&
-                        "Mobile wallet payment"}
-                      {paymentMethod === "cash" &&
-                        "Pay when you collect"}
+                      {isOnline
+                        ? "Mobile wallet payment"
+                        : "Pay when you collect"}
                     </p>
                   </div>
                 </div>
@@ -282,66 +322,60 @@ export default function PaymentVerification() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {/* GCash Button */}
-                <button
-                  onClick={() => {
-                    setPaymentMethod("gcash");
-                    setShowPaymentMethodSelector(false);
-                    setReferenceNumber("");
-                    setProofFile(null);
-                    setImagePreviewUrl(null);
-                  }}
-                  className={`p-3 rounded-lg border-2 transition-all hover:shadow-sm ${
-                    paymentMethod === "gcash"
-                      ? "border-[#007DFF] bg-white border-2 border-blue-200"
-                      : "border-gray-200 hover:border-blue-300"
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        paymentMethod === "gcash"
-                          ? "bg-[#007DFF]"
-                          : "bg-gray-100"
+                {/* Online Payment Options (managed by admin) */}
+                {onlineMethods.map((method) => {
+                  const isSelected = paymentMethod === method.name;
+                  return (
+                    <button
+                      key={method.id}
+                      onClick={() => selectMethod(method.name)}
+                      className={`p-3 rounded-lg border-2 transition-all hover:shadow-sm ${
+                        isSelected
+                          ? "border-[#007DFF] bg-white border-2 border-blue-200"
+                          : "border-gray-200 hover:border-blue-300"
                       }`}
                     >
-                      <Smartphone
-                        className={`w-5 h-5 ${
-                          paymentMethod === "gcash"
-                            ? "text-white"
-                            : "text-gray-600"
-                        }`}
-                      />
-                    </div>
-                    <div className="text-center">
-                      <p
-                        className={`text-xs font-semibold ${
-                          paymentMethod === "gcash"
-                            ? "text-[#007DFF]"
-                            : "text-gray-900"
-                        }`}
-                      >
-                        GCash
-                      </p>
-                      <p className="text-[9px] text-gray-500">
-                        Mobile wallet
-                      </p>
-                    </div>
-                    {paymentMethod === "gcash" && (
-                      <CheckCircle2 className="w-4 h-4 text-[#007DFF]" />
-                    )}
-                  </div>
-                </button>
+                      <div className="flex flex-col items-center gap-2">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            isSelected
+                              ? "bg-[#007DFF]"
+                              : "bg-gray-100"
+                          }`}
+                        >
+                          <Smartphone
+                            className={`w-5 h-5 ${
+                              isSelected
+                                ? "text-white"
+                                : "text-gray-600"
+                            }`}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <p
+                            className={`text-xs font-semibold ${
+                              isSelected
+                                ? "text-[#007DFF]"
+                                : "text-gray-900"
+                            }`}
+                          >
+                            {method.name}
+                          </p>
+                          <p className="text-[9px] text-gray-500">
+                            Mobile wallet
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-4 h-4 text-[#007DFF]" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
 
                 {/* Cash on Pickup Button */}
                 <button
-                  onClick={() => {
-                    setPaymentMethod("cash");
-                    setShowPaymentMethodSelector(false);
-                    setReferenceNumber("");
-                    setProofFile(null);
-                    setImagePreviewUrl(null);
-                  }}
+                  onClick={() => selectMethod("cash")}
                   className={`p-3 rounded-lg border-2 transition-all hover:shadow-sm ${
                     paymentMethod === "cash"
                       ? "border-blue-600 bg-white border-2 border-blue-200"
@@ -389,78 +423,21 @@ export default function PaymentVerification() {
         </Card>
 
         {/* Payment Instructions - Show based on selected method */}
-        {paymentMethod === "gcash" && (
+        {isOnline && (
           <Card className="p-6 bg-white shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              GCash Payment Details
+              {paymentMethod} Payment Details
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* GCash QR Code */}
-              <div className="space-y-4">
-                <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="bg-[#007DFF] text-white px-3 py-1 rounded text-sm">
-                      GCash
-                    </span>
-                    Scan to Pay
-                  </h3>
-                  <div className="bg-white p-4 rounded-lg inline-block">
-                    <img
-                      src={GCASH_QR_CODE}
-                      alt="GCash QR Code"
-                      className="w-48 h-48 mx-auto"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-600 mt-3">
-                    Scan this QR code with your GCash app to pay
-                  </p>
-                </div>
+            {methodUnavailable ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                This payment method is no longer available. Please
+                change your payment method above and submit a new
+                payment.
               </div>
-
-              {/* GCash Account Details */}
-              <div className="space-y-4">
-                <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    GCash Account Details
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">
-                        Account Name:
-                      </span>
-                      <p className="font-medium text-gray-900">
-                        DocuFy Printing Services
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">
-                        Mobile Number:
-                      </span>
-                      <p className="font-medium text-gray-900 font-mono">
-                        0917 123 4567
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">
-                        Payment Method:
-                      </span>
-                      <p className="font-medium text-gray-900">
-                        GCash Mobile Wallet
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                  <p className="text-sm text-amber-800">
-                    <strong>Note:</strong> After payment, upload
-                    your screenshot and enter the reference
-                    number below.
-                  </p>
-                </div>
-              </div>
-            </div>
+            ) : selectedMethod ? (
+              <PaymentMethodQRPanel method={selectedMethod} />
+            ) : null}
           </Card>
         )}
 
@@ -511,7 +488,7 @@ export default function PaymentVerification() {
         )}
 
         {/* Reference Form - For digital payments (not cash) */}
-        {paymentMethod !== "cash" && (
+        {isOnline && (
           <Card className="p-6 bg-white shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
               Submit Payment Reference
@@ -533,8 +510,8 @@ export default function PaymentVerification() {
                   required
                 />
                 <p className="text-sm text-gray-500">
-                  {paymentMethod === "gcash" &&
-                    "Enter the reference number from your GCash receipt"}
+                  Enter the reference number from your{" "}
+                  {selectedMethod?.name || "payment"} receipt
                 </p>
               </div>
 

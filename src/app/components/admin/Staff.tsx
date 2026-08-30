@@ -1,34 +1,16 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
 import {
-  LayoutDashboard,
-  CreditCard,
-  Package,
-  Boxes,
-  Users,
-  FileText,
   UserPlus,
-  Briefcase,
-  User,
-  Mail,
-  Phone,
-  CheckCircle,
-  XCircle,
-  Plus,
-  Edit2,
-  Trash2,
   Shield,
-  DollarSign,
-  Award,
-  ClipboardList,
-  Eye,
-  EyeOff,
-  Info,
+  User,
   Ban,
   UserCheck,
+  Edit2,
+  Eye,
+  EyeOff,
   Search,
   Filter,
-  Settings,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -37,15 +19,8 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import { PasswordStrengthIndicator, validatePassword } from "../ui/password-strength-indicator";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../ui/tabs";
 import {
   Select,
   SelectContent,
@@ -293,45 +268,64 @@ const staffData: Staff[] = [
   },
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function formatDate(iso: string) {
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function Staff() {
-  const { registerStaff } = useAuth();
-  const [staff, setStaff] =
-    useState<Staff[]>([]);
-  const [archivedStaff, setArchivedStaff] = useState<Staff[]>([]);
-  const [showArchived, setShowArchived] = useState(false);
-  const [selectedStaff, setSelectedStaff] =
-    useState<Staff | null>(null);
-  const [originalStaff, setOriginalStaff] =
-    useState<Staff | null>(null);
-  const [showDetailDialog, setShowDetailDialog] =
-    useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const { registerStaff, updateStaffAccount } = useAuth();
+
+  const [staff, setStaff] = useState<Staff[]>(staffData);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showActivateConfirm, setShowActivateConfirm] = useState(false);
-  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [newStaff, setNewStaff] = useState({
     fullName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    startDate: "",
+    role: "staff",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const displayStaff = showArchived ? archivedStaff : staff;
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    email: string;
+    role: "Staff" | "Admin";
+    status: "Active" | "Inactive";
+  } | null>(null);
 
-  const filteredStaff = displayStaff.filter((emp) => {
+  const [activating, setActivating] = useState<Staff | null>(null);
+  const [deactivating, setDeactivating] = useState<Staff | null>(null);
+
+  const activeCount = staff.filter((s) => s.status === "Active").length;
+  const inactiveCount = staff.length - activeCount;
+
+  const filteredStaff = staff.filter((emp) => {
     const matchesSearch =
-      emp.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      emp.email
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       filterStatus === "all" ||
@@ -339,41 +333,16 @@ export default function Staff() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-100 text-blue-700";
-      case "Inactive":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case "high":
-        return "bg-blue-700 text-white";
-      case "medium":
-        return "bg-white border-2 border-blue-2000 text-white";
-      case "low":
-        return "bg-amber-100 text-blue-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const getTaskStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return "bg-green-600 text-white";
-      case "in progress":
-        return "bg-blue-100 text-blue-700";
-      case "pending":
-        return "bg-gray-100 text-gray-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+  const resetAddForm = () => {
+    setNewStaff({
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "staff",
+    });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const handleAddStaff = () => {
@@ -388,6 +357,11 @@ export default function Staff() {
 
     if (!email) {
       toast.error("Please enter an email address");
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -407,8 +381,10 @@ export default function Staff() {
       return;
     }
 
+    const role: "staff" | "admin" = newStaff.role === "admin" ? "admin" : "staff";
+
     // Register the brand-new staff account so they can sign in
-    const result = registerStaff({ name, email, password });
+    const result = registerStaff({ name, email, password, role });
     if (!result.success) {
       toast.error(result.message || "Could not create staff account");
       return;
@@ -419,9 +395,9 @@ export default function Staff() {
       name,
       email: email.toLowerCase(),
       phone: "Not set",
-      role: "Staff",
+      role: role === "admin" ? "Admin" : "Staff",
       status: "Active",
-      joinDate: newStaff.startDate || new Date().toISOString().split("T")[0],
+      joinDate: new Date().toISOString().split("T")[0],
       skillsMessage: "",
       portfolioLink: "",
       performanceNotes: [],
@@ -432,509 +408,472 @@ export default function Staff() {
       tasks: [],
     };
 
-    setStaff([...staff, staffMember]);
-    setNewStaff({
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      startDate: "",
-    });
-    setShowPassword(false);
-    setShowConfirmPassword(false);
+    setStaff([staffMember, ...staff]);
+    resetAddForm();
     setShowAddDialog(false);
+    toast.success("Staff account created successfully", {
+      description: `${name} can now sign in with the email and password you set.`,
+    });
+  };
+
+  const openEdit = (member: Staff) => {
+    setEditingStaff(member);
+    setEditForm({
+      name: member.name,
+      email: member.email,
+      role: member.role === "Admin" ? "Admin" : "Staff",
+      status: member.status,
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingStaff || !editForm) return;
+
+    const name = editForm.name.trim();
+    const email = editForm.email.trim();
+
+    if (!name) {
+      toast.error("Please enter the staff member's full name");
+      return;
+    }
+
+    if (!email) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (
+      staff.some(
+        (s) =>
+          s.id !== editingStaff.id &&
+          s.email.toLowerCase() === email.toLowerCase(),
+      )
+    ) {
+      toast.error("This email is already used by another staff member");
+      return;
+    }
+
+    const updated: Staff = {
+      ...editingStaff,
+      name,
+      email: email.toLowerCase(),
+      role: editForm.role,
+      status: editForm.status,
+    };
+
+    const accountUpdated = updateStaffAccount(editingStaff.email, {
+      email: email.toLowerCase() !== editingStaff.email.toLowerCase() ? email.toLowerCase() : undefined,
+      name: name !== editingStaff.name ? name : undefined,
+      role: editForm.role !== editingStaff.role ? (editForm.role === "Admin" ? "admin" : "staff") : undefined,
+      active: editForm.status !== editingStaff.status ? editForm.status === "Active" : undefined,
+    });
+
+    setStaff(staff.map((s) => (s.id === updated.id ? updated : s)));
+    setEditingStaff(null);
+    setEditForm(null);
     toast.success(
-      `${staffMember.name} has been registered as Staff!\nThey can sign in using the email and password you set.`,
+      accountUpdated
+        ? "Staff account updated successfully"
+        : "Staff details updated successfully",
     );
+  };
+
+  const confirmActivate = (member: Staff) => {
+    setStaff(
+      staff.map((s) =>
+        s.id === member.id ? { ...s, status: "Active" as const } : s,
+      ),
+    );
+    updateStaffAccount(member.email, { active: true });
+    toast.success(`${member.name}'s account has been activated`);
+    setActivating(null);
+  };
+
+  const confirmDeactivate = (member: Staff) => {
+    setStaff(
+      staff.map((s) =>
+        s.id === member.id ? { ...s, status: "Inactive" as const } : s,
+      ),
+    );
+    updateStaffAccount(member.email, { active: false });
+    toast.success(`${member.name}'s account has been deactivated`);
+    setDeactivating(null);
   };
 
   return (
     <Layout menuItems={menuItems} title="Staff Management" showBackButton>
       <div className="space-y-6">
-        {/* Header with Search and Filters */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div>
-            <p className="text-gray-600 mt-1">
-              Manage staff profiles, tasks, and payroll
-            </p>
-          </div>
-          <div className="flex flex-col w-full sm:w-auto gap-2 sm:flex-row">
-            <Button
-              variant={showArchived ? "outline" : "default"}
-              className={`h-11 sm:h-10 w-full sm:w-auto ${showArchived ? "" : "bg-[#2F6FD6] hover:bg-[#1e5bb8]"}`}
-              onClick={() => setShowArchived(!showArchived)}
-            >
-              {showArchived ? "Show Active" : `Show Archived (${archivedStaff.length})`}
-            </Button>
-            <Button
-              className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
-              onClick={() => setShowAddDialog(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Staff
-            </Button>
-          </div>
+          <p className="text-gray-600 mt-1">
+            Manage staff accounts, roles, and access permissions.
+          </p>
+          <Button
+            className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+            onClick={() => setShowAddDialog(true)}
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Staff
+          </Button>
         </div>
 
-        {/* Search and Filter Bar */}
+        {/* Search and Filters */}
         <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search by name, email, or ID..."
-                  value={searchQuery}
-                  onChange={(e) =>
-                    setSearchQuery(e.target.value)
-                  }
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search by name, email, or ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <Select
-              value={filterStatus}
-              onValueChange={setFilterStatus}
-            >
-              <SelectTrigger>
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4" />
-                  <SelectValue />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">
-                  Inactive
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full md:w-56">
+              <Select
+                value={filterStatus}
+                onValueChange={setFilterStatus}
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </Card>
 
-        {/* Staff Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredStaff.map((staffMember) => (
-            <Card
-              key={staffMember.id}
-              className="p-6 bg-white shadow-sm hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => {
-                setSelectedStaff(staffMember);
-                setOriginalStaff(JSON.parse(JSON.stringify(staffMember)));
-                setShowDetailDialog(true);
-              }}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-[#1D73EC] rounded-full flex items-center justify-center text-white text-xl font-bold">
-                  {staffMember.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </div>
-                <Badge
-                  className={getStatusColor(staffMember.status)}
-                >
-                  {staffMember.status}
-                </Badge>
-              </div>
-
-              <h3 className="text-lg font-bold text-gray-900 mb-1">
-                {staffMember.name}
-              </h3>
-              <p className="text-sm text-gray-600 mb-3">
-                {staffMember.id}
-              </p>
-
-              <div className="space-y-2 text-sm mb-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Mail className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">
-                    {staffMember.email}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Phone className="w-4 h-4 flex-shrink-0" />
-                  <span>{staffMember.phone}</span>
-                </div>
-              </div>
-
-
-              <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                <p className="text-xs text-gray-500">
-                  Joined: {staffMember.joinDate}
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[#2F6FD6] hover:text-[#1e5bb8] hover:bg-white border-2 border-blue-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedStaff(staffMember);
-                    setOriginalStaff(JSON.parse(JSON.stringify(staffMember)));
-                    setShowDetailDialog(true);
-                  }}
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  View Details
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {filteredStaff.length === 0 && (
-          <Card className="p-12 text-center">
-            <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">
-              No staff members found matching your search criteria.
-            </p>
-          </Card>
-        )}
-
-        {/* Staff Detail Dialog */}
-        <Dialog
-          open={showDetailDialog}
-          onOpenChange={setShowDetailDialog}
-        >
-          <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#1D73EC] rounded-full flex items-center justify-center text-white font-bold">
-                  {selectedStaff?.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {selectedStaff?.name}
-                  </h2>
-                  <p className="text-sm text-gray-600 font-normal">
-                    {selectedStaff?.id}
-                  </p>
-                </div>
-              </DialogTitle>
-              <DialogDescription>
-                View and manage staff details and permissions
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedStaff && (
-              <>
-                <Tabs defaultValue="profile" className="mt-4">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="profile">
-                      Profile
-                    </TabsTrigger>
-                    <TabsTrigger value="access">
-                      Access
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <div className="mt-6 max-h-[500px] overflow-y-auto">
-                  {/* Profile Tab */}
-                  <TabsContent
-                    value="profile"
-                    className="space-y-4"
+        {/* Staff Table */}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[820px]">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/70">
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Staff
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Email
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Role
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Account Status
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Date Added
+                  </th>
+                  <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredStaff.map((member) => (
+                  <tr
+                    key={member.id}
+                    className="hover:bg-gray-50/70 transition-colors"
                   >
-                    <Card className="p-4">
-                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                        <User className="w-5 h-5 text-[#2F6FD6]" />
-                        Basic Information
-                      </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm text-gray-600">
-                            Email
-                          </Label>
-                          <p className="font-medium">
-                            {selectedStaff.email}
-                          </p>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#1D73EC] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                          {getInitials(member.name)}
                         </div>
-                        <div>
-                          <Label className="text-sm text-gray-600">
-                            Phone
-                          </Label>
-                          <p className="font-medium">
-                            {selectedStaff.phone}
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {member.name}
                           </p>
-                        </div>
-                        <div>
-                          <Label className="text-sm text-gray-600">
-                            Status
-                          </Label>
-                          <Badge
-                            className={getStatusColor(
-                              selectedStaff.status,
-                            )}
-                          >
-                            {selectedStaff.status}
-                          </Badge>
+                          <p className="text-xs text-gray-400">{member.id}</p>
                         </div>
                       </div>
-                    </Card>
-
-                    <Card className="p-4 relative">
-                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                        <ClipboardList className="w-5 h-5 text-[#2F6FD6]" />
-                        Skill Description
-                      </h3>
-                      <Textarea
-                        value={selectedStaff.skillsMessage || ""}
-                        onChange={(e) =>
-                          setSelectedStaff({
-                            ...selectedStaff,
-                            skillsMessage: e.target.value,
-                          })
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                        <span className="truncate">{member.email}</span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge
+                        className={
+                          member.role === "Admin"
+                            ? "bg-[#1D73EC]/10 text-[#1D73EC] border border-[#1D73EC]/20"
+                            : "bg-gray-100 text-gray-700 border border-gray-200"
                         }
-                        placeholder="Enter skills, experience, or message..."
-                        className="min-h-[100px] bg-gray-50"
-                        disabled={true}
-                      />
-                      <div className="absolute top-4 right-4">
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-                          Staff Only
+                      >
+                        {member.role === "Admin" ? (
+                          <Shield className="w-3 h-3" />
+                        ) : (
+                          <User className="w-3 h-3" />
+                        )}
+                        {member.role}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-4">
+                      {member.status === "Active" ? (
+                        <Badge className="bg-green-50 text-green-700 border border-green-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                          Active
                         </Badge>
-                      </div>
-                    </Card>
-
-                    <Card className="p-4 relative">
-                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-[#2F6FD6]" />
-                        Resume
-                      </h3>
-                      <Input
-                        value={selectedStaff.portfolioLink || ""}
-                        onChange={(e) =>
-                          setSelectedStaff({
-                            ...selectedStaff,
-                            portfolioLink: e.target.value,
-                          })
-                        }
-                        placeholder="https://..."
-                        className="bg-gray-50"
-                        disabled={true}
-                      />
-                      <div className="absolute top-4 right-4">
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-                          Staff Only
+                      ) : (
+                        <Badge className="bg-red-50 text-red-700 border border-red-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                          Inactive
                         </Badge>
-                      </div>
-                    </Card>
-                  </TabsContent>
-
-                  {/* Access Tab */}
-                  <TabsContent
-                    value="access"
-                    className="space-y-4"
-                  >
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                          <Shield className="w-5 h-5 text-[#2F6FD6]" />
-                          Role & Permissions
-                        </h3>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <Label className="text-sm text-gray-600 mb-2 block">
-                            Role
-                          </Label>
-                          <Select
-                            value={selectedStaff.role}
-                            onValueChange={(value) => {
-                              setSelectedStaff({
-                                ...selectedStaff,
-                                role: value,
-                              });
-                              toast.success(`Role updated to ${value}`);
-                            }}
-                          >
-                            <SelectTrigger className="bg-white">
-                              <SelectValue placeholder="Select role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Staff">Staff</SelectItem>
-                              <SelectItem value="Admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Promote staff to Admin to grant full system access
-                          </p>
-                        </div>
-                        <div>
-                          <Label className="text-sm text-gray-600 mb-2 block">
-                            Permissions
-                          </Label>
-                          <div className="grid grid-cols-1 gap-2">
-                            {[
-                              "view_orders",
-                              "edit_orders",
-                              "view_reports",
-                              "verify_payments",
-                            ].map((permission) => {
-                              const hasPermission =
-                                selectedStaff.permissions.includes(
-                                  permission,
-                                );
-                              return (
-                                <div
-                                  key={permission}
-                                  className={`flex items-center justify-between p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                                    hasPermission
-                                      ? "bg-white border-2 border-blue-200 border-[#1D73EC]"
-                                      : "bg-gray-50 border-gray-200 hover:border-[#1D73EC]"
-                                  }`}
-                                  onClick={() => {
-                                    const updatedPermissions =
-                                      hasPermission
-                                        ? selectedStaff.permissions.filter(
-                                            (p) => p !== permission,
-                                          )
-                                        : [
-                                            ...selectedStaff.permissions,
-                                            permission,
-                                          ];
-                                    const updatedStaff = {
-                                      ...selectedStaff,
-                                      permissions: updatedPermissions,
-                                    };
-                                    setSelectedStaff(
-                                      updatedStaff,
-                                    );
-                                    toast.success(
-                                      hasPermission
-                                        ? "Permission removed"
-                                        : "Permission granted",
-                                    );
-                                  }}
-                                >
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {permission.replace(/_/g, " ")}
-                                  </span>
-                                  {hasPermission ? (
-                                    <CheckCircle className="w-5 h-5 text-[#1D73EC]" />
-                                  ) : (
-                                    <XCircle className="w-5 h-5 text-gray-300" />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="p-4">
-                      <h3 className="font-bold text-lg mb-4">
-                        Account Actions
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3">
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-gray-600">
+                        {formatDate(member.joinDate)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
-                          variant="outline"
-                          className="text-blue-600 border-blue-600 hover:bg-white border-2 border-blue-200"
-                          onClick={() => {
-                            if (selectedStaff.status === "Active") {
-                              setShowDeactivateConfirm(true);
-                            } else {
-                              setShowActivateConfirm(true);
-                            }
-                          }}
+                          variant="ghost"
+                          size="icon"
+                          title="Edit staff"
+                          onClick={() => openEdit(member)}
                         >
-                          {selectedStaff.status === "Active" ? (
-                            <>
-                              <Ban className="w-4 h-4 mr-2" />
-                              Deactivate Account
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="w-4 h-4 mr-2" />
-                              Activate Account
-                            </>
-                          )}
+                          <Edit2 className="w-4 h-4 text-gray-500" />
                         </Button>
-                        {selectedStaff.status === "Inactive" && (
+                        {member.status === "Active" ? (
                           <Button
-                            variant="outline"
-                            className="text-blue-700 border-blue-700 hover:bg-white border-2 border-blue-200"
-                            onClick={() => {
-                              setShowArchiveConfirm(true);
-                            }}
+                            variant="ghost"
+                            size="icon"
+                            title="Deactivate account"
+                            className="hover:bg-red-50"
+                            onClick={() => setDeactivating(member)}
                           >
-                            <Package className="w-4 h-4 mr-2" />
-                            Archive Staff Member
+                            <Ban className="w-4 h-4 text-red-500" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Activate account"
+                            className="hover:bg-green-50"
+                            onClick={() => setActivating(member)}
+                          >
+                            <UserCheck className="w-4 h-4 text-green-600" />
                           </Button>
                         )}
                       </div>
-                    </Card>
-                  </TabsContent>
-                </div>
-              </Tabs>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              {/* Save Changes Footer */}
-              <div className="mt-6 pt-4 border-t flex justify-between items-center">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (originalStaff) {
-                      setSelectedStaff(originalStaff);
-                      setStaff(
-                        staff.map((emp) =>
-                          emp.id === originalStaff.id ? originalStaff : emp,
-                        ),
-                      );
+          {filteredStaff.length === 0 && (
+            <div className="py-16 text-center">
+              <User className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">
+                No staff members found matching your search criteria.
+              </p>
+            </div>
+          )}
+
+          <div className="px-5 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-xs text-gray-500">
+            <span>
+              Showing {filteredStaff.length} of {staff.length} staff members
+            </span>
+            <span>
+              {activeCount} active &middot; {inactiveCount} inactive
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Register New Staff Dialog */}
+      <Dialog
+        open={showAddDialog}
+        onOpenChange={(open) => {
+          setShowAddDialog(open);
+          if (!open) resetAddForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">Add Staff</DialogTitle>
+            <DialogDescription>
+              Create a staff account. The staff member can sign in with the
+              email and password you set below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name *</Label>
+              <Input
+                id="fullName"
+                type="text"
+                value={newStaff.fullName}
+                onChange={(e) =>
+                  setNewStaff({ ...newStaff, fullName: e.target.value })
+                }
+                placeholder="e.g. Maria Santos"
+                className="h-11 bg-white text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="staffEmail">Email Address *</Label>
+              <Input
+                id="staffEmail"
+                type="email"
+                value={newStaff.email}
+                onChange={(e) =>
+                  setNewStaff({ ...newStaff, email: e.target.value })
+                }
+                placeholder="staff@example.com"
+                className="h-11 bg-white text-sm"
+              />
+              <p className="text-xs text-gray-500">
+                Used to sign in to the new staff account
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select
+                value={newStaff.role}
+                onValueChange={(value) =>
+                  setNewStaff({ ...newStaff, role: value })
+                }
+              >
+                <SelectTrigger className="h-11 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Admins get full system access, staff get order and payment
+                access.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="staffPassword">Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="staffPassword"
+                    type={showPassword ? "text" : "password"}
+                    value={newStaff.password}
+                    onChange={(e) =>
+                      setNewStaff({ ...newStaff, password: e.target.value })
                     }
-                    setShowDetailDialog(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-[#1D73EC] hover:bg-[#10316B]"
-                  onClick={() => {
-                    setShowSaveConfirm(true);
-                  }}
-                >
-                  Save Changes
-                </Button>
+                    placeholder="Enter password"
+                    className="h-11 bg-white text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
-            </>
-            )}
-          </DialogContent>
-        </Dialog>
+              <div className="space-y-2">
+                <Label htmlFor="staffConfirmPassword">Confirm *</Label>
+                <div className="relative">
+                  <Input
+                    id="staffConfirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={newStaff.confirmPassword}
+                    onChange={(e) =>
+                      setNewStaff({
+                        ...newStaff,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                    placeholder="Confirm password"
+                    className="h-11 bg-white text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
 
-        {/* Register New Staff Dialog */}
-        <Dialog
-          open={showAddDialog}
-          onOpenChange={(open) => {
-            setShowAddDialog(open);
-            if (!open) {
-              setShowPassword(false);
-              setShowConfirmPassword(false);
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-[#10316B]">Register New Staff</DialogTitle>
-              <DialogDescription>
-                Create a brand-new staff account. The staff member can sign in with the email and
-                password you set below.
-              </DialogDescription>
-            </DialogHeader>
+            {newStaff.password && (
+              <PasswordStrengthIndicator password={newStaff.password} />
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              onClick={() => setShowAddDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              onClick={handleAddStaff}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create Staff Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Staff Dialog */}
+      <Dialog
+        open={!!editingStaff}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingStaff(null);
+            setEditForm(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">
+              Edit Staff
+            </DialogTitle>
+            <DialogDescription>
+              Update {editingStaff?.name || "this staff member"}'s details,
+              role, and account status.
+            </DialogDescription>
+          </DialogHeader>
+          {editForm && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
+                <Label htmlFor="editFullName">Full Name *</Label>
                 <Input
-                  id="fullName"
+                  id="editFullName"
                   type="text"
-                  value={newStaff.fullName}
+                  value={editForm.name}
                   onChange={(e) =>
-                    setNewStaff({
-                      ...newStaff,
-                      fullName: e.target.value,
-                    })
+                    setEditForm({ ...editForm, name: e.target.value })
                   }
                   placeholder="e.g. Maria Santos"
                   className="h-11 bg-white text-sm"
@@ -942,223 +881,114 @@ export default function Staff() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="staffEmail">Email Address *</Label>
+                <Label htmlFor="editEmail">Email Address *</Label>
                 <Input
-                  id="staffEmail"
+                  id="editEmail"
                   type="email"
-                  value={newStaff.email}
+                  value={editForm.email}
                   onChange={(e) =>
-                    setNewStaff({
-                      ...newStaff,
-                      email: e.target.value,
-                    })
+                    setEditForm({ ...editForm, email: e.target.value })
                   }
                   placeholder="staff@example.com"
                   className="h-11 bg-white text-sm"
                 />
-                <p className="text-xs text-gray-500">
-                  Used to sign in to the new staff account
-                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="staffPassword">Password *</Label>
-                  <div className="relative">
-                    <Input
-                      id="staffPassword"
-                      type={showPassword ? "text" : "password"}
-                      value={newStaff.password}
-                      onChange={(e) =>
-                        setNewStaff({
-                          ...newStaff,
-                          password: e.target.value,
-                        })
-                      }
-                      placeholder="Enter password"
-                      className="h-11 bg-white text-sm pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
+                  <Label>Role *</Label>
+                  <Select
+                    value={editForm.role}
+                    onValueChange={(value) =>
+                      setEditForm({
+                        ...editForm,
+                        role: value as "Staff" | "Admin",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-11 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Staff">Staff</SelectItem>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="staffConfirmPassword">Confirm *</Label>
-                  <div className="relative">
-                    <Input
-                      id="staffConfirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={newStaff.confirmPassword}
-                      onChange={(e) =>
-                        setNewStaff({
-                          ...newStaff,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Confirm password"
-                      className="h-11 bg-white text-sm pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
+                  <Label>Account Status *</Label>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) =>
+                      setEditForm({
+                        ...editForm,
+                        status: value as "Active" | "Inactive",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-11 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-
-              {newStaff.password && (
-                <PasswordStrengthIndicator password={newStaff.password} />
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="staffStartDate">Start Date</Label>
-                <Input
-                  id="staffStartDate"
-                  type="date"
-                  value={newStaff.startDate}
-                  onChange={(e) =>
-                    setNewStaff({
-                      ...newStaff,
-                      startDate: e.target.value,
-                    })
-                  }
-                  className="h-11 bg-white text-sm"
-                />
-              </div>
-
-              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
-                <p className="text-xs text-blue-800 flex items-start gap-2 leading-relaxed">
-                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <span>
-                    The new account can sign in immediately with these credentials. They must Time
-                    In on the staff dashboard before processing orders or verifying payments.
-                  </span>
-                </p>
-              </div>
             </div>
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                className="h-11 w-full sm:w-auto"
-                onClick={() => setShowAddDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
-                onClick={handleAddStaff}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Register Staff
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Confirmation Dialogs */}
-        {selectedStaff && (
-          <>
-            <ConfirmationDialog
-              open={showActivateConfirm}
-              onOpenChange={setShowActivateConfirm}
-              onConfirm={() => {
-                const updatedStaff = {
-                  ...selectedStaff,
-                  status: "Active" as const,
-                };
-                setSelectedStaff(updatedStaff);
-                toast.success("Account activated");
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              onClick={() => {
+                setEditingStaff(null);
+                setEditForm(null);
               }}
-              title="Activate Staff Account?"
-              description="This will reactivate the staff member's account and restore their access to the system."
-              destructive={false}
-            />
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              onClick={handleSaveEdit}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <ConfirmationDialog
-              open={showDeactivateConfirm}
-              onOpenChange={setShowDeactivateConfirm}
-              onConfirm={() => {
-                const updatedStaff = {
-                  ...selectedStaff,
-                  status: "Inactive" as const,
-                };
-                setSelectedStaff(updatedStaff);
-                toast.success("Account deactivated");
-              }}
-              title="Deactivate Staff Account?"
-              description="This will temporarily disable the staff member's account. They will not be able to access the system until reactivated."
-              destructive={true}
-            />
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog
+        open={!!activating}
+        onOpenChange={(open) => {
+          if (!open) setActivating(null);
+        }}
+        onConfirm={() => activating && confirmActivate(activating)}
+        title="Activate Staff Account?"
+        description={
+          activating
+            ? `${activating.name} will regain access to the system and can sign in again.`
+            : ""
+        }
+        destructive={false}
+      />
 
-            <ConfirmationDialog
-              open={showArchiveConfirm}
-              onOpenChange={setShowArchiveConfirm}
-              onConfirm={() => {
-                setArchivedStaff([...archivedStaff, selectedStaff]);
-                setStaff(staff.filter(emp => emp.id !== selectedStaff.id));
-                setShowDetailDialog(false);
-                toast.success(`${selectedStaff.name} has been archived`);
-              }}
-              title="Archive Staff Member?"
-              description="This action will permanently archive this staff member. This cannot be undone."
-              destructive={true}
-            />
-
-            <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Settings className="w-6 h-6 text-[#1D73EC]" />
-                    </div>
-                    <div>
-                      <DialogTitle className="text-xl">DocuFy</DialogTitle>
-                      <p className="text-sm text-gray-600 font-normal">Confirm Changes</p>
-                    </div>
-                  </div>
-                  <DialogDescription className="text-base">
-                    Are you sure you want to save all changes made to {selectedStaff?.name}'s profile and permissions?
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowSaveConfirm(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setStaff(
-                        staff.map((emp) =>
-                          emp.id === selectedStaff!.id ? selectedStaff! : emp,
-                        ),
-                      );
-                      setOriginalStaff(selectedStaff);
-                      setShowSaveConfirm(false);
-                      setShowDetailDialog(false);
-                      toast.success("Staff details updated successfully");
-                    }}
-                    className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
-                  >
-                    Save Changes
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </>
-        )}
-      </div>
+      <ConfirmationDialog
+        open={!!deactivating}
+        onOpenChange={(open) => {
+          if (!open) setDeactivating(null);
+        }}
+        onConfirm={() => deactivating && confirmDeactivate(deactivating)}
+        title="Deactivate Staff Account?"
+        description={
+          deactivating
+            ? `${deactivating.name} will no longer be able to sign in until the account is reactivated.`
+            : ""
+        }
+        destructive={true}
+      />
     </Layout>
   );
 }

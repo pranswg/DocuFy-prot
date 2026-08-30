@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Eye,
   ArrowLeft,
+  Bell,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -19,6 +20,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { dataStore, type Order } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
+import { getStatusBadgeClasses } from "../../utils/orderStatusPalette";
 
 const menuItems = [
   {
@@ -40,6 +42,11 @@ const menuItems = [
     label: "Job Board",
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
+  },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
   },
 ];
 
@@ -70,19 +77,7 @@ export default function CustomerOrders() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":   return "bg-blue-100 text-blue-700";
-      case "Released":    return "bg-gray-100 text-gray-700";
-      case "Printing":    return "bg-blue-100 text-blue-700";
-      case "In Queue":    return "bg-yellow-100 text-yellow-700";
-      case "On Hold":     return "bg-amber-100 text-amber-800";
-      case "Awaiting Payment": return "bg-yellow-100 text-yellow-800";
-      case "Received":    return "bg-blue-100 text-blue-700";
-      case "Canceled":    return "bg-red-100 text-red-700";
-      default:            return "bg-gray-100 text-gray-700";
-    }
-  };
+  const getStatusColor = (status: string) => getStatusBadgeClasses(status);
 
   const filteredOrders = orders.filter((order) => {
     const matchesStatus =

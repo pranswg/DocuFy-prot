@@ -26,6 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
+import { announcementsStore } from "../utils/announcementsStore";
 import { toast } from "sonner";
 import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
@@ -83,6 +84,20 @@ export default function Layout({
   // Track notifications
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Track announcements unread (sidebar badge)
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [urgentAnnouncements, setUrgentAnnouncements] = useState(0);
+
+  useEffect(() => {
+    const updateAnnouncements = () => {
+      setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email));
+      setUrgentAnnouncements(announcementsStore.getUrgentUnreadCount(user?.email));
+    };
+    updateAnnouncements();
+    const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
+    return unsubscribe;
+  }, [user?.email]);
 
   // Track SIEM alerts (admin only)
   const [siemAlerts, setSiemAlerts] = useState<SIEMAlert[]>([]);
@@ -299,6 +314,7 @@ export default function Layout({
       <nav aria-label="Primary navigation" className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center">
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+          const isNotificationsItem = item.path.endsWith("/notifications");
           return (
             <div key={item.path} className="relative group w-full flex justify-center px-3">
               <button
@@ -309,7 +325,20 @@ export default function Layout({
                   isMobile || isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
                 } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
               >
-                <div className="flex-shrink-0 flex items-center justify-center">{item.icon}</div>
+                <div className="relative flex-shrink-0 flex items-center justify-center">
+                  {item.icon}
+                  {isNotificationsItem && unreadAnnouncements > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff5252] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0B2C5B]">
+                      {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
+                    </span>
+                  )}
+                  {isNotificationsItem && urgentAnnouncements > 0 && (
+                    <span
+                      title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}
+                      className="absolute -bottom-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#0B2C5B]"
+                    />
+                  )}
+                </div>
                 {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
                 {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
               </button>

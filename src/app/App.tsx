@@ -23,12 +23,15 @@ import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Staff from './components/admin/Staff';
 import AdminAttendancePage from './components/admin/AdminAttendance';
 import InventoryManagement from './components/admin/InventoryManagement';
+import PaymentMethodsManagement from './components/admin/PaymentMethodsManagement';
+import PricingManagement from './components/admin/PricingManagement';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
 import ContentManagement from './components/admin/ContentManagement';
 import OrderTracking from './components/customer/OrderTracking';
 import JobBoard from './components/customer/JobBoard';
 import JobApplyForm from './components/customer/JobApplyForm';
+import NotificationsPage from './components/shared/NotificationsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { MobileNavProvider } from './contexts/MobileNavContext';
 import MobileNavSheet from './components/shared/MobileNavSheet';
@@ -104,6 +107,10 @@ const router = createBrowserRouter([
         path: 'payment/:orderId',
         element: <ProtectedRoute role="customer"><CustomerPaymentVerification /></ProtectedRoute>,
       },
+      {
+        path: 'notifications',
+        element: <ProtectedRoute role="customer"><NotificationsPage /></ProtectedRoute>,
+      },
     ],
   },
   {
@@ -142,6 +149,10 @@ const router = createBrowserRouter([
         path: 'payment-verification',
         element: <ProtectedRoute role="staff"><StaffPaymentVerificationUnified /></ProtectedRoute>,
       },
+      {
+        path: 'notifications',
+        element: <ProtectedRoute role="staff"><NotificationsPage /></ProtectedRoute>,
+      },
     ],
   },
   {
@@ -167,6 +178,14 @@ const router = createBrowserRouter([
       {
         path: 'payment-verification',
         element: <ProtectedRoute role="admin"><AdminPaymentVerificationUnified /></ProtectedRoute>,
+      },
+      {
+        path: 'payment-methods',
+        element: <ProtectedRoute role="admin"><PaymentMethodsManagement /></ProtectedRoute>,
+      },
+      {
+        path: 'pricing',
+        element: <ProtectedRoute role="admin"><PricingManagement /></ProtectedRoute>,
       },
       {
         path: 'orders',
@@ -195,6 +214,10 @@ const router = createBrowserRouter([
       {
         path: 'content',
         element: <ProtectedRoute role="admin"><ContentManagement /></ProtectedRoute>,
+      },
+      {
+        path: 'notifications',
+        element: <ProtectedRoute role="admin"><NotificationsPage /></ProtectedRoute>,
       },
     ],
   },

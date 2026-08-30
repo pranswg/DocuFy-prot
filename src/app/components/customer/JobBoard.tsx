@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FileText,
   Briefcase,
+  Bell,
   Clock,
   MapPin,
   Package,
@@ -39,6 +40,7 @@ const menuItems = [
   { label: 'Print Request', path: '/customer/new-request', icon: <FileText className="w-5 h-5" /> },
   { label: 'My Orders', path: '/customer/orders', icon: <Package className="w-5 h-5" /> },
   { label: 'Job Board', path: '/customer/job-board', icon: <Briefcase className="w-5 h-5" /> },
+  { label: 'Notifications', path: '/customer/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -139,7 +141,7 @@ export default function JobBoard() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <p className="text-sm text-gray-500 sm:text-base">
-              Browse opportunities at DocuFy PSMS · Room 4, TBI Building, Palawan State University
+              Browse opportunities at Docufy PSMS · Room 4, TBI Building, Palawan State University
             </p>
           </div>
           <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
@@ -390,7 +392,7 @@ export default function JobBoard() {
           <div className="flex items-start gap-3">
             <Briefcase className="mt-0.5 h-5 w-5 shrink-0 text-[#1D73EC]" />
             <div>
-              <h3 className="mb-2 font-semibold text-[#10316B]">Why Work With DocuFy?</h3>
+              <h3 className="mb-2 font-semibold text-[#10316B]">Why Work With Docufy?</h3>
               <ul className="space-y-1 text-sm text-gray-700">
                 <li>• Flexible schedules perfect for students</li>
                 <li>• Gain valuable work experience in printing & admin</li>

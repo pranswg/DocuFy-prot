@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   ChevronDown,
   X,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -24,6 +25,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
+import { getOrderStatusStyle, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +38,7 @@ import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
 import { dataStore } from "../../utils/dataStore";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
+import { pricingStore, formatPrice, type PricingValues } from "../../utils/pricingStore";
 
 const menuItems = [
   {
@@ -58,6 +61,11 @@ const menuItems = [
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
   },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
+  },
 ];
 
 export default function OrderTracking() {
@@ -72,6 +80,12 @@ export default function OrderTracking() {
     dataStore.getOrderById(orderId || ""),
   );
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+
+  useEffect(() => {
+    const load = () => setPricing(pricingStore.getPricing());
+    return pricingStore.subscribe(load);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -101,6 +115,7 @@ export default function OrderTracking() {
   }, [orderData?.status]);
 
   const currentOrderStatus = orderData?.status || "Received";
+  const statusStyle = getOrderStatusStyle(currentOrderStatus);
   const holdReason = orderData?.holdReason;
   const canCancelOrder = ["Received", "In Queue", "On Hold", "Awaiting Payment"].includes(currentOrderStatus);
 
@@ -139,7 +154,7 @@ export default function OrderTracking() {
   };
 
   const handleDownloadFile = (fileName: string) => {
-    const content = `[DocuFy PSMS - Palawan State University]\nFile: ${fileName}\nOrder ID: ${orderId}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
+    const content = `[Docufy PSMS - Palawan State University]\nFile: ${fileName}\nOrder ID: ${orderId}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -236,14 +251,14 @@ export default function OrderTracking() {
                   </Badge>
                 </h3>
                 <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                  <strong>Details:</strong> {holdReason || "Your GCash payment is pending verification."}
+                  <strong>Details:</strong> {holdReason || "Your online payment is pending verification."}
                 </p>
                 <div className="bg-white rounded-lg p-3 border border-amber-200">
                   <p className="text-xs text-gray-700">
                     <strong className="text-amber-900">
                       What to do:
                     </strong>{" "}
-                    Once Admin or Staff verifies your GCash payment, your order will be added to the print queue automatically. You can track its progress here.
+                    Once Admin or Staff verifies your payment, your order will be added to the print queue automatically. You can track its progress here.
                   </p>
                 </div>
               </div>
@@ -252,33 +267,33 @@ export default function OrderTracking() {
         )}
 
         {/* Current Status Banner */}
-        <Card className="p-5 bg-white shadow-sm border-l-4 border-[#1D73EC]">
+        <Card className={`p-5 bg-white shadow-sm border-l-4 ${statusStyle.accent}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#F2F7FF] flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center`}>
                 {currentOrderStatus === "Printing" && (
-                  <Printer className="w-5 h-5 text-[#1D73EC]" />
+                  <Printer className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "In Queue" && (
-                  <Clock className="w-5 h-5 text-blue-600" />
+                  <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "Completed" && (
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                  <CheckCircle className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "Released" && (
-                  <PackageIcon className="w-5 h-5 text-gray-600" />
+                  <PackageIcon className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "Canceled" && (
-                  <X className="w-5 h-5 text-red-600" />
+                  <X className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "Received" && (
-                  <CheckCircle className="w-5 h-5 text-[#1D73EC]" />
+                  <CheckCircle className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "On Hold" && (
-                  <PauseCircle className="w-5 h-5 text-blue-600" />
+                  <PauseCircle className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
                 {currentOrderStatus === "Awaiting Payment" && (
-                  <Clock className="w-5 h-5 text-amber-600" />
+                  <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
                 )}
               </div>
               <div>
@@ -290,23 +305,7 @@ export default function OrderTracking() {
                 </p>
               </div>
             </div>
-            <Badge
-              className={
-                currentOrderStatus === "Completed"
-                  ? "bg-blue-100 text-blue-700"
-                  : currentOrderStatus === "Released"
-                    ? "bg-gray-100 text-gray-700"
-                    : currentOrderStatus === "Printing"
-                      ? "bg-blue-100 text-blue-700"
-                      : currentOrderStatus === "In Queue"
-                        ? "bg-blue-100 text-yellow-700"
-                        : currentOrderStatus === "On Hold"
-                          ? "bg-blue-100 text-blue-800"
-                          : currentOrderStatus === "Awaiting Payment"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-50 text-blue-700"
-              }
-            >
+            <Badge className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}>
               {currentOrderStatus}
             </Badge>
           </div>
@@ -343,21 +342,7 @@ export default function OrderTracking() {
                 <Label className="text-xs text-gray-600">Status</Label>
                 <div className="mt-1">
                   <Badge
-                    className={
-                      currentOrderStatus === "Completed"
-                        ? "bg-blue-100 text-blue-700"
-                        : currentOrderStatus === "Released"
-                          ? "bg-gray-100 text-gray-700"
-                          : currentOrderStatus === "Printing"
-                            ? "bg-blue-100 text-blue-700"
-                            : currentOrderStatus === "In Queue"
-                              ? "bg-blue-100 text-yellow-700"
-                              : currentOrderStatus === "On Hold"
-                                ? "bg-blue-100 text-blue-800"
-                                : currentOrderStatus === "Awaiting Payment"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-blue-50 text-blue-700"
-                    }
+                    className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}
                   >
                     {currentOrderStatus}
                   </Badge>
@@ -748,7 +733,7 @@ export default function OrderTracking() {
                     Pickup Location
                   </p>
                   <p className="text-gray-700">
-                    DocuFy PSMS · Room 4, TBI Building, Palawan
+                    Docufy PSMS · Room 4, TBI Building, Palawan
                     State University
                   </p>
                 </div>
@@ -783,7 +768,7 @@ export default function OrderTracking() {
                 {/* Invoice Header */}
                 <div className="text-center mb-8 border-b-2 border-[#2F6FD6] pb-6">
                   <h1 className="text-3xl font-bold text-[#2F6FD6]">
-                    DocuFy
+                    Docufy
                   </h1>
                   <p className="text-gray-600">Printing Services</p>
                   <p className="text-sm text-gray-500">
@@ -840,13 +825,7 @@ export default function OrderTracking() {
                       Status:
                     </span>
                     <Badge
-                      className={
-                        invoiceData.status === "Completed"
-                          ? "bg-blue-100 text-blue-700"
-                          : invoiceData.status === "Released"
-                            ? "bg-gray-100 text-gray-700"
-                            : "bg-blue-100 text-blue-700"
-                      }
+                      className={`border ${getStatusBadgeClasses(invoiceData.status)}`}
                     >
                       {invoiceData.status}
                     </Badge>
@@ -986,7 +965,7 @@ export default function OrderTracking() {
                 </div>
 
                 <div className="mt-12 text-center text-sm text-gray-600">
-                  <p>Thank you for choosing DocuFy!</p>
+                  <p>Thank you for choosing Docufy!</p>
                   <p>
                     For inquiries, please contact us at
                     support@docufy.com
@@ -1044,7 +1023,7 @@ export default function OrderTracking() {
                 const pageNum = i + 1;
                 const isColor = Math.random() > 0.6;
                 const colorPct = isColor ? Math.floor(Math.random() * 70) + 15 : 0;
-                const rate = colorPct > 50 ? "₱5.00" : colorPct > 0 ? "₱3.00" : "₱1.00";
+                const rate = colorPct > 50 ? formatPrice(pricing.colorHigh) : colorPct > 0 ? formatPrice(pricing.colorLow) : formatPrice(pricing.bw);
 
                 return (
                   <div
@@ -1077,15 +1056,15 @@ export default function OrderTracking() {
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-700">High Color Pages (&gt;50%):</span>
-                  <span className="font-medium">₱5.00 per page</span>
+                  <span className="font-medium">{formatPrice(pricing.colorHigh)} per page</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-700">Low Color Pages (≤50%):</span>
-                  <span className="font-medium">₱3.00 per page</span>
+                  <span className="font-medium">{formatPrice(pricing.colorLow)} per page</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-700">Black & White Pages:</span>
-                  <span className="font-medium">₱1.00 per page</span>
+                  <span className="font-medium">{formatPrice(pricing.bw)} per page</span>
                 </div>
               </div>
             </div>
