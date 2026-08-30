@@ -97,3 +97,9 @@ New entries are added at the bottom, below the most recent one, so the log reads
   - `attendanceStore.ts` + `staffRoster.ts` (storage + seeded roster).
   - Staff **registration** (admin "Register New Staff" dialog + `registerStaff` in AuthContext).
   - New routes, nav links (Clock-In & Timesheet, Attendance) and Quick Actions.
+
+---
+
+## August 30, 2026 10:21 PM (PHT) — Francis William Garcia
+- **Created `PUSH_LOG.md`** (this log) and added the "PUSH LOG" tracking note to `AGENTS.md` (commit `59663e30`).
+- Also pushed the previously-uncommitted `testbranch2` work to the remote (fast-forward `d89aa5fc..59663e30`): the PDF preview removal + the `testbranch-pdf` merge, combined with the collaborator's attendance update and the inventory system.
