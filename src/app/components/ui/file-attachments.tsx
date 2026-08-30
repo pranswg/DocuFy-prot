@@ -146,7 +146,7 @@ export function FileAttachments({
   if (!files || files.length === 0) return null;
 
   const handleDownload = (file: AttachedFile) => {
-    const content = `[DocuFy PSMS — Palawan State University]\nFile: ${file.name}\nOrder ID: ${orderId}\nSize: ${file.size}\nType: ${file.type}\nUploaded: ${formatUploadDate(file.uploadedAt)}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
+    const content = `[Docufy PSMS — Palawan State University]\nFile: ${file.name}\nOrder ID: ${orderId}\nSize: ${file.size}\nType: ${file.type}\nUploaded: ${formatUploadDate(file.uploadedAt)}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

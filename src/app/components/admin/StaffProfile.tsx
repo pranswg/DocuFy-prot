@@ -772,11 +772,11 @@ export default function JobBoardManagement() {
                         onClick={() =>
                           setStatusUpdateData((prev) => ({
                             ...prev,
-                            interviewLocation: "DocuFy Print Shop, Main Office, 2nd Floor",
+                            interviewLocation: "Docufy Print Shop, Main Office, 2nd Floor",
                           }))
                         }
                       >
-                        Use DocuFy Address
+                        Use Docufy Address
                       </Button>
                       <Input
                         placeholder="e.g., Main Office, 2nd Floor or enter custom address"
@@ -948,7 +948,7 @@ export default function JobBoardManagement() {
                 <AlertCircle className="w-6 h-6 text-[#1D73EC]" />
               </div>
               <div>
-                <DialogTitle className="text-xl">DocuFy</DialogTitle>
+                <DialogTitle className="text-xl">Docufy</DialogTitle>
                 <p className="text-sm text-gray-600 font-normal">Create Job Posting?</p>
               </div>
             </div>
@@ -982,7 +982,7 @@ export default function JobBoardManagement() {
                 <AlertCircle className="w-6 h-6 text-[#1D73EC]" />
               </div>
               <div>
-                <DialogTitle className="text-xl">DocuFy</DialogTitle>
+                <DialogTitle className="text-xl">Docufy</DialogTitle>
                 <p className="text-sm text-gray-600 font-normal">Update Application Status?</p>
               </div>
             </div>

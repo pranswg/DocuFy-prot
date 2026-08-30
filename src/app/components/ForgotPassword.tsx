@@ -66,7 +66,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen bg-[#F2F7FF] flex items-center justify-center p-4 font-poppins">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={logoImage} alt="DocuFy Logo" className="w-16 h-16 mx-auto mb-4 rounded-full" />
+          <img src={logoImage} alt="Docufy Logo" className="w-16 h-16 mx-auto mb-4 rounded-full" />
           <h1 className="text-3xl font-bold text-[#1c1f26] mb-2">Reset Password</h1>
           <p className="text-gray-600">
             {step === 'email' && "Enter your email to receive a reset code"}

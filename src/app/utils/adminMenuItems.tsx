@@ -4,6 +4,7 @@ import React from "react";
 import {
   LayoutDashboard,
   CreditCard,
+  QrCode,
   Package,
   Boxes,
   Users,
@@ -11,6 +12,8 @@ import {
   Settings,
   ShoppingCart,
   Clock,
+  BadgeDollarSign,
+  Bell,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -23,6 +26,16 @@ export const adminMenuItems = [
     label: "Payment Verification",
     path: "/admin/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
+  },
+  {
+    label: "Payment Methods",
+    path: "/admin/payment-methods",
+    icon: <QrCode className="w-5 h-5" />,
+  },
+  {
+    label: "Pricing Management",
+    path: "/admin/pricing",
+    icon: <BadgeDollarSign className="w-5 h-5" />,
   },
   {
     label: "Orders",
@@ -58,5 +71,10 @@ export const adminMenuItems = [
     label: "Content Management",
     path: "/admin/content",
     icon: <Settings className="w-5 h-5" />,
+  },
+  {
+    label: "Notifications",
+    path: "/admin/notifications",
+    icon: <Bell className="w-5 h-5" />,
   },
 ];

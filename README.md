@@ -1,6 +1,6 @@
-# DocuFy PSMS
+# Docufy PSMS
 
-**DocuFy PSMS** (Print Shop Management System) is a frontend prototype for managing a print shop's day-to-day operations. It provides role-based dashboards for **Customers**, **Staff**, and **Admins**, covering everything from placing print orders to managing inventory, employees, and job applications.
+**Docufy PSMS** (Print Shop Management System) is a frontend prototype for managing a print shop's day-to-day operations. It provides role-based dashboards for **Customers**, **Staff**, and **Admins**, covering everything from placing print orders to managing inventory, employees, and job applications.
 
 > **Note:** This is a frontend-only prototype. There is no backend — data is stored in `localStorage` and in-memory and does not persist across sessions/devices.
 

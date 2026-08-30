@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   FileText,
@@ -16,6 +16,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { jobsStore } from "../utils/jobsStore";
+import { pricingStore, type PricingValues } from "../utils/pricingStore";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,12 @@ export default function LandingPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showShopMap, setShowShopMap] = useState(false);
+  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+
+  useEffect(() => {
+    const load = () => setPricing(pricingStore.getPricing());
+    return pricingStore.subscribe(load);
+  }, []);
 
   // Load landing page content from localStorage or use defaults
   const getContent = () => {
@@ -49,8 +56,6 @@ export default function LandingPage() {
       feature1: "Upload documents instantly",
       feature2: "Real-time order tracking",
       feature3: "Secure payment verification",
-      bwPrice: "1",
-      colorPrice: "5",
       bindingPrice: "20",
       hoursMonFri: "8:00 AM - 6:00 PM",
       hoursSat: "9:00 AM - 4:00 PM",
@@ -58,10 +63,10 @@ export default function LandingPage() {
       locationCampus: "Palawan State University - Main Campus",
       locationRoom: "Room 4, TBI Building",
       locationBuilding: "Puerto Princesa City, 5300 Palawan",
-      aboutTitle: "About DocuFy",
+      aboutTitle: "About Docufy",
       aboutSubtitle: "Your printing companion",
       aboutBody:
-        "DocuFy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
+        "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
     };
   };
 
@@ -91,12 +96,12 @@ export default function LandingPage() {
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <img
               src={logoImage}
-              alt="DocuFy Logo"
+              alt="Docufy Logo"
               className="h-10 w-10 rounded-full sm:h-12 sm:w-12"
             />
             <div>
               <h1 className="truncate text-base font-bold text-[#1c1f26] sm:text-xl">
-                DocuFy PSMS
+                Docufy PSMS
               </h1>
               <p className="hidden text-xs text-gray-500 sm:block">
                 Your Printing Companion
@@ -199,7 +204,7 @@ export default function LandingPage() {
                 <div className="flex h-48 w-48 items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:h-72 sm:w-72 lg:h-96 lg:w-96">
                   <img
                     src={logoImage}
-                    alt="DocuFy"
+                    alt="Docufy"
                     className="h-32 w-32 rounded-full sm:h-48 sm:w-48 lg:h-64 lg:w-64"
                   />
                 </div>
@@ -236,7 +241,7 @@ export default function LandingPage() {
                 sizes
               </p>
               <div className="text-4xl font-bold text-[#1D73EC]">
-                ₱{content.bwPrice}{" "}
+                ₱{pricing.bw.toFixed(2)}{" "}
                 <span className="text-base font-normal text-gray-500">
                   / page
                 </span>
@@ -261,7 +266,7 @@ export default function LandingPage() {
                   and projects
                 </p>
                 <div className="text-4xl font-bold">
-                  ₱{content.colorPrice}{" "}
+                  ₱{pricing.colorHigh.toFixed(2)}{" "}
                   <span className="text-base font-normal text-white/80">
                     / page
                   </span>
@@ -435,7 +440,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
             <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
-              {content.aboutTitle || "About DocuFy"}
+              {content.aboutTitle || "About Docufy"}
             </h3>
             <p className="text-lg text-gray-600">
               {content.aboutSubtitle ||
@@ -449,7 +454,7 @@ export default function LandingPage() {
               <div className="max-w-3xl mx-auto">
                 <p className="text-xl text-center leading-relaxed text-white">
                   {content.aboutBody ||
-                    "DocuFy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
+                    "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
                 </p>
               </div>
             </div>
@@ -464,12 +469,12 @@ export default function LandingPage() {
             <div className="flex items-center gap-3">
               <img
                 src={logoImage}
-                alt="DocuFy Logo"
+                alt="Docufy Logo"
                 className="w-10 h-10 rounded-full"
               />
               <div>
                 <h1 className="font-bold text-[#1c1f26]">
-                  DocuFy
+                  Docufy
                 </h1>
                 <p className="text-xs text-gray-500">
                   Your Printing Companion
@@ -497,7 +502,7 @@ export default function LandingPage() {
               </div>
 
               <p className="text-gray-600 text-sm">
-                &copy; 2026 DocuFy PSMS. All rights reserved.
+                &copy; 2026 Docufy PSMS. All rights reserved.
               </p>
             </div>
           </div>
@@ -521,7 +526,7 @@ export default function LandingPage() {
                 1. Acceptance of Terms
               </h3>
               <p>
-                By accessing and using DocuFy PSMS (Print Shop
+                By accessing and using Docufy PSMS (Print Shop
                 Management System), you accept and agree to be
                 bound by the terms and provision of this
                 agreement. If you do not agree to abide by the
@@ -534,12 +539,12 @@ export default function LandingPage() {
                 2. Use License
               </h3>
               <p>
-                Permission is granted to use DocuFy PSMS for
+                Permission is granted to use Docufy PSMS for
                 personal and academic purposes within Palawan
                 State University. This license shall
                 automatically terminate if you violate any of
                 these restrictions and may be terminated by
-                DocuFy at any time.
+                Docufy at any time.
               </p>
             </section>
 
@@ -548,7 +553,7 @@ export default function LandingPage() {
                 3. Service Description
               </h3>
               <p>
-                DocuFy PSMS provides printing services for
+                Docufy PSMS provides printing services for
                 students and faculty of Palawan State
                 University. Services include document printing,
                 color printing, binding, and related print shop
@@ -578,7 +583,8 @@ export default function LandingPage() {
               </h3>
               <p>
                 All payments must be made through the approved
-                payment methods (GCash or Cash on Pickup).
+                payment methods (online payment methods or
+                Cash on Pickup).
                 Prices are subject to change without notice.
               </p>
             </section>
@@ -591,7 +597,7 @@ export default function LandingPage() {
                 Users may not upload, print, or distribute
                 content that is illegal, offensive, defamatory,
                 or infringes on intellectual property rights.
-                DocuFy reserves the right to refuse service for
+                Docufy reserves the right to refuse service for
                 any content deemed inappropriate.
               </p>
             </section>
@@ -601,7 +607,7 @@ export default function LandingPage() {
                 7. Limitation of Liability
               </h3>
               <p>
-                DocuFy PSMS shall not be liable for any damages
+                Docufy PSMS shall not be liable for any damages
                 arising from the use or inability to use the
                 service, including but not limited to printing
                 errors, delays, or data loss.
@@ -613,7 +619,7 @@ export default function LandingPage() {
                 8. Modifications to Terms
               </h3>
               <p>
-                DocuFy reserves the right to revise these terms
+                Docufy reserves the right to revise these terms
                 at any time. Continued use of the service
                 following any changes constitutes acceptance of
                 those changes.

@@ -1,4 +1,4 @@
-// DocuFy Contact Information and Constants
+// Docufy Contact Information and Constants
 
 export const DOCUFY_ADDRESS = "Room 4, Palawan State University - Main Campus, TBI Building, Puerto Princesa City, 5300 Palawan";
 export const DOCUFY_EMAIL = "support@docufy.com";

@@ -56,6 +56,19 @@ import {
 } from "../ui/select";
 import { FileAttachments } from "../ui/file-attachments";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
+import { pricingStore } from "../../utils/pricingStore";
+import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+
+// Fallback estimate when an order has no stored cost breakdown, using the
+// shared centralized pricing so admin/staff estimates stay in lockstep.
+function fallbackPrintTotal(pages: number, copies: number, type: string): number {
+  const pricing = pricingStore.getPricing();
+  return (
+    pages *
+    copies *
+    (type === 'Colored' ? pricing.colorHigh : pricing.bw)
+  );
+}
 
 type OrderType = {
   id: string;
@@ -224,7 +237,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: order.submittedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
-          total: `₱${((order.costBreakdown?.total || (order.pages * order.copies * (order.type === 'Colored' ? 5 : 1)))).toFixed(2)}`,
+          total: `₱${((order.costBreakdown?.total || fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
           paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: order.paymentVerified || false,
@@ -417,7 +430,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: updatedSelectedOrder.submittedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
-          total: `₱${((updatedSelectedOrder.costBreakdown?.total || (updatedSelectedOrder.pages * updatedSelectedOrder.copies * (updatedSelectedOrder.type === 'Colored' ? 5 : 1)))).toFixed(2)}`,
+          total: `₱${((updatedSelectedOrder.costBreakdown?.total || fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
           paymentMethod: updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
@@ -657,198 +670,43 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         </div>
 
         {/* Summary Cards - 2 Rows */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 shrink-0">
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "all" ? "border-[#1D73EC] bg-white border-2 border-blue-200/50" : "border-gray-100 hover:border-[#1D73EC]"}`}
-            onClick={() => setStatusFilter("all")}
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-[#F2F7FF] rounded-lg">
-                  <LayoutGrid className="w-4 h-4 text-[#1D73EC]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 shrink-0">
+          {([
+            ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
+            ["received", "Received", "Orders received", FileText, stats.received],
+            ["inQueue", "In Queue", "Waiting to be printed", Clock, stats.inQueue],
+            ["printing", "Printing", "Currently printing", Printer, stats.printing],
+            ["completed", "Completed", "Successfully completed", CheckCircle, stats.completed],
+            ["onHold", "On Hold", "Temporarily on hold", AlertCircle, stats.onHold],
+            ["released", "Released", "Ready for pickup", CheckCircle, stats.released],
+            ["canceled", "Canceled", "Canceled orders", XCircle, stats.canceled],
+          ] as const).map(([key, label, description, Icon, count]) => {
+            const s = ORDER_STATUS_STYLES[key];
+            return (
+              <div
+                key={key}
+                onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
+                className={`flex flex-col p-5 rounded-[22px] border-2 bg-white shadow-sm transition-all duration-200 hover:shadow-md ${s.hover} ${s.hoverBg} ${
+                  statusFilter === key ? `${s.bg} ${s.accent} shadow-md` : "border-gray-100"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${s.chip}`}>
+                    <Icon className={`w-5 h-5 ${s.icon}`} />
+                  </div>
+                  <p className={`text-sm font-medium leading-tight ${s.label}`}>
+                    {label}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
-                  All Orders
+                <p className="mt-4 pl-[52px] text-3xl font-bold leading-none text-[#1c1f26]">
+                  {count}
+                </p>
+                <p className={`mt-2 pl-[52px] text-xs font-medium ${s.icon} opacity-80`}>
+                  {description}
                 </p>
               </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
-                {queueOrders.length}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "received" ? "bg-yellow-50 border-yellow-300 shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "received"
-                  ? "all"
-                  : "received",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-white/60 rounded-lg">
-                  <FileText className="w-4 h-4 text-[#4A5568]" />
-                </div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Received
-                </p>
-              </div>
-              <p className="text-xl font-bold text-[#1c1f26] ml-10">
-                {stats.received}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "inQueue" ? "bg-[#D69E2E] border-[#D69E2E] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "inQueue" ? "all" : "inQueue",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "inQueue" ? "bg-white/15" : "bg-white/60"}`}>
-                  <Clock className={`w-4 h-4 ${statusFilter === "inQueue" ? "text-white" : "text-[#D69E2E]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "inQueue" ? "text-white" : "text-gray-500"}`}>
-                  In Queue
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "inQueue" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.inQueue}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "printing" ? "bg-[#3182CE] border-[#3182CE] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "printing"
-                  ? "all"
-                  : "printing",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "printing" ? "bg-white/15" : "bg-white/60"}`}>
-                  <Printer className={`w-4 h-4 ${statusFilter === "printing" ? "text-white" : "text-[#3182CE]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "printing" ? "text-white" : "text-gray-500"}`}>
-                  Printing
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "printing" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.printing}
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 shrink-0">
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "completed" ? "bg-[#38A169] border-[#38A169] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "completed"
-                  ? "all"
-                  : "completed",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "completed" ? "bg-white/15" : "bg-white/60"}`}>
-                  <CheckCircle className={`w-4 h-4 ${statusFilter === "completed" ? "text-white" : "text-[#38A169]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "completed" ? "text-white" : "text-gray-500"}`}>
-                  Completed
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "completed" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.completed}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "onHold" ? "bg-[#DD6B20] border-[#DD6B20] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "onHold" ? "all" : "onHold",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "onHold" ? "bg-white/15" : "bg-white/60"}`}>
-                  <AlertCircle className={`w-4 h-4 ${statusFilter === "onHold" ? "text-white" : "text-[#DD6B20]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "onHold" ? "text-white" : "text-gray-500"}`}>
-                  On Hold
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "onHold" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.onHold}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "released" ? "bg-[#0D9488] border-[#0D9488] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "released"
-                  ? "all"
-                  : "released",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "released" ? "bg-white/15" : "bg-white/60"}`}>
-                  <CheckCircle className={`w-4 h-4 ${statusFilter === "released" ? "text-white" : "text-[#0D9488]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "released" ? "text-white" : "text-gray-500"}`}>
-                  Released
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "released" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.released}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-3 cursor-pointer transition-all hover:shadow-md border-2 ${statusFilter === "canceled" ? "bg-[#718096] border-[#718096] shadow-md" : "border-gray-100 hover:border-blue-200"}`}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === "canceled"
-                  ? "all"
-                  : "canceled",
-              )
-            }
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`p-1.5 rounded-lg ${statusFilter === "canceled" ? "bg-white/15" : "bg-white/60"}`}>
-                  <XCircle className={`w-4 h-4 ${statusFilter === "canceled" ? "text-white" : "text-[#718096]"}`} />
-                </div>
-                <p className={`text-xs font-medium ${statusFilter === "canceled" ? "text-white" : "text-gray-500"}`}>
-                  Canceled
-                </p>
-              </div>
-              <p className={`text-xl font-bold ml-10 ${statusFilter === "canceled" ? "text-white" : "text-[#1c1f26]"}`}>
-                {stats.canceled}
-              </p>
-            </div>
-          </Card>
+            );
+          })}
         </div>
 
         {/* Table */}
@@ -987,26 +845,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs font-medium capitalize border ${
-                                    order.status === "completed"
-                                      ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                                      : order.status ===
-                                          "printing"
-                                        ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                                        : order.status ===
-                                            "inQueue"
-                                          ? "bg-white border-2 border-blue-200 text-blue-800 border-blue-200"
-                                          : order.status ===
-                                              "received"
-                                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : order.status ===
-                                                "onHold"
-                                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                                              : order.status ===
-                                                  "canceled"
-                                                ? "bg-white border-2 border-blue-200 text-red-500 border-blue-200"
-                                                : "bg-gray-50 text-gray-700 border-gray-200"
-                                  }`}
+                                  className={`text-xs font-medium capitalize ${getStatusBadgeClasses(order.status)}`}
                                 >
                                   {order.status === "inQueue"
                                     ? "In Queue"
@@ -1192,24 +1031,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </p>
                   <Badge
                     variant="outline"
-                    className={`text-sm font-medium capitalize border ${
-                      selectedOrder.status === "completed"
-                        ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                        : selectedOrder.status === "printing"
-                          ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                          : selectedOrder.status === "inQueue"
-                            ? "bg-white border-2 border-blue-200 text-blue-800 border-blue-200"
-                            : selectedOrder.status ===
-                                "received"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : selectedOrder.status ===
-                                  "onHold"
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : selectedOrder.status ===
-                                    "canceled"
-                                  ? "bg-white border-2 border-blue-200 text-red-500 border-blue-200"
-                                  : "bg-gray-50 text-gray-700 border-gray-200"
-                    }`}
+                    className={`text-sm font-medium capitalize ${getStatusBadgeClasses(selectedOrder.status)}`}
                   >
                     {selectedOrder.status === "inQueue"
                       ? "In Queue"
@@ -1748,7 +1570,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 {/* Invoice Header */}
                 <div className="text-center mb-8 border-b-2 border-[#2F6FD6] pb-6">
                   <h1 className="text-3xl font-bold text-[#2F6FD6]">
-                    DocuFy
+                    Docufy
                   </h1>
                   <p className="text-gray-600">Printing Services</p>
                   <p className="text-sm text-gray-500">
@@ -1966,7 +1788,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 </div>
 
                 <div className="mt-12 text-center text-sm text-gray-600">
-                  <p>Thank you for choosing DocuFy!</p>
+                  <p>Thank you for choosing Docufy!</p>
                   <p>
                     For inquiries, please contact us at
                     support@docufy.com

@@ -10,17 +10,19 @@ export interface User {
   mfaEnabled?: boolean;
   mfaVerified?: boolean;
   profileImage?: string;
+  active?: boolean;
 }
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => { success: boolean; requiresMFA?: boolean };
+  login: (email: string, password: string) => { success: boolean; requiresMFA?: boolean; reason?: 'inactive' };
   verifyMFA: (code: string) => boolean;
   cancelMFA: () => void;
   enableMFA: () => string;
   disableMFA: () => void;
   signup: (data: any) => boolean;
-  registerStaff: (data: { name: string; email: string; password: string }) => { success: boolean; message?: string };
+  registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => { success: boolean; message?: string };
+  updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
@@ -43,6 +45,7 @@ const mockUsers = [
     password: 'customer123',
     name: 'Customer User',
     role: 'customer' as const,
+    active: true,
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPEHPK3PXP',
     passwordHistory: [] as string[],
@@ -53,6 +56,7 @@ const mockUsers = [
     password: 'staff123',
     name: 'Staff User',
     role: 'staff' as const,
+    active: true,
     mfaEnabled: true,
     mfaSecret: 'HXDMVJECJJWSRB3H',
     passwordHistory: [] as string[],
@@ -63,6 +67,7 @@ const mockUsers = [
     password: 'admin123',
     name: 'Admin User',
     role: 'admin' as const,
+    active: true,
     mfaEnabled: true,
     mfaSecret: 'JBSWY3DPFQQHO33S',
     passwordHistory: [] as string[],
@@ -92,6 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (email: string, password: string) => {
     const foundUser = mockUsers.find(u => u.email === email && u.password === password);
     if (foundUser) {
+      if (foundUser.active === false) {
+        return { success: false, reason: 'inactive' as const };
+      }
       setPendingMFAUser(foundUser);
       return { success: true, requiresMFA: true };
     }
@@ -159,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: data.password,
       name: fullName,
       role: 'customer' as const,
+      active: true,
       mfaEnabled: true,
       mfaSecret: Math.random().toString(36).substring(2, 15),
       passwordHistory: [] as string[],
@@ -179,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const registerStaff = (data: { name: string; email: string; password: string }) => {
+  const registerStaff = (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => {
     if (!data.name || !data.email || !data.password) {
       return { success: false, message: 'All fields are required.' };
     }
@@ -194,7 +203,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: data.email,
       password: data.password,
       name: data.name,
-      role: 'staff' as const,
+      role: data.role || 'staff',
+      active: true,
       mfaEnabled: true,
       mfaSecret: Math.random().toString(36).substring(2, 15),
       passwordHistory: [] as string[],
@@ -202,8 +212,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdminRegistered: true,
     };
     mockUsers.push(newStaff);
-    toast.success(`Staff account for ${data.name} created. They can sign in with the email and password.`);
     return { success: true };
+  };
+
+  const updateStaffAccount = (currentEmail: string, updates: {
+    email?: string;
+    name?: string;
+    role?: 'staff' | 'admin';
+    active?: boolean;
+  }) => {
+    const userIndex = mockUsers.findIndex(
+      u => u.email.toLowerCase() === currentEmail.toLowerCase() && u.role !== 'customer'
+    );
+    if (userIndex === -1) return false;
+    if (updates.email) {
+      const conflict = mockUsers.some(
+        (u, i) => i !== userIndex && u.email.toLowerCase() === updates.email!.toLowerCase()
+      );
+      if (conflict) return false;
+      mockUsers[userIndex].email = updates.email;
+    }
+    if (typeof updates.name === 'string') mockUsers[userIndex].name = updates.name;
+    if (updates.role === 'staff' || updates.role === 'admin') mockUsers[userIndex].role = updates.role;
+    if (typeof updates.active === 'boolean') mockUsers[userIndex].active = updates.active;
+    return true;
   };
 
   const updateProfile = (data: Partial<User> & { profileImage?: string | null }) => {
@@ -296,6 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         disableMFA,
         signup,
         registerStaff,
+        updateStaffAccount,
         updateProfile,
         logout,
         resetPassword,

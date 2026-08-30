@@ -30,6 +30,10 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { dataStore } from "../../utils/dataStore";
+import {
+  paymentMethodsStore,
+} from "../../utils/paymentMethodsStore";
+import PaymentMethodQRPanel from "./PaymentMethodQR";
 
 // --- Types ---
 
@@ -38,7 +42,7 @@ type PaymentType = {
   orderId: string;
   customer: string;
   amount: number;
-  method: "GCash" | "Cash";
+  method: string;
   status: "pending" | "verified" | "rejected";
   submittedAt: Date;
   time: string;
@@ -71,8 +75,12 @@ function generatePaymentsFromOrders(): PaymentType[] {
         paymentStatus = "rejected";
       }
 
-      // Determine payment method from order
-      const paymentMethod = (order.paymentMethod?.toLowerCase() === 'cash' ? 'Cash' : 'GCash') as "GCash" | "Cash";
+      // Determine payment method from order (display name stored on the order)
+      const paymentMethod = order.paymentMethod
+        ? order.paymentMethod
+        : order.orderSource === "walkin"
+          ? "Cash"
+          : "GCash";
 
       return {
         id: `PAY-${order.id.split('-')[1]}`,
@@ -83,7 +91,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
         status: paymentStatus,
         submittedAt: orderDate,
         time: orderDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase(),
-        reference: order.paymentReferenceNumber || (paymentMethod === 'Cash' ? 'Cash on Pickup' : `GC-${order.id.split('-')[1]}`),
+        reference: order.paymentReferenceNumber || (paymentMethod === 'Cash' ? 'Cash on Pickup' : ''),
         proofImageUrl: order.paymentProofUrl || SAMPLE_PROOF_IMAGE,
       };
     })
@@ -121,6 +129,15 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
     loadPayments();
     const unsubscribe = dataStore.subscribe(loadPayments);
+    return unsubscribe;
+  }, []);
+
+  // Re-render whenever payment methods are added/edited (QR + account details)
+  const [, setMethodsTick] = useState(0);
+  useEffect(() => {
+    const unsubscribe = paymentMethodsStore.subscribe(() =>
+      setMethodsTick((t) => t + 1),
+    );
     return unsubscribe;
   }, []);
 
@@ -413,7 +430,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         variant="outline"
                         className="text-xs font-medium border-[#1D73EC]/20 bg-[#F2F7FF] py-1 text-[#1D73EC]"
                       >
-                        {payment.method === "GCash" ? (
+                        {payment.method !== "Cash" ? (
                           <Smartphone
                             size={12}
                             className="mr-1 inline"
@@ -513,7 +530,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   </p>
                 </div>
 
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
+                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
                     Amount to Verify
                   </p>
@@ -522,12 +539,42 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   </p>
                 </div>
 
+                {/* Corresponding Payment Method QR / details for online payments */}
+                {selectedPayment.method !== "Cash" && (
+                  <div className="col-span-2">
+                    {(() => {
+                      const methodDetails = paymentMethodsStore.findByName(
+                        selectedPayment.method,
+                      );
+                      return methodDetails ? (
+                        <PaymentMethodQRPanel method={methodDetails} />
+                      ) : (
+                        <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl text-sm">
+                          <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider mb-1">
+                            Payment Instructions
+                          </p>
+                          <p className="text-gray-600">
+                            No QR code is set for this payment
+                            method. Verify the payment using the
+                            customer's reference number and proof
+                            of payment below.
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 {selectedPayment.reference && (
                   <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl col-span-2">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider flex items-center gap-1.5">
-                        <Smartphone className="w-4 h-4" /> GCash
-                        Reference Number
+                        {selectedPayment.method !== "Cash" ? (
+                          <Smartphone className="w-4 h-4" />
+                        ) : (
+                          <Banknote className="w-4 h-4" />
+                        )}{" "}
+                        {selectedPayment.method} Reference Number
                       </p>
                       {selectedPayment.proofImageUrl && (
                         <Button

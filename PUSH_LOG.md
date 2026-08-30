@@ -1,4 +1,4 @@
-# PUSH LOG — DocuFy PSMS
+# PUSH LOG — Docufy PSMS
 
 This file logs every push done by any collaborator on this repo, with the date & time in **Philippine time (PHT, UTC+8)**, who pushed, and what the push update did.
 
@@ -103,3 +103,15 @@ New entries are added at the bottom, below the most recent one, so the log reads
 ## August 30, 2026 10:21 PM (PHT) — Francis William Garcia
 - **Created `PUSH_LOG.md`** (this log) and added the "PUSH LOG" tracking note to `AGENTS.md` (commit `59663e30`).
 - Also pushed the previously-uncommitted `testbranch2` work to the remote (fast-forward `d89aa5fc..59663e30`): the PDF preview removal + the `testbranch-pdf` merge, combined with the collaborator's attendance update and the inventory system.
+
+---
+
+## August 31, 2026 03:53 AM (PHT) — aeprnts (collaborator)
+- `feat: notifications & announcements system (priority tiers)`
+- `feat: pricing management`
+- `feat: payment methods + QR management`
+- `feat: system-wide blue-white theme, pointer cursors, status-card redesign`
+- `feat: staff management overhaul & Docufy rebrand`
+- **Notifications/Announcements** — centralized `announcementsStore` + shared `NotificationsPage` (`/customer|/staff|/admin/notifications`): admin broadcasts announcements to All Users, per-user read tracking, **priority tiers (Regular / Important / Emergency)** with an **Important Announcements** section on top (red URGENT + amber IMPORTANT cards) and a clean **Notifications** section below; unread badge + amber attention dot in the sidebar (desktop + mobile). `type` field (announcement/pricing/maintenance/reminder/promo) is ready for future system-generated events.
+- **Pricing Management** — `pricingStore` + `/admin/pricing`: shared pricing model (B&W / color tiers, paper-size surcharges, duplex savings, down-payment threshold) consumed live by print request, walk-in, invoice, landing, and order-tracking flows.
+- **Payment Methods + QR** — `paymentMethodsStore` + `/admin/payment-methods` + shared `PaymentMethodQR`: admin-managed online payment methods used across verification and print requests (legacy hardcoded GCash pages left un-routed).

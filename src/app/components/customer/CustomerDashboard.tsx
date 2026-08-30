@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { getStatusBadgeClasses } from "../../utils/orderStatusPalette";
 
 const menuItems = [
   {
@@ -45,6 +46,11 @@ const menuItems = [
     label: "Job Board",
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
+  },
+  {
+    label: "Notifications",
+    path: "/customer/notifications",
+    icon: <Bell className="w-5 h-5" />,
   },
 ];
 
@@ -99,26 +105,7 @@ export default function CustomerDashboard() {
 
   const recentOrders = customerOrders.slice(0, 3);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-blue-100 text-blue-700";
-      case "Released":
-        return "bg-gray-100 text-gray-700";
-      case "Printing":
-        return "bg-blue-100 text-blue-700";
-      case "In Queue":
-        return "bg-blue-100 text-yellow-700";
-      case "On Hold":
-        return "bg-blue-100 text-blue-800";
-      case "Awaiting Payment":
-        return "bg-yellow-100 text-yellow-800";
-      case "Received":
-        return "bg-blue-50 text-blue-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+  const getStatusColor = (status: string) => getStatusBadgeClasses(status);
 
   return (
     <Layout menuItems={menuItems} title="Dashboard">
@@ -345,7 +332,7 @@ export default function CustomerDashboard() {
                         </td>
                         <td className="py-3 sm:py-4 px-2 sm:px-4">
                           <Badge
-                            className={`${getStatusColor(order.status)} font-medium text-[#120a01]`}
+                            className={`${getStatusColor(order.status)} font-medium`}
                           >
                             {order.status}
                           </Badge>

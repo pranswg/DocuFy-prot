@@ -30,7 +30,7 @@ export default function LogoutPage() {
           <div className="w-24 h-24 bg-[#1D73EC] rounded-2xl flex items-center justify-center mb-8 shadow-2xl">
             <Printer size={48} className="text-white" strokeWidth={1.5} />
           </div>
-          <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">DocuFy<span className="text-[#1D73EC]">.</span></h1>
+          <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">Docufy<span className="text-[#1D73EC]">.</span></h1>
           <h2 className="text-2xl font-medium text-white mb-6 leading-tight">See you next time!</h2>
           <p className="text-lg text-blue-100/80 leading-relaxed">
             Your files and orders are safely stored until you return.
@@ -49,7 +49,7 @@ export default function LogoutPage() {
                 <Printer size={24} strokeWidth={2.5} />
               </div>
               <span className="font-semibold text-xl text-[#1c1f26] tracking-tight">
-                DocuFy<span className="text-[#1D73EC]">.</span>
+                Docufy<span className="text-[#1D73EC]">.</span>
               </span>
             </div>
             <button
@@ -67,7 +67,7 @@ export default function LogoutPage() {
           <h2 className="text-3xl font-bold text-[#1c1f26] mb-4">You have successfully logged out.</h2>
           
           <p className="text-gray-500 mb-10 text-lg max-w-sm mx-auto leading-relaxed">
-            Thank you for using DocuFy. We hope to see you back soon for your next print order!
+            Thank you for using Docufy. We hope to see you back soon for your next print order!
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">

@@ -103,15 +103,15 @@ export default function SignUpPage() {
               src={
                 image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c
               }
-              alt="DocuFy Logo"
+              alt="Docufy Logo"
               className="w-full h-full object-contain rounded-full"
             />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-            DocuFy<span className="text-[#1D73EC]">.</span>
+            Docufy<span className="text-[#1D73EC]">.</span>
           </h1>
           <h2 className="text-xl font-medium text-white mb-4">
-            Partner with DocuFy
+            Partner with Docufy
           </h2>
           <p className="text-base text-blue-100/80 leading-relaxed">
             Create an account to securely submit files, approve
@@ -130,7 +130,7 @@ export default function SignUpPage() {
                 <Printer size={20} strokeWidth={2.5} />
               </div>
               <span className="font-semibold text-lg text-[#1c1f26] tracking-tight">
-                DocuFy PSMS
+                Docufy PSMS
               </span>
             </div>
             <button
@@ -454,21 +454,21 @@ export default function SignUpPage() {
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">1. Acceptance of Terms</h3>
               <p>
-                By accessing and using DocuFy PSMS (Print Shop Management System), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                By accessing and using Docufy PSMS (Print Shop Management System), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
               </p>
             </section>
 
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">2. Use License</h3>
               <p>
-                Permission is granted to use DocuFy PSMS for personal and academic purposes within Palawan State University. This license shall automatically terminate if you violate any of these restrictions and may be terminated by DocuFy at any time.
+                Permission is granted to use Docufy PSMS for personal and academic purposes within Palawan State University. This license shall automatically terminate if you violate any of these restrictions and may be terminated by Docufy at any time.
               </p>
             </section>
 
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">3. Service Description</h3>
               <p>
-                DocuFy PSMS provides printing services for students and faculty of Palawan State University. Services include document printing, color printing, binding, and related print shop services. We reserve the right to modify, suspend, or discontinue any aspect of the service at any time.
+                Docufy PSMS provides printing services for students and faculty of Palawan State University. Services include document printing, color printing, binding, and related print shop services. We reserve the right to modify, suspend, or discontinue any aspect of the service at any time.
               </p>
             </section>
 
@@ -482,14 +482,14 @@ export default function SignUpPage() {
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">5. Payment Terms</h3>
               <p>
-                All payments must be made through the approved payment methods (GCash or Cash on Pickup). Prices are subject to change without notice.
+                All payments must be made through the approved payment methods (online payment methods or Cash on Pickup). Prices are subject to change without notice.
               </p>
             </section>
 
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">6. Content Restrictions</h3>
               <p>
-                Users may not upload, print, or distribute content that is illegal, offensive, defamatory, or infringes on intellectual property rights. DocuFy reserves the right to refuse service for any content deemed inappropriate.
+                Users may not upload, print, or distribute content that is illegal, offensive, defamatory, or infringes on intellectual property rights. Docufy reserves the right to refuse service for any content deemed inappropriate.
               </p>
             </section>
 
@@ -503,7 +503,7 @@ export default function SignUpPage() {
             <section>
               <h3 className="font-semibold text-[#10316B] mb-2">8. Limitation of Liability</h3>
               <p>
-                DocuFy PSMS shall not be liable for any damages arising from the use or inability to use the service, including but not limited to printing errors, delays, or data loss.
+                Docufy PSMS shall not be liable for any damages arising from the use or inability to use the service, including but not limited to printing errors, delays, or data loss.
               </p>
             </section>
 
