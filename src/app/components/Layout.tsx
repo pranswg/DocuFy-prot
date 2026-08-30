@@ -15,18 +15,12 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Shield,
-  MapPin,
-  XCircle,
-  Clock,
-  Upload,
   ArrowLeft,
   Megaphone,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 import { notificationStore, type Notification } from "../utils/notificationStore";
-import { siemAlertStore, type SIEMAlert } from "../utils/siemAlertStore";
 import {
   announcementsStore,
   type Announcement,
@@ -48,6 +42,12 @@ interface LayoutProps {
   backButtonPath?: string;
   hideMobileBackButton?: boolean;
 }
+
+// Persist the desktop sidebar's scroll position across route changes. Layout is
+// instantiated per-page (so it remounts on every navigation, resetting scroll);
+// this module-level value survives remounts so the sidebar stays put until the
+// user scrolls it themselves.
+let savedSidebarScrollTop = 0;
 
 export default function Layout({
   children,
@@ -72,18 +72,25 @@ export default function Layout({
   const [isNavigationOpen, setIsNavigationOpen] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : false,
   );
+  const navRef = useRef<HTMLElement>(null);
+
+  // Restore the desktop sidebar scroll position after this Layout instance
+  // remounts on navigation.
+  useEffect(() => {
+    if (navRef.current) {
+      navRef.current.scrollTop = savedSidebarScrollTop;
+    }
+  }, []);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
-  const [isSIEMOpen, setIsSIEMOpen] = useState(false);
 
   // Keep panels mounted while animating closed
   const sidebarProfilePresence = usePresence(isProfileOpen, 200);
   const topProfilePresence = usePresence(isTopProfileOpen, 200);
   const notificationPresence = usePresence(isNotificationOpen, 200);
-  const siemPresence = usePresence(isSIEMOpen, 200);
 
   // Track notifications
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -105,11 +112,6 @@ export default function Layout({
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
     return unsubscribe;
   }, [user?.email]);
-
-  // Track SIEM alerts (admin only)
-  const [siemAlerts, setSiemAlerts] = useState<SIEMAlert[]>([]);
-  const [siemUnreadCount, setSiemUnreadCount] = useState(0);
-  const [siemCriticalCount, setSiemCriticalCount] = useState(0);
 
   useEffect(() => {
     localStorage.setItem(
@@ -141,24 +143,6 @@ export default function Layout({
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
     return unsubscribe;
   }, [user?.email]);
-
-  // Subscribe to SIEM alerts (admin only)
-  useEffect(() => {
-    if (user?.role !== 'admin') {
-      return;
-    }
-
-    const updateSIEMAlerts = () => {
-      const alerts = siemAlertStore.getAlerts(user?.role);
-      setSiemAlerts(alerts);
-      setSiemUnreadCount(siemAlertStore.getUnreadCount(user?.role));
-      setSiemCriticalCount(siemAlertStore.getCriticalUnreadCount(user?.role));
-    };
-
-    updateSIEMAlerts();
-    const unsubscribe = siemAlertStore.subscribe(updateSIEMAlerts);
-    return unsubscribe;
-  }, [user?.role]);
 
   const getInitials = (value?: string) => {
     if (!value) return "U";
@@ -216,51 +200,6 @@ export default function Layout({
   const handleAnnouncementClick = (announcement: Announcement) => {
     announcementsStore.markRead(announcement.id, user?.email || "");
     setIsNotificationOpen(false);
-  };
-
-  const handleSIEMAlertClick = (alert: SIEMAlert) => {
-    siemAlertStore.markAsRead(alert.id);
-    setIsSIEMOpen(false);
-    if (alert.investigateUrl) {
-      navigate(alert.investigateUrl);
-    }
-  };
-
-  const handleMarkAllSIEMRead = () => {
-    siemAlertStore.markAllAsRead(user?.role);
-    toast.success('All security alerts marked as read');
-  };
-
-  const getSIEMAlertIcon = (type: SIEMAlert['type']) => {
-    switch (type) {
-      case 'impossible_travel':
-        return { icon: MapPin, color: 'bg-red-100 text-red-600' };
-      case 'brute_force':
-        return { icon: AlertTriangle, color: 'bg-red-100 text-red-600' };
-      case 'suspicious_upload':
-        return { icon: Upload, color: 'bg-yellow-100 text-yellow-600' };
-      case 'unusual_access':
-        return { icon: Clock, color: 'bg-yellow-100 text-yellow-600' };
-      case 'repeated_failures':
-        return { icon: XCircle, color: 'bg-blue-100 text-blue-600' };
-      default:
-        return { icon: AlertTriangle, color: 'bg-gray-100 text-gray-600' };
-    }
-  };
-
-  const getSIEMSeverityBadge = (severity: SIEMAlert['severity']) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-700 border-red-200';
-      case 'high':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'low':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
   };
 
   const getNotificationIcon = (type: Notification['type']) => {
@@ -392,7 +331,14 @@ export default function Layout({
         <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
       </div>
 
-      <nav aria-label="Primary navigation" className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center">
+      <nav
+        ref={navRef}
+        onScroll={(e) => {
+          savedSidebarScrollTop = e.currentTarget.scrollTop;
+        }}
+        aria-label="Primary navigation"
+        className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
+      >
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           const isNotificationsItem = item.path.endsWith("/notifications");
@@ -441,7 +387,6 @@ export default function Layout({
             setIsProfileOpen(!isProfileOpen);
             setIsTopProfileOpen(false);
             setIsNotificationOpen(false);
-            setIsSIEMOpen(false);
           }}
           aria-label="Open account menu"
           aria-expanded={isProfileOpen}
@@ -549,118 +494,6 @@ export default function Layout({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* SIEM Security Alerts (Admin Only) */}
-            {user?.role === 'admin' && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSIEMOpen(!isSIEMOpen);
-                    setIsNotificationOpen(false);
-                    setIsProfileOpen(false);
-                  }}
-                  aria-label={`Security alerts${siemUnreadCount > 0 ? `, ${siemUnreadCount} unread` : ''}`}
-                  aria-expanded={isSIEMOpen}
-                  aria-haspopup="true"
-                  className={`p-2 rounded-xl border transition-all relative ${isSIEMOpen ? "bg-red-100 border-red-300" : siemCriticalCount > 0 ? "bg-red-50 border-red-200 animate-pulse" : "hover:bg-gray-50 border-transparent"}`}
-                >
-                  <Shield className={`w-5 h-5 ${siemCriticalCount > 0 ? 'text-red-600' : 'text-gray-600'}`} />
-                  {siemUnreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ring-white">
-                      {siemUnreadCount > 99 ? '99+' : siemUnreadCount}
-                    </span>
-                  )}
-                </button>
-                {siemPresence && (
-                  <>
-                    <div
-                      className={`fixed inset-0 z-10 ${siemPresence.isClosing ? "animate-out fade-out-0 duration-200" : "animate-in fade-in-0 duration-200"}`}
-                      onClick={() => setIsSIEMOpen(false)}
-                    />
-                    <div className={`absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-red-200 z-20 ${siemPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
-                      <div className="px-4 py-3 border-b border-red-100 bg-red-50">
-                        <div className="flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-red-600" />
-                          <h3 className="font-bold text-sm text-red-900">Security Alerts</h3>
-                          {siemCriticalCount > 0 && (
-                            <span className="ml-auto px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded-full">
-                              {siemCriticalCount} Critical
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {siemAlerts.length === 0 ? (
-                          <div className="p-8 text-center">
-                            <Shield className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                            <p className="text-xs text-gray-500">No security alerts</p>
-                          </div>
-                        ) : (
-                          siemAlerts.map((alert, index) => {
-                            const { icon: Icon, color } = getSIEMAlertIcon(alert.type);
-                            const severityClass = getSIEMSeverityBadge(alert.severity);
-                            return (
-                              <div
-                                key={alert.id}
-                                role="button"
-                                tabIndex={0}
-                                className={`p-4 ${index !== siemAlerts.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-red-50 transition-colors cursor-pointer ${!alert.read ? 'bg-red-50/50' : ''}`}
-                                onClick={() => handleSIEMAlertClick(alert)}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    handleSIEMAlertClick(alert);
-                                  }
-                                }}
-                              >
-                                <div className="flex gap-3">
-                                  <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                    <Icon className="w-4 h-4" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2 mb-1">
-                                      <p className={`text-xs ${!alert.read ? 'font-bold' : 'font-medium'} text-gray-900`}>
-                                        {alert.title}
-                                      </p>
-                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${severityClass} uppercase`}>
-                                        {alert.severity}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-gray-600 mb-1 line-clamp-2">
-                                      {alert.description}
-                                    </p>
-                                    {alert.affectedAccount && (
-                                      <p className="text-xs text-red-700 font-medium mb-1">
-                                        Account: {alert.affectedAccount}
-                                      </p>
-                                    )}
-                                    <p className="text-[10px] text-gray-400">
-                                      {formatTimeAgo(alert.timestamp)}
-                                    </p>
-                                  </div>
-                                  {!alert.read && (
-                                    <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 mt-1" />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                      <div className="px-4 py-2.5 border-t border-red-100 bg-red-50">
-                        <button
-                          className="text-xs font-medium text-red-700 hover:text-red-800 transition-colors"
-                          onClick={handleMarkAllSIEMRead}
-                        >
-                          Mark all as read
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
             {/* Notification Bell */}
             <div className="relative">
               <button
@@ -668,7 +501,6 @@ export default function Layout({
                 onClick={() => {
                   setIsNotificationOpen(!isNotificationOpen);
                   setIsProfileOpen(false);
-                  setIsSIEMOpen(false);
                 }}
                 aria-label={`Notifications${combinedUnread > 0 ? `, ${combinedUnread} unread` : ''}`}
                 aria-expanded={isNotificationOpen}
@@ -689,7 +521,6 @@ export default function Layout({
                     className={`fixed inset-0 z-10 ${notificationPresence.isClosing ? "animate-out fade-out-0 duration-200" : "animate-in fade-in-0 duration-200"}`}
                     onClick={() => {
                       setIsNotificationOpen(false);
-                      setIsSIEMOpen(false);
                     }}
                   />
                   <div className={`absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
@@ -757,7 +588,6 @@ export default function Layout({
                 setIsTopProfileOpen(!isTopProfileOpen);
                 setIsProfileOpen(false);
                 setIsNotificationOpen(false);
-                setIsSIEMOpen(false);
               }}
               aria-label="Open profile"
               aria-expanded={isTopProfileOpen}

@@ -131,7 +131,7 @@ export default function PricingManagement() {
           </div>
           <Button
             variant="outline"
-            className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+            className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
             onClick={() => setShowResetConfirm(true)}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
@@ -172,7 +172,7 @@ export default function PricingManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-[#2F6FD6] border-[#2F6FD6]/40 hover:bg-[#F2F7FF] h-9"
+                        className="text-[#2F6FD6] border-[#2F6FD6]/40 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] h-9"
                         onClick={() => openEdit(item)}
                       >
                         <Edit2 className="w-3.5 h-3.5 mr-1" />
