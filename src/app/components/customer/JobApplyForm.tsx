@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   LayoutDashboard,
@@ -440,13 +440,11 @@ export default function JobApplyForm() {
                     Position Applying For{" "}
                     <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="position"
-                    type="text"
-                    value={formData.position}
-                    readOnly
-                    className="bg-[#F2F7FF] border-blue-200 text-[#10316B] font-semibold cursor-default pointer-events-none"
-                  />
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="font-semibold text-gray-900">
+                      {formData.position}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -542,7 +540,7 @@ export default function JobApplyForm() {
                   ) : (
                     <>
                       <div
-                        className={`border-2 border-dashed rounded-lg p-4 text-center ${errors.portfolio ? "border-red-400" : "border-gray-300"}`}
+                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-[#2F6FD6] hover:bg-blue-50 ${errors.portfolio ? "border-red-400" : "border-gray-300"}`}
                       >
                         {formData.portfolioFile ? (
                           <div className="space-y-2">
@@ -636,8 +634,8 @@ export default function JobApplyForm() {
 
             {/* Consent and Terms */}
             <div className="border-t border-gray-100 pt-6">
-              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-5">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" /> Terms and
                   Conditions
                 </h3>
@@ -685,7 +683,7 @@ export default function JobApplyForm() {
                   <div className="flex-1">
                     <label
                       htmlFor="consentAgreed"
-                      className="text-sm text-blue-900 cursor-pointer"
+                      className="text-sm text-gray-800 cursor-pointer"
                     >
                       <strong className="font-semibold">
                         I have read and agree to the terms and
@@ -695,7 +693,7 @@ export default function JobApplyForm() {
                         *
                       </span>
                     </label>
-                    <p className="text-xs text-blue-700 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       By checking this box, I confirm my
                       understanding and acceptance of the
                       applicant consent and liability waiver.
@@ -723,7 +721,7 @@ export default function JobApplyForm() {
               <Button
                 type="submit"
                 disabled={!formData.consentAgreed}
-                className="flex-1 bg-[#1D73EC] hover:bg-[#10316B] text-white disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+                className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
                 title={
                   !formData.consentAgreed
                     ? "Please agree to the terms and conditions to submit"
@@ -763,7 +761,7 @@ export default function JobApplyForm() {
             <Button
               type="button"
               onClick={() => setShowTerms(false)}
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Close
             </Button>

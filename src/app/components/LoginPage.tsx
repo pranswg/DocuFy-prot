@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { ImageWithFallback } from "./shared/ImageWithFallback";
@@ -300,18 +300,18 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full h-10 bg-[#1D73EC] hover:bg-[#10316B] text-white rounded-xl shadow-md text-sm"
+                className="mx-auto block px-20 h-10 bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-xl text-base font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none"
               >
-                Verify MFA Code
+                Verify
               </Button>
 
-              <Button
+              <button
                 type="button"
                 onClick={handleBackToLogin}
-                className="w-full border border-blue-200 bg-[#F2F7FF] text-sm text-[#1D73EC] hover:bg-blue-100"
+                className="mx-auto flex items-center gap-1.5 text-sm font-medium text-[#1E65F5] hover:text-[#10316B]"
               >
-                Back to Login
-              </Button>
+                <ArrowLeft className="w-4 h-4" /> Back to Login
+              </button>
 
               <p className="text-center text-xs text-gray-600">
                 Did not receive your code?{" "}
@@ -419,7 +419,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full h-10 bg-[#1D73EC] hover:bg-[#10316B] text-white rounded-xl shadow-md text-sm"
+                className="w-full h-10 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] hover:border-[#10316B] rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.97] active:bg-[#0c2a5c] disabled:opacity-60 disabled:pointer-events-none"
               >
                 Log In
               </Button>

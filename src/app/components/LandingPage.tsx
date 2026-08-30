@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   FileText,
@@ -29,6 +29,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showShopMap, setShowShopMap] = useState(false);
 
   // Load landing page content from localStorage or use defaults
   const getContent = () => {
@@ -167,7 +168,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button
                   size="lg"
-                  className="bg-[#1D73EC] hover:bg-[#10316B] text-white shadow-lg hover:shadow-xl transition-all"
+                  className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all"
                   onClick={() => navigate("/signup")}
                 >
                   Get Started{" "}
@@ -361,6 +362,12 @@ export default function LandingPage() {
                       <p>{content.locationRoom}</p>
                       <p>{content.locationBuilding}</p>
                     </div>
+                    <Button
+                      onClick={() => setShowShopMap(true)}
+                      className="mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all duration-200 active:scale-[0.97]"
+                    >
+                      <MapPin className="w-4 h-4" /> Shop Location
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -412,7 +419,7 @@ export default function LandingPage() {
                       {job.location && <p className="text-sm text-gray-700"><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
                     </div>
                   </div>
-                  <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="w-full bg-[#1D73EC] text-white hover:bg-[#10316B]">Apply Now</Button>
+                  <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
                 </Card>
               ))}
             </div>
@@ -820,6 +827,33 @@ export default function LandingPage() {
                 </li>
               </ul>
             </section>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shop Location Dialog */}
+      <Dialog open={showShopMap} onOpenChange={setShowShopMap}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#1D73EC]" /> Shop Location
+            </DialogTitle>
+            <DialogDescription>
+              {content.locationCampus}, {content.locationRoom},{" "}
+              {content.locationBuilding}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border-2 border-blue-100">
+            <iframe
+              title="DocuFy Shop Location"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                content.locationCampus
+              )}&output=embed`}
+              className="w-full h-72 border-0"
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
           </div>
         </DialogContent>
       </Dialog>

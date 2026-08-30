@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Briefcase, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
@@ -34,7 +34,7 @@ export default function PublicJobApplication() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-semibold mb-2">Job Not Found</h2>
           <p className="text-gray-600 mb-4">The job posting you're looking for doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate('/')} className="bg-[#1D73EC] hover:bg-[#10316B]">
+          <Button onClick={() => navigate('/')} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">
             Back to Home
           </Button>
         </Card>
@@ -195,7 +195,7 @@ export default function PublicJobApplication() {
             <div className="flex gap-3 pt-4">
               <Button
                 onClick={handleSubmit}
-                className="flex-1 bg-[#1D73EC] hover:bg-[#10316B] text-white"
+                className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
               >
                 Submit Application
               </Button>
@@ -229,7 +229,7 @@ export default function PublicJobApplication() {
             <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
               Review Again
             </Button>
-            <Button onClick={confirmSubmit} className="bg-[#1D73EC] hover:bg-[#10316B]">
+            <Button onClick={confirmSubmit} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">
               Yes, Submit
             </Button>
           </DialogFooter>
@@ -251,7 +251,7 @@ export default function PublicJobApplication() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center">
-            <Button onClick={() => navigate('/')} className="bg-[#1D73EC] hover:bg-[#10316B]">
+            <Button onClick={() => navigate('/')} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">
               Back to Home
             </Button>
           </DialogFooter>

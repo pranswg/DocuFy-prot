@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+﻿import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Kanban,
@@ -1383,7 +1383,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     <Button
                       size="sm"
                       onClick={handleDownloadInvoice}
-                      className="flex-1 bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+                      className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                     >
                       <Package className="w-4 h-4 mr-2" />
                       Download
@@ -1435,7 +1435,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     className={
                       selectedOrder.status === "inQueue"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("inQueue")
@@ -1453,7 +1453,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     className={
                       selectedOrder.status === "printing"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("printing")
@@ -1471,7 +1471,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     className={
                       selectedOrder.status === "completed"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("completed")
@@ -1988,7 +1988,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
             </Button>
             <Button
               onClick={handleDownloadInvoice}
-              className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+              className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
               <Download className="w-4 h-4 mr-2" />
               Download Invoice

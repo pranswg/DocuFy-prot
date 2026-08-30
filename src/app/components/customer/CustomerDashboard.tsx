@@ -18,6 +18,12 @@ import { Badge } from "../ui/badge";
 import { dataStore } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
 import { notificationStore, Notification } from "../../utils/notificationStore";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 
 const menuItems = [
   {
@@ -52,6 +58,7 @@ export default function CustomerDashboard() {
     dataStore.getOrderStats(user?.email || ""),
   );
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [shopOpen, setShopOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -118,10 +125,16 @@ export default function CustomerDashboard() {
       <div className="space-y-4 sm:space-y-6 h-auto overflow-visible pb-6 sm:pb-10 max-w-7xl mx-auto">
 
         {/* Welcome Message */}
-        <div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Welcome back, {user?.name?.split(' ')[0] || 'User'}!
           </h1>
+          <Button
+            onClick={() => setShopOpen(true)}
+            className="h-9 sm:h-10 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 active:scale-[0.97]"
+          >
+            <MapPin className="w-4 h-4" /> Shop Location
+          </Button>
         </div>
 
         {/* Application Notifications */}
@@ -422,6 +435,33 @@ export default function CustomerDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Shop Location Dialog */}
+      <Dialog open={shopOpen} onOpenChange={setShopOpen}>
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#2F6FD6]" /> Shop Location
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Palawan State University - Main Campus, Puerto Princesa City,
+            Palawan
+          </p>
+          <div className="overflow-hidden rounded-xl border-2 border-blue-100">
+            <iframe
+              title="DocuFy Shop Location"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                "Palawan State University - Main Campus, Puerto Princesa City, Palawan"
+              )}&output=embed`}
+              className="w-full h-72 border-0"
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

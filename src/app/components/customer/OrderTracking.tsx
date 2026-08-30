@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -528,7 +528,7 @@ export default function OrderTracking() {
           )}
 
           {/* Cost Breakdown */}
-          <div className="mt-6 p-5 bg-blue-50 border-2 border-[#2F6FD6] rounded-lg">
+          <div className="mt-6 p-5 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-md font-semibold text-gray-900 mb-3">Cost Breakdown</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -547,14 +547,14 @@ export default function OrderTracking() {
                   </span>
                 </div>
               )}
-              <div className="pt-3 mt-2 border-t-2 border-[#2F6FD6] flex justify-between">
+              <div className="pt-3 mt-2 border-t-2 border-gray-200 flex justify-between">
                 <span className="text-lg font-bold text-gray-900">Grand Total</span>
                 <span className="text-2xl font-bold text-[#2F6FD6]">{orderData?.total || "₱0.00"}</span>
               </div>
             </div>
 
             {canCancelOrder && (
-              <div className="mt-5 pt-4 border-t border-blue-200">
+              <div className="mt-5 pt-4 border-t border-gray-200">
                 <Button
                   type="button"
                   variant="outline"
@@ -578,10 +578,10 @@ export default function OrderTracking() {
             Payment Method and Status
           </h2>
 
-          <div className="space-y-4">
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
             {/* Payment Method */}
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-sm font-medium text-gray-600 mb-2">
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-1">
                 Payment Method
               </p>
               <p className="text-base font-semibold text-gray-900">
@@ -590,63 +590,70 @@ export default function OrderTracking() {
             </div>
 
             {/* Payment Status */}
-            {orderData?.paymentMethod === "Cash" ? (
-              <div className="flex items-center justify-between p-4 bg-white border-2 border-gray-300 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <ShoppingCart className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Payment at Pickup
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Pay when you collect your order
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
-                  Cash on Pickup
-                </Badge>
-              </div>
-            ) : orderData?.status === "Canceled" ? null : orderData?.paymentVerified ? (
-              <div className="flex items-center justify-between p-4 bg-white border-2 border-blue-300 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Verified
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Payment has been verified by admin
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                  Verified
-                </Badge>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between p-4 bg-white border-2 border-yellow-300 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Pending Verification
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Your payment is being verified by admin/staff
-                    </p>
-                    {orderData?.paymentReferenceNumber && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Reference: {orderData.paymentReferenceNumber}
+            <div className="pt-3 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-2">
+                Payment Status
+              </p>
+              {orderData?.paymentMethod === "Cash" ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ShoppingCart className="w-5 h-5 text-gray-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Payment at Pickup
                       </p>
-                    )}
+                      <p className="text-sm text-gray-600">
+                        Pay when you collect your order
+                      </p>
+                    </div>
                   </div>
+                  <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
+                    Cash on Pickup
+                  </Badge>
                 </div>
-                <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-                  Pending
-                </Badge>
-              </div>
-            )}
+              ) : orderData?.status === "Canceled" ? (
+                <p className="font-medium text-gray-900">Canceled</p>
+              ) : orderData?.paymentVerified ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Verified
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Payment has been verified by admin
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                    Verified
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Pending Verification
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Your payment is being verified by admin/staff
+                      </p>
+                      {orderData?.paymentReferenceNumber && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Reference: {orderData.paymentReferenceNumber}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
+                    Pending
+                  </Badge>
+                </div>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -695,14 +702,14 @@ export default function OrderTracking() {
               <Button
                 variant="outline"
                 onClick={() => setShowInvoice(true)}
-                className="flex-1 border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
+                className="flex-1 border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200"
               >
                 <Eye className="w-4 h-4 mr-2" />
                 View Invoice
               </Button>
               <Button
                 onClick={handleDownloadInvoice}
-                className="flex-1 bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+                className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download Invoice

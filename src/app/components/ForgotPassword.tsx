@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Mail, Key, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#2F6FD6] hover:bg-[#2557b8]">
+              <Button type="submit" className="w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white">
                 Send Reset Code
               </Button>
             </form>
@@ -120,7 +120,7 @@ export default function ForgotPassword() {
                 <p className="text-xs text-gray-500">Check the browser console for the demo code</p>
               </div>
 
-              <Button type="submit" className="w-full bg-[#2F6FD6] hover:bg-[#2557b8]">
+              <Button type="submit" className="w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white">
                 Verify Code
               </Button>
             </form>
@@ -186,7 +186,7 @@ export default function ForgotPassword() {
                 disabled={!validatePassword(newPassword).isValid}
                 className={`w-full ${
                   validatePassword(newPassword).isValid
-                    ? "bg-[#2F6FD6] hover:bg-[#2557b8]"
+                    ? "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >

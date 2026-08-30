@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import {
   Users,
   UserCheck,
@@ -730,7 +730,7 @@ export default function AdminAttendancePage() {
               <Button variant="outline" onClick={() => setAdjust(null)}>
                 Cancel
               </Button>
-              <Button className="bg-[#2F6FD6] hover:bg-[#1e5bb8]" onClick={saveAdjust}>
+              <Button className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white" onClick={saveAdjust}>
                 Save Changes
               </Button>
             </DialogFooter>

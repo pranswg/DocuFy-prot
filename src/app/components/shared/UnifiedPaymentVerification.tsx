@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import {
   CreditCard,
@@ -61,19 +61,14 @@ function generatePaymentsFromOrders(): PaymentType[] {
       const totalAmount = parseFloat(order.total.replace('₱', '').replace(',', ''));
 
       // Determine status based on paymentVerified field (SINGLE SOURCE OF TRUTH)
+      // A payment only shows "Verified" once staff/admin actually approves it.
+      // Everything else (cash-on-pickup, GCash, down payment) stays "Pending"
+      // until verified, so an unverified customer submission never auto-verifies.
       let paymentStatus: "pending" | "verified" | "rejected" = "pending";
       if (order.paymentVerified === true) {
         paymentStatus = "verified";
       } else if (order.status === 'Canceled') {
         paymentStatus = "rejected";
-      } else if ((order.paymentMethod === 'Cash' || order.paymentMethod === 'cash') &&
-        !(order.downPaymentRequired && !order.downPaymentVerified)) {
-        // Cash payments are auto-verified since they pay on pickup — UNLESS a
-        // down payment is required but hasn't been verified yet (then it stays
-        // pending here and the order is kept out of the queue until approved).
-        paymentStatus = "verified";
-      } else if (order.paymentReferenceNumber && !order.paymentVerified) {
-        paymentStatus = "pending";
       }
 
       // Determine payment method from order
@@ -562,7 +557,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   </p>
                   <div className="flex gap-3">
                     <Button
-                      className="flex-1 bg-[#1D73EC] hover:bg-[#10316B] text-white shadow-none"
+                      className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                       onClick={() => {
                         handleVerifyPayment("verified");
                         setShowDialog(false);
@@ -688,7 +683,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               Cancel
             </Button>
             <Button
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white font-bold shadow-none"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white font-bold"
               onClick={() => {
                 if (!rejectionReason.trim())
                   return toast.error("Please provide a reason");

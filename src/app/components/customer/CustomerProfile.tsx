@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield, Camera } from 'lucide-react';
 import { toast } from 'sonner';
@@ -285,7 +285,7 @@ export default function CustomerProfile() {
             ) : (
               <div className={`flex w-full flex-col gap-2 sm:w-auto sm:flex-row ${profileImage ? "pt-8" : ""}`}>
                 <Button
-                  className="order-1 w-full bg-[#2F6FD6] hover:bg-[#2557b8] sm:order-2 sm:w-auto"
+                  className="order-1 w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white sm:order-2 sm:w-auto"
                   onClick={handleSave}
                 >
                   Save Changes
@@ -389,7 +389,7 @@ export default function CustomerProfile() {
               <Button
                 variant="outline"
                 onClick={() => setShowChangePasswordDialog(true)}
-                className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200 sm:w-auto"
+                className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200 sm:w-auto"
               >
                 <Key className="w-4 h-4 mr-2" />
                 Change Password
@@ -414,7 +414,7 @@ export default function CustomerProfile() {
                 className={`w-full sm:w-auto ${
                   user?.mfaEnabled
                     ? 'border-blue-600 text-blue-600 hover:bg-blue-50 border-2 border-blue-200'
-                    : 'border-blue-600 text-blue-600 hover:bg-white border-2 border-blue-200'
+                    : 'border-blue-600 text-blue-600 hover:bg-white hover:text-blue-600 border-2 border-blue-200'
                 }`}
               >
                 <Shield className="w-4 h-4 mr-2" />
@@ -459,7 +459,7 @@ export default function CustomerProfile() {
             </Button>
             <Button
               onClick={confirmSave}
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Save Changes
             </Button>
@@ -533,7 +533,7 @@ export default function CustomerProfile() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
-            <Button onClick={confirmDisableMFA} className="bg-[#1D73EC] text-white hover:bg-[#10316B]">Disable MFA</Button>
+            <Button onClick={confirmDisableMFA} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Disable MFA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -615,7 +615,7 @@ export default function CustomerProfile() {
               disabled={!validatePassword(passwordData.newPassword).isValid || (passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')}
               className={`${
                 validatePassword(passwordData.newPassword).isValid && !(passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')
-                  ? "bg-[#1D73EC] hover:bg-[#10316B] text-white"
+                  ? "bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             >

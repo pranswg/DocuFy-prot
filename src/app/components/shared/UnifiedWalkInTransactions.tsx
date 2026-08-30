@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   LayoutGrid,
@@ -599,8 +599,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                       key={fileData.id}
                       className={`p-4 rounded-lg border-2 ${
                         analyzingFileId === fileData.id
-                          ? 'bg-white border-2 border-blue-200 border-blue-300'
-                          : 'bg-white border-2 border-blue-200 border-blue-200'
+                          ? 'bg-white border-gray-300'
+                          : 'bg-white border-gray-300'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -682,7 +682,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                 </div>
 
                 <label className="inline-block cursor-pointer">
-                  <span className="px-6 py-3 bg-[#2F6FD6] text-white rounded-lg hover:bg-[#2557b8] transition-colors font-medium inline-flex items-center gap-2">
+                  <span className="px-6 py-3 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
                     <Upload className="w-4 h-4" />
                     {files.length === 0 ? 'Choose File' : 'Add More Files'}
                   </span>
@@ -1271,7 +1271,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                         onClick={() => {
                           // Live file preview is currently unavailable/being rebuilt.
                         }}
-                        className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200"
+                        className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200"
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         Preview
@@ -1594,7 +1594,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
             <div className="flex gap-3">
               {currentStep < 4 ? (
                 <Button
-                  className="bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={() => setCurrentStep((prev) => prev + 1)}
                   disabled={currentStep === 1 && files.length === 0 || analyzingFileId !== null}
                 >
@@ -1610,7 +1610,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                     Cancel Order
                   </Button>
                   <Button
-                    className="bg-[#2F6FD6] hover:bg-[#2557b8]"
+                    className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
                     onClick={handleProceedToQueue}
                     disabled={files.length === 0}
                   >

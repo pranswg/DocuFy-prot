@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -788,8 +788,8 @@ export default function NewPrintRequest() {
                       key={fileData.id}
                       className={`p-4 rounded-lg border-2 ${
                         analyzingFileId === fileData.id
-                          ? "bg-white border-2 border-blue-200 border-blue-300"
-                          : "bg-white border-2 border-blue-200 border-blue-200"
+                          ? "bg-white border-gray-300"
+                          : "bg-white border-gray-300"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -886,10 +886,10 @@ export default function NewPrintRequest() {
                 <p className="text-sm text-gray-500 mb-2">
                   Supported formats: PDF, DOC, DOCX, JPG, PNG
                 </p>
-                <div className="bg-white border-2 border-blue-200 border border-blue-300 rounded-lg p-3 mb-4 max-w-lg mx-auto">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 max-w-lg mx-auto">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-800 text-left">
+                    <AlertCircle className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-gray-700 text-left">
                       <strong>Preferred Format: PDF</strong>
                       <br />
                       DocuFy will not take responsibility for
@@ -901,7 +901,7 @@ export default function NewPrintRequest() {
                 </div>
 
                 <label className="inline-block cursor-pointer">
-                  <span className="px-6 py-3 bg-[#2F6FD6] text-white rounded-lg hover:bg-[#2557b8] transition-colors font-medium inline-flex items-center gap-2">
+                  <span className="px-6 py-3 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
                     <Upload className="w-4 h-4" />
                     {files.length === 0
                       ? "Choose File"
@@ -1301,7 +1301,7 @@ export default function NewPrintRequest() {
                         type="button"
                         variant="outline"
                         onClick={() => setShowColorPricing(true)}
-                        className="w-full border-2 border-[#2F6FD6] text-[#2F6FD6] font-semibold hover:bg-[#F2F7FF]"
+                        className="w-full text-[#2F6FD6] font-semibold hover:text-white"
                       >
                         <Info className="mr-2 h-4 w-4" />
                         See Colored Pricing Breakdown
@@ -1481,7 +1481,7 @@ export default function NewPrintRequest() {
                           variant="outline"
                           size="sm"
                           title="Preview is currently unavailable"
-                          className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white border-2 border-blue-200 sm:flex-1"
+                          className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200 sm:flex-1"
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           Preview
@@ -2187,7 +2187,7 @@ export default function NewPrintRequest() {
             <div className="flex gap-2 sm:gap-3">
               {currentStep < 4 ? (
                 <Button
-                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={() => {
                     const nextStep = currentStep + 1;
                     setCurrentStep(nextStep);
@@ -2204,7 +2204,7 @@ export default function NewPrintRequest() {
                 </Button>
               ) : (
                 <Button
-                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] hover:bg-[#2557b8] disabled:bg-gray-400"
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"
                   onClick={handleSubmit}
                   disabled={
                     files.length === 0 || !paymentMethod
@@ -2331,7 +2331,7 @@ export default function NewPrintRequest() {
                 setShowSuccessModal(false);
                 navigate("/customer/dashboard");
               }}
-              className="flex-1 bg-[#1D73EC] hover:bg-[#10316B] text-white"
+              className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Go to Dashboard
             </Button>

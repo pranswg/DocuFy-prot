@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Kanban, LayoutDashboard, ShoppingCart, User, Search, Clock, CheckCircle, XCircle, ArrowLeft, ChevronDown, ChevronUp, Printer, FileText, AlertCircle, AlertTriangle, CreditCard, Package, LayoutGrid, Users, UserPlus, Briefcase, File } from 'lucide-react';
 import { toast } from 'sonner';
@@ -991,7 +991,7 @@ export default function StaffQueueBoard() {
                   <Button
                     size="sm"
                     variant={selectedOrder.status === 'inQueue' ? 'default' : 'outline'}
-                    className={selectedOrder.status === 'inQueue' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white border-2 border-blue-200 hover:border-blue-300'}
+                    className={selectedOrder.status === 'inQueue' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300'}
                     onClick={() => handleUpdateStatus('inQueue')}
                   >
                     In Queue
@@ -999,7 +999,7 @@ export default function StaffQueueBoard() {
                   <Button
                     size="sm"
                     variant={selectedOrder.status === 'printing' ? 'default' : 'outline'}
-                    className={selectedOrder.status === 'printing' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white border-2 border-blue-200 hover:border-blue-300'}
+                    className={selectedOrder.status === 'printing' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300'}
                     onClick={() => handleUpdateStatus('printing')}
                   >
                     Printing
@@ -1007,7 +1007,7 @@ export default function StaffQueueBoard() {
                   <Button
                     size="sm"
                     variant={selectedOrder.status === 'completed' ? 'default' : 'outline'}
-                    className={selectedOrder.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white border-2 border-blue-200 hover:border-blue-300'}
+                    className={selectedOrder.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300'}
                     onClick={() => handleUpdateStatus('completed')}
                   >
                     Completed
@@ -1031,7 +1031,7 @@ export default function StaffQueueBoard() {
                   <Button
                     size="sm"
                     variant={selectedOrder.status === 'canceled' ? 'default' : 'outline'}
-                    className={selectedOrder.status === 'canceled' ? 'bg-white border-2 border-blue-2000 hover:bg-red-700' : 'hover:bg-white border-2 border-blue-200 hover:border-blue-300'}
+                    className={selectedOrder.status === 'canceled' ? 'bg-white border-2 border-blue-2000 hover:bg-red-700' : 'hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300'}
                     onClick={() => handleUpdateStatus('canceled')}
                   >
                     Cancel
@@ -1045,7 +1045,7 @@ export default function StaffQueueBoard() {
             <Button variant="outline" onClick={() => setShowDialog(false)}>
               Close
             </Button>
-            <Button className="bg-[#1D73EC] hover:bg-[#10316B] text-white transition-colors">
+            <Button className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-colors">
               Save Changes
             </Button>
           </DialogFooter>

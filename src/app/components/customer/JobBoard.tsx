@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   LayoutDashboard,
@@ -202,7 +202,7 @@ export default function JobBoard() {
                           <div className="min-w-0">
                             <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <Badge className="border-0 bg-white px-1 text-xs text-blue-700">
+                              <Badge className="text-xs bg-blue-100 text-blue-700">
                                 {job.type}
                               </Badge>
                               <span className="text-xs text-gray-400">·</span>
@@ -259,7 +259,7 @@ export default function JobBoard() {
                       {!application && (
                         <div className="mt-4">
                           <Button
-                            className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B] sm:w-auto"
+                            className="w-full bg-white text-sm text-[#1D73EC] border border-[#1D73EC] hover:bg-[#1D73EC] hover:text-white sm:w-auto"
                             onClick={() => navigate(`/customer/job-apply/${job.id}`)}
                           >
                             Apply for this Position
@@ -285,7 +285,7 @@ export default function JobBoard() {
                 <p className="font-semibold text-gray-500 text-lg">No applications yet</p>
                 <p className="text-smm text-gray-400 mt-1">Browse job listings and apply to get started.</p>
                 <Button
-                  className="mt-6 bg-[#1D73EC] hover:bg-[#10316B] text-white"
+                  className="mt-6 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   onClick={() => setTab('listings')}
                 >
                   Browse Listings
@@ -386,11 +386,11 @@ export default function JobBoard() {
         )}
 
         {/* Info Card */}
-        <Card className="border border-blue-200 bg-[#F2F7FF] p-4 sm:p-6">
+        <Card className="border border-gray-200 bg-gray-50 p-4 sm:p-6">
           <div className="flex items-start gap-3">
-            <Briefcase className="mt-0.5 h-5 w-5 shrink-0 text-[#1D73EC]" />
+            <Briefcase className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />
             <div>
-              <h3 className="mb-2 font-semibold text-[#10316B]">Why Work With DocuFy?</h3>
+              <h3 className="mb-2 font-semibold text-gray-800">Why Work With DocuFy?</h3>
               <ul className="space-y-1 text-sm text-gray-700">
                 <li>• Flexible schedules perfect for students</li>
                 <li>• Gain valuable work experience in printing & admin</li>
@@ -607,7 +607,7 @@ export default function JobBoard() {
                 setShowSuccessDialog(false);
                 setTab('applications');
               }}
-              className="w-full bg-[#1D73EC] hover:bg-[#10316B]"
+              className="w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               View My Applications
             </Button>

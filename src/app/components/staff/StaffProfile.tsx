@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, BriefcaseBusiness, AlertCircle, Camera, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -266,7 +266,7 @@ export default function StaffProfile() {
                 <div className="flex flex-col items-end gap-2">
                   <Button
                     onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                    className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+                    className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {isEditing ? 'Save Changes' : 'Edit Profile'}
@@ -402,7 +402,7 @@ export default function StaffProfile() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
-            <Button onClick={confirmDisableMFA} className="bg-[#1D73EC] text-white hover:bg-[#10316B]">Disable MFA</Button>
+            <Button onClick={confirmDisableMFA} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Disable MFA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -484,7 +484,7 @@ export default function StaffProfile() {
               disabled={!validatePassword(passwordData.newPassword).isValid || (passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')}
               className={`${
                 validatePassword(passwordData.newPassword).isValid && !(passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')
-                  ? "bg-[#1D73EC] hover:bg-[#10316B] text-white"
+                  ? "bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             >

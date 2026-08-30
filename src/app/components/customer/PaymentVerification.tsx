@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   useNavigate,
   useParams,
@@ -571,7 +571,7 @@ export default function PaymentVerification() {
                       Upload Payment Screenshot
                     </p>
                     <label className="inline-block cursor-pointer">
-                      <span className="px-6 py-2 bg-[#2F6FD6] text-white rounded-lg hover:bg-[#2557b8] transition-colors font-medium inline-flex items-center gap-2">
+                      <span className="px-6 py-2 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
                         <Upload className="w-4 h-4" />
                         Choose Image File
                       </span>
@@ -611,7 +611,7 @@ export default function PaymentVerification() {
                           View
                         </Button>
                         <label className="cursor-pointer">
-                          <span className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-colors">
+                          <span className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                             Change
                           </span>
                           <Input
@@ -640,7 +640,7 @@ export default function PaymentVerification() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-[#2F6FD6] hover:bg-[#2557b8]"
+                  className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                 >
                   Submit Reference
                 </Button>
@@ -751,7 +751,7 @@ export default function PaymentVerification() {
           <div className="flex flex-col gap-3 mt-6">
             <Button
               onClick={() => navigate(`/customer/track/${orderId}`)}
-              className="w-full bg-[#2F6FD6] hover:bg-[#2557b8]"
+              className="w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
               See My Order
             </Button>

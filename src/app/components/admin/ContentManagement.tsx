@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
@@ -455,7 +455,7 @@ export default function ContentManagement() {
               </Button>
               <Button
                 onClick={saveLandingContent}
-                className="bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+                className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
                 Save All Landing Page Changes
@@ -628,7 +628,7 @@ export default function ContentManagement() {
             </Button>
             <Button
               onClick={() => setShowSuccessDialog(false)}
-              className="flex-1 bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
               OK
             </Button>

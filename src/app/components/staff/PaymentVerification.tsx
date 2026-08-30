@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   CreditCard,
@@ -559,7 +559,7 @@ export default function PaymentVerification() {
                   </p>
                   <div className="flex gap-3">
                     <Button
-                      className="flex-1 bg-[#1D73EC] hover:bg-[#10316B] text-white shadow-none"
+                      className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                       onClick={() => {
                         handleVerifyPayment("verified");
                         setShowDialog(false);
@@ -685,7 +685,7 @@ export default function PaymentVerification() {
               Cancel
             </Button>
             <Button
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white font-bold shadow-none"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white font-bold"
               onClick={() => {
                 if (!rejectionReason.trim())
                   return toast.error("Please provide a reason");

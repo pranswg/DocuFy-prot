@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -117,7 +117,7 @@ export default function CustomerOrders() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <Button
-            className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+            className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             onClick={() => navigate("/customer/new-request")}
           >
             Print Request

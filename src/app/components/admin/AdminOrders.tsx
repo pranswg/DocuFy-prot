@@ -1519,7 +1519,7 @@ export default function AdminOrders() {
                     className={
                       selectedOrder.status === "inQueue"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("inQueue")
@@ -1537,7 +1537,7 @@ export default function AdminOrders() {
                     className={
                       selectedOrder.status === "printing"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("printing")
@@ -1555,7 +1555,7 @@ export default function AdminOrders() {
                     className={
                       selectedOrder.status === "completed"
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("completed")
@@ -1607,7 +1607,7 @@ export default function AdminOrders() {
                     className={
                       selectedOrder.status === "canceled"
                         ? "bg-white border-2 border-blue-2000 hover:bg-red-700"
-                        : "hover:bg-white border-2 border-blue-200 hover:border-blue-300"
+                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
                       handleUpdateStatus("canceled")

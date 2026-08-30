@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   LayoutDashboard,
@@ -359,7 +359,7 @@ export default function JobBoardManagement() {
               </p>
             </div>
             <Button
-              className="bg-[#2F6FD6] hover:bg-[#2557b8]"
+              className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowDialog(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -434,7 +434,7 @@ export default function JobBoardManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-[#1D73EC] text-[#1D73EC] hover:bg-white border-2 border-blue-200"
+                      className="border-[#1D73EC] text-[#1D73EC] hover:bg-white hover:text-[#1D73EC] border-2 border-blue-200"
                       onClick={() => handleViewApplicants(job)}
                     >
                       View Applicants
@@ -822,7 +822,7 @@ export default function JobBoardManagement() {
                   Cancel
                 </Button>
                 <Button
-                  className="bg-[#1D73EC] hover:bg-[#10316B]"
+                  className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   onClick={handleStatusUpdate}
                 >
                   Update Status
@@ -930,7 +930,7 @@ export default function JobBoardManagement() {
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-[#2F6FD6] hover:bg-[#2557b8]"
+                className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               >
                 Create Job Posting
               </Button>
@@ -965,7 +965,7 @@ export default function JobBoardManagement() {
             </Button>
             <Button
               onClick={confirmCreate}
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Create Posting
             </Button>
@@ -999,7 +999,7 @@ export default function JobBoardManagement() {
             </Button>
             <Button
               onClick={confirmStatusUpdate}
-              className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Update Status
             </Button>

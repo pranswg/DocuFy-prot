@@ -1,4 +1,4 @@
-import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+﻿import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -381,7 +381,7 @@ export default function SignUpPage() {
               disabled={!formData.agreeTerms || !validatePassword(formData.password).isValid}
               className={`w-full h-10 rounded-xl shadow-md text-sm transition-all ${
                 formData.agreeTerms && validatePassword(formData.password).isValid
-                  ? "bg-[#1D73EC] hover:bg-[#10316B] text-white cursor-pointer"
+                  ? "bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white cursor-pointer"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             >

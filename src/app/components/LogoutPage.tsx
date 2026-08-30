@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router';
 import { CheckCircle2, ArrowRight, Printer, Home, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
@@ -73,7 +73,7 @@ export default function LogoutPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button 
               onClick={() => navigate('/login')} 
-              className="w-full sm:w-auto h-12 px-8 bg-[#1D73EC] hover:bg-[#10316B] text-white font-medium rounded-xl shadow-lg shadow-blue-500/20 transition-all group"
+              className="w-full sm:w-auto h-12 px-8 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white font-medium rounded-xl transition-all group"
             >
               Log In Again
               <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />

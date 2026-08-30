@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   Boxes,
   AlertTriangle,
@@ -409,7 +409,7 @@ export default function InventoryManagement() {
           </div>
           <Button
             onClick={openAdd}
-            className="bg-[#2F6FD6] text-white hover:bg-[#2F6FD6]/90"
+            className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
           >
             <Plus className="h-4 w-4 mr-2" /> Add Item
           </Button>
@@ -692,7 +692,7 @@ export default function InventoryManagement() {
             </Button>
             <Button
               onClick={saveItem}
-              className="bg-[#2F6FD6] text-white hover:bg-[#2F6FD6]/90"
+              className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
               {editItem ? "Save Changes" : "Add Item"}
             </Button>
@@ -774,7 +774,7 @@ export default function InventoryManagement() {
                   className={
                     stockDialog.type === "in"
                       ? "bg-green-600 text-white hover:bg-green-700"
-                      : "bg-[#2F6FD6] text-white hover:bg-[#2F6FD6]/90"
+                      : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                   }
                 >
                   {stockDialog.type === "in" ? "Stock In" : "Stock Out"}

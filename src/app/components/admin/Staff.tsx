@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -461,13 +461,13 @@ export default function Staff() {
           <div className="flex flex-col w-full sm:w-auto gap-2 sm:flex-row">
             <Button
               variant={showArchived ? "outline" : "default"}
-              className={`h-11 sm:h-10 w-full sm:w-auto ${showArchived ? "" : "bg-[#2F6FD6] hover:bg-[#1e5bb8]"}`}
+              className={`h-11 sm:h-10 w-full sm:w-auto ${showArchived ? "" : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"}`}
               onClick={() => setShowArchived(!showArchived)}
             >
               {showArchived ? "Show Active" : `Show Archived (${archivedStaff.length})`}
             </Button>
             <Button
-              className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+              className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -833,7 +833,7 @@ export default function Staff() {
                       <div className="grid grid-cols-2 gap-3">
                         <Button
                           variant="outline"
-                          className="text-blue-600 border-blue-600 hover:bg-white border-2 border-blue-200"
+                          className="text-blue-600 border-blue-600 hover:bg-white hover:text-blue-600 border-2 border-blue-200"
                           onClick={() => {
                             if (selectedStaff.status === "Active") {
                               setShowDeactivateConfirm(true);
@@ -857,7 +857,7 @@ export default function Staff() {
                         {selectedStaff.status === "Inactive" && (
                           <Button
                             variant="outline"
-                            className="text-blue-700 border-blue-700 hover:bg-white border-2 border-blue-200"
+                            className="text-blue-700 border-blue-700 hover:bg-white hover:text-blue-700 border-2 border-blue-200"
                             onClick={() => {
                               setShowArchiveConfirm(true);
                             }}
@@ -891,7 +891,7 @@ export default function Staff() {
                   Cancel
                 </Button>
                 <Button
-                  className="bg-[#1D73EC] hover:bg-[#10316B]"
+                  className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   onClick={() => {
                     setShowSaveConfirm(true);
                   }}
@@ -1055,7 +1055,7 @@ export default function Staff() {
                 Cancel
               </Button>
               <Button
-                className="h-11 w-full sm:w-auto bg-[#2F6FD6] hover:bg-[#1e5bb8]"
+                className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                 onClick={handleAddStaff}
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -1149,7 +1149,7 @@ export default function Staff() {
                       setShowDetailDialog(false);
                       toast.success("Staff details updated successfully");
                     }}
-                    className="bg-[#1D73EC] hover:bg-[#10316B] text-white"
+                    className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                   >
                     Save Changes
                   </Button>
