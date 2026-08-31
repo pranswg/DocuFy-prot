@@ -34,11 +34,11 @@ import {
   STANDARD_DAILY_HOURS,
   STANDARD_WEEKLY_HOURS,
   formatPHT,
-  PHT_OFFSET_MS,
   todayPHTKey,
   getCurrentPeriod,
 } from "../../utils/attendanceStore";
 import type { DailyAttendanceRecord } from "../../utils/attendanceStore";
+import { internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
 
 const menuItems = [
   {
@@ -110,13 +110,19 @@ export default function StaffTimesheet() {
   const [logs, setLogs] = useState<DailyAttendanceRecord[]>(() =>
     email ? attendanceStore.getUserLogs(email) : [],
   );
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState(() => new Date(internetUtcMs()));
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Live clock — ticks for timer + wall-clock display.
+  // Live clock — ticks for timer + wall-clock display. Uses internet GMT+8 so
+  // the clock reads true Philippines time even if the device clock is off.
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1_000);
-    return () => clearInterval(t);
+    const tick = () => setNow(new Date(internetUtcMs()));
+    const t = setInterval(tick, 1_000);
+    const unsubscribe = subscribeInternetTime(tick);
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, []);
 
   // React to clock-ins / clock-outs (this page + lockout modals elsewhere).
@@ -133,8 +139,8 @@ export default function StaffTimesheet() {
   // ── Derived state ─────────────────────────────────────────────────────────
   // Times/dates/periods are pinned to Philippines time (PHT, UTC+8). `now`
   // stays the real instant so session durations (timezone-neutral) are exact;
-  // `phtNow` is `now` shifted by +8h purely for PHT wall-clock display.
-  const phtNow = new Date(now.getTime() + PHT_OFFSET_MS);
+  // `phtNow` is the Manila wall-clock for PHT display.
+  const phtNow = toPHT(now);
   const todayKey = todayPHTKey();
   const todayRecord = logs.find((l) => l.date === todayKey);
 
@@ -185,7 +191,7 @@ export default function StaffTimesheet() {
     try {
       if (isOnClock) {
         attendanceStore.timeOut(email);
-        toast.success(`${activePeriod} Time Out recorded at ${fmtShortTime(new Date())}. See you next shift!`);
+        toast.success(`${activePeriod} Time Out recorded at ${fmtShortTime(new Date(internetUtcMs()))}. See you next shift!`);
       } else if (curDone) {
         toast.info(
           currentPeriod === "morning"
@@ -195,7 +201,7 @@ export default function StaffTimesheet() {
       } else {
         const name = user.name || email.split("@")[0];
         attendanceStore.timeIn(email, name, "staff");
-        toast.success(`${activePeriod} Time In recorded at ${fmtShortTime(new Date())}.`);
+        toast.success(`${activePeriod} Time In recorded at ${fmtShortTime(new Date(internetUtcMs()))}.`);
       }
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);

@@ -163,3 +163,14 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Orders list time grouping fixed**: in `shared/UnifiedOrders.tsx`, the Orders table Time column already showed PHT (`formatPHTime`), but the Morning/Afternoon/Evening grouping headers used `date.getHours()` — the DEVICE-LOCAL hour, not PHT. On any browser outside the PH timezone, an order would show e.g. "09:00 AM" yet be grouped under the wrong time period. `getTimePeriod` now derives the hour in PHT via `toPHT(date).getHours()`, so the grouping matches the PHT time displayed system-wide.
 - Note: the admin "Time In Limit" feature was implemented then removed (per user) before this push — no trace remains; `AdminAttendance.tsx` and `attendanceStore.ts` reverted to their committed state.
 - Build passes (2386 modules).
+
+---
+
+## September 01, 2026 04:41 AM (PHT) — prans
+- Push to `testbranch2`: system-wide header clock (internet GMT+8/Manila time) + New Print Request scroll-to-top.
+- **Time utilities made timezone-independent**: `src/app/utils/pht.ts` rewritten. The old "add +8h then read device-local" hack double-added the offset on a GMT+8 device (showed 7am when it was actually 11pm). All "now"/format helpers now resolve the Manila wall-clock through `Intl.DateTimeFormat` with `timeZone: "Asia/Manila"`, so they are correct on any device. `nowPHT()` returns a synthetic Date whose device-local getters equal Manila wall-clock; `formatPHTime`/`formatPHDate` use Intl Manila directly. Internet sync (`syncInternetTime()`, worldtimeapi.org) still corrects a wrong device clock; kicked off globally in `src/main.tsx`.
+- **`attendanceStore.ts`**: `nowPHT`/`formatPHT` delegate to the Intl Manila helpers (removed the +8h double-add); `formatPHT` now wraps `formatPHTime(d, { hour12:false })`.
+- **Live header clock for ALL users**: `Layout.tsx` added a live clock immediately LEFT of the bell/notification icon in the shared top header (present on every authenticated page for customer/staff/admin). Desktop shows time + full date incl. year; mobile shows compact time with Clock icon. Styling: time text black, date darker blue `#2F6FD6`, reduced font sizes, no uppercase, "GMT+8" label removed. Ticks every second and re-renders once internet time resolves.
+- **`UnifiedOrders.tsx` / `StaffTimesheet.tsx` / `StaffTimeInGate.tsx`**: all live clocks/timers/toast timestamps now use internet-corrected Manila time via `nowPHT()`/`toPHT()`/`internetUtcMs()`.
+- **New Print Request includes images step auto-scroll**: pressing "Next Step"/"Back" in the Print Request stepper now scrolls back to the top. Root cause: the page scrolls inside Layout's `<main>` (`overflow-y-auto`), not the window, so the old `window.scrollTo(0,0)` did nothing. Added `scrollPageToTop()` (`NewPrintRequest.tsx`) which scrolls `document.querySelector("main")` (smooth) in addition to the window.
+- Build passes (2386 modules).

@@ -1,4 +1,5 @@
 // ── Attendance management system — Morning / Afternoon session model ────────
+import { internetUtcMs, toPHT, formatPHTime } from "./pht";
 
 export type SessionRecord = {
   timeIn?: Date;
@@ -67,8 +68,9 @@ export const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 // Current instant shifted to the PHT wall-clock (a local-view Date carrying the
 // Philippines calendar time/date). Use .getHours()/.getDay()/.getDate() on this
-// to derive PHT-based periods/days.
-export const nowPHT = (): Date => new Date(Date.now() + PHT_OFFSET_MS);
+// to derive PHT-based periods/days. Uses internet-corrected GMT+8 so the clock
+// reads true Philippines time even if the device clock is off.
+export const nowPHT = (): Date => toPHT(new Date(internetUtcMs()));
 
 // Philippines date key (YYYY-MM-DD) for the current moment.
 export const todayPHTKey = (): string => toDateKey(nowPHT());
@@ -78,12 +80,11 @@ export const getCurrentPeriod = (): 'morning' | 'afternoon' =>
   nowPHT().getHours() < 12 ? 'morning' : 'afternoon';
 
 // Format a UTC instant as a PHT HH:MM (or HH:MM:SS with includeSeconds).
+// Timezone-independent: resolved via Intl Asia/Manila.
 export const formatPHT = (d: Date | undefined | null, includeSeconds = false): string => {
   if (!d || Number.isNaN(d.getTime())) return '—';
-  const pht = new Date(d.getTime() + PHT_OFFSET_MS);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const base = `${pad(pht.getHours())}:${pad(pht.getMinutes())}`;
-  return includeSeconds ? `${base}:${pad(pht.getSeconds())}` : base;
+  const t = formatPHTime(d, { hour12: false, includeSeconds });
+  return t;
 };
 
 // ── Timesheet analytics — constants & pure helpers ─────────────────────────

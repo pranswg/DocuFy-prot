@@ -32,7 +32,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
-import { formatPHDate, formatPHTime, toPHT } from "../../utils/pht";
+import { formatPHDate, formatPHTime, toPHT, nowPHT, subscribeInternetTime } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -198,11 +198,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
 
-  // Live clock + date (Philippine time, UTC+8) for the Orders header
-  const [now, setNow] = useState(() => new Date());
+  // Live clock + date (Internet GMT+8 / Philippines time) for the Orders header
+  const [now, setNow] = useState(() => nowPHT());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    const tick = () => setNow(nowPHT());
+    const id = setInterval(tick, 1000);
+    const unsubscribe = subscribeInternetTime(tick);
+    return () => {
+      clearInterval(id);
+      unsubscribe();
+    };
   }, []);
   const headerTime = formatPHTime(now, { includeSeconds: true });
   const headerDate = formatPHDate(now, "full");

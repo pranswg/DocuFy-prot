@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
-import { attendanceStore, getCurrentPeriod, formatPHT, PHT_OFFSET_MS } from "../../utils/attendanceStore";
+import { attendanceStore, getCurrentPeriod, formatPHT } from "../../utils/attendanceStore";
 import type { NextAction } from "../../utils/attendanceStore";
+import { internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 
@@ -40,7 +41,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
   const [nextAction, setNextAction] = useState<NextAction>(() =>
     user ? attendanceStore.getNextAction(user.email) : "morning-time-in",
   );
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState(() => new Date(internetUtcMs()));
 
   // Admin / customer flows are never locked out.
   const staffUser = user?.role === "staff" ? user : null;
@@ -51,11 +52,16 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
     nextAction !== "morning-time-out" &&
     nextAction !== "afternoon-time-out";
 
-  // Live clock — tick only while a lockout panel is visible.
+  // Live clock (internet GMT+8) — tick only while a lockout panel is visible.
   useEffect(() => {
     if (!locked) return;
-    const t = setInterval(() => setNow(new Date()), 1_000);
-    return () => clearInterval(t);
+    const tick = () => setNow(new Date(internetUtcMs()));
+    const t = setInterval(tick, 1_000);
+    const unsubscribe = subscribeInternetTime(tick);
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [locked]);
 
   useEffect(() => {
@@ -71,7 +77,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
   }
 
   const period = getCurrentPeriod() === "morning" ? "Morning" : "Afternoon";
-  const phtNow = new Date(now.getTime() + PHT_OFFSET_MS);
+  const phtNow = toPHT(now);
 
   const handleTimeIn = () => {
     try {
@@ -85,7 +91,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
       }
       const userName = staffUser.name || staffUser.email.split("@")[0];
       attendanceStore.timeIn(staffUser.email, userName, "staff");
-      toast.success(`${period} Time In recorded at ${formatPHT(new Date(), true)}. Staff functions unlocked!`);
+      toast.success(`${period} Time In recorded at ${formatPHT(new Date(internetUtcMs()), true)}. Staff functions unlocked!`);
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);
     }

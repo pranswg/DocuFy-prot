@@ -1,15 +1,105 @@
-// ── Philippines Time (PHT, UTC+8) — pinned regardless of the device timezone ─
+// ── Philippines Time (PHT / Manila, UTC+8) — timezone-independent ──────────
 // Docufy PSMS is a Philippine printing-shop system, so every product-facing
-// date/time must read as Philippines time even when the browser is somewhere
-// else. Storage keeps real UTC instants; only display offsets by +8h.
+// date/time must read as Philippines (Manila) time even when the browser is in
+// another timezone. Instead of blindly adding +8h (which breaks when the device
+// is itself in a GMT+ zone), we resolve the Manila wall-clock through Intl's
+// `timeZone: "Asia/Manila"` so it is correct on any device.
 
 export const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-// Shift a UTC instant to the PHT wall-clock Date.
-export const toPHT = (d: Date): Date => new Date(d.getTime() + PHT_OFFSET_MS);
+// ── Manila wall-clock component helpers ─────────────────────────────────────
+// The single source of truth for "what time is it in Manila": Intl with an
+// explicit Asia/Manila timezone. Works regardless of the device timezone.
+const MANILA_OPTS: Intl.DateTimeFormatOptions = {
+  timeZone: "Asia/Manila",
+  hour12: false,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+};
 
-// A Date carrying the current PHT wall-clock (for .getHours()/.getDate()/...).
-export const nowPHT = (): Date => new Date(Date.now() + PHT_OFFSET_MS);
+let manilaFormatter: Intl.DateTimeFormat | null = null;
+function manilaParts(d: Date) {
+  if (!manilaFormatter) manilaFormatter = new Intl.DateTimeFormat("en-US", MANILA_OPTS);
+  const parts: Record<string, string> = {};
+  manilaFormatter.formatToParts(d).forEach(p => {
+    if (p.type !== "literal") parts[p.type] = p.value;
+  });
+  return parts;
+}
+
+function partsOf(d: Date): { y: number; mo: number; day: number; h: number; m: number; s: number } {
+  const p = manilaParts(d);
+  return {
+    y: Number(p.year),
+    mo: Number(p.month) - 1,
+    day: Number(p.day),
+    h: Number(p.hour === "24" ? "0" : p.hour),
+    m: Number(p.minute),
+    s: Number(p.second),
+  };
+}
+
+// ── Internet-derived real "now" ─────────────────────────────────────────────
+// "Now" should read the REAL Philippines time from the internet, not the
+// viewer's (possibly wrong) device clock. We fetch the current UTC instant
+// from a time API once, compute how far the device clock is off, and adjust all
+// subsequent "now" reads by that delta.
+let internetOffsetMs: number | null = null; // device-clock correction
+let syncStarted = false;
+
+const TIME_API = "https://worldtimeapi.org/api/timezone/Asia/Manila";
+type Subscriber = () => void;
+const syncSubscribers = new Set<Subscriber>();
+
+function notifySyncSubscribers(): void {
+  syncSubscribers.forEach(cb => cb());
+}
+
+// Fire the time-API fetch once (idempotent). Falls back to the device clock if
+// the network/api is unavailable, so the app still works offline.
+export function syncInternetTime(): Promise<void> {
+  if (syncStarted) return Promise.resolve();
+  syncStarted = true;
+  return fetch(TIME_API)
+    .then(r => r.json())
+    .then(data => {
+      const realUtcMs = new Date(data?.utc_datetime ?? data?.datetime).getTime();
+      if (!Number.isNaN(realUtcMs)) {
+        internetOffsetMs = realUtcMs - Date.now();
+        notifySyncSubscribers();
+      }
+    })
+    .catch(() => {
+      // Network/API unavailable — keep using the device clock.
+    });
+}
+
+// Subscribe to be notified once the internet time resolves so live clocks can
+// re-render with the corrected "now". Returns an unsubscribe fn.
+export function subscribeInternetTime(cb: Subscriber): () => void {
+  syncSubscribers.add(cb);
+  return () => syncSubscribers.delete(cb);
+}
+
+// Current real UTC instant in ms, corrected to the internet when available.
+export const internetUtcMs = (): number => Date.now() + (internetOffsetMs ?? 0);
+
+// ── Pin a real instant to the Manila wall-clock ─────────────────────────────
+// Returns a Date whose DEVICE-LOCAL getters (getHours/getDate/toLocaleTimeString
+// etc.) match the Manila wall-clock, so every downstream consumer that reads
+// local components gets Manila time no matter the device timezone.
+export const toPHT = (d: Date): Date => {
+  const p = partsOf(d);
+  return new Date(p.y, p.mo, p.day, p.h, p.m, p.s);
+};
+
+// A Date carrying the current Manila wall-clock (use .getHours()/.getDay()/
+// .getDate()/.toLocaleTimeString() on it to get PHT). Internet-corrected.
+export const nowPHT = (): Date => toPHT(new Date(internetUtcMs()));
 
 // Philippines date key (YYYY-MM-DD) for the current moment.
 export const todayPHTKey = (): string => {
@@ -38,20 +128,20 @@ export interface PHTimeOptions {
   includeSeconds?: boolean;
 }
 
-// Format a UTC instant as Philippines time, e.g. "09:42" / "09:42:30 AM".
+// Format a real instant as Philippines time, e.g. "9:42 AM" / "09:42 AM".
 export const formatPHTime = (
   d: Date | string | number | null | undefined,
   opts: PHTimeOptions = {},
 ): string => {
   const date = toDate(d);
   if (!date) return "—";
-  const pht = toPHT(date);
-  const h24 = pht.getHours();
-  const hour12 = opts.hour12 !== false;
-  const h = hour12 ? h24 % 12 || 12 : h24;
-  const sec = opts.includeSeconds ? `:${pad(pht.getSeconds())}` : "";
-  const ampm = hour12 ? (h24 < 12 ? " AM" : " PM") : "";
-  return `${pad(h)}:${pad(pht.getMinutes())}${sec}${ampm}`;
+  const h12 = opts.hour12 !== false;
+  const p = partsOf(date);
+  const hour24 = p.h % 24;
+  const h = h12 ? hour24 % 12 || 12 : hour24;
+  const sec = opts.includeSeconds ? `:${pad(p.s)}` : "";
+  const ampm = h12 ? (hour24 < 12 ? " AM" : " PM") : "";
+  return `${pad(h)}:${pad(p.m)}${sec}${ampm}`;
 };
 
 export type PHRange =
@@ -60,21 +150,22 @@ export type PHRange =
   | { month: "long"; day: "numeric"; year: "numeric" }
   | Intl.DateTimeFormatOptions;
 
-// Format a UTC instant as a Philippines date.
+// Format a real instant as a Philippines date.
 export const formatPHDate = (
   d: Date | string | number | null | undefined,
   style: "short" | "long" | "full" = "long",
 ): string => {
   const date = toDate(d);
   if (!date) return "—";
-  const pht = toPHT(date);
-  const opts: Intl.DateTimeFormatOptions =
-    style === "full"
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Manila",
+    ...(style === "full"
       ? { weekday: "long", year: "numeric", month: "long", day: "numeric" }
       : style === "short"
         ? { month: "short", day: "numeric", year: "numeric" }
-        : { year: "numeric", month: "long", day: "numeric" };
-  return pht.toLocaleDateString("en-PH", opts);
+        : { year: "numeric", month: "long", day: "numeric" }),
+  };
+  return new Intl.DateTimeFormat("en-PH", opts).format(date);
 };
 
 // Full PH date + time in one string.

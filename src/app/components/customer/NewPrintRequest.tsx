@@ -111,6 +111,13 @@ const menuItems = [
   },
 ];
 
+// The page scrolls inside Layout's <main> (overflow-y-auto), not the window, so
+// scroll that container back to the top when navigating between steps.
+function scrollPageToTop() {
+  window.scrollTo(0, 0);
+  document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 export default function NewPrintRequest() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -2214,7 +2221,7 @@ export default function NewPrintRequest() {
               onClick={() => {
                 if (currentStep > 1) {
                   setCurrentStep((prev) => prev - 1);
-                  window.scrollTo(0, 0);
+                  scrollPageToTop();
                 } else {
                   navigate("/customer/dashboard");
                 }
@@ -2230,7 +2237,7 @@ export default function NewPrintRequest() {
                   onClick={() => {
                     const nextStep = currentStep + 1;
                     setCurrentStep(nextStep);
-                    window.scrollTo(0, 0);
+                    scrollPageToTop();
                   }}
                   disabled={
                     (currentStep === 1 && files.length === 0) ||

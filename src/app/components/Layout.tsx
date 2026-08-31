@@ -17,6 +17,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Megaphone,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
 import { useMobileNav } from "../contexts/MobileNavContext";
+import { nowPHT, subscribeInternetTime } from "../utils/pht";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -86,6 +88,32 @@ export default function Layout({
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
+
+  // Live header clock — real internet GMT+8 (Philippines time), visible to
+  // every user/role on every page through the shared Layout header.
+  const [headerNow, setHeaderNow] = useState(() => nowPHT());
+  useEffect(() => {
+    const tick = () => setHeaderNow(nowPHT());
+    const id = setInterval(tick, 1000);
+    // Re-render once the internet time resolves so the clock snaps to true GMT+8.
+    const unsubscribe = subscribeInternetTime(tick);
+    return () => {
+      clearInterval(id);
+      unsubscribe();
+    };
+  }, []);
+  const headerWeekday = headerNow.toLocaleDateString("en-PH", { weekday: "long" });
+  const headerDate = headerNow.toLocaleDateString("en-PH", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const headerTimeStr = headerNow.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 
   // Keep panels mounted while animating closed
   const sidebarProfilePresence = usePresence(isProfileOpen, 200);
@@ -491,6 +519,22 @@ export default function Layout({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Live clock — Philippines (Manila) time for all users */}
+            <div className="hidden sm:flex flex-col items-end leading-tight select-none">
+              <span className="text-xs font-bold tabular-nums text-[#1c1f26]">
+                {headerTimeStr}
+              </span>
+              <span className="text-[10px] font-medium tracking-wide text-[#2F6FD6]">
+                {headerWeekday}, {headerDate}
+              </span>
+            </div>
+            <div className="sm:hidden flex items-center gap-1.5 select-none">
+              <Clock className="h-3.5 w-3.5 text-[#1c1f26]" />
+              <span className="text-[11px] font-bold tabular-nums text-[#1c1f26]">
+                {headerTimeStr}
+              </span>
+            </div>
+
             {/* Notification Bell */}
             <div className="relative">
               <button
