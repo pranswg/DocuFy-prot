@@ -32,7 +32,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
-import { formatPHDate, formatPHTime } from "../../utils/pht";
+import { formatPHDate, formatPHTime, toPHT } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -519,9 +519,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     });
   };
 
-  // Helper function to categorize orders by time period
+  // Helper function to categorize orders by time period (PHT, matching the
+  // PHT wall-clock used everywhere else in the system — not the device timezone)
   const getTimePeriod = (date: Date) => {
-    const hour = date.getHours();
+    const hour = toPHT(date).getHours();
     if (hour >= 6 && hour < 12)
       return "Morning (6:00 AM - 11:59 AM)";
     if (hour >= 12 && hour < 18)

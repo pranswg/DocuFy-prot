@@ -155,3 +155,11 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Task 5 — System-wide PHT (UTC+8) time**: new centralized `src/app/utils/pht.ts` (toPHT/nowPHT/todayPHTKey/toPHTKey/formatPHTime/formatPHDate/formatPHDateTime) applied across all active display sites: announcements, order tracking, customer orders, customer dashboard notifications, shared orders (header clock + invoice + table + order-placed-at via `createdAt`), walk-in transactions, payment verification, admin attendance (adjust-dialog PHT input + late cutoff), ordersStore date key, new print request date, file-attachments upload date, Staff joinDate, job postedDate (JobApplyForm/JobBoardManagement/StaffProfile), JobBoard applied/interview dates. Dead/unrouted legacy files (AdminOrders, StaffQueueBoard, PaymentVerificationAdmin, staff/PaymentVerification) intentionally untouched.
 - Also included earlier uncommitted work: Google Maps embed (LandingPage + CustomerDashboard), View Applicants uniform style (JobBoardManagement), per-user customer notifications (UnifiedOrders + NotificationsPage + Layout), bell badge removal (desktop + mobile), notification deep-open-to-order routing.
 - Build passes (2386 modules).
+
+---
+
+## August 31, 2026 10:10 PM (PHT) — prans
+- Push to `testbranch2`: fix Orders list time grouping to match the whole system.
+- **Orders list time grouping fixed**: in `shared/UnifiedOrders.tsx`, the Orders table Time column already showed PHT (`formatPHTime`), but the Morning/Afternoon/Evening grouping headers used `date.getHours()` — the DEVICE-LOCAL hour, not PHT. On any browser outside the PH timezone, an order would show e.g. "09:00 AM" yet be grouped under the wrong time period. `getTimePeriod` now derives the hour in PHT via `toPHT(date).getHours()`, so the grouping matches the PHT time displayed system-wide.
+- Note: the admin "Time In Limit" feature was implemented then removed (per user) before this push — no trace remains; `AdminAttendance.tsx` and `attendanceStore.ts` reverted to their committed state.
+- Build passes (2386 modules).
