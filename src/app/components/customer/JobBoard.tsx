@@ -34,6 +34,7 @@ import {
 } from '../ui/dialog';
 import { applicationsStore, ApplicationType } from '../../utils/applicationsStore';
 import { jobsStore } from '../../utils/jobsStore';
+import { formatPHDate } from '../../utils/pht';
 
 const menuItems = [
   { label: 'Dashboard', path: '/customer/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -308,7 +309,7 @@ export default function JobBoard() {
                           <div className="min-w-0">
                             <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{app.jobTitle}</h3>
                             <p className="mt-0.5 text-sm text-gray-500">
-                              Applied on {new Date(app.appliedDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                              Applied on {formatPHDate(app.appliedDate, "long")}
                             </p>
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                               <Badge className={`text-xs border ${STATUS_COLORS[app.status]}`}>
@@ -340,7 +341,7 @@ export default function JobBoard() {
                           <div className="grid grid-cols-2 gap-3 text-sm text-blue-800">
                             <div>
                               <span className="font-medium">Date: </span>
-                              {new Date(app.interviewDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                              {formatPHDate(app.interviewDate, "long")}
                             </div>
                             <div>
                               <span className="font-medium">Time: </span>
@@ -467,7 +468,7 @@ export default function JobBoard() {
                 <div className="p-4">
                   <p className="font-bold text-[#1D73EC] text-base">{selectedApp.position}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Submitted on {new Date(selectedApp.appliedDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    Submitted on {formatPHDate(selectedApp.appliedDate, "long")}
                   </p>
                 </div>
               </div>
@@ -547,7 +548,7 @@ export default function JobBoard() {
                     <div>
                       <p className="text-xs text-blue-600 mb-0.5">Date</p>
                       <p className="font-semibold">
-                        {new Date(selectedApp.interviewDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        {formatPHDate(selectedApp.interviewDate, "long")}
                       </p>
                     </div>
                     <div>

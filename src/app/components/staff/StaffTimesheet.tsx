@@ -33,8 +33,12 @@ import {
   overtimeMs,
   STANDARD_DAILY_HOURS,
   STANDARD_WEEKLY_HOURS,
+  formatPHT,
+  PHT_OFFSET_MS,
+  todayPHTKey,
+  getCurrentPeriod,
 } from "../../utils/attendanceStore";
-import type { NextAction, DailyAttendanceRecord } from "../../utils/attendanceStore";
+import type { DailyAttendanceRecord } from "../../utils/attendanceStore";
 
 const menuItems = [
   {
@@ -72,11 +76,8 @@ const menuItems = [
 // ── Formatting helpers ──────────────────────────────────────────────────────
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
-const toDayKey = (d: Date): string =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-
-const fmtClockTime = (d: Date): string =>
-  `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+// Short clock times render in Philippines time (PHT, UTC+8).
+const fmtShortTime = (d?: Date): string => formatPHT(d);
 
 const fmtTimer = (ms: number): string => {
   const total = Math.max(0, Math.floor(ms / 1_000));
@@ -85,9 +86,6 @@ const fmtTimer = (ms: number): string => {
   const s = total % 60;
   return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 };
-
-const fmtShortTime = (d?: Date): string =>
-  d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 
 const fmtCompact = (ms: number): string => {
   const minutes = Math.max(0, Math.floor(ms / 60_000));
@@ -109,9 +107,6 @@ export default function StaffTimesheet() {
 
   const email = user?.email ?? "";
 
-  const [nextAction, setNextAction] = useState<NextAction>(() =>
-    email ? attendanceStore.getNextAction(email) : "morning-time-in",
-  );
   const [logs, setLogs] = useState<DailyAttendanceRecord[]>(() =>
     email ? attendanceStore.getUserLogs(email) : [],
   );
@@ -128,7 +123,6 @@ export default function StaffTimesheet() {
   useEffect(() => {
     if (!email) return;
     const unsub = attendanceStore.subscribe(() => {
-      setNextAction(attendanceStore.getNextAction(email));
       setLogs(attendanceStore.getUserLogs(email));
     });
     return unsub;
@@ -137,57 +131,67 @@ export default function StaffTimesheet() {
   if (!user) return null;
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const todayKey = toDayKey(now);
+  // Times/dates/periods are pinned to Philippines time (PHT, UTC+8). `now`
+  // stays the real instant so session durations (timezone-neutral) are exact;
+  // `phtNow` is `now` shifted by +8h purely for PHT wall-clock display.
+  const phtNow = new Date(now.getTime() + PHT_OFFSET_MS);
+  const todayKey = todayPHTKey();
   const todayRecord = logs.find((l) => l.date === todayKey);
 
-  const isOnClock =
-    nextAction === "morning-time-out" || nextAction === "afternoon-time-out";
-  const activePeriod = nextAction === "morning-time-out" ? "Morning" : "Afternoon";
-  const activeStart =
-    nextAction === "morning-time-out"
-      ? todayRecord?.morning.timeIn
-      : nextAction === "afternoon-time-out"
-        ? todayRecord?.afternoon.timeIn
-        : undefined;
+  const currentPeriod = getCurrentPeriod();
+  const activePeriod = currentPeriod === "morning" ? "Morning" : "Afternoon";
+
+  const curSession = currentPeriod === "morning"
+    ? todayRecord?.morning
+    : todayRecord?.afternoon;
+  const curStarted = !!curSession?.timeIn;
+  const curDone = !!curSession?.timeIn && !!curSession?.timeOut;
+  const isOnClock = curStarted && !curDone;
+  const activeStart = curSession?.timeIn;
 
   const todayTotalMs = todayRecord ? sessionTotalMs(todayRecord, now) : 0;
   const todayBreakMs = todayRecord ? sessionBreakMs(todayRecord) : 0;
   const todayOvertimeMs = overtimeMs(todayTotalMs);
 
-  const weekStartKey = getWeekStartKey(now);
+  const weekStartKey = getWeekStartKey(phtNow);
   const weekRecords = logs.filter((l) => l.date >= weekStartKey);
   const weekTotalMs = weekRecords.reduce((sum, r) => sum + sessionTotalMs(r, now), 0);
   const weekBreakMs = weekRecords.reduce((sum, r) => sum + sessionBreakMs(r), 0);
   const weekOvertimeMs = overtimeMs(weekTotalMs, STANDARD_WEEKLY_HOURS);
 
   const sessionMs = isOnClock && activeStart ? now.getTime() - activeStart.getTime() : 0;
-  const displayTime = isOnClock ? fmtTimer(sessionMs) : fmtClockTime(now);
+  const displayTime = isOnClock ? fmtTimer(sessionMs) : formatPHT(now, true);
 
-  const statusMeta =
-    nextAction === "morning-time-in"
-      ? { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" }
-      : nextAction === "afternoon-time-in"
-        ? { label: "On Break", cls: "bg-amber-100 text-amber-700 border-amber-200" }
-        : nextAction === "complete"
-          ? { label: "Shift Complete", cls: "bg-green-100 text-green-700 border-green-200" }
-          : { label: "Clocked In", cls: "bg-green-100 text-green-700 border-green-200" };
+  const statusMeta = curDone
+    ? currentPeriod === "morning"
+      ? { label: "Morning Complete", cls: "bg-green-100 text-green-700 border-green-200" }
+      : { label: "Shift Complete", cls: "bg-green-100 text-green-700 border-green-200" }
+    : curStarted
+      ? { label: "Clocked In", cls: "bg-green-100 text-green-700 border-green-200" }
+      : currentPeriod === "morning"
+        ? { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" }
+        : { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" };
 
   const description = isOnClock
     ? `${activePeriod} session · started at ${fmtShortTime(activeStart)}`
-    : nextAction === "afternoon-time-in"
-      ? "Morning session ended — Time In for your Afternoon session when ready."
-      : nextAction === "complete"
-        ? "Both Morning and Afternoon sessions are recorded for today."
-        : `Clock in to start your ${activePeriod} shift.`;
+    : curDone
+      ? currentPeriod === "morning"
+        ? "Morning session complete. Time In for your Afternoon session unlocks in the PM."
+        : "Both Morning and Afternoon sessions are recorded for today."
+      : `Clock in to start your ${activePeriod} session.`;
 
   const handleClock = () => {
     if (!email) return;
     try {
       if (isOnClock) {
         attendanceStore.timeOut(email);
-        toast.success(`Time Out recorded at ${fmtShortTime(new Date())}. See you next shift!`);
-      } else if (nextAction === "complete") {
-        toast.info("Both sessions are already recorded for today. Come back tomorrow!");
+        toast.success(`${activePeriod} Time Out recorded at ${fmtShortTime(new Date())}. See you next shift!`);
+      } else if (curDone) {
+        toast.info(
+          currentPeriod === "morning"
+            ? "Morning session is complete. Come back in the PM to clock in your Afternoon session."
+            : "All sessions are already recorded for today. Come back tomorrow!",
+        );
       } else {
         const name = user.name || email.split("@")[0];
         attendanceStore.timeIn(email, name, "staff");
@@ -206,7 +210,7 @@ export default function StaffTimesheet() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 pt-6">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
               <CalendarDays className="w-4 h-4 text-[#1D73EC]" />
-              {now.toLocaleDateString(undefined, {
+              {phtNow.toLocaleDateString(undefined, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -222,8 +226,10 @@ export default function StaffTimesheet() {
             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
               {isOnClock
                 ? "Session Timer"
-                : nextAction === "complete"
-                  ? "Today Complete"
+                : curDone
+                  ? currentPeriod === "morning"
+                    ? "Morning Complete"
+                    : "Today Complete"
                   : "Current Time"}
             </p>
             <div
@@ -240,11 +246,11 @@ export default function StaffTimesheet() {
 
             <Button
               onClick={handleClock}
-              disabled={nextAction === "complete"}
+              disabled={curDone}
               className={`mt-6 h-14 w-full max-w-sm rounded-xl text-base font-bold transition-all disabled:opacity-100 ${
                 isOnClock
                   ? "bg-[#1c1f26] hover:bg-slate-800 text-white"
-                  : nextAction === "complete"
+                  : curDone
                     ? "cursor-default bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"
                     : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"
               }`}
@@ -254,10 +260,12 @@ export default function StaffTimesheet() {
                   <LogOut className="h-5 w-5 mr-2" />
                   Time Out
                 </>
-              ) : nextAction === "complete" ? (
+              ) : curDone ? (
                 <>
                   <CheckCircle className="h-5 w-5 mr-2" />
-                  Attendance Complete for Today
+                  {currentPeriod === "morning"
+                    ? "Morning Complete — Back in PM"
+                    : "Attendance Complete for Today"}
                 </>
               ) : (
                 <>

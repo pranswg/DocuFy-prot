@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { dataStore } from "../../utils/dataStore";
+import { formatPHTime, formatPHDate } from "../../utils/pht";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
@@ -90,7 +91,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
         method: paymentMethod,
         status: paymentStatus,
         submittedAt: orderDate,
-        time: orderDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase(),
+        time: formatPHTime(orderDate).toLowerCase(),
         reference: order.paymentReferenceNumber || (paymentMethod === 'Cash' ? 'Cash on Pickup' : ''),
         proofImageUrl: order.paymentProofUrl || SAMPLE_PROOF_IMAGE,
       };
@@ -271,7 +272,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               placeholder="Search payments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white border-gray-200 focus-visible:ring-[#1D73EC] rounded-lg h-10 text-sm font-medium"
+              className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 focus-visible:ring-[#1D73EC] rounded-lg h-10 text-sm font-medium"
             />
           </div>
         </div>
@@ -420,7 +421,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       {payment.orderId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {payment.submittedAt.toLocaleDateString()}
+                      {formatPHDate(payment.submittedAt, "short")}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {payment.time}

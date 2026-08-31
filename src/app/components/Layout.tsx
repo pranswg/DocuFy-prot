@@ -179,16 +179,18 @@ export default function Layout({
     setIsNotificationOpen(false);
 
     // Navigate if clickable
-    if (notification.clickable && notification.relatedRoute) {
-      navigate(notification.relatedRoute);
-    } else if (notification.clickable && notification.relatedOrderId && user) {
-      // Navigate to order tracking
+    if (!notification.clickable) return;
+    // Order/payment/status notification → open that specific order
+    if (notification.relatedOrderId && user) {
       if (user.role === 'customer') {
         navigate(`/customer/track/${notification.relatedOrderId}`);
       } else {
-        navigate(`/${user.role}/orders`);
+        // Admin/staff: go to the Orders list and open the customer's order right away.
+        navigate(`/${user.role}/orders?orderId=${encodeURIComponent(notification.relatedOrderId)}`);
       }
+      return;
     }
+    if (notification.relatedRoute) navigate(notification.relatedRoute);
   };
 
   const handleMarkAllRead = () => {
@@ -354,11 +356,6 @@ export default function Layout({
               >
                 <div className="relative flex-shrink-0 flex items-center justify-center">
                   {item.icon}
-                  {isNotificationsItem && unreadAnnouncements > 0 && (
-                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff5252] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0B2C5B]">
-                      {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
-                    </span>
-                  )}
                   {isNotificationsItem && urgentAnnouncements > 0 && (
                     <span
                       title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}
@@ -572,7 +569,7 @@ export default function Layout({
                       )}
                     </div>
                     <div className="px-4 py-2.5 border-t border-gray-100">
-                      <button className="text-xs font-medium text-[#1D73EC] hover:text-[#1557b8] transition-colors" onClick={handleMarkAllRead}>
+                      <button className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg text-sm font-semibold bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all" onClick={handleMarkAllRead}>
                         Mark all as read
                       </button>
                     </div>

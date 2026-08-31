@@ -1,5 +1,5 @@
-﻿import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router";
+﻿import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Kanban,
   LayoutDashboard,
@@ -32,6 +32,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
+import { formatPHDate, formatPHTime } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -73,6 +74,7 @@ function fallbackPrintTotal(pages: number, copies: number, type: string): number
 type OrderType = {
   id: string;
   customer: string;
+  customerEmail?: string;
   pages: number;
   type: string;
   notes: string;
@@ -202,21 +204,12 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const pinTime = (d: Date) =>
-    new Date(d.getTime() + 8 * 60 * 60 * 1000);
-  const phTime = pinTime(now);
-  const headerTime = phTime.toLocaleTimeString("en-PH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  const headerDate = phTime.toLocaleDateString("en-PH", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const headerTime = formatPHTime(now, { includeSeconds: true });
+  const headerDate = formatPHDate(now, "full");
+
+  // Read ?orderId=... so a notification click can deep-open a specific order
+  const [searchParams] = useSearchParams();
+  const openedOrderIdRef = useRef<string | null>(null);
 
   // Initialize and subscribe to orders store
   useEffect(() => {
@@ -256,7 +249,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           ...order,
           id: order.id,
           customerName: order.customer,
-          date: order.submittedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
           total: `₱${((order.costBreakdown?.total || fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
@@ -274,6 +267,18 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       setInvoiceData(null);
     }
   };
+
+  // Auto-open a specific order when arriving via a notification (?orderId=...)
+  useEffect(() => {
+    const orderId = searchParams.get("orderId");
+    if (!orderId || orders.length === 0) return;
+    if (openedOrderIdRef.current === orderId) return;
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      openedOrderIdRef.current = orderId;
+      handleOpenDetails(order);
+    }
+  }, [orders, searchParams]);
 
   const handleDownloadInvoice = () => {
     if (!invoiceData) {
@@ -449,7 +454,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           ...updatedSelectedOrder,
           id: updatedSelectedOrder.id,
           customerName: updatedSelectedOrder.customer,
-          date: updatedSelectedOrder.submittedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
           total: `₱${((updatedSelectedOrder.costBreakdown?.total || fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
@@ -485,7 +490,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         clickable: true,
         relatedOrderId: selectedOrder.id,
         relatedRoute: `/customer/track/${selectedOrder.id}`,
-        recipientEmail: selectedOrder.customer,
+        recipientEmail: selectedOrder.customerEmail || selectedOrder.customer,
         recipientRole: 'customer',
       }
     );
@@ -682,7 +687,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 placeholder="Search for anything"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white border-gray-200 focus-visible:ring-[#1D73EC] rounded-lg"
+                className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 focus-visible:ring-[#1D73EC] rounded-lg"
               />
             </div>
           </div>
@@ -838,14 +843,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {displayDate.toLocaleDateString()}
+                                {formatPHDate(displayDate, "short")}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {displayDate.toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true,
-                                })}
+                                {formatPHTime(displayDate)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <Badge
@@ -955,7 +956,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     {selectedOrder.customer}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Order placed at {selectedOrder.time}
+                    Order placed at {formatPHTime(selectedOrder.createdAt || selectedOrder.submittedAt)}
                   </p>
                 </div>
               </div>

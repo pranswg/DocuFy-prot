@@ -4,6 +4,7 @@
 // created through "Register New Staff"), so the monitoring page always shows
 // the people who actually exist in the system.
 import { attendanceStore } from "./attendanceStore";
+import { nowPHT } from "./attendanceStore";
 
 export type StaffMember = {
   id: string;
@@ -14,7 +15,7 @@ export type StaffMember = {
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
-export const toDateKey = (d: Date = new Date()): string =>
+export const toDateKey = (d: Date = nowPHT()): string =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 const SEEDED_STAFF: StaffMember[] = [
@@ -52,10 +53,11 @@ export const getStaffRoster = (): StaffMember[] => {
 // Skips staff@test.com (the staff test account) — leaving that flow untouched.
 export const seedDemoAttendance = (): void => {
   const today = toDateKey();
+  // Times are expressed as PHT wall-clock times (seeded demo mirrors PH shift).
   const at = (h: number, m: number): Date => {
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d;
+    const base = nowPHT();
+    const phtWallClock = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
+    return new Date(phtWallClock.getTime() - 8 * 60 * 60 * 1000);
   };
 
   const seedSession = (

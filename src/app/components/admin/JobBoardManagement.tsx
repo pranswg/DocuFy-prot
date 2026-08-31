@@ -45,6 +45,7 @@ import {
 import { toast } from "sonner";
 import { jobsStore } from "../../utils/jobsStore";
 import { applicationsStore } from "../../utils/applicationsStore";
+import { todayPHTKey } from "../../utils/pht";
 import { notificationStore } from "../../utils/notificationStore";
 
 const menuItems = adminMenuItems;
@@ -163,7 +164,7 @@ export default function JobBoardManagement() {
       status: "active",
       department: "General",
       posted: "Just now",
-      postedDate: new Date().toISOString().split('T')[0],
+      postedDate: todayPHTKey(),
     });
     setFormData({
       title: "",
@@ -435,7 +436,7 @@ export default function JobBoardManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-[#1D73EC] text-[#1D73EC] hover:bg-white hover:text-[#1D73EC] border-2 border-blue-200"
+                      className="border-2 border-blue-200 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
                       onClick={() => handleViewApplicants(job)}
                     >
                       View Applicants
@@ -444,7 +445,7 @@ export default function JobBoardManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                        className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-600"
                         onClick={() => handleArchiveJob(job)}
                       >
                         Archive
@@ -453,7 +454,7 @@ export default function JobBoardManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                        className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-600"
                         onClick={() => handleUnarchiveJob(job)}
                       >
                         Restore

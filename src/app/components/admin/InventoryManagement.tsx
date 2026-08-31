@@ -334,7 +334,7 @@ export default function InventoryManagement() {
         </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-5 bg-white border border-slate-100 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]">
@@ -365,35 +365,6 @@ export default function InventoryManagement() {
               </div>
             </div>
           </Card>
-          <Card className="p-5 bg-white border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  View
-                </p>
-                <div className="flex gap-1 mt-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={showArchived ? "outline" : "default"}
-                    className={showArchived ? "" : "bg-[#2F6FD6] text-white"}
-                    onClick={() => setShowArchived(false)}
-                  >
-                    Active
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={showArchived ? "default" : "outline"}
-                    className={showArchived ? "bg-[#2F6FD6] text-white" : ""}
-                    onClick={() => setShowArchived(true)}
-                  >
-                    Archived
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
         </div>
 
         {/* Toolbar */}
@@ -404,15 +375,31 @@ export default function InventoryManagement() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search items..."
-              className="pl-9"
+              className="pl-9 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
             />
           </div>
-          <Button
-            onClick={openAdd}
-            className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add Item
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setShowArchived(false)}
+              className={!showArchived ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]" : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"}
+            >
+              Active
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowArchived(true)}
+              className={showArchived ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]" : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"}
+            >
+              Archived
+            </Button>
+            <Button
+              onClick={openAdd}
+              className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Item
+            </Button>
+          </div>
         </div>
 
         {/* Items Table */}

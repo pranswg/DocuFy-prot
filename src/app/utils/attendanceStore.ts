@@ -59,14 +59,41 @@ const formatDuration = (ms: number): string => {
 
 export { formatDuration, calcDurationMs };
 
+// ── Philippines time (UTC+8) helpers ───────────────────────────────────────
+// All product-facing time is pinned to the Philippines timezone regardless of
+// the viewer's device clock, so a Philippine printing-shop system reads
+// correctly everywhere.
+export const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+// Current instant shifted to the PHT wall-clock (a local-view Date carrying the
+// Philippines calendar time/date). Use .getHours()/.getDay()/.getDate() on this
+// to derive PHT-based periods/days.
+export const nowPHT = (): Date => new Date(Date.now() + PHT_OFFSET_MS);
+
+// Philippines date key (YYYY-MM-DD) for the current moment.
+export const todayPHTKey = (): string => toDateKey(nowPHT());
+
+// Current session period (Morning/Afternoon) derived from the PHT clock.
+export const getCurrentPeriod = (): 'morning' | 'afternoon' =>
+  nowPHT().getHours() < 12 ? 'morning' : 'afternoon';
+
+// Format a UTC instant as a PHT HH:MM (or HH:MM:SS with includeSeconds).
+export const formatPHT = (d: Date | undefined | null, includeSeconds = false): string => {
+  if (!d || Number.isNaN(d.getTime())) return '—';
+  const pht = new Date(d.getTime() + PHT_OFFSET_MS);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const base = `${pad(pht.getHours())}:${pad(pht.getMinutes())}`;
+  return includeSeconds ? `${base}:${pad(pht.getSeconds())}` : base;
+};
+
 // ── Timesheet analytics — constants & pure helpers ─────────────────────────
 export const STANDARD_DAILY_HOURS = 8;
 export const STANDARD_WEEKLY_HOURS = 40;
 
 const MS_PER_HOUR = 3_600_000;
 
-// Monday-based week-start date key (local date, YYYY-MM-DD)
-export const getWeekStartKey = (d: Date = new Date()): string => {
+// Monday-based week-start date key (PHT date, YYYY-MM-DD)
+export const getWeekStartKey = (d: Date = nowPHT()): string => {
   const daysSinceMonday = (d.getDay() + 6) % 7;
   const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysSinceMonday);
   return toDateKey(monday);
@@ -202,7 +229,7 @@ class AttendanceStore {
     userName: string,
     role: 'admin' | 'staff',
   ): DailyAttendanceRecord {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     let record = this.records.find(r => r.userId === userId && r.date === today);
     if (!record) {
       record = {
@@ -220,40 +247,54 @@ class AttendanceStore {
   }
 
   // ── Determine next action for user ────────────────────────────────────
+  // Period-aware: the current PHT AM/PM dictates which session is in play.
+  // In the Morning you can only act on `morning`; in the Afternoon only on
+  // `afternoon`. 'complete' here means the CURRENT period's session is done.
   getNextAction(userId: string): NextAction {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
-    if (!record || !record.morning.timeIn) return 'morning-time-in';
-    if (!record.morning.timeOut)           return 'morning-time-out';
-    if (!record.afternoon.timeIn)          return 'afternoon-time-in';
-    if (!record.afternoon.timeOut)         return 'afternoon-time-out';
+    const period = getCurrentPeriod();
+    const session = record?.[period];
+
+    if (!session || !session.timeIn) {
+      return period === 'morning' ? 'morning-time-in' : 'afternoon-time-in';
+    }
+    if (!session.timeOut) {
+      return period === 'morning' ? 'morning-time-out' : 'afternoon-time-out';
+    }
     return 'complete';
   }
 
-  // ── Time In (smart — applies to next unfilled session) ────────────────
+  // ── Time In (period-aware — AM = Morning, PM = Afternoon) ─────────────
   timeIn(userId: string, userName: string, role: 'admin' | 'staff'): DailyAttendanceRecord {
     const record = this.getOrCreateTodayRecord(userId, userName, role);
     const now = new Date();
+    const period = getCurrentPeriod();
 
-    if (!record.morning.timeIn) {
-      record.morning.timeIn = now;
-    } else if (!record.morning.timeOut) {
-      throw new Error('You are still in your Morning session. Please Time Out first.');
-    } else if (!record.afternoon.timeIn) {
-      record.afternoon.timeIn = now;
-    } else if (!record.afternoon.timeOut) {
-      throw new Error('You are still in your Afternoon session. Please Time Out first.');
+    const target = record[period];
+    if (!target.timeIn) {
+      target.timeIn = now;
+    } else if (!target.timeOut) {
+      throw new Error(
+        period === 'morning'
+          ? 'You are still in your Morning session. Please Time Out first.'
+          : 'You are still in your Afternoon session. Please Time Out first.',
+      );
     } else {
-      throw new Error('Both Morning and Afternoon sessions have already been recorded for today.');
+      throw new Error(
+        period === 'morning'
+          ? 'Your Morning session is already complete. Afternoon Time In opens in the PM.'
+          : 'Your Afternoon session is already complete for today.',
+      );
     }
 
     this.notify();
     return record;
   }
 
-  // ── Time Out (smart — closes the currently active session) ───────────
+  // ── Time Out (period-aware — always closes the current AM/PM session) ─
   timeOut(userId: string): DailyAttendanceRecord {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
 
     if (!record) {
@@ -261,13 +302,17 @@ class AttendanceStore {
     }
 
     const now = new Date();
+    const period = getCurrentPeriod();
+    const session = record[period];
 
-    if (record.morning.timeIn && !record.morning.timeOut) {
-      record.morning.timeOut = now;
-    } else if (record.afternoon.timeIn && !record.afternoon.timeOut) {
-      record.afternoon.timeOut = now;
+    if (session.timeIn && !session.timeOut) {
+      session.timeOut = now;
     } else {
-      throw new Error('No active session to Time Out from.');
+      throw new Error(
+        period === 'morning'
+          ? 'No active Morning session to Time Out from.'
+          : 'No active Afternoon session to Time Out from.',
+      );
     }
 
     this.notify();
@@ -276,7 +321,7 @@ class AttendanceStore {
 
   // ── Today's record for a user ─────────────────────────────────────────
   getTodayRecord(userId: string): DailyAttendanceRecord | null {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     return this.records.find(r => r.userId === userId && r.date === today) ?? null;
   }
 
@@ -370,7 +415,7 @@ class AttendanceStore {
 
   // ── Check if any user in a role is currently clocked in ──────────────
   isRoleAvailable(role: 'admin' | 'staff'): boolean {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     return this.records.some(r => {
       if (r.role !== role || r.date !== today) return false;
       const morningActive   = !!r.morning.timeIn   && !r.morning.timeOut;
@@ -382,7 +427,7 @@ class AttendanceStore {
   // ── Backward-compat: availability for NewPrintRequest.tsx ────────────
   getAvailability(): { admin: UserAvailability; staff: UserAvailability } {
     const buildAvailability = (role: 'admin' | 'staff'): UserAvailability => {
-      const today = toDateKey();
+      const today = toDateKey(nowPHT());
       const activeRecord = this.records.find(r => {
         if (r.role !== role || r.date !== today) return false;
         const morningActive   = !!r.morning.timeIn   && !r.morning.timeOut;
@@ -417,7 +462,7 @@ class AttendanceStore {
 
   // ── Backward-compat: getCurrentSession for existing consumers ─────────
   getCurrentSession(userId: string): AttendanceLog | null {
-    const today = toDateKey();
+    const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
     if (!record) return null;
 

@@ -26,6 +26,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { getOrderStatusStyle, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { formatPHTime, formatPHDate } from "../../utils/pht";
 import {
   Dialog,
   DialogContent,
@@ -350,7 +351,7 @@ export default function OrderTracking() {
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Order Date</Label>
-                <p className="font-semibold text-gray-900">{orderData?.date || "N/A"}</p>
+                <p className="font-semibold text-gray-900">{orderData?.date ? formatPHDate(orderData.date, "short") : "N/A"}</p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Total Amount</Label>
@@ -359,7 +360,7 @@ export default function OrderTracking() {
               <div>
                 <Label className="text-xs text-gray-600">Order Time</Label>
                 <p className="font-semibold text-gray-900">
-                  {orderData?.date ? new Date(orderData.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}
+                  {orderData?.date ? formatPHTime(orderData.createdAt || orderData.date) : "N/A"}
                 </p>
               </div>
             </div>

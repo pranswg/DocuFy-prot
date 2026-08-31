@@ -851,10 +851,8 @@ export default function LandingPage() {
           </DialogHeader>
           <div className="overflow-hidden rounded-xl border-2 border-blue-100">
             <iframe
-              title="DocuFy Shop Location"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(
-                content.locationCampus
-              )}&output=embed`}
+              title="Docufy Printing Services - Shop Location"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
               className="w-full h-72 border-0"
               loading="lazy"
               allowFullScreen

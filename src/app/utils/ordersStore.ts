@@ -1,5 +1,6 @@
 // Shared orders store for queue management
 import { dataStore } from './dataStore';
+import { toPHTKey } from './pht';
 
 type OrderType = {
   id: string;
@@ -175,7 +176,7 @@ class OrdersStore {
       status: this.convertStatus(order.status),
       holdReason: order.holdReason,
       total: `₱${(order.pages * order.copies * (order.type === 'Colored' ? 5 : 1)).toFixed(2)}`,
-      date: order.submittedAt.toISOString().split('T')[0],
+      date: toPHTKey(order.submittedAt),
       paperSize: order.paperSize,
       printType: order.type === 'Colored' ? 'Colored' : 'Black & White',
       copies: order.copies,

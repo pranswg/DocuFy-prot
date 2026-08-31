@@ -35,6 +35,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Textarea } from '../ui/textarea';
 import { ordersStore } from '../../utils/ordersStore';
 import { formatCurrency } from '../../utils/formatNumber';
+import { formatPHTime } from '../../utils/pht';
 import { pricingStore, calcPagePrice, formatPrice, type PricingValues } from '../../utils/pricingStore';
 import { AVAILABLE_ADDONS, type Addon } from '../../utils/constants';
 import { dataStore } from '../../utils/dataStore';
@@ -381,7 +382,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
         type: hasColor ? 'Colored' : 'B&W',
         notes: `Walk-in transaction - ${files.length} file(s)`,
         status: 'received' as const,
-        time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        time: formatPHTime(now),
         paperSize: files[0]?.paperSize === 'a4' ? 'A4' : files[0]?.paperSize === 'legal' ? 'Legal' : 'A4',
         copies: 1,
         submittedAt: now,

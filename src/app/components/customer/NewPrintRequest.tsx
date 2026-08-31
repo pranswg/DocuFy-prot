@@ -42,6 +42,7 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { formatCurrency } from "../../utils/formatNumber";
+import { todayPHTKey } from "../../utils/pht";
 import {
   Dialog,
   DialogContent,
@@ -578,7 +579,7 @@ export default function NewPrintRequest() {
           ? `Down payment required: ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}). Please pay this amount via Cash before your order can be processed.`
           : undefined,
       total: `₱${Math.round(total)}`,
-      date: new Date().toISOString().split("T")[0],
+      date: todayPHTKey(),
       paperSize:
         files[0]?.paperSize === "a4"
           ? "A4"

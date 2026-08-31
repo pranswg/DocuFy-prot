@@ -39,6 +39,7 @@ import {
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 import { adminMenuItems } from "../../utils/adminMenuItems";
+import { formatPHDate, todayPHTKey } from "../../utils/pht";
 
 const menuItems = adminMenuItems;
 
@@ -283,11 +284,7 @@ function getInitials(name: string) {
 function formatDate(iso: string) {
   const date = new Date(iso);
   if (isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatPHDate(date, "short");
 }
 
 export default function Staff() {
@@ -397,7 +394,7 @@ export default function Staff() {
       phone: "Not set",
       role: role === "admin" ? "Admin" : "Staff",
       status: "Active",
-      joinDate: new Date().toISOString().split("T")[0],
+      joinDate: todayPHTKey(),
       skillsMessage: "",
       portfolioLink: "",
       performanceNotes: [],
@@ -531,7 +528,7 @@ export default function Staff() {
                 placeholder="Search by name, email, or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
               />
             </div>
             <div className="w-full md:w-56">

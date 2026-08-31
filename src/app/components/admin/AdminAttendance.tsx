@@ -53,6 +53,8 @@ import {
   attendanceStore,
   sessionTotalMs,
   STANDARD_DAILY_HOURS,
+  formatPHT,
+  PHT_OFFSET_MS,
 } from "../../utils/attendanceStore";
 import type {
   AbsenceType,
@@ -104,16 +106,18 @@ function buildRow(
 
   const isLive =
     !!rec &&
-    dateKey === toDateKey(now) &&
+    dateKey === toDateKey(new Date(now.getTime() + PHT_OFFSET_MS)) &&
     ((rec.morning.timeIn && !rec.morning.timeOut) ||
       (rec.afternoon.timeIn && !rec.afternoon.timeOut));
 
   const totalMs = rec ? sessionTotalMs(rec, now) : 0;
 
+  // The 8:30 AM cutoff is a PHT wall-clock time, so interpret it as PHT.
   const lateCutKey = `${dateKey}T${String(LATE_CUTOFF.hour).padStart(2, "0")}:${String(
     LATE_CUTOFF.minute,
   ).padStart(2, "0")}:00`;
-  const onTime = !!clockIn && clockIn.getTime() <= new Date(lateCutKey).getTime();
+  const lateCutInstant = new Date(new Date(lateCutKey).getTime() - PHT_OFFSET_MS);
+  const onTime = !!clockIn && clockIn.getTime() <= lateCutInstant.getTime();
   const late = !!clockIn && !onTime;
   const overtime = totalMs > STANDARD_DAILY_HOURS * MS_PER_HOUR;
 
@@ -162,10 +166,8 @@ function buildRangeRows(
 }
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
-const fmtTime = (d?: Date): string =>
-  d
-    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "—";
+// Times render in Philippines time (PHT, UTC+8) regardless of device timezone.
+const fmtTime = (d?: Date): string => formatPHT(d);
 
 const fmtHms = (ms: number): string => {
   const minutes = Math.max(0, Math.floor(ms / 60_000));
@@ -186,10 +188,17 @@ const fmtLongDay = (dateKey: string): string => {
   return Number.isNaN(d.getTime()) ? dateKey : d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 };
 
+// datetime-local input is expressed in PHT so what the admin picks matches the
+// timezone the whole system reports in.
 const toLocalInput = (d: Date): string => {
   const pad = (n: number): string => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const p = new Date(d.getTime() + PHT_OFFSET_MS);
+  return `${p.getFullYear()}-${pad(p.getMonth() + 1)}-${pad(p.getDate())}T${pad(p.getHours())}:${pad(p.getMinutes())}`;
 };
+
+// Reverse of toLocalInput — treat the picked PHT string as a real UTC instant.
+const fromPHTInput = (iso: string): Date =>
+  new Date(new Date(iso).getTime() - PHT_OFFSET_MS);
 
 const initialsOf = (name: string): string =>
   name.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
@@ -307,7 +316,7 @@ export default function AdminAttendancePage() {
   const saveAdjust = () => {
     if (!adjust) return;
     const { row, field } = adjust;
-    const parsed = adjValue ? new Date(adjValue) : null;
+    const parsed = adjValue ? fromPHTInput(adjValue) : null;
     if (!parsed || Number.isNaN(parsed.getTime())) {
       toast.error("Please choose a valid date and time.");
       return;
@@ -539,7 +548,7 @@ export default function AdminAttendancePage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
           <p className="text-gray-600">
-            Passive monitoring of staff clock-in logs, attendance status, and time-off records.
+            Monitoring of staff clock-in logs, attendance status, and time-off records.
           </p>
           {kpis.live > 0 && (
             <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
@@ -619,7 +628,7 @@ export default function AdminAttendancePage() {
                     placeholder="Search by staff name or email..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
                   />
                 </div>
               </div>

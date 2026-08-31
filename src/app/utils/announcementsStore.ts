@@ -7,6 +7,7 @@
 // their own notifications (e.g. pricing updates, order-status changes) through
 // the SAME store without redesigning the Notifications section — just call
 // createAnnouncement() with the right type from wherever the event happens.
+import { toPHT, PHT_OFFSET_MS } from './pht';
 
 export type AnnouncementType =
   | 'announcement'
@@ -218,23 +219,26 @@ export const ANNOUNCEMENT_PRIORITY_LABELS: Record<AnnouncementPriority, string> 
 export function formatSentTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
+  // Everything is pinned to Philippines time (PHT, UTC+8) so a shared "Today /
+  // Yesterday" label reads correctly even when the device isn't in the PH timezone.
+  const phtDate = toPHT(date);
+  const nowPHT = new Date(Date.now() + PHT_OFFSET_MS);
   const sameDay = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 
-  const time = date.toLocaleTimeString('en-US', {
+  const time = phtDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
 
-  if (sameDay(date, now)) return `Today • ${time}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (sameDay(date, yesterday)) return `Yesterday • ${time}`;
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${time}`;
+  if (sameDay(phtDate, nowPHT)) return `Today • ${time}`;
+  const yesterday = new Date(nowPHT);
+  yesterday.setDate(nowPHT.getDate() - 1);
+  if (sameDay(phtDate, yesterday)) return `Yesterday • ${time}`;
+  if (phtDate.getFullYear() === nowPHT.getFullYear()) {
+    return `${phtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${time}`;
   }
-  return date.toLocaleDateString('en-US') + ` • ${time}`;
+  return phtDate.toLocaleDateString('en-US') + ` • ${time}`;
 }

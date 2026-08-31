@@ -127,12 +127,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
     () => router.state.location.pathname,
   );
 
-  const unreadAnnouncements = useSyncExternalStore(
-    announcementsStore.subscribe,
-    () => announcementsStore.getUnreadCount(user?.email || ""),
-    () => announcementsStore.getUnreadCount(user?.email || ""),
-  );
-
   const urgentAnnouncements = useSyncExternalStore(
     announcementsStore.subscribe,
     () => announcementsStore.getUrgentUnreadCount(user?.email || ""),
@@ -252,11 +246,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   >
                     <div className="relative flex-shrink-0 flex items-center justify-center">
                       {item.icon}
-                      {isNotificationsItem && unreadAnnouncements > 0 && (
-                        <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff5252] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#1D73EC]">
-                          {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
-                        </span>
-                      )}
                       {isNotificationsItem && urgentAnnouncements > 0 && (
                         <span
                           title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}

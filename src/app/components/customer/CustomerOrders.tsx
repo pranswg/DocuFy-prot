@@ -21,6 +21,7 @@ import { Label } from "../ui/label";
 import { dataStore, type Order } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
 import { getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { formatPHDate, formatPHTime } from "../../utils/pht";
 
 const menuItems = [
   {
@@ -364,14 +365,10 @@ export default function CustomerOrders() {
                         {order.total}
                       </td>
                       <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
-                        {new Date(order.date).toLocaleDateString()}
+                        {formatPHDate(order.date, "short")}
                       </td>
                       <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
-                        {new Date(order.date).toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
+                        {formatPHTime(order.createdAt || order.date)}
                       </td>
                     </tr>
                   ))

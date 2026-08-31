@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "./button";
 import { toast } from "sonner";
+import { formatPHDate, formatPHTime } from "../../utils/pht";
 
 interface AttachedFile {
   name: string;
@@ -124,13 +125,9 @@ function FileBadgeColor(file: AttachedFile): string {
 function formatUploadDate(iso?: string): string {
   if (!iso) return "Unknown";
   try {
-    return new Date(iso).toLocaleString("en-PH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return `${formatPHDate(date, "short")} ${formatPHTime(date, { hour12: true })}`;
   } catch {
     return iso;
   }

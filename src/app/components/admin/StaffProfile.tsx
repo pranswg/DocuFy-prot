@@ -44,6 +44,7 @@ import {
 import { toast } from "sonner";
 import { jobsStore } from "../../utils/jobsStore";
 import { applicationsStore } from "../../utils/applicationsStore";
+import { todayPHTKey } from "../../utils/pht";
 import { notificationStore } from "../../utils/notificationStore";
 
 const menuItems = adminMenuItems;
@@ -162,7 +163,7 @@ export default function JobBoardManagement() {
       status: "active",
       department: "General",
       posted: "Just now",
-      postedDate: new Date().toISOString().split('T')[0],
+      postedDate: todayPHTKey(),
     });
     setFormData({
       title: "",

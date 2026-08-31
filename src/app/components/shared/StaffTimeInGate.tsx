@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
-import { attendanceStore } from "../../utils/attendanceStore";
+import { attendanceStore, getCurrentPeriod, formatPHT, PHT_OFFSET_MS } from "../../utils/attendanceStore";
 import type { NextAction } from "../../utils/attendanceStore";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
@@ -22,9 +22,6 @@ import { Button } from "../ui/button";
 interface StaffTimeInGateProps {
   children: React.ReactNode;
 }
-
-const fmt = (d: Date): string =>
-  d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 const LOCKED_ACTIONS = [
   { icon: CreditCard, label: "Payment verification" },
@@ -73,17 +70,22 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
     return <>{children}</>;
   }
 
-  const period = nextAction === "morning-time-in" ? "Morning" : "Afternoon";
+  const period = getCurrentPeriod() === "morning" ? "Morning" : "Afternoon";
+  const phtNow = new Date(now.getTime() + PHT_OFFSET_MS);
 
   const handleTimeIn = () => {
     try {
       if (nextAction === "complete") {
-        toast.info("Both sessions are already recorded for today. Come back tomorrow!");
+        toast.info(
+          getCurrentPeriod() === "morning"
+            ? "Morning session is complete. Come back in the PM to clock in your Afternoon session."
+            : "All sessions are already recorded for today. Come back tomorrow!",
+        );
         return;
       }
       const userName = staffUser.name || staffUser.email.split("@")[0];
       attendanceStore.timeIn(staffUser.email, userName, "staff");
-      toast.success(`${period} Time In recorded at ${fmt(new Date())}. Staff functions unlocked!`);
+      toast.success(`${period} Time In recorded at ${formatPHT(new Date(), true)}. Staff functions unlocked!`);
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);
     }
@@ -125,10 +127,10 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
             <div className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-slate-100 bg-[#f0f4f8] px-4 py-3">
               <CalendarDays className="h-4 w-4 flex-shrink-0 text-[#1D73EC]" />
               <span className="text-xs font-semibold text-slate-600 sm:text-sm">
-                {now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                {phtNow.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
               </span>
               <span className="ml-auto font-mono text-sm font-bold text-[#1D73EC] sm:text-base">
-                {fmt(now)}
+                {formatPHT(now, true)}
               </span>
             </div>
 
@@ -166,7 +168,9 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
               {nextAction === "complete" ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Attendance Complete for Today
+                  {period === "Morning"
+                    ? "Morning Complete — Back in PM"
+                    : "Attendance Complete for Today"}
                 </>
               ) : (
                 <>

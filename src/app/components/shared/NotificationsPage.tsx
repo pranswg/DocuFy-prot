@@ -214,12 +214,18 @@ export default function NotificationsPage() {
 
   const openSystemNotification = (n: Notification) => {
     notificationStore.markAsRead(n.id);
-    if (n.clickable && n.relatedRoute) {
-      navigate(n.relatedRoute);
-    } else if (n.clickable && n.relatedOrderId && user) {
-      if (user.role === "customer") navigate(`/customer/track/${n.relatedOrderId}`);
-      else navigate(`/${user.role}/orders`);
+    if (!n.clickable) return;
+    // Order/payment/status notification → open that specific order.
+    if (n.relatedOrderId && user) {
+      if (user.role === "customer") {
+        navigate(`/customer/track/${n.relatedOrderId}`);
+      } else {
+        // Admin/staff: go to the Orders list and open the customer's order right away.
+        navigate(`/${user.role}/orders?orderId=${encodeURIComponent(n.relatedOrderId)}`);
+      }
+      return;
     }
+    if (n.relatedRoute) navigate(n.relatedRoute);
   };
 
   const handleMarkAllRead = () => {
