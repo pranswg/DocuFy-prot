@@ -33,6 +33,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
 import {
   paymentMethodsStore,
@@ -92,6 +93,7 @@ export default function PaymentVerification() {
   >(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
   const selectedMethod = isOnline
@@ -494,7 +496,19 @@ export default function PaymentVerification() {
               Submit Payment Reference
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (paymentMethod !== "cash" && !referenceNumber.trim()) {
+                  toast.error(
+                    `Please enter a ${selectedMethod?.name || "payment"} reference number`,
+                  );
+                  return;
+                }
+                setShowSubmitConfirm(true);
+              }}
+              className="space-y-6"
+            >
               <div className="space-y-2">
                 <Label htmlFor="reference">
                   Reference Number *
@@ -742,6 +756,24 @@ export default function PaymentVerification() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Submit Payment Confirmation */}
+      {showSubmitConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSubmitConfirm}
+          onConfirm={() => { handleSubmit({ preventDefault: () => {} } as React.FormEvent); setShowSubmitConfirm(false); }}
+          title="Submit Payment for Verification?"
+          description={
+            paymentMethod === "cash"
+              ? "Confirm your Cash on Pickup order? Your order is ready to be processed."
+              : `Submit reference ${referenceNumber.trim() || "number"}${imagePreviewUrl ? " and payment proof" : ""} for ${selectedMethod?.name || "online"} payment for order ${orderId}? Once submitted, your payment will be queued for admin/staff verification and the order will not print until approved.`
+          }
+          confirmLabel={paymentMethod === "cash" ? "Confirm Order" : "Submit Reference"}
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

@@ -53,6 +53,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
 import { inventoryStore } from "../../utils/inventoryStore";
@@ -202,6 +203,7 @@ export default function NewPrintRequest() {
     [key: string]: number;
   }>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPlaceOrderConfirm, setShowPlaceOrderConfirm] = useState(false);
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [expandedFileSettings, setExpandedFileSettings] = useState<Record<string, boolean>>({});
@@ -2385,7 +2387,7 @@ export default function NewPrintRequest() {
               ) : (
                 <Button
                   className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"
-                  onClick={handleSubmit}
+                  onClick={() => setShowPlaceOrderConfirm(true)}
                   disabled={files.length === 0 || !paymentMethod}
                 >
                   Place Order
@@ -2668,6 +2670,24 @@ export default function NewPrintRequest() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Place Order Confirmation */}
+      {showPlaceOrderConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowPlaceOrderConfirm}
+          onConfirm={() => { handleSubmit(); setShowPlaceOrderConfirm(false); }}
+          title="Place this order?"
+          description={`Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod === "" ? "your selected method" : paymentMethod}. This will create your order${
+            paymentMethod !== "" && paymentMethod !== "cash"
+              ? " and take you to payment verification"
+              : ""
+          }, reserve paper stock, and notify staff. Review your details before confirming.`}
+          confirmLabel="Place Order"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

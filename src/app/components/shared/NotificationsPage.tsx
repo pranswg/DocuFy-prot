@@ -43,6 +43,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
@@ -160,6 +161,8 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState("");
   const [priority, setPriority] = useState<AnnouncementPriority>("regular");
   const [recipients, setRecipients] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   useEffect(() => {
     const load = () => setAnnouncements(announcementsStore.getAnnouncementsFor(email));
@@ -260,13 +263,11 @@ export default function NotificationsPage() {
     setMessage("");
     setPriority("regular");
     setRecipients("all");
+    setShowSendConfirm(false);
   };
 
   const handleDelete = (announcement: Announcement) => {
-    if (!confirm("Delete this notification? Users will no longer see it.")) return;
-    announcementsStore.deleteAnnouncement(announcement.id);
-    if (selected?.id === announcement.id) setSelected(null);
-    toast.success("Notification deleted");
+    setDeleteTarget(announcement);
   };
 
   const renderUrgentCard = (announcement: Announcement) => {
@@ -737,7 +738,7 @@ export default function NotificationsPage() {
                       ? "bg-amber-500 hover:bg-amber-600"
                       : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               }`}
-              onClick={handleSend}
+              onClick={() => setShowSendConfirm(true)}
             >
               {priority === "emergency" ? (
                 <AlertOctagon className="w-4 h-4 mr-2" />
@@ -751,6 +752,39 @@ export default function NotificationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Notification Confirmation */}
+      {deleteTarget && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            announcementsStore.deleteAnnouncement(deleteTarget.id);
+            if (selected?.id === deleteTarget.id) setSelected(null);
+            toast.success("Notification deleted");
+            setDeleteTarget(null);
+          }}
+          title="Delete this notification?"
+          description={`"${deleteTarget.title}" will be permanently removed. All users will no longer see this notification. This action cannot be undone.`}
+          confirmLabel="Delete Notification"
+          cancelLabel="Keep It"
+          requirePhrase
+        />
+      )}
+
+      {/* Send Notification Confirmation */}
+      {showSendConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSendConfirm}
+          onConfirm={() => { handleSend(); setShowSendConfirm(false); }}
+          title={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} notification?`}
+          description={`This will broadcast "${title}" to all users. It will appear in the Notifications panel for everyone and cannot be unsent once delivered.`}
+          confirmLabel={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification`}
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

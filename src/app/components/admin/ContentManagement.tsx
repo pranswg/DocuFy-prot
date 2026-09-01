@@ -37,6 +37,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 const menuItems = adminMenuItems;
 
@@ -95,6 +96,7 @@ export default function ContentManagement() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   useEffect(() => {
@@ -426,7 +428,7 @@ export default function ContentManagement() {
                 Preview Changes
               </Button>
               <Button
-                onClick={saveLandingContent}
+                onClick={() => setShowSaveConfirm(true)}
                 className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
@@ -607,6 +609,20 @@ export default function ContentManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Save Landing Page Confirmation */}
+      {showSaveConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSaveConfirm}
+          onConfirm={saveLandingContent}
+          title="Save Landing Page Changes?"
+          description="Publish the current landing page content (hero, services, shop info, About) to the live page? This overwrites the previous values."
+          confirmLabel="Save Changes"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

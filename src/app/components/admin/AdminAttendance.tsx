@@ -35,6 +35,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -219,6 +220,9 @@ export default function AdminAttendancePage() {
   const [adjust, setAdjust] = useState<AdjustTarget>(null);
   const [adjSession, setAdjSession] = useState<"morning" | "afternoon">("morning");
   const [adjValue, setAdjValue] = useState("");
+  const [showSaveAdjustConfirm, setShowSaveAdjustConfirm] = useState(false);
+  const [absenceTarget, setAbsenceTarget] = useState<{ row: AdminRow; type: AbsenceType } | null>(null);
+  const [resetTarget, setResetTarget] = useState<AdminRow | null>(null);
 
   // Live refresh + store reactivity
   useEffect(() => {
@@ -495,20 +499,20 @@ export default function AdminAttendancePage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className={`cursor-pointer ${row.absence === "on-leave" ? "text-amber-600" : ""}`}
-                          onSelect={() => toggleAbsence(row, "on-leave")}
+                          onSelect={() => setAbsenceTarget({ row, type: "on-leave" })}
                         >
                           <PlaneTakeoff className="h-4 w-4" />
                           {row.absence === "on-leave" ? "Clear On Leave" : "Mark On Leave"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className={`cursor-pointer ${row.absence === "absent" ? "text-red-600" : ""}`}
-                          onSelect={() => toggleAbsence(row, "absent")}
+                          onSelect={() => setAbsenceTarget({ row, type: "absent" })}
                         >
                           <UserX className="h-4 w-4" />
                           {row.absence === "absent" ? "Clear Absent" : "Mark Absent"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer text-red-600" onSelect={() => resetDay(row)}>
+                        <DropdownMenuItem className="cursor-pointer text-red-600" onSelect={() => setResetTarget(row)}>
                           <Trash2 className="h-4 w-4" />
                           Reset Day's Record
                         </DropdownMenuItem>
@@ -739,12 +743,59 @@ export default function AdminAttendancePage() {
               <Button variant="outline" onClick={() => setAdjust(null)}>
                 Cancel
               </Button>
-              <Button className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white" onClick={saveAdjust}>
+              <Button className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white" onClick={() => setShowSaveAdjustConfirm(true)}>
                 Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Save Adjust Confirmation */}
+        {showSaveAdjustConfirm && adjust && (
+          <ConfirmationDialog
+            open={showSaveAdjustConfirm}
+            onOpenChange={setShowSaveAdjustConfirm}
+            onConfirm={saveAdjust}
+            title="Adjust Time?"
+            description={`Overwrite ${adjust.row.member.name}'s ${adjust.field === "timeIn" ? "clock-in" : "clock-out"} for ${fmtLongDay(adjust.row.date)} (${adjSession === "morning" ? "Morning" : "Afternoon"} session) to ${adjValue}? This changes their recorded hours and status.`}
+            confirmLabel="Save Changes"
+            cancelLabel="Go Back"
+            destructive={false}
+          />
+        )}
+
+        {/* Absence Confirmation */}
+        {absenceTarget && (
+          <ConfirmationDialog
+            open
+            onOpenChange={() => setAbsenceTarget(null)}
+            onConfirm={() => { toggleAbsence(absenceTarget.row, absenceTarget.type); setAbsenceTarget(null); }}
+            title={absenceTarget.row.absence === absenceTarget.type ? "Clear Absence?" : (absenceTarget.type === "on-leave" ? "Mark On Leave?" : "Mark Absent?")}
+            description={
+              absenceTarget.row.absence === absenceTarget.type
+                ? `Clear the ${absenceTarget.type === "on-leave" ? "On Leave" : "Absent"} status for ${absenceTarget.row.member.name} on ${fmtLongDay(absenceTarget.row.date)}?`
+                : `Mark ${absenceTarget.row.member.name} as ${absenceTarget.type === "on-leave" ? "On Leave" : "Absent"} for ${fmtLongDay(absenceTarget.row.date)}? This updates their attendance status and the Time Off report.`
+            }
+            confirmLabel={absenceTarget.row.absence === absenceTarget.type ? "Clear" : (absenceTarget.type === "on-leave" ? "Mark On Leave" : "Mark Absent")}
+            cancelLabel="Go Back"
+            destructive={absenceTarget.type === "absent"}
+          />
+        )}
+
+        {/* Reset Day Confirmation */}
+        {resetTarget && (
+          <ConfirmationDialog
+            open
+            onOpenChange={() => setResetTarget(null)}
+            onConfirm={() => { resetDay(resetTarget); setResetTarget(null); }}
+            title="Reset Day's Record?"
+            description={`Delete all attendance data for ${resetTarget.member.name} on ${fmtLongDay(resetTarget.date)}? This removes their clock-in/out times, hours rendered, and any leave/absence flag. This cannot be undone.`}
+            confirmLabel="Reset Record"
+            cancelLabel="Keep Record"
+            destructive
+            requirePhrase
+          />
+        )}
       </div>
     </Layout>
   );

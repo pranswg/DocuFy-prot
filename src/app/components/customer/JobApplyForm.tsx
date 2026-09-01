@@ -36,6 +36,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { applicationsStore } from "../../utils/applicationsStore";
 import { jobsStore } from "../../utils/jobsStore";
 import { useIsMobile } from "../ui/use-mobile";
@@ -77,6 +78,7 @@ export default function JobApplyForm() {
   const [showSuccessDialog, setShowSuccessDialog] =
     useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -309,7 +311,16 @@ export default function JobApplyForm() {
         {/* Form */}
         <Card className="p-8 bg-white shadow-sm">
           <form
-            onSubmit={handleSubmit}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const errs = validate();
+              if (Object.keys(errs).length > 0) {
+                setErrors(errs);
+                return;
+              }
+              setErrors({});
+              setShowApplyConfirm(true);
+            }}
             className="space-y-6"
             noValidate
           >
@@ -774,6 +785,19 @@ export default function JobApplyForm() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showApplyConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowApplyConfirm}
+          onConfirm={() => { handleSubmit({ preventDefault: () => {} } as React.FormEvent); setShowApplyConfirm(false); }}
+          title={`Apply for ${jobTitle}?`}
+          description={`Submit your application${formData.portfolioType === "file" && formData.portfolioFile ? ` with portfolio file "${formData.portfolioFile.name}"` : ""}? Your details will be sent to the Docufy team for review and will appear under your Applications on the Job Board.`}
+          confirmLabel="Submit Application"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

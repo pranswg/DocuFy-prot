@@ -24,6 +24,7 @@ import Layout from "../Layout";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   attendanceStore,
@@ -112,6 +113,7 @@ export default function StaffTimesheet() {
   );
   const [now, setNow] = useState(() => new Date(internetUtcMs()));
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [showClockConfirm, setShowClockConfirm] = useState(false);
 
   // Live clock — ticks for timer + wall-clock display. Uses internet GMT+8 so
   // the clock reads true Philippines time even if the device clock is off.
@@ -251,7 +253,7 @@ export default function StaffTimesheet() {
             <p className="mt-3 text-sm text-slate-500 font-medium">{description}</p>
 
             <Button
-              onClick={handleClock}
+              onClick={() => { if (!curDone) setShowClockConfirm(true); }}
               disabled={curDone}
               className={`mt-6 h-14 w-full max-w-sm rounded-xl text-base font-bold transition-all disabled:opacity-100 ${
                 isOnClock
@@ -477,6 +479,23 @@ export default function StaffTimesheet() {
           </div>
         </Card>
       </div>
+
+      {showClockConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowClockConfirm}
+          onConfirm={() => { handleClock(); setShowClockConfirm(false); }}
+          title={isOnClock ? `Time Out of ${activePeriod} session?` : `Time In to ${activePeriod} session?`}
+          description={
+            isOnClock
+              ? `End your ${activePeriod} session now? Your clock-out time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))}. You can clock back in for your next session.`
+              : `Start your ${activePeriod} session now? Your clock-in time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))} and this session will count toward today's hours.`
+          }
+          confirmLabel={isOnClock ? "Time Out" : "Time In"}
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

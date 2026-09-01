@@ -31,6 +31,7 @@ import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
 import { useMobileNav } from "../contexts/MobileNavContext";
 import { nowPHT, subscribeInternetTime } from "../utils/pht";
+import { ConfirmationDialog } from "./ui/confirmation-dialog";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -100,6 +101,7 @@ export default function Layout({
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Live header clock — real internet GMT+8 (Philippines time), visible to
   // every user/role on every page through the shared Layout header.
@@ -208,6 +210,10 @@ export default function Layout({
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate("/");
   };
@@ -747,6 +753,20 @@ export default function Layout({
           background-clip: padding-box;
         }
       `}</style>
+
+      {/* Sign Out Confirmation */}
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={confirmLogout}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your current session and app data will be preserved, but sign-in will be required to continue."
+          confirmLabel="Sign Out"
+          cancelLabel="Stay Signed In"
+          destructive={false}
+        />
+      )}
     </div>
   );
 }

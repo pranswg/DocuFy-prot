@@ -35,6 +35,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ export default function JobBoardManagement() {
   const [showStatusUpdateConfirmDialog, setShowStatusUpdateConfirmDialog] = useState(false);
   const [showArchiveConfirmDialog, setShowArchiveConfirmDialog] = useState(false);
   const [jobToArchive, setJobToArchive] = useState<any>(null);
+  const [jobToRestore, setJobToRestore] = useState<any>(null);
   const [viewState, setViewState] = useState<'list' | 'applicants' | 'application'>('list');
   const [jobFilter, setJobFilter] = useState<'active' | 'archived'>('active');
   const [selectedJob, setSelectedJob] = useState<any>(null);
@@ -455,7 +457,7 @@ export default function JobBoardManagement() {
                         variant="outline"
                         size="sm"
                         className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-600"
-                        onClick={() => handleUnarchiveJob(job)}
+                        onClick={() => setJobToRestore(job)}
                       >
                         Restore
                       </Button>
@@ -1044,6 +1046,20 @@ export default function JobBoardManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Restore Job Confirmation Dialog */}
+      {jobToRestore && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setJobToRestore(null)}
+          onConfirm={() => { handleUnarchiveJob(jobToRestore); setJobToRestore(null); }}
+          title="Restore Job Posting?"
+          description={`Are you sure you want to restore "${jobToRestore?.title}" to the active job board? It will immediately become visible to visitors again.`}
+          confirmLabel="Restore"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }
