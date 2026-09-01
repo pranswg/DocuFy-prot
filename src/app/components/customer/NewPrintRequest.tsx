@@ -16,7 +16,6 @@ import {
   ShoppingCart,
   Plus,
   Minus,
-  Eye,
   CheckCircle2,
   XCircle,
   CreditCard,
@@ -24,6 +23,9 @@ import {
   ChevronDown,
   QrCode,
   Bell,
+  Camera,
+  Layers,
+  StickyNote,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -63,7 +65,17 @@ import {
   pricingStore,
   calcPagePrice,
   formatPrice,
+  getPriceFromMatrix,
+  resolveColorTier,
+  mapPaperSizeKey,
+  CONTENT_TYPE_LABELS,
+  SERVICE_TYPE_LABELS,
+  PHOTO_SIZE_LABELS,
+  type ContentType,
+  type ServiceType,
+  type PhotoSizeKey,
   type PricingValues,
+  type ColorTier,
 } from "../../utils/pricingStore";
 import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
 
@@ -118,6 +130,11 @@ function scrollPageToTop() {
   document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function isImageFile(file: File): boolean {
+  const ext = file.name.toLowerCase().split(".").pop();
+  return ext === "jpg" || ext === "jpeg" || ext === "png";
+}
+
 export default function NewPrintRequest() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -126,6 +143,9 @@ export default function NewPrintRequest() {
   const [isProcessingFile, setIsProcessingFile] =
     useState(false);
   const [showColorPricing, setShowColorPricing] = useState(false);
+  const [breakdownFileId, setBreakdownFileId] = useState<string | null>(
+    null,
+  );
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   const downPaymentThreshold = pricing.downPaymentThreshold;
   useEffect(() => {
@@ -151,6 +171,8 @@ export default function NewPrintRequest() {
     fileName: string;
     pageCount: number;
     colorAnalysis: ColorAnalysis | null;
+    printType: "" | "document" | "vellum" | "sticker" | "photo";
+    contentType: ContentType;
     paperSize: string;
     copies: number;
     colorMode: string;
@@ -163,9 +185,13 @@ export default function NewPrintRequest() {
     scale: string;
     customScale: number;
     notes: string;
+    photoSize: PhotoSizeKey;
+    photoFinish: "matte" | "glossy";
+    photoQty: number;
   };
 
   const [files, setFiles] = useState<FileData[]>([]);
+  const [serviceType, setServiceType] = useState<ServiceType>("document");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [onlineMethods, setOnlineMethods] = useState<PaymentMethodType[]>([]);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -399,6 +425,8 @@ export default function NewPrintRequest() {
           fileName: file.name,
           pageCount,
           colorAnalysis: null,
+          contentType: isImageFile(file) ? "imageOnly" : "text",
+          printType: "",
           paperSize: availablePaperSizes.length > 0 ? availablePaperSizes[0].name : "a4",
           copies: 1,
           colorMode: "bw", // Default B&W until analysis completes
@@ -411,6 +439,9 @@ export default function NewPrintRequest() {
           scale: "default",
           customScale: 100,
           notes: "",
+          photoSize: "2R",
+          photoFinish: "matte",
+          photoQty: 1,
         };
 
         processedFiles.push(newFile);
@@ -475,48 +506,54 @@ export default function NewPrintRequest() {
   };
 
   const calculateFileTotal = (fileData: FileData) => {
+    if (fileData.printType === "photo") {
+      const matrix = pricingStore.getMatrix();
+      const size = matrix.photo[fileData.photoSize];
+      return (size ? size.price : 0) * Math.max(1, fileData.photoQty);
+    }
+
     const {
       pageCount,
       copies,
       colorMode,
       paperSize,
-      twoSided,
+      contentType,
       colorAnalysis,
       pagesPerSheet,
     } = fileData;
     const validCopies = Math.max(1, copies);
 
-    // Build one per-page color percentage per actual page so colored
-    // documents can mix rates (analysis) and standard requests stay flat:
-    // no analysis → colored = highest color rate, B&W = B&W rate.
-    const pageColorPcts: number[] = [];
-
-    if (colorMode === "colored" && colorAnalysis) {
-      for (const page of colorAnalysis.colorPages) {
-        pageColorPcts.push(colorAnalysis.colorPercentages[page] ?? 0);
-      }
-      for (let i = 0; i < colorAnalysis.bwPages.length; i++) {
-        pageColorPcts.push(0);
-      }
+    // Determine the file's color tier (one tier per file in the new matrix model).
+    let tierPct: number;
+    if (colorMode !== "colored") {
+      tierPct = 0;
+    } else if (colorAnalysis && colorAnalysis.colorPages.length > 0) {
+      const sum = colorAnalysis.colorPages.reduce(
+        (acc, p) => acc + (colorAnalysis.colorPercentages[p] ?? 0),
+        0,
+      );
+      tierPct = sum / colorAnalysis.colorPages.length;
     } else {
-      // No analysis: every page is priced the same — colored = highest
-      // color rate, B&W = B&W rate.
-      for (let i = 0; i < pageCount; i++) {
-        pageColorPcts.push(colorMode === "colored" ? 100 : 0);
-      }
+      tierPct = 100;
     }
+    const colorTier = resolveColorTier(
+      colorMode === "colored" ? "colored" : "bw",
+      tierPct,
+    );
 
-    let total = 0;
-    for (const pct of pageColorPcts) {
-      total += calcPagePrice(pricing, {
-        colorMode: colorMode === "colored" ? "colored" : "bw",
-        colorPct: pct,
-        paperSize,
-        twoSided,
-      });
-    }
+    const sizeKey = mapPaperSizeKey(paperSize);
+    const matrix = pricingStore.getMatrix();
+    const perPage = getPriceFromMatrix(
+      matrix,
+      (fileData.printType as ServiceType) || serviceType,
+      {
+        contentType,
+        colorTier,
+        sizeKey,
+      },
+    );
 
-    let baseTotal = total * validCopies;
+    let baseTotal = perPage * pageCount * validCopies;
 
     // Pages per sheet discount
     const pagesPerSheetNum = parseInt(pagesPerSheet);
@@ -525,6 +562,20 @@ export default function NewPrintRequest() {
     }
 
     return Math.max(0, baseTotal);
+  };
+
+  const matrixRatesFor = (fileData: FileData) => {
+    const matrix = pricingStore.getMatrix();
+    const svc = (fileData.printType as ServiceType) || serviceType;
+    const sizeKey = mapPaperSizeKey(fileData.paperSize);
+    const ctype = fileData.contentType;
+    const rate = (colorTier: ColorTier) =>
+      getPriceFromMatrix(matrix, svc, {
+        contentType: ctype,
+        colorTier,
+        sizeKey,
+      });
+    return { bw: rate("bw"), partial: rate("partial"), full: rate("full") };
   };
 
   const calculateTotal = () => {
@@ -557,6 +608,21 @@ export default function NewPrintRequest() {
     const isOnline =
       paymentMethod !== "" && paymentMethod !== "cash";
     const methodLabel = isOnline ? paymentMethod : "Cash";
+
+    // ---- Validate per-file photo minimum quantities ----
+    for (const f of files) {
+      if (f.printType === "photo") {
+        const matrix = pricingStore.getMatrix();
+        const item = matrix.photo[f.photoSize];
+        const minQty = item ? item.minQty : 0;
+        if (minQty > 0 && f.photoQty < minQty) {
+          toast.error(
+            `${PHOTO_SIZE_LABELS[f.photoSize]} photos (${f.fileName}) require a minimum of ${minQty} pcs.`,
+          );
+          return;
+        }
+      }
+    }
 
     // Calculate total pages for all files
     const totalPages = files.reduce(
@@ -1127,66 +1193,240 @@ export default function NewPrintRequest() {
                   )}
 
                   <div className={`${files.length > 1 && !expandedFileSettings[fileData.id] ? "hidden sm:block" : "block"} space-y-4 sm:space-y-6`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Paper Size
-                        </Label>
-                        <Select
-                          value={fileData.paperSize}
-                          onValueChange={(value) =>
-                            updateFileOption(
-                              fileData.id,
-                              "paperSize",
-                              value,
-                            )
-                          }
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availablePaperSizes.length > 0 ? (
-                              availablePaperSizes.map((size) => (
-                                <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
-                                  {size.displayName}
-                                  {!size.inStock && " (Out of Stock)"}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="a4">A4</SelectItem>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Print Type
+                      </Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(
+                          ["document", "vellum", "sticker", "photo"] as const
+                        ).map((pt) => (
+                          <Button
+                            type="button"
+                            key={pt}
+                            variant="outline"
+                            onClick={() =>
+                              updateFileOption(fileData.id, "printType", pt)
+                            }
+                            className={`group min-h-12 h-12 px-3 text-base font-medium transition-all duration-150 active:scale-95 ${fileData.printType === pt ? "bg-[#2F6FD6] text-white" : ""}`}
+                          >
+                            {pt === "document" && (
+                              <Layers className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
                             )}
-                          </SelectContent>
-                        </Select>
+                            {pt === "vellum" && (
+                              <FileText className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            {pt === "sticker" && (
+                              <StickyNote className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            {pt === "photo" && (
+                              <Camera className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            <span className={`text-sm font-medium ${fileData.printType === pt ? "text-white" : "text-gray-900"} group-hover:text-white`}>
+                              {pt === "document"
+                                ? "Document"
+                                : pt === "vellum"
+                                  ? "Vellum"
+                                  : pt === "sticker"
+                                    ? "Sticker"
+                                    : "Photo"}
+                            </span>
+                          </Button>
+                        ))}
                       </div>
+                      <p className="text-xs text-gray-500">
+                        Pick what type of printing this file needs. The print
+                        options below unlock once a type is selected.
+                      </p>
+                    </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Orientation
-                        </Label>
-                        <Select
-                          value={fileData.orientation}
-                          onValueChange={(value) =>
-                            updateFileOption(
-                              fileData.id,
-                              "orientation",
-                              value,
-                            )
-                          }
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="portrait">
-                              Portrait
-                            </SelectItem>
-                            <SelectItem value="landscape">
-                              Landscape
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {fileData.printType ? (
+                      <>
+                    {fileData.printType === "photo" ? (
+                      <div className="space-y-4 p-4 sm:p-5 rounded-xl border-2 border-blue-200 bg-white">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              Photo Size
+                            </Label>
+                            <Select
+                              value={fileData.photoSize}
+                              onValueChange={(value) =>
+                                updateFileOption(
+                                  fileData.id,
+                                  "photoSize",
+                                  value as PhotoSizeKey,
+                                )
+                              }
+                            >
+                              <SelectTrigger className="h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(
+                                  ["2R", "3R", "4R", "5R", "6R", "A4photo"] as PhotoSizeKey[]
+                                ).map((size) => (
+                                  <SelectItem key={size} value={size}>
+                                    {PHOTO_SIZE_LABELS[size]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              Finish
+                            </Label>
+                            <RadioGroup
+                              value={fileData.photoFinish}
+                              onValueChange={(value) =>
+                                updateFileOption(
+                                  fileData.id,
+                                  "photoFinish",
+                                  value as "matte" | "glossy",
+                                )
+                              }
+                              className="flex gap-2"
+                            >
+                              <label
+                                className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                  fileData.photoFinish === "matte"
+                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <RadioGroupItem value="matte" />
+                                <span className="text-sm font-medium text-gray-900">
+                                  Matte
+                                </span>
+                              </label>
+                              <label
+                                className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                  fileData.photoFinish === "glossy"
+                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <RadioGroupItem value="glossy" />
+                                <span className="text-sm font-medium text-gray-900">
+                                  Glossy
+                                </span>
+                              </label>
+                            </RadioGroup>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            Quantity
+                          </Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={fileData.photoQty}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value);
+                              updateFileOption(
+                                fileData.id,
+                                "photoQty",
+                                Math.max(1, v || 1),
+                              );
+                            }}
+                            className="h-10"
+                          />
+                          {(() => {
+                            const item = pricingStore.getMatrix().photo[fileData.photoSize];
+                            const minQty = item ? item.minQty : 0;
+                            return minQty > 0 ? (
+                              <p className="text-xs text-gray-500">
+                                Minimum order: {minQty} pcs. Price:{" "}
+                                {formatPrice(item.price)} each.
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-500">
+                                Price: {formatPrice(item.price)} each.
+                              </p>
+                            );
+                          })()}
+                        </div>
+
+                        <div className="pt-3 mt-3 border-t border-gray-300">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              Subtotal for this file:
+                            </span>
+                            <span className="text-lg font-semibold text-[#2F6FD6]">
+                              {formatCurrency(calculateFileTotal(fileData))}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                    <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Content Type
+                      </Label>
+                      <Select
+                        value={fileData.contentType}
+                        onValueChange={(value) =>
+                          updateFileOption(
+                            fileData.id,
+                            "contentType",
+                            value as ContentType,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            ["text", "textWithImage", "imageOnly"] as ContentType[]
+                          ).map((ct) => (
+                            <SelectItem key={ct} value={ct}>
+                              {CONTENT_TYPE_LABELS[ct]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Confirm whether this file is text only, text with images,
+                        or images only. This determines the price tier.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Paper Size
+                      </Label>
+                      <Select
+                        value={fileData.paperSize}
+                        onValueChange={(value) =>
+                          updateFileOption(
+                            fileData.id,
+                            "paperSize",
+                            value,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePaperSizes.length > 0 ? (
+                            availablePaperSizes.map((size) => (
+                              <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
+                                {size.displayName}
+                                {!size.inStock && " (Out of Stock)"}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="a4">A4</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -1214,14 +1454,14 @@ export default function NewPrintRequest() {
 
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
-                          Two-Sided Printing
+                          Page Range
                         </Label>
                         <Select
-                          value={fileData.twoSided}
+                          value={fileData.pageRange}
                           onValueChange={(value) =>
                             updateFileOption(
                               fileData.id,
-                              "twoSided",
+                              "pageRange",
                               value,
                             )
                           }
@@ -1230,53 +1470,27 @@ export default function NewPrintRequest() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="no">
-                              Single-Sided
-                            </SelectItem>
-                            <SelectItem value="yes">
-                              Double-Sided (₱{pricing.duplexSavings.toFixed(2)} savings/page)
-                            </SelectItem>
+                            <SelectItem value="all">All Pages</SelectItem>
+                            <SelectItem value="odd">Odd Pages Only</SelectItem>
+                            <SelectItem value="even">Even Pages Only</SelectItem>
+                            <SelectItem value="specific">Specific Pages</SelectItem>
                           </SelectContent>
                         </Select>
+                        {fileData.pageRange === "specific" && (
+                          <Input
+                            placeholder="e.g., 1-5, 8, 11-13"
+                            value={fileData.specificPages}
+                            onChange={(e) =>
+                              updateFileOption(
+                                fileData.id,
+                                "specificPages",
+                                e.target.value,
+                              )
+                            }
+                            className="h-10 mt-2"
+                          />
+                        )}
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Pages per Sheet
-                      </Label>
-                      <Select
-                        value={fileData.pagesPerSheet}
-                        onValueChange={(value) =>
-                          updateFileOption(
-                            fileData.id,
-                            "pagesPerSheet",
-                            value,
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">
-                            1 Page per Sheet
-                          </SelectItem>
-                          <SelectItem value="2">
-                            2 Pages per Sheet
-                          </SelectItem>
-                          <SelectItem value="4">
-                            4 Pages per Sheet
-                          </SelectItem>
-                          <SelectItem value="6">6 Pages per Sheet</SelectItem>
-                          <SelectItem value="9">9 Pages per Sheet</SelectItem>
-                          <SelectItem value="16">16 Pages per Sheet</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500">
-                        Print multiple pages on a single sheet
-                        to save costs
-                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -1310,7 +1524,7 @@ export default function NewPrintRequest() {
                               Black and White
                             </p>
                             <p className="text-xs text-gray-600">
-                              {formatPrice(pricing.bw)} per page — all pages printed
+                              {formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed
                               in grayscale
                             </p>
                           </div>
@@ -1337,94 +1551,15 @@ export default function NewPrintRequest() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowColorPricing(true)}
+                        onClick={() => {
+                          setBreakdownFileId(fileData.id);
+                          setShowColorPricing(true);
+                        }}
                         className="w-full text-[#2F6FD6] font-semibold hover:text-white"
                       >
                         <Info className="mr-2 h-4 w-4" />
                         See Colored Pricing Breakdown
                       </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Page Range
-                      </Label>
-                      <Select
-                        value={fileData.pageRange}
-                        onValueChange={(value) =>
-                          updateFileOption(
-                            fileData.id,
-                            "pageRange",
-                            value,
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            All Pages
-                          </SelectItem>
-                          <SelectItem value="odd">Odd Pages Only</SelectItem>
-                          <SelectItem value="even">Even Pages Only</SelectItem>
-                          <SelectItem value="specific">
-                            Specific Pages
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {fileData.pageRange === "specific" && (
-                        <Input
-                          placeholder="e.g., 1-5, 8, 11-13"
-                          value={fileData.specificPages}
-                          onChange={(e) =>
-                            updateFileOption(
-                              fileData.id,
-                              "specificPages",
-                              e.target.value,
-                            )
-                          }
-                          className="h-10 mt-2"
-                        />
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Margins</Label>
-                        <Select value={fileData.margins} onValueChange={(value) => updateFileOption(fileData.id, "margins", value)}>
-                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="minimum">Minimum</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Scale</Label>
-                        <Select value={fileData.scale} onValueChange={(value) => updateFileOption(fileData.id, "scale", value)}>
-                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                          <SelectContent className="w-[min(18rem,calc(100vw-2rem))]">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="fit">Fit to printable area</SelectItem>
-                            <SelectItem value="paper">Fit to paper</SelectItem>
-                            <SelectItem value="custom">Custom percentage</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {fileData.scale === "custom" && (
-                          <Input
-                            type="number"
-                            min="25"
-                            max="200"
-                            step="5"
-                            value={fileData.customScale || 100}
-                            onChange={(event) => updateFileOption(fileData.id, "customScale", Math.min(200, Math.max(25, Number(event.target.value) || 100)))}
-                            placeholder="Scale percentage"
-                            className="h-10"
-                          />
-                        )}
-                      </div>
                     </div>
 
                     {/* Per-File Notes */}
@@ -1510,19 +1645,9 @@ export default function NewPrintRequest() {
                       </div>
                     </div>
 
-                    {/* Preview and Apply Settings Buttons */}
+                    {/* Apply Settings to All Files */}
                     <div className="pt-3 mt-3 border-t border-gray-200">
                         <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          title="Preview is currently unavailable"
-                          className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200 sm:flex-1"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Preview
-                        </Button>
                         {files.length > 1 && (
                           <Button
                             type="button"
@@ -1530,6 +1655,7 @@ export default function NewPrintRequest() {
                             size="sm"
                             onClick={() => {
                               const currentSettings = {
+                                printType: fileData.printType,
                                 paperSize: fileData.paperSize,
                                 orientation: fileData.orientation,
                                 copies: fileData.copies,
@@ -1558,6 +1684,17 @@ export default function NewPrintRequest() {
                         )}
                       </div>
                     </div>
+                    </>
+                    )}
+                      </>
+                    ) : (
+                      <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                        <p className="text-sm text-gray-600">
+                          Select a print type above to unlock the print options
+                          for this file.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -1754,6 +1891,7 @@ export default function NewPrintRequest() {
               </button>
 
               <div className={`space-y-4 ${showOrderSummary ? "" : "hidden sm:block"}`}>
+                <>
                 <div className="text-sm text-gray-600 mb-4">
                   <strong>Total Files:</strong> {files.length}
                 </div>
@@ -1763,9 +1901,49 @@ export default function NewPrintRequest() {
                     key={fileData.id}
                     className="p-5 bg-gray-50"
                   >
-                    <div className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300 truncate">
+                    <div className="font-semibold text-gray-900 mb-1 pb-2 border-b border-gray-300 truncate">
                       File {index + 1}: {fileData.fileName}
                     </div>
+                    <p className="text-xs font-medium text-[#2F6FD6] mb-3">
+                      Print Type:{" "}
+                      {fileData.printType === "photo"
+                        ? "Photo"
+                        : fileData.printType === "vellum"
+                          ? "Vellum"
+                          : fileData.printType === "sticker"
+                            ? "Sticker"
+                            : "Document"}
+                    </p>
+                    {fileData.printType === "photo" ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-600">Photo Size</p>
+                          <p className="font-medium text-gray-900">
+                            {PHOTO_SIZE_LABELS[fileData.photoSize]}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Finish</p>
+                          <p className="font-medium text-gray-900 capitalize">
+                            {fileData.photoFinish}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Quantity</p>
+                          <p className="font-medium text-gray-900">
+                            {fileData.photoQty} pcs
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Price each</p>
+                          <p className="font-medium text-gray-900">
+                            {formatPrice(
+                              pricingStore.getMatrix().photo[fileData.photoSize]?.price ?? 0,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-gray-600">Pages</p>
@@ -1801,14 +1979,6 @@ export default function NewPrintRequest() {
                             "Folio"}
                           {fileData.paperSize === "a5" && "A5"}
                           {fileData.paperSize === "a3" && "A3"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">
-                          Orientation
-                        </p>
-                        <p className="font-medium text-gray-900 capitalize">
-                          {fileData.orientation}
                         </p>
                       </div>
                       <div>
@@ -1857,7 +2027,7 @@ export default function NewPrintRequest() {
                                   <>
                                     {highColor > 0 && (
                                       <span className="block">
-                                        {formatPrice(pricing.colorHigh)}/page × {highColor}{" "}
+                                        {formatPrice(matrixRatesFor(fileData).full)}/page × {highColor}{" "}
                                         page
                                         {highColor !== 1
                                           ? "s"
@@ -1867,7 +2037,7 @@ export default function NewPrintRequest() {
                                     )}
                                     {lowColor > 0 && (
                                       <span className="block">
-                                        {formatPrice(pricing.colorLow)}/page × {lowColor}{" "}
+                                        {formatPrice(matrixRatesFor(fileData).partial)}/page × {lowColor}{" "}
                                         page
                                         {lowColor !== 1
                                           ? "s"
@@ -1877,7 +2047,7 @@ export default function NewPrintRequest() {
                                     )}
                                     {bwCount > 0 && (
                                       <span className="block">
-                                        {formatPrice(pricing.bw)}/page × {bwCount} B&amp;W
+                                        {formatPrice(matrixRatesFor(fileData).bw)}/page × {bwCount} B&amp;W
                                         page
                                         {bwCount !== 1
                                           ? "s"
@@ -1890,45 +2060,6 @@ export default function NewPrintRequest() {
                             </div>
                           </div>
                         )}
-                      <div>
-                        <p className="text-gray-600">
-                          Printing Style
-                        </p>
-                        <p className="font-medium text-gray-900">
-                          {fileData.twoSided === "yes"
-                            ? "Double-Sided"
-                            : "Single-Sided"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">
-                          Pages per Sheet
-                        </p>
-                        <p className="font-medium text-gray-900">
-                          {fileData.pagesPerSheet} page
-                          {fileData.pagesPerSheet !== "1"
-                            ? "s"
-                            : ""}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Margins</p>
-                        <p className="font-medium text-gray-900 capitalize">
-                          {fileData.margins}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Scale</p>
-                        <p className="font-medium text-gray-900">
-                          {fileData.scale === "custom"
-                            ? `${fileData.customScale || 100}%`
-                            : fileData.scale === "fit"
-                              ? "Fit to printable area"
-                              : fileData.scale === "paper"
-                                ? "Fit to paper"
-                                : "Default"}
-                        </p>
-                      </div>
                       {fileData.notes && (
                         <div className="col-span-2 mt-2">
                           <p className="text-gray-600">
@@ -1940,6 +2071,7 @@ export default function NewPrintRequest() {
                         </div>
                       )}
                     </div>
+                    )}
                     <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-700">
                         Subtotal:
@@ -1952,6 +2084,7 @@ export default function NewPrintRequest() {
                     </div>
                   </Card>
                 ))}
+                  </>
 
                 {/* Add-ons Summary */}
                 {Object.keys(selectedAddons).some(
@@ -2220,7 +2353,8 @@ export default function NewPrintRequest() {
               className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"
               onClick={() => {
                 if (currentStep > 1) {
-                  setCurrentStep((prev) => prev - 1);
+                  const prev = currentStep - 1;
+                  setCurrentStep(prev);
                   scrollPageToTop();
                 } else {
                   navigate("/customer/dashboard");
@@ -2252,9 +2386,7 @@ export default function NewPrintRequest() {
                 <Button
                   className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"
                   onClick={handleSubmit}
-                  disabled={
-                    files.length === 0 || !paymentMethod
-                  }
+                  disabled={files.length === 0 || !paymentMethod}
                 >
                   Place Order
                 </Button>
@@ -2270,15 +2402,135 @@ export default function NewPrintRequest() {
           <DialogHeader>
             <DialogTitle>Colored Pricing Breakdown</DialogTitle>
             <DialogDescription>
-              Colored mode uses document analysis so each page is priced by its detected content.
+              Colored mode uses document analysis so each page is priced by its
+              detected content, based on the print type you chose for this file.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
-            <div className="flex justify-between gap-4"><span>Black and white page</span><strong>{formatPrice(pricing.bw)}</strong></div>
-            <div className="flex justify-between gap-4"><span>Colored page less than 50%</span><strong>{formatPrice(pricing.colorLow)}</strong></div>
-            <div className="flex justify-between gap-4"><span>Colored page more than 50%</span><strong>{formatPrice(pricing.colorHigh)}</strong></div>
-          </div>
-          <p className="text-xs text-gray-500">Paper size, copies, duplex printing, and pages per sheet are applied to the final total.</p>
+          {(() => {
+            const bFile = files.find((f) => f.id === breakdownFileId) || null;
+            if (!bFile) {
+              return (
+                <p className="text-sm text-gray-500">
+                  Select a print type and configure this file to see its pricing
+                  breakdown.
+                </p>
+              );
+            }
+            const matrix = pricingStore.getMatrix();
+            const bService = (bFile.printType as ServiceType) || serviceType;
+            const bSizeKey = mapPaperSizeKey(bFile.paperSize);
+            const bCType = bFile.contentType;
+            const rate = (tier: ColorTier) =>
+              getPriceFromMatrix(matrix, bService, {
+                contentType: bCType,
+                colorTier: tier,
+                sizeKey: bSizeKey,
+              });
+            const typeLabel =
+              bFile.printType === "photo"
+                ? "Photo"
+                : bFile.printType === "vellum"
+                  ? "Vellum"
+                  : bFile.printType === "sticker"
+                    ? "Sticker"
+                    : "Document";
+
+            if (bFile.printType === "photo") {
+              const size = pricingStore.getMatrix().photo[bFile.photoSize];
+              return (
+                <>
+                  <div className="rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="font-medium text-gray-900">
+                        Print type
+                      </span>
+                      <span className="font-medium text-[#2F6FD6]">
+                        Photo
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Photo size</span>
+                      <span className="text-gray-900">
+                        {PHOTO_SIZE_LABELS[bFile.photoSize]}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Finish</span>
+                      <span className="text-gray-900 capitalize">
+                        {bFile.photoFinish}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Quantity</span>
+                      <span className="text-gray-900">
+                        {bFile.photoQty} pcs
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Price each</span>
+                      <span className="text-gray-900">
+                        {formatPrice(size ? size.price : 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4 pt-2 border-t border-blue-200">
+                      <span className="font-medium text-gray-900">
+                        Subtotal
+                      </span>
+                      <span className="font-medium text-[#2F6FD6]">
+                        {formatCurrency(calculateFileTotal(bFile))}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              );
+            }
+
+            return (
+              <>
+                <div className="rounded-lg border border-blue-200 bg-[#F2F7FF] p-3 text-sm mb-3">
+                  <div className="flex justify-between gap-4">
+                    <span className="font-medium text-gray-900">
+                      Print type
+                    </span>
+                    <span className="font-medium text-[#2F6FD6]">
+                      {typeLabel}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Paper size</span>
+                    <span className="text-gray-900">
+                      {bFile.paperSize.charAt(0).toUpperCase() +
+                        bFile.paperSize.slice(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Content type</span>
+                    <span className="text-gray-900">
+                      {CONTENT_TYPE_LABELS[bCType]}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <span>Black and white page</span>
+                    <strong>{formatPrice(rate("bw"))}</strong>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Partially colored page (&le;50%)</span>
+                    <strong>{formatPrice(rate("partial"))}</strong>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Fully colored page (&gt;50%)</span>
+                    <strong>{formatPrice(rate("full"))}</strong>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  Paper size, copies, and page range are applied to the final
+                  total.
+                </p>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -150,10 +150,6 @@ export default function OrderTracking() {
     toast.success("Invoice downloaded successfully!");
   };
 
-  const handleViewFile = (file: any) => {
-    // Live file preview is currently unavailable/being rebuilt.
-  };
-
   const handleDownloadFile = (fileName: string) => {
     const content = `[Docufy PSMS - Palawan State University]\nFile: ${fileName}\nOrder ID: ${orderId}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
     const blob = new Blob([content], { type: "text/plain" });
@@ -384,26 +380,8 @@ export default function OrderTracking() {
                 <p className="text-sm font-medium text-gray-900">{getFileOption(file, "paperSize", "N/A")}</p>
               </div>
               <div>
-                <Label className="text-xs text-gray-600">Orientation</Label>
-                <p className="text-sm font-medium text-gray-900 capitalize">
-                  {getFileOption(file, "orientation", "N/A")}
-                </p>
-              </div>
-              <div>
                 <Label className="text-xs text-gray-600">Number of Copies</Label>
                 <p className="text-sm font-medium text-gray-900">{getFileOption(file, "copies", 0)}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">Two-Sided Printing</Label>
-                <p className="text-sm font-medium text-gray-900">
-                  {getFileOption(file, "twoSided", "no") === "yes" ? "Yes (Double-Sided)" : "No (Single-Sided)"}
-                </p>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">Pages per Sheet</Label>
-                <p className="text-sm font-medium text-gray-900">
-                  {getFileOption(file, "pagesPerSheet", "1")} page{getFileOption(file, "pagesPerSheet", "1") !== "1" ? "s" : ""} per sheet
-                </p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Color Mode</Label>
@@ -421,8 +399,6 @@ export default function OrderTracking() {
                 <Label className="text-xs text-gray-600">Total Pages</Label>
                 <p className="text-sm font-medium text-gray-900">{getFileOption(file, "pageCount", orderData?.pages || 0)} pages</p>
               </div>
-              <div><Label className="text-xs text-gray-600">Margins</Label><p className="text-sm font-medium text-gray-900 capitalize">{getFileOption(file, "margins", "default")}</p></div>
-              <div><Label className="text-xs text-gray-600">Scale</Label><p className="text-sm font-medium text-gray-900">{getFileOption(file, "scale", "default") === "custom" ? `${getFileOption(file, "customScale", 100)}%` : getFileOption(file, "scale", "default")}</p></div>
                   </div>
                 </div>
               ))}
@@ -508,7 +484,6 @@ export default function OrderTracking() {
               <FileAttachments
                 files={orderData.attachedFiles}
                 orderId={orderId || ""}
-                onView={handleViewFile}
               />
             </div>
           )}
@@ -878,22 +853,6 @@ export default function OrderTracking() {
                     </span>
                     <span className="text-gray-900">
                       {invoiceData.paperSizeDisplay}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="font-semibold text-gray-600">
-                      Orientation:
-                    </span>
-                    <span className="text-gray-900 capitalize">
-                      {invoiceData.orientation}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="font-semibold text-gray-600">
-                      Two-Sided:
-                    </span>
-                    <span className="text-gray-900">
-                      {invoiceData.twoSided}
                     </span>
                   </div>
                   {invoiceData.notes && (

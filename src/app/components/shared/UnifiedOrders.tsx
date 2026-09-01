@@ -1034,9 +1034,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         files={selectedOrder.attachedFiles}
                         orderId={selectedOrder.id}
                         showDownload={true}
-                        onView={(file) => {
-                          // Live file preview is currently unavailable/being rebuilt.
-                        }}
                       />
                     </div>
                   )}
@@ -1719,22 +1716,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     </span>
                     <span className="text-gray-900">
                       {invoiceData.paperSizeDisplay}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="font-semibold text-gray-600">
-                      Orientation:
-                    </span>
-                    <span className="text-gray-900 capitalize">
-                      {invoiceData.orientation}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="font-semibold text-gray-600">
-                      Two-Sided:
-                    </span>
-                    <span className="text-gray-900">
-                      {invoiceData.twoSided}
                     </span>
                   </div>
                   {invoiceData.notes && (

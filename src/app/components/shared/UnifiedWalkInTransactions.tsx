@@ -15,13 +15,15 @@ import {
   CheckCircle,
   X,
   FileText,
-  Eye,
   Info,
   LayoutDashboard,
   Users,
   Briefcase,
   Clock,
   Bell,
+  Camera,
+  Layers,
+  StickyNote,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
@@ -36,7 +38,7 @@ import { Textarea } from '../ui/textarea';
 import { ordersStore } from '../../utils/ordersStore';
 import { formatCurrency } from '../../utils/formatNumber';
 import { formatPHTime } from '../../utils/pht';
-import { pricingStore, calcPagePrice, formatPrice, type PricingValues } from '../../utils/pricingStore';
+import { pricingStore, formatPrice, getPriceFromMatrix, resolveColorTier, mapPaperSizeKey, CONTENT_TYPE_LABELS, PHOTO_SIZE_LABELS, type ContentType, type ServiceType, type PhotoSizeKey, type PricingValues, type ColorTier } from '../../utils/pricingStore';
 import { AVAILABLE_ADDONS, type Addon } from '../../utils/constants';
 import { dataStore } from '../../utils/dataStore';
 import { adminMenuItems } from '../../utils/adminMenuItems';
@@ -88,12 +90,17 @@ type FileData = {
   fileName: string;
   pageCount: number;
   colorAnalysis: ColorAnalysis | null;
+  contentType: ContentType;
+  printType: "" | "document" | "vellum" | "sticker" | "photo";
   paperSize: string;
   copies: number;
   colorMode: string;
   pagesPerSheet: string;
   orientation: string;
   pageRange: string;
+  photoSize: PhotoSizeKey;
+  photoFinish: "matte" | "glossy";
+  photoQty: number;
   specificPages: string;
   twoSided: string;
   margins: string;
@@ -142,6 +149,13 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
 
   // Files and print jobs
   const [files, setFiles] = useState<FileData[]>([]);
+
+  // Service type fallback (defaults to document; print type is chosen per file in Step 2)
+  const [serviceType, setServiceType] = useState<ServiceType>('document');
+
+  const isImageFile = (file: File) =>
+    file.type.startsWith('image/') ||
+    /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name);
 
   // Add-ons
   const [selectedAddons, setSelectedAddons] = useState<{ [key: string]: number }>({});
@@ -244,6 +258,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           fileName: file.name,
           pageCount,
           colorAnalysis: null,
+          contentType: isImageFile(file) ? 'imageOnly' : 'text',
+          printType: '',
           paperSize: 'a4',
           copies: 1,
           colorMode: 'bw',
@@ -256,6 +272,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           scale: 'default',
           customScale: 100,
           notes: '',
+          photoSize: '2R',
+          photoFinish: 'matte',
+          photoQty: 1,
         };
 
         processedFiles.push(newFile);
@@ -274,6 +293,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
               ? {
                   ...f,
                   colorAnalysis,
+                  contentType: isImageFile(f.file) ? 'imageOnly' : 'text',
                   colorMode: colorAnalysis.colorPages.length > 0 ? 'colored' : 'bw',
                 }
               : f
@@ -307,39 +327,54 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
 
   // Pricing logic shared with the customer print request (centralized price store)
   const calculateFileTotal = (fileData: FileData) => {
-    const { pageCount, copies, colorMode, paperSize, twoSided, colorAnalysis, pagesPerSheet } = fileData;
+    if (fileData.printType === 'photo') {
+      const matrix = pricingStore.getMatrix();
+      const size = matrix.photo[fileData.photoSize];
+      return (size ? size.price : 0) * Math.max(1, fileData.photoQty);
+    }
+
+    const {
+      pageCount,
+      copies,
+      colorMode,
+      paperSize,
+      contentType,
+      colorAnalysis,
+      pagesPerSheet,
+    } = fileData;
     const validCopies = Math.max(1, copies);
 
-    // Per explicit page: build its color percentage so colored documents mix rates
-    // (analysis) and standard requests stay flat (colored = high color rate).
-    const pageColorPcts: number[] = [];
-
-    if (colorMode === 'colored' && colorAnalysis) {
-      for (const page of colorAnalysis.colorPages) {
-        pageColorPcts.push(colorAnalysis.colorPercentages[page] ?? 0);
-      }
-      for (let i = 0; i < colorAnalysis.bwPages.length; i++) {
-        pageColorPcts.push(0);
-      }
+    // Determine the file's color tier (one tier per file in the new matrix model).
+    let tierPct: number;
+    if (colorMode !== 'colored') {
+      tierPct = 0;
+    } else if (colorAnalysis && colorAnalysis.colorPages.length > 0) {
+      const sum = colorAnalysis.colorPages.reduce(
+        (acc, p) => acc + (colorAnalysis.colorPercentages[p] ?? 0),
+        0
+      );
+      tierPct = sum / colorAnalysis.colorPages.length;
     } else {
-      // No analysis: every page is priced the same — colored = highest
-      // color rate, B&W = B&W rate.
-      for (let i = 0; i < pageCount; i++) {
-        pageColorPcts.push(colorMode === 'colored' ? 100 : 0);
-      }
+      tierPct = 100;
     }
+    const colorTier = resolveColorTier(
+      colorMode === 'colored' ? 'colored' : 'bw',
+      tierPct
+    );
 
-    let total = 0;
-    for (const pct of pageColorPcts) {
-      total += calcPagePrice(pricing, {
-        colorMode: colorMode === 'colored' ? 'colored' : 'bw',
-        colorPct: pct,
-        paperSize,
-        twoSided,
-      });
-    }
+    const sizeKey = mapPaperSizeKey(paperSize);
+    const matrix = pricingStore.getMatrix();
+    const perPage = getPriceFromMatrix(
+      matrix,
+      (fileData.printType as ServiceType) || serviceType,
+      {
+        contentType,
+        colorTier,
+        sizeKey,
+      },
+    );
 
-    let baseTotal = total * validCopies;
+    let baseTotal = perPage * pageCount * validCopies;
 
     // Pages per sheet discount
     const pagesPerSheetNum = parseInt(pagesPerSheet);
@@ -348,6 +383,21 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
     }
 
     return Math.max(0, baseTotal);
+  };
+
+  // Per-file matrix rates for the color-mode pricing text (reflects chosen print type).
+  const matrixRatesFor = (fileData: FileData) => {
+    const matrix = pricingStore.getMatrix();
+    const svc = (fileData.printType as ServiceType) || serviceType;
+    const sizeKey = mapPaperSizeKey(fileData.paperSize);
+    const ctype = fileData.contentType;
+    const rate = (colorTier: ColorTier) =>
+      getPriceFromMatrix(matrix, svc, {
+        contentType: ctype,
+        colorTier,
+        sizeKey,
+      });
+    return { bw: rate('bw'), partial: rate('partial'), full: rate('full') };
   };
 
   const calculateTotal = () => {
@@ -367,24 +417,44 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
     const orderId = dataStore.getNextOrderId();
     const transactionId = orderId;
 
-    // Add to queue if there are print jobs
+    // Validate per-file photo minimum quantities
+    for (const f of files) {
+      if (f.printType === 'photo') {
+        const matrix = pricingStore.getMatrix();
+        const item = matrix.photo[f.photoSize];
+        const minQty = item ? item.minQty : 0;
+        if (minQty > 0 && f.photoQty < minQty) {
+          toast.error(
+            `${PHOTO_SIZE_LABELS[f.photoSize]} photos (${f.fileName}) require a minimum of ${minQty} pcs.`
+          );
+          return;
+        }
+      }
+    }
+
+    const now = new Date();
+
     if (files.length > 0) {
       const totalPages = files.reduce((sum, f) => sum + (f.pageCount * f.copies), 0);
       const hasColor = files.some(f => f.colorMode === 'colored');
-
-      const now = new Date();
+      const hasPhoto = files.some(f => f.printType === 'photo');
+      const firstPhoto = files.find(f => f.printType === 'photo');
 
       // No down payment required for walk-in transactions - immediate payment
       const newOrder = {
         id: orderId,
         customer: customerType === 'walkin' ? 'Walk-in Customer' : (customerName || 'Walk-in Customer'),
-        pages: totalPages,
-        type: hasColor ? 'Colored' : 'B&W',
-        notes: `Walk-in transaction - ${files.length} file(s)`,
+        pages: totalPages > 0 ? totalPages : (firstPhoto ? firstPhoto.photoQty : 0),
+        type: hasPhoto ? 'Photo' : (hasColor ? 'Colored' : 'B&W'),
+        notes: hasPhoto
+          ? `Walk-in photo print - ${files.filter(f => f.printType === 'photo').map(f => `${f.photoQty} pc(s) ${PHOTO_SIZE_LABELS[f.photoSize]} (${f.photoFinish})`).join(', ')}`
+          : `Walk-in transaction - ${files.length} file(s)`,
         status: 'received' as const,
         time: formatPHTime(now),
-        paperSize: files[0]?.paperSize === 'a4' ? 'A4' : files[0]?.paperSize === 'legal' ? 'Legal' : 'A4',
-        copies: 1,
+        paperSize: firstPhoto
+          ? (firstPhoto.photoSize === '2R' ? '2R' : firstPhoto.photoSize === 'A4photo' ? 'A4' : firstPhoto.photoSize)
+          : (files[0]?.paperSize === 'a4' ? 'A4' : files[0]?.paperSize === 'legal' ? 'Legal' : 'A4'),
+        copies: firstPhoto ? firstPhoto.photoQty : 1,
         submittedAt: now,
         paymentVerified: true, // Walk-in payment is immediate
         orderSource: 'walkin' as const,
@@ -421,6 +491,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
     // Reset form
     setFiles([]);
     setSelectedAddons({});
+    setServiceType('document');
     setCustomerName('');
     setCustomerEmail('');
     setCustomerType('walkin');
@@ -582,6 +653,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                 </div>
               )}
 
+              {/* File upload flow */}
               {fileError && (
                 <div className="p-4 bg-white border-2 border-blue-200 rounded-lg flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -859,63 +931,203 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                   )}
 
                   <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Paper Size
-                        </Label>
-                        <Select
-                          value={fileData.paperSize}
-                          onValueChange={(value) =>
-                            updateFileOption(
-                              fileData.id,
-                              "paperSize",
-                              value,
-                            )
-                          }
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="a4">A4 (210 × 297 mm)</SelectItem>
-                            <SelectItem value="letter">Letter (8.5 × 11 in)</SelectItem>
-                            <SelectItem value="legal">Legal (8.5 × 14 in)</SelectItem>
-                            <SelectItem value="short">Short Bond (8.5 × 11 in)</SelectItem>
-                            <SelectItem value="long">Long Bond (8.5 × 13 in)</SelectItem>
-                            <SelectItem value="a5">A5 (148 × 210 mm)</SelectItem>
-                            <SelectItem value="a3">A3 (297 × 420 mm) +{formatPrice(pricing.sizeA3)}/page</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Print Type
+                      </Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(
+                          ["document", "vellum", "sticker", "photo"] as const
+                        ).map((pt) => (
+                          <Button
+                            type="button"
+                            key={pt}
+                            variant="outline"
+                            onClick={() =>
+                              updateFileOption(fileData.id, "printType", pt)
+                            }
+                            className={`group min-h-12 h-12 px-3 text-base font-medium transition-all duration-150 active:scale-95 ${fileData.printType === pt ? "bg-[#2F6FD6] text-white" : ""}`}
+                          >
+                            {pt === "document" && (
+                              <Layers className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            {pt === "vellum" && (
+                              <FileText className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            {pt === "sticker" && (
+                              <StickyNote className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            {pt === "photo" && (
+                              <Camera className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
+                            )}
+                            <span className={`text-sm font-medium ${fileData.printType === pt ? "text-white" : "text-gray-900"} group-hover:text-white`}>
+                              {pt === "document"
+                                ? "Document"
+                                : pt === "vellum"
+                                  ? "Vellum"
+                                  : pt === "sticker"
+                                    ? "Sticker"
+                                    : "Photo"}
+                            </span>
+                          </Button>
+                        ))}
                       </div>
+                      <p className="text-xs text-gray-500">
+                        Pick what type of printing this file needs. The print
+                        options below unlock once a type is selected.
+                      </p>
+                    </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Orientation
-                        </Label>
-                        <Select
-                          value={fileData.orientation}
-                          onValueChange={(value) =>
-                            updateFileOption(
-                              fileData.id,
-                              "orientation",
-                              value,
-                            )
-                          }
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="portrait">
-                              Portrait
-                            </SelectItem>
-                            <SelectItem value="landscape">
-                              Landscape
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {fileData.printType ? (
+                      <>
+                    {fileData.printType === "photo" ? (
+                      <div className="space-y-4 p-4 sm:p-5 rounded-xl border-2 border-blue-200 bg-white">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Photo Size</Label>
+                            <Select
+                              value={fileData.photoSize}
+                              onValueChange={(value) => updateFileOption(fileData.id, "photoSize", value as PhotoSizeKey)}
+                            >
+                              <SelectTrigger className="h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(["2R", "3R", "4R", "5R", "6R", "A4photo"] as PhotoSizeKey[]).map((size) => (
+                                  <SelectItem key={size} value={size}>
+                                    {PHOTO_SIZE_LABELS[size]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Finish</Label>
+                            <RadioGroup
+                              value={fileData.photoFinish}
+                              onValueChange={(value) => updateFileOption(fileData.id, "photoFinish", value as "matte" | "glossy")}
+                              className="flex gap-2"
+                            >
+                              <label
+                                className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                  fileData.photoFinish === "matte"
+                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <RadioGroupItem value="matte" id={`walkin-photo-matte-${fileData.id}`} />
+                                <span className="text-sm font-medium text-gray-900">Matte</span>
+                              </label>
+                              <label
+                                className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                  fileData.photoFinish === "glossy"
+                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <RadioGroupItem value="glossy" id={`walkin-photo-glossy-${fileData.id}`} />
+                                <span className="text-sm font-medium text-gray-900">Glossy</span>
+                              </label>
+                            </RadioGroup>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Quantity</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={fileData.photoQty}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value);
+                              updateFileOption(fileData.id, "photoQty", Math.max(1, v || 1));
+                            }}
+                            className="h-10"
+                          />
+                          {(() => {
+                            const item = pricingStore.getMatrix().photo[fileData.photoSize];
+                            const minQty = item ? item.minQty : 0;
+                            return minQty > 0 ? (
+                              <p className="text-xs text-gray-500">
+                                Minimum order: {minQty} pcs. Price: {formatPrice(item.price)} each.
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-500">Price: {formatPrice(item.price)} each.</p>
+                            );
+                          })()}
+                        </div>
+                        <div className="pt-3 mt-3 border-t border-gray-300">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              Subtotal for this file:
+                            </span>
+                            <span className="text-lg font-semibold text-[#2F6FD6]">
+                              {formatCurrency(calculateFileTotal(fileData))}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Content Type
+                      </Label>
+                      <Select
+                        value={fileData.contentType}
+                        onValueChange={(value) =>
+                          updateFileOption(
+                            fileData.id,
+                            "contentType",
+                            value as ContentType,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["text", "textWithImage", "imageOnly"] as ContentType[]).map(
+                            (ct) => (
+                              <SelectItem key={ct} value={ct}>
+                                {CONTENT_TYPE_LABELS[ct]}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Confirm whether this file is text only, text with images, or
+                        images only. This determines the price tier.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Paper Size
+                      </Label>
+                      <Select
+                        value={fileData.paperSize}
+                        onValueChange={(value) =>
+                          updateFileOption(
+                            fileData.id,
+                            "paperSize",
+                            value,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="a4">A4 (210 × 297 mm)</SelectItem>
+                          <SelectItem value="letter">Letter (8.5 × 11 in)</SelectItem>
+                          <SelectItem value="legal">Legal (8.5 × 14 in)</SelectItem>
+                          <SelectItem value="short">Short Bond (8.5 × 11 in)</SelectItem>
+                          <SelectItem value="long">Long Bond (8.5 × 13 in)</SelectItem>
+                          <SelectItem value="a5">A5 (148 × 210 mm)</SelectItem>
+                          <SelectItem value="a3">A3 (297 × 420 mm) +{formatPrice(pricing.sizeA3)}/page</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -943,14 +1155,14 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
 
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">
-                          Two-Sided Printing
+                          Page Range
                         </Label>
                         <Select
-                          value={fileData.twoSided}
+                          value={fileData.pageRange}
                           onValueChange={(value) =>
                             updateFileOption(
                               fileData.id,
-                              "twoSided",
+                              "pageRange",
                               value,
                             )
                           }
@@ -959,53 +1171,27 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="no">
-                              Single-Sided
-                            </SelectItem>
-                            <SelectItem value="yes">
-                              Double-Sided (₱{pricing.duplexSavings.toFixed(2)} savings/page)
-                            </SelectItem>
+                            <SelectItem value="all">All Pages</SelectItem>
+                            <SelectItem value="odd">Odd Pages Only</SelectItem>
+                            <SelectItem value="even">Even Pages Only</SelectItem>
+                            <SelectItem value="specific">Specific Pages</SelectItem>
                           </SelectContent>
                         </Select>
+                        {fileData.pageRange === "specific" && (
+                          <Input
+                            placeholder="e.g., 1-5, 8, 11-13"
+                            value={fileData.specificPages}
+                            onChange={(e) =>
+                              updateFileOption(
+                                fileData.id,
+                                "specificPages",
+                                e.target.value,
+                              )
+                            }
+                            className="h-10 mt-2"
+                          />
+                        )}
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Pages per Sheet
-                      </Label>
-                      <Select
-                        value={fileData.pagesPerSheet}
-                        onValueChange={(value) =>
-                          updateFileOption(
-                            fileData.id,
-                            "pagesPerSheet",
-                            value,
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">
-                            1 Page per Sheet
-                          </SelectItem>
-                          <SelectItem value="2">
-                            2 Pages per Sheet
-                          </SelectItem>
-                          <SelectItem value="4">
-                            4 Pages per Sheet
-                          </SelectItem>
-                          <SelectItem value="6">6 Pages per Sheet</SelectItem>
-                          <SelectItem value="9">9 Pages per Sheet</SelectItem>
-                          <SelectItem value="16">16 Pages per Sheet</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500">
-                        Print multiple pages on a single sheet
-                        to save costs
-                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -1021,8 +1207,8 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           <p className="text-xs mt-0.5 text-[#000000]">
                             Colored mode prices pages
                             individually: &gt;50% color =
-                            {formatPrice(pricing.colorHigh)}/page · ≤50% color = {formatPrice(pricing.colorLow)}/page · B&amp;W
-                            = {formatPrice(pricing.bw)}/page
+                            {formatPrice(matrixRatesFor(fileData).full)}/page · ≤50% color = {formatPrice(matrixRatesFor(fileData).partial)}/page · B&amp;W
+                            = {formatPrice(matrixRatesFor(fileData).bw)}/page
                           </p>
                         </div>
                       )}
@@ -1053,7 +1239,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                               Black and White
                             </p>
                             <p className="text-xs text-gray-600">
-                              {formatPrice(pricing.bw)} per page — all pages printed
+                              {formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed
                               in grayscale
                             </p>
                           </div>
@@ -1104,7 +1290,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                     <>
                                       {highColor > 0 && (
                                         <span className="block">
-                                          {formatPrice(pricing.colorHigh)}/page × {highColor}{" "}
+                                          {formatPrice(matrixRatesFor(fileData).full)}/page × {highColor}{" "}
                                           page
                                           {highColor !== 1
                                             ? "s"
@@ -1114,7 +1300,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                       )}
                                       {lowColor > 0 && (
                                         <span className="block">
-                                          {formatPrice(pricing.colorLow)}/page × {lowColor}{" "}
+                                          {formatPrice(matrixRatesFor(fileData).partial)}/page × {lowColor}{" "}
                                           page
                                           {lowColor !== 1
                                             ? "s"
@@ -1124,7 +1310,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                                       )}
                                       {bwCount > 0 && (
                                         <span className="block">
-                                          {formatPrice(pricing.bw)}/page × {bwCount}{" "}
+                                          {formatPrice(matrixRatesFor(fileData).bw)}/page × {bwCount}{" "}
                                           B&amp;W page
                                           {bwCount !== 1
                                             ? "s"
@@ -1137,95 +1323,13 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                               </div>
                             ) : (
                               <p className="text-xs text-gray-600">
-                                {formatPrice(pricing.colorHigh)} per page (analysis
+                                {formatPrice(matrixRatesFor(fileData).full)} per page (analysis
                                 pending)
                               </p>
                             )}
                           </div>
                         </label>
                       </RadioGroup>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Page Range
-                      </Label>
-                      <Select
-                        value={fileData.pageRange}
-                        onValueChange={(value) =>
-                          updateFileOption(
-                            fileData.id,
-                            "pageRange",
-                            value,
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            All Pages
-                          </SelectItem>
-                          <SelectItem value="odd">Odd Pages Only</SelectItem>
-                          <SelectItem value="even">Even Pages Only</SelectItem>
-                          <SelectItem value="specific">
-                            Specific Pages
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {fileData.pageRange === "specific" && (
-                        <Input
-                          placeholder="e.g., 1-5, 8, 11-13"
-                          value={fileData.specificPages}
-                          onChange={(e) =>
-                            updateFileOption(
-                              fileData.id,
-                              "specificPages",
-                              e.target.value,
-                            )
-                          }
-                          className="h-10 mt-2"
-                        />
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Margins</Label>
-                        <Select value={fileData.margins} onValueChange={(value) => updateFileOption(fileData.id, "margins", value)}>
-                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="minimum">Minimum</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Scale</Label>
-                        <Select value={fileData.scale} onValueChange={(value) => updateFileOption(fileData.id, "scale", value)}>
-                          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="fit">Fit to printable area</SelectItem>
-                            <SelectItem value="paper">Fit to paper</SelectItem>
-                            <SelectItem value="custom">Custom percentage</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {fileData.scale === "custom" && (
-                          <Input
-                            type="number"
-                            min="25"
-                            max="200"
-                            step="5"
-                            value={fileData.customScale || 100}
-                            onChange={(event) => updateFileOption(fileData.id, "customScale", Math.min(200, Math.max(25, Number(event.target.value) || 100)))}
-                            placeholder="Scale percentage"
-                            className="h-10"
-                          />
-                        )}
-                      </div>
                     </div>
 
                     {/* Per-File Notes */}
@@ -1268,21 +1372,17 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                       </div>
                     </div>
 
-                    {/* Preview Button */}
-                    <div className="pt-3 mt-3 border-t border-gray-200">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Live file preview is currently unavailable/being rebuilt.
-                        }}
-                        className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                    </div>
+                    </>
+                    )}
+                      </>
+                    ) : (
+                      <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                        <p className="text-sm text-gray-600">
+                          Select a print type above to unlock the print options
+                          for this file.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -1496,9 +1596,47 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                   </h3>
                   {files.map((fileData, index) => (
                     <Card key={fileData.id} className="p-5 bg-gray-50">
-                      <div className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300 truncate">
+                      <div className="font-semibold text-gray-900 mb-1 pb-2 border-b border-gray-300 truncate">
                         File {index + 1}: {fileData.fileName}
                       </div>
+                      <p className="text-xs font-medium text-[#2F6FD6] mb-3">
+                        Print Type:{" "}
+                        {fileData.printType === "photo"
+                          ? "Photo"
+                          : fileData.printType === "vellum"
+                            ? "Vellum"
+                            : fileData.printType === "sticker"
+                              ? "Sticker"
+                              : "Document"}
+                      </p>
+                      {fileData.printType === "photo" ? (
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-600">Photo Size</p>
+                            <p className="font-medium text-gray-900">
+                              {PHOTO_SIZE_LABELS[fileData.photoSize]}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Finish</p>
+                            <p className="font-medium text-gray-900 capitalize">
+                              {fileData.photoFinish}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Quantity</p>
+                            <p className="font-medium text-gray-900">
+                              {fileData.photoQty} pcs
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Price each</p>
+                            <p className="font-medium text-gray-900">
+                              {formatPrice(pricingStore.getMatrix().photo[fileData.photoSize]?.price ?? 0)}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
                           <p className="text-gray-600">Pages</p>
@@ -1523,6 +1661,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                           </p>
                         </div>
                       </div>
+                      )}
                       <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Subtotal:</span>
                         <span className="font-semibold text-[#2F6FD6]">
@@ -1591,7 +1730,9 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
             <Button
               variant="outline"
               onClick={() =>
-                currentStep > 1 ? setCurrentStep((prev) => prev - 1) : navigate(dashboardPath)
+                currentStep > 1
+                  ? setCurrentStep((prev) => prev - 1)
+                  : navigate(dashboardPath)
               }
             >
               {currentStep === 1 ? 'Cancel' : 'Back'}
@@ -1602,7 +1743,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                 <Button
                   className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={() => setCurrentStep((prev) => prev + 1)}
-                  disabled={currentStep === 1 && files.length === 0 || analyzingFileId !== null}
+                  disabled={(currentStep === 1 && files.length === 0) || analyzingFileId !== null}
                 >
                   {analyzingFileId ? 'Analyzing...' : 'Next Step'}
                 </Button>
