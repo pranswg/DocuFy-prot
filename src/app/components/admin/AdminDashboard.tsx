@@ -88,6 +88,18 @@ function fmtShortPlain(n: number): string {
   return n.toLocaleString("en-PH");
 }
 
+const MONTH_INDEX = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Comparable value for "Mon DD" chart keys so daily/weekly trends sort oldest→newest.
+function sortByMonthDay(a: string, b: string): number {
+  const pa = /^(\w+) (\d+)/.exec(a);
+  const pb = /^(\w+) (\d+)/.exec(b);
+  if (!pa || !pb) return 0;
+  const ka = MONTH_INDEX.indexOf(pa[1]) * 100 + Number(pa[2]);
+  const kb = MONTH_INDEX.indexOf(pb[1]) * 100 + Number(pb[2]);
+  return ka - kb;
+}
+
 function formatDate(iso: string | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -285,20 +297,23 @@ function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }):
     return db - da;
   }).slice(0, 8);
 
-  // daily sales (last 30 days of range)
+  // daily sales (ALL orders, not range-scoped — mirrors the Monthly trend so
+  // the Daily view shows full history regardless of the selected date range)
   const dailyMap = new Map<string, number>();
-  for (const o of filtered) {
+  for (const o of orders) {
     if (o.status === "Canceled") continue;
     const d = new Date(o.createdAt || o.date);
     if (isNaN(d.getTime())) continue;
     const key = d.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
     dailyMap.set(key, (dailyMap.get(key) || 0) + parseTotal(o));
   }
-  const dailySales = [...dailyMap.entries()].map(([name, sales]) => ({ name, sales }));
+  const dailySales = [...dailyMap.entries()]
+    .map(([name, sales]) => ({ name, sales }))
+    .sort((a, b) => sortByMonthDay(a.name, b.name));
 
-  // weekly aggregation
+  // weekly aggregation (ALL orders)
   const weeklyMap = new Map<string, number>();
-  for (const o of filtered) {
+  for (const o of orders) {
     if (o.status === "Canceled") continue;
     const d = new Date(o.createdAt || o.date);
     if (isNaN(d.getTime())) continue;
@@ -307,18 +322,31 @@ function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }):
     const key = weekStart.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
     weeklyMap.set(key, (weeklyMap.get(key) || 0) + parseTotal(o));
   }
-  const weeklySales = [...weeklyMap.entries()].map(([name, sales]) => ({ name, sales }));
+  const weeklySales = [...weeklyMap.entries()]
+    .map(([name, sales]) => ({ name, sales }))
+    .sort((a, b) => sortByMonthDay(a.name, b.name));
 
-  // monthly aggregation (for the selected range)
+  // monthly aggregation (ALL orders, not range-scoped — mirrors the Overview
+  // Sales Trend so the Monthly view shows a real multi-month trend regardless
+  // of the selected date range)
   const monthlyMap = new Map<string, number>();
-  for (const o of filtered) {
+  for (const o of orders) {
     if (o.status === "Canceled") continue;
     const d = new Date(o.createdAt || o.date);
     if (isNaN(d.getTime())) continue;
     const key = d.toLocaleDateString("en-PH", { month: "short", year: "numeric" });
     monthlyMap.set(key, (monthlyMap.get(key) || 0) + parseTotal(o));
   }
-  const monthlySales = [...monthlyMap.entries()].map(([name, sales]) => ({ name, sales }));
+  const monthlySales = [...monthlyMap.entries()]
+    .map(([name, sales]) => ({ name, sales }))
+    .sort((a, b) => {
+      const pa = /^(\w+) (\d{4})$/.exec(a.name);
+      const pb = /^(\w+) (\d{4})$/.exec(b.name);
+      if (!pa || !pb) return 0;
+      const keyA = `${pa[2]}-${MONTH_INDEX.indexOf(pa[1])}`;
+      const keyB = `${pb[2]}-${MONTH_INDEX.indexOf(pb[1])}`;
+      return keyA.localeCompare(keyB);
+    });
 
   // highest / lowest months
   const monthEntries = monthlySales.filter((m) => m.sales > 0);
