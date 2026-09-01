@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, BriefcaseBusiness, AlertCircle, Camera, Clock, Bell } from 'lucide-react';
+import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, BriefcaseBusiness, AlertCircle, Camera, Clock, Boxes, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -18,6 +18,7 @@ const menuItems = [
   { label: 'Queue Board', path: '/staff/queue', icon: <Kanban className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <Shield className="w-5 h-5" /> },
+  { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Notifications', path: '/staff/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 

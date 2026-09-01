@@ -17,6 +17,7 @@ import {
   Package,
   ShoppingCart,
   CreditCard,
+  Boxes,
   Bell,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +67,11 @@ const menuItems = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
+  },
+  {
+    label: "Inventory",
+    path: "/staff/inventory",
+    icon: <Boxes className="w-5 h-5" />,
   },
   {
     label: "Notifications",

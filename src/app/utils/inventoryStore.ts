@@ -1,6 +1,8 @@
 // Centralized inventory store for supply/consumable tracking.
 // Persisted to localStorage. Tracks stock in/out and flags low-stock items.
 
+export type InventoryStatus = 'out' | 'low' | 'ok';
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -225,13 +227,30 @@ class InventoryStore {
     return { success: true, message: 'Stock deducted.', item: updated };
   }
 
+  // Shared inventory health status. Out-of-stock is checked first (0 stock),
+  // then low-stock (at or below the minimum), otherwise healthy.
+  getInventoryStatus(item: InventoryItem): 'out' | 'low' | 'ok' {
+    if (item.currentStock === 0) return 'out';
+    if (item.currentStock <= item.minimumStock) return 'low';
+    return 'ok';
+  }
+
   isLowStock(item: InventoryItem): boolean {
-    return item.currentStock <= item.minimumStock;
+    return this.getInventoryStatus(item) === 'low';
+  }
+
+  isOutOfStock(item: InventoryItem): boolean {
+    return this.getInventoryStatus(item) === 'out';
   }
 
   getLowStockItems(): InventoryItem[] {
     this.loadFromLocalStorage();
-    return this.items.filter(item => !item.archived && this.isLowStock(item));
+    return this.items.filter(item => !item.archived && this.getInventoryStatus(item) === 'low');
+  }
+
+  getOutOfStockItems(): InventoryItem[] {
+    this.loadFromLocalStorage();
+    return this.items.filter(item => !item.archived && this.getInventoryStatus(item) === 'out');
   }
 
   // Piece count for an item: currentStock (units) x pieces-per-unit (paper ream = 500)
