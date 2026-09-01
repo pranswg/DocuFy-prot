@@ -82,7 +82,96 @@ export interface Notification {
   orderId?: string;
 }
 
-const initialOrders: Order[] = [];
+// Mock customers for UI checking (seeded on every fresh load).
+// Customer A: online GCash order still awaiting payment verification ->
+//   shows as PENDING in Payment Verification, and is EXCLUDED from the Orders/queue
+//   list (status 'Awaiting Payment' is filtered out by queueOrders).
+// Customer B: online GCash order already payment-verified and waiting in queue ->
+//   shows on the Orders/queue list as 'In Queue', and shows as VERIFIED in Payment Verification.
+const initialOrders: Order[] = [
+  {
+    id: 'ORD-2026-0001',
+    customerId: 'cust-maria',
+    customerName: 'Maria Santos',
+    customerEmail: 'maria.santos@example.com',
+    status: 'Awaiting Payment',
+    total: '₱75.00',
+    date: '2026-09-01T01:15:00+08:00',
+    paperType: 'Bond Paper',
+    paperSize: 'A4',
+    printType: 'Colored',
+    copies: 1,
+    paymentMethod: 'GCash',
+    paymentVerified: false,
+    paymentReferenceNumber: 'GCS-2026-000123',
+    fileName: 'research-report.pdf',
+    pages: 5,
+    colorMode: 'colored',
+    pageRange: 'all',
+    notes: 'Waiting for GCash payment verification.',
+    attachedFiles: [
+      {
+        name: 'research-report.pdf',
+        size: '1.2 MB',
+        type: 'PDF',
+        pageCount: 5,
+        colorMode: 'colored',
+        pageRange: 'all',
+        copies: 1,
+      },
+    ],
+    costBreakdown: {
+      printingCost: 75,
+      addonsCost: 0,
+      total: 75,
+    },
+    orderSource: 'online',
+    statusUpdatedAt: '2026-09-01T01:15:00+08:00',
+    createdAt: '2026-09-01T01:15:00+08:00',
+    lastUpdatedAt: '2026-09-01T01:15:00+08:00',
+  },
+  {
+    id: 'ORD-2026-0002',
+    customerId: 'cust-john',
+    customerName: 'John Dela Cruz',
+    customerEmail: 'john.delacruz@example.com',
+    status: 'In Queue',
+    total: '₱120.00',
+    date: '2026-09-01T00:45:00+08:00',
+    paperType: 'Bond Paper',
+    paperSize: 'A4',
+    printType: 'Colored',
+    copies: 2,
+    paymentMethod: 'GCash',
+    paymentVerified: true,
+    paymentReferenceNumber: 'GCS-2026-000124',
+    fileName: 'thesis-chapter-1.pdf',
+    pages: 6,
+    colorMode: 'colored',
+    pageRange: 'all',
+    notes: 'Queued and ready for printing.',
+    attachedFiles: [
+      {
+        name: 'thesis-chapter-1.pdf',
+        size: '2.4 MB',
+        type: 'PDF',
+        pageCount: 6,
+        colorMode: 'colored',
+        pageRange: 'all',
+        copies: 2,
+      },
+    ],
+    costBreakdown: {
+      printingCost: 120,
+      addonsCost: 0,
+      total: 120,
+    },
+    orderSource: 'online',
+    statusUpdatedAt: '2026-09-01T00:45:00+08:00',
+    createdAt: '2026-09-01T00:45:00+08:00',
+    lastUpdatedAt: '2026-09-01T00:45:00+08:00',
+  },
+];
 
 // In-memory store with event listeners
 class DataStore {

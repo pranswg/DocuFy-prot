@@ -183,3 +183,13 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Order flow adopts matrix + Photo as per-file print type** (customer `NewPrintRequest.tsx` + shared `UnifiedWalkInTransactions.tsx`, both flows): Step-1 service-type selector (Document/Vellum/Sticker/Photo grid) and global Photo config panel REMOVED — every order uploads files in Step 1 and Photo is now a per-file **Print Type** in Step 2 with its own size/finish/qty (`FileData.printType` incl. `"photo"` + `photoSize/photoFinish/photoQty`, defaults `2R`/`matte`/`1`); per-file matrix pricing via `getPriceFromMatrix`, photo → `matrix.photo[size].price * max(1, qty)` with per-file min-qty validation on submit; Step 2 print-type buttons styled like the Back button (`variant="outline"` grid, icons Layers/FileText/StickyNote/Camera); Step 1 headings fixed; Step 4 per-file cards + breakdown dialog show photo info; paper sizes capitalized. PRINT-TYPE HOVER/ACTIVE THEMING: `group` + `group-hover:text-white` on icons/labels (visible on the dark-blue outline hover fill — fixes the perceived "deselect"); selected button = filled blue `bg-[#2F6FD6] text-white`, `transition-all duration-150 active:scale-95` press animation.
 - **Dead file-preview UI removed system-wide**: `file-attachments.tsx` dropped inert "View" button + `onView` prop (and unused `Eye`/`Button` imports); `OrderTracking.tsx` removed dead `handleViewFile`/`onView` (kept live "View Invoice"/"View Page Color Breakdown"); `UnifiedOrders.tsx` removed dead `onView`; removed now-unused `Eye` (both flows) + `SERVICE_TYPE_LABELS` (walk-in).
 - Build passes.
+
+---
+
+## September 01, 2026 11:03 AM (PHT) — prans
+- Push to `testbranch2`: two mock customers seeded in `dataStore` for UI checking.
+- **`src/app/utils/dataStore.ts`**: `initialOrders` (previously empty) now seeds two online GCash orders so both the staff/admin lists show them on every fresh load (dataStore is the single source both lists read from).
+  - **Maria Santos** (`ORD-2026-0001`, `status: 'Awaiting Payment'`, `paymentVerified: false`, GCash `GCS-2026-000123`, ₱75.00) → shows as **PENDING** in Payment Verification and is **excluded** from the Orders/queue list (UnifiedOrders `queueOrders` filters out `awaitingPayment`).
+  - **John Dela Cruz** (`ORD-2026-0002`, `status: 'In Queue'`, `paymentVerified: true`, GCash `GCS-2026-000124`, ₱120.00) → shows on the **Orders/queue list as 'In Queue'** and as **VERIFIED** in Payment Verification.
+  - Both carry full details (attached files, cost breakdown, colored mode, PHT timestamps) for realistic rendering; `ordersStore`/`UnifiedOrders` won't overwrite them since the store is non-empty on load.
+- Build passes.
