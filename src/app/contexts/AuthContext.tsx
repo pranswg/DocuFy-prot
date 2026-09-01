@@ -78,9 +78,38 @@ const mockUsers = [
 // Store for password reset codes
 const passwordResetCodes: { [email: string]: string } = {};
 
+// Persist the logged-in user across page reloads so refreshing while signed in
+// does not bounce the user back to the login page.
+const AUTH_SESSION_KEY = 'docufy_auth_session';
+
+function readStoredUser(): User | null {
+  try {
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.email || !parsed.name || !parsed.role) return null;
+    return parsed as User;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(readStoredUser);
   const [pendingMFAUser, setPendingMFAUser] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      if (user) {
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {

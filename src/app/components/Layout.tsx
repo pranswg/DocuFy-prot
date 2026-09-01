@@ -74,7 +74,19 @@ export default function Layout({
   const [isNavigationOpen, setIsNavigationOpen] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : false,
   );
+  // Collapsed-sidebar tooltip: a single viewport-positioned label that follows
+  // the hovered item. Fixed to the icon's real coordinates so the name always
+  // sits right next to it (a plain `fixed left-[80px]` div with no vertical
+  // offset anchors to the element's static-flow position, which lands at the
+  // bottom instead of next to the icon being hovered).
+  const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; x: number; y: number } | null>(null);
   const navRef = useRef<HTMLElement>(null);
+
+  const showSidebarTooltip = (label: string, e: React.MouseEvent<HTMLElement>) => {
+    if (isMobile || isSidebarExpanded) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSidebarTooltip({ label, x: rect.right + 12, y: rect.top + rect.height / 2 });
+  };
 
   // Restore the desktop sidebar scroll position after this Layout instance
   // remounts on navigation.
@@ -339,6 +351,8 @@ export default function Layout({
                 setIsSidebarExpanded(!isSidebarExpanded);
               }
             }}
+            onMouseEnter={(e) => showSidebarTooltip("Expand navigation", e)}
+            onMouseLeave={() => setSidebarTooltip(null)}
             aria-label={isMobile ? "Close navigation" : isSidebarExpanded ? "Collapse navigation" : "Expand navigation"}
             aria-expanded={isMobile ? isNavigationOpen : isSidebarExpanded}
             className={`flex items-center rounded-xl transition-all duration-200 group relative ${
@@ -351,11 +365,6 @@ export default function Layout({
               {isMobile || isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
             </div>
             {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium">Collapse</span>}
-            {!isMobile && !isSidebarExpanded && (
-              <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
-                Expand navigation
-              </div>
-            )}
           </button>
         </div>
         <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
@@ -365,6 +374,7 @@ export default function Layout({
         ref={navRef}
         onScroll={(e) => {
           savedSidebarScrollTop = e.currentTarget.scrollTop;
+          setSidebarTooltip(null);
         }}
         aria-label="Primary navigation"
         className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
@@ -377,6 +387,8 @@ export default function Layout({
               <button
                 type="button"
                 onClick={() => handleNavigation(item.path)}
+                onMouseEnter={(e) => showSidebarTooltip(item.label, e)}
+                onMouseLeave={() => setSidebarTooltip(null)}
                 aria-current={isActive ? "page" : undefined}
                 className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                   isMobile || isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
@@ -394,11 +406,6 @@ export default function Layout({
                 {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
                 {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
               </button>
-              {!isMobile && !isSidebarExpanded && (
-                <div className="fixed left-[80px] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[9999] whitespace-nowrap border border-white/10">
-                  {item.label}
-                </div>
-              )}
             </div>
           );
         })}
@@ -409,7 +416,15 @@ export default function Layout({
         <button
           type="button"
           onClick={() => {
-            setIsProfileOpen(!isProfileOpen);
+            if (!isMobile && !isSidebarExpanded) {
+              // Collapsed sidebar: expanding it first so the full profile
+              // button shows, and opening the menu to preserve the click intent.
+              setIsSidebarExpanded(true);
+              setIsProfileOpen(true);
+              setSidebarTooltip(null);
+            } else {
+              setIsProfileOpen(!isProfileOpen);
+            }
             setIsTopProfileOpen(false);
             setIsNotificationOpen(false);
           }}
@@ -472,6 +487,16 @@ export default function Layout({
           </div>
         )}
       </div>
+
+      {/* Collapsed-sidebar tooltip — vertically centered on the hovered icon */}
+      {!isMobile && !isSidebarExpanded && sidebarTooltip && (
+        <div
+          className="fixed z-[9999] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap border border-white/10 pointer-events-none"
+          style={{ left: sidebarTooltip.x, top: sidebarTooltip.y, transform: "translateY(-50%)" }}
+        >
+          {sidebarTooltip.label}
+        </div>
+      )}
     </>
   );
 

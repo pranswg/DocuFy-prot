@@ -8,7 +8,6 @@ import CustomerProfile from './components/customer/CustomerProfile';
 import NewPrintRequest from './components/customer/NewPrintRequest';
 import CustomerOrders from './components/customer/CustomerOrders';
 import CustomerPaymentVerification from './components/customer/PaymentVerification';
-import StaffQueueBoard from './components/staff/StaffQueueBoard';
 import StaffOrdersUnified from './components/staff/StaffOrdersUnified';
 import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
@@ -18,7 +17,6 @@ import StaffPaymentVerificationUnified from './components/staff/StaffPaymentVeri
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
-import AdminOrders from './components/admin/AdminOrders';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Staff from './components/admin/Staff';
 import AdminAttendancePage from './components/admin/AdminAttendance';

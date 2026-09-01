@@ -53,7 +53,7 @@ const menuItems = [
   },
 ];
 
-// Avatar — identical to StaffQueueBoard
+// Avatar
 const Avatar = ({ name }: { name: string }) => {
   const initials = name
     .split(" ")
@@ -82,7 +82,7 @@ const Avatar = ({ name }: { name: string }) => {
   );
 };
 
-// Status badge classes — identical to StaffQueueBoard
+// Status badge classes
 const getStatusBadgeClass = (status: OrderType["status"]) => {
   switch (status) {
     case "completed":  return "bg-white border-2 border-blue-200 text-blue-700";
@@ -96,7 +96,7 @@ const getStatusBadgeClass = (status: OrderType["status"]) => {
   }
 };
 
-// Status label — identical to StaffQueueBoard
+// Status label
 const getStatusLabel = (status: OrderType["status"]) => {
   if (status === "inQueue") return "In Queue";
   if (status === "onHold")  return "On Hold";
@@ -266,7 +266,7 @@ export default function StaffDashboard() {
               </Button>
             </div>
 
-            {/* Table — mirrors structure, columns, and badge classes of StaffQueueBoard */}
+            {/* Active orders table */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -323,7 +323,7 @@ export default function StaffDashboard() {
                           </Badge>
                         </td>
 
-                        {/* Status — same badge classes as StaffQueueBoard */}
+                        {/* Status */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge
                             variant="outline"
@@ -333,7 +333,7 @@ export default function StaffDashboard() {
                           </Badge>
                         </td>
 
-                        {/* Source — same badge classes as StaffQueueBoard */}
+                        {/* Source */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge
                             variant="outline"

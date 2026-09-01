@@ -207,3 +207,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 ## September 01, 2026 09:37 PM (PHT) — prans
 - Push to `testbranch2`: fixed Admin Dashboard Sales tab — trend views now aggregate ALL orders regardless of the selected date range.
 - **`src/app/components/admin/AdminDashboard.tsx`**: the Sales tab defaulted to a "This Month" range, so its Daily/Weekly/Monthly trend charts only surfaced September's few orders (looked flat/broken) while the Overview's Sales Trend (all-orders) looked fine. Fix: `dailySales`, `weeklySales`, AND `monthlySales` in `computeMetrics` now iterate over ALL orders (not the range-scoped `filtered`), so all three Sales-tab views show the full Jun–Sep history regardless of the dropdown. Added shared `MONTH_INDEX` constant + `sortByMonthDay()` helper so Daily/Weekly buckets sort chronologically (oldest→newest) like Monthly. Range-scoped values (Total Revenue KPI, Sales Comparison, Best Selling, paper donut, recent transactions) unchanged. Build passes.
+
+---
+
+## September 01, 2026 10:45 PM (PHT) — prans
+- Push to `testbranch2`: session persistence, legacy order pages deleted, and collapsed-sidebar fixes.
+- **Session persistence (refresh no longer logs you out)**: the auth state now remembers the logged-in user across page reloads. Refreshing while signed in keeps you on the page instead of bouncing back to the login screen; signing out clears it, and the 15-minute inactivity auto-logout still works.
+- **Deleted the dead legacy order pages**: `StaffQueueBoard` (staff) and `AdminOrders` (admin) were imported but never routed (live pages are `StaffOrdersUnified` under `/staff/queue` and `AdminOrdersUnified` under `/admin/orders`). Previewed them first via temporary routes, then removed the files, their dead imports, and the temporary routes, and cleaned up the leftover comments referencing them.
+- **Fixed collapsed-sidebar hover labels**: in desktop collapsed mode, hovering an icon (like Payment Verification) showed the label floating at the bottom instead of beside the icon. Names are now positioned right next to the hovered icon, vertically centered on it, and clear when the sidebar scrolls.
+- **Fixed the collapsed-sidebar Profile button**: clicking the profile avatar while collapsed used to open a floating dropdown over the rail. It now expands the whole sidebar first (showing the full profile button) and opens the profile menu, matching the intended behavior.
