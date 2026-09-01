@@ -186,10 +186,19 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ---
 
+## September 01, 2026 10:26 AM (PHT) — prans
+- Push to `testbranch2`: merged pranswg's update (9 commits, 7d7f3761..4fc8fe95) with local Reports/dashboard/inventory work.
+- **Dashboard full rewrite** (`admin/AdminDashboard.tsx`): header + welcome + date-range dropdown (This Month/Last Month/This Quarter/This Year/All Time/Custom), 3 tabs **Overview | Sales | Services**, no Inventory tab. Overview with 4 summary cards, Sales Trend area chart, Sales Comparison, Best Selling Services, Top Used Paper Sizes donut, Recent Transactions, **Inventory Snapshot** (Total/Low/Out cards + urgent items + "All inventory levels are currently healthy" + View Inventory button → `/admin/inventory`). All data computed from `dataStore`/`inventoryStore`, no hardcoding.
+- **Inventory Reports added** (`admin/InventoryManagement.tsx`): module nav "Inventory Overview | Reports"; Reports section with header + date filter (Today/This Week/This Month/Last Month/Custom), summary cards (Total/Low/Out/Stock In/Stock Out), Most Used Materials, Stock Movement bar chart, Inventory Alerts, Stock-In/Stock-Out history tables, Current Inventory Report table, category + item filters.
+- **`inventoryStore.ts` stock-movement tracking**: new `StockMovement`/`StockMovementType` types + `movements[]` persisted to `localStorage('inventoryMovements')`, version bumped to `3.0`, `recordMovement()` helper; `stockIn`/`stockOut`/`deductPaperPieces` now record movements (person + reason); `getMovements(type?)`. `NewPrintRequest.tsx` `deductPaperPieces` call unchanged/backward-compatible.
+- **Merged with pranswg's remote update**: pranswg redesigned `InventoryManagement.tsx` overview (2-col summary cards, Active/Archived toggle moved into the toolbar, white-base KPI button styling). The merge kept BOTH his overview redesign AND my Reports section — only the React import line conflicted (resolved to keep `useEffect` + `useMemo`).
+- Build passes.
+
+---
+
 ## September 01, 2026 11:03 AM (PHT) — prans
 - Push to `testbranch2`: two mock customers seeded in `dataStore` for UI checking.
 - **`src/app/utils/dataStore.ts`**: `initialOrders` (previously empty) now seeds two online GCash orders so both the staff/admin lists show them on every fresh load (dataStore is the single source both lists read from).
   - **Maria Santos** (`ORD-2026-0001`, `status: 'Awaiting Payment'`, `paymentVerified: false`, GCash `GCS-2026-000123`, ₱75.00) → shows as **PENDING** in Payment Verification and is **excluded** from the Orders/queue list (UnifiedOrders `queueOrders` filters out `awaitingPayment`).
   - **John Dela Cruz** (`ORD-2026-0002`, `status: 'In Queue'`, `paymentVerified: true`, GCash `GCS-2026-000124`, ₱120.00) → shows on the **Orders/queue list as 'In Queue'** and as **VERIFIED** in Payment Verification.
   - Both carry full details (attached files, cost breakdown, colored mode, PHT timestamps) for realistic rendering; `ordersStore`/`UnifiedOrders` won't overwrite them since the store is non-empty on load.
-- Build passes.

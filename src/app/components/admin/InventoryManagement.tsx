@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Boxes,
   AlertTriangle,
@@ -11,13 +11,23 @@ import {
   Search,
   Inbox,
   FileText,
+  LayoutDashboard,
+  BarChart3,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  TrendingUp,
+  Calendar,
+  ChevronDown,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { adminMenuItems } from "../../utils/adminMenuItems";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   inventoryStore,
   type InventoryItem,
+  type StockMovement,
 } from "../../utils/inventoryStore";
 import { formatNumber } from "../../utils/formatNumber";
 import { Card } from "../ui/card";
@@ -40,6 +50,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const CATEGORIES = [
   "Paper",
@@ -55,7 +74,537 @@ type StockDialogState =
   | { type: "in" | "out"; item: InventoryItem }
   | null;
 
+// ─── Reports helpers ──────────────────────────────────────────────────────────
+const REPORT_RANGES = [
+  { id: "today", label: "Today" },
+  { id: "this-week", label: "This Week" },
+  { id: "this-month", label: "This Month" },
+  { id: "last-month", label: "Last Month" },
+  { id: "custom", label: "Custom Range" },
+] as const;
+
+function reportRange(id: string, customStart?: string, customEnd?: string) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  let start: Date;
+  let end: Date;
+  let label: string;
+
+  switch (id) {
+    case "today":
+      start = new Date(y, m, now.getDate());
+      end = new Date(y, m, now.getDate(), 23, 59, 59, 999);
+      label = now.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+      break;
+    case "this-week": {
+      const wStart = new Date(now);
+      wStart.setDate(now.getDate() - now.getDay());
+      start = new Date(wStart.getFullYear(), wStart.getMonth(), wStart.getDate());
+      end = now;
+      label = `${start.toLocaleDateString("en-PH", { month: "short", day: "numeric" })} – ${now.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`;
+      break;
+    }
+    case "last-month": {
+      const lm = m === 0 ? 11 : m - 1;
+      const ly = m === 0 ? y - 1 : y;
+      start = new Date(ly, lm, 1);
+      end = new Date(ly, lm + 1, 0, 23, 59, 59, 999);
+      label = `${start.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} – ${end.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`;
+      break;
+    }
+    case "custom": {
+      const s = customStart ? new Date(customStart) : new Date(y, m, 1);
+      const e = customEnd ? new Date(customEnd + "T23:59:59") : now;
+      start = s;
+      end = e;
+      label = `${start.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} – ${end.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`;
+      break;
+    }
+    default:
+      start = new Date(y, m, 1);
+      end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+      label = `${start.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} – ${end.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`;
+      break;
+  }
+  return { start, end, label };
+}
+
+function recentRangeStart(): Date {
+  const now = new Date();
+  const range = reportRange("this-month");
+  return range.start;
+}
+
+function fmtQty(value: number): string {
+  return formatNumber(value, value % 1 !== 0 ? 2 : 0);
+}
+
+function fmtMovementDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) +
+    " · " + d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function fmtMovementDateOnly(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ReportSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <Card className="p-6 bg-white border border-slate-100 shadow-sm">
+      <div className="mb-4">
+        <h3 className="text-base font-bold text-slate-800">{title}</h3>
+        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function InventoryReports() {
+  const [rangeId, setRangeId] = useState("this-month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [itemFilter, setItemFilter] = useState("all");
+
+  const [items, setItems] = useState<InventoryItem[]>(inventoryStore.getActiveItems());
+  const [movements, setMovements] = useState<StockMovement[]>(inventoryStore.getMovements());
+
+  useEffect(() => {
+    const refresh = () => {
+      setItems(inventoryStore.getActiveItems());
+      setMovements(inventoryStore.getMovements());
+    };
+    refresh();
+    const unsub = inventoryStore.subscribe(refresh);
+    return unsub;
+  }, []);
+
+  const range = useMemo(
+    () => reportRange(rangeId, customStart, customEnd),
+    [rangeId, customStart, customEnd]
+  );
+
+  const inRange = (movement: StockMovement) => {
+    const d = new Date(movement.createdAt);
+    return d >= range.start && d <= range.end;
+  };
+
+  const categories = useMemo(() => {
+    const set = new Set(items.map((i) => i.category).filter(Boolean));
+    return ["all", ...Array.from(set)];
+  }, [items]);
+
+  const itemOptions = useMemo(() => {
+    const filtered = categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter);
+    return filtered.map((i) => i.id);
+  }, [items, categoryFilter]);
+
+  // Scope movements by filters (category + item) and date range
+  const itemById = (id: string) => items.find((i) => i.id === id);
+
+  const scopedMovements = useMemo(() => {
+    const filteredItems = itemFilter !== "all" ? [itemFilter] : itemOptions;
+    if (categoryFilter === "all" && itemFilter === "all") {
+      return movements.filter(inRange);
+    }
+    const union = new Set<string>();
+    if (categoryFilter !== "all") {
+      items.filter((i) => i.category === categoryFilter).forEach((i) => union.add(i.id));
+    }
+    if (itemFilter !== "all") union.add(itemFilter);
+    // If only category filter, use all items of that category; if only item filter, that item
+    const allowedIds = itemFilter !== "all" ? [itemFilter] : Array.from(union);
+    return movements.filter((mv) => allowedIds.includes(mv.itemId) && inRange(mv));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movements, range, categoryFilter, itemFilter, itemOptions]);
+
+  const scopedIn = scopedMovements.filter((m) => m.type === "in");
+  const scopedOut = scopedMovements.filter((m) => m.type === "out");
+
+  const totalStockIn = scopedIn.reduce((s, m) => s + m.quantity, 0);
+  const totalStockOut = scopedOut.reduce((s, m) => s + m.quantity, 0);
+
+  const activeItems = items.filter((i) => !i.archived);
+  const lowStockItems = activeItems.filter((i) => i.currentStock > 0 && i.currentStock <= i.minimumStock);
+  const outOfStockItems = activeItems.filter((i) => i.currentStock === 0);
+
+  // Most used materials (consumption by item, from scoped-out movements)
+  const usageMap = useMemo(() => {
+    const map = new Map<string, { name: string; qty: number }>();
+    for (const mv of scopedOut) {
+      const prev = map.get(mv.itemId) || { name: mv.itemName, qty: 0 };
+      prev.qty += mv.quantity;
+      map.set(mv.itemId, prev);
+    }
+    return [...map.entries()].map(([id, v]) => ({ id, ...v })).sort((a, b) => b.qty - a.qty);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedOut]);
+
+  const totalUsage = usageMap.reduce((s, u) => s + u.qty, 0);
+
+  // Stock movement over time (by day) for the bar chart
+  const movementChart = useMemo(() => {
+    const map = new Map<string, { label: string; in: number; out: number }>();
+    for (const mv of scopedMovements) {
+      const d = new Date(mv.createdAt);
+      const key = d.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+      const entry = map.get(key) || { label: key, in: 0, out: 0 };
+      if (mv.type === "in") entry.in += mv.quantity;
+      else entry.out += mv.quantity;
+      map.set(key, entry);
+    }
+    const entries = [...map.entries()];
+    entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    return entries.slice(-14).map(([, v]) => v);
+  }, [scopedMovements]);
+
+  const currentReportItems = useMemo(() => {
+    let list = activeItems;
+    if (categoryFilter !== "all") list = list.filter((i) => i.category === categoryFilter);
+    if (itemFilter !== "all") list = list.filter((i) => i.id === itemFilter);
+    return list;
+  }, [activeItems, categoryFilter, itemFilter]);
+
+  const alerts = [...outOfStockItems, ...lowStockItems];
+
+  return (
+    <div className="space-y-6">
+      {/* Report Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Inventory Reports</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Monitor inventory levels, material usage, and stock movements.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {categoryFilter !== "all" && (
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-auto min-w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c === "all" ? "All Categories" : c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-sm"
+            >
+              <Calendar className="w-4 h-4 text-[#2F6FD6]" />
+              <span>{REPORT_RANGES.find((r) => r.id === rangeId)?.label}</span>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+            {dropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
+                  {REPORT_RANGES.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => { setRangeId(r.id); if (r.id !== "custom") setDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${rangeId === r.id ? "bg-blue-50 text-[#2F6FD6] font-semibold" : "text-slate-700 hover:bg-slate-50"}`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                  {rangeId === "custom" && (
+                    <div className="px-4 py-3 border-t border-slate-100 space-y-2">
+                      <div>
+                        <label className="text-[10px] font-medium text-slate-400 uppercase">From</label>
+                        <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-medium text-slate-400 uppercase">To</label>
+                        <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
+                      </div>
+                      <button onClick={() => setDropdownOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); if (v === "all") setItemFilter("all"); }}>
+            <SelectTrigger className="w-auto min-w-[150px]">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c === "all" ? "All Categories" : c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={itemFilter} onValueChange={setItemFilter}>
+            <SelectTrigger className="w-auto min-w-[160px]">
+              <SelectValue placeholder="All Items" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Items</SelectItem>
+              {(categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter)).map((i) => (
+                <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]"><Boxes className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Items</p>
+              <p className="text-xl font-bold text-slate-900">{activeItems.length}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600"><AlertTriangle className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Low Stock</p>
+              <p className="text-xl font-bold text-amber-600">{lowStockItems.length}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 text-red-600"><PackageMinus className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Out of Stock</p>
+              <p className="text-xl font-bold text-red-600">{outOfStockItems.length}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-600"><ArrowDownToLine className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Stock In</p>
+              <p className="text-xl font-bold text-green-600">{fmtQty(totalStockIn)}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]"><ArrowUpFromLine className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Stock Out</p>
+              <p className="text-xl font-bold text-[#2F6FD6]">{fmtQty(totalStockOut)}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Most Used Materials + Stock Movement */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ReportSection title="Most Used Materials" subtitle="Consumption during the selected period">
+          {usageMap.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-slate-400">
+              <TrendingUp className="w-8 h-8 mb-2 text-slate-300" />
+              <p className="text-sm font-medium text-slate-500">No material usage recorded for this period.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {usageMap.slice(0, 8).map((u, i) => {
+                const pct = totalUsage > 0 ? (u.qty / totalUsage) * 100 : 0;
+                const item = itemById(u.id);
+                return (
+                  <div key={u.id} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-[#2F6FD6]">{i + 1}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{u.name}</p>
+                      <p className="text-xs text-slate-400">{fmtQty(u.qty)} {item?.unit || "units"}</p>
+                    </div>
+                    <p className="text-sm font-bold text-slate-900 shrink-0">{pct.toFixed(0)}%</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ReportSection>
+
+        <ReportSection title="Stock Movement" subtitle="Stock In vs Stock Out over time">
+          {movementChart.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-slate-400">
+              <BarChart3 className="w-8 h-8 mb-2 text-slate-300" />
+              <p className="text-sm font-medium text-slate-500">No stock movement data for this period.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={movementChart} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 600 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10 }} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                <Bar dataKey="in" name="Stock In" fill="#22c55e" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="out" name="Stock Out" fill="#2F6FD6" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          <div className="flex items-center gap-5 mt-2 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" /> Stock In</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#2F6FD6] inline-block" /> Stock Out</span>
+          </div>
+        </ReportSection>
+      </div>
+
+      {/* Inventory Alerts */}
+      <ReportSection title="Inventory Alerts" subtitle="Items that require attention">
+        {alerts.length === 0 ? (
+          <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <p className="text-sm font-medium text-green-700">All inventory levels are currently healthy.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {alerts.slice(0, 8).map((item) => {
+              const isOut = item.currentStock <= 0;
+              return (
+                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <AlertTriangle className={`w-4 h-4 shrink-0 ${isOut ? "text-red-500" : "text-amber-500"}`} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {fmtQty(item.currentStock)} {item.unit}(s) remaining · Min: {fmtQty(item.minimumStock)} {item.unit}(s)
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 ${isOut ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
+                    {isOut ? "Out of Stock" : item.currentStock <= item.minimumStock ? "Critical" : "Low Stock"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ReportSection>
+
+      {/* Histories */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ReportSection title="Stock-In History" subtitle="Items added during the selected period">
+          {scopedIn.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">No stock-in records for this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 text-left">
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Date</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Item</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase text-right">Qty</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scopedIn.slice(0, 20).map((m) => (
+                    <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">{fmtMovementDateOnly(m.createdAt)}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{m.itemName}</td>
+                      <td className="px-4 py-2.5 text-right text-green-600 font-semibold whitespace-nowrap">+{fmtQty(m.quantity)} {m.unit}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{m.reason || m.person || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ReportSection>
+
+        <ReportSection title="Stock-Out History" subtitle="Items removed/consumed during the selected period">
+          {scopedOut.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">No stock-out records for this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 text-left">
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Date</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Item</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase text-right">Qty</th>
+                    <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scopedOut.slice(0, 20).map((m) => (
+                    <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">{fmtMovementDateOnly(m.createdAt)}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{m.itemName}</td>
+                      <td className="px-4 py-2.5 text-right text-[#2F6FD6] font-semibold whitespace-nowrap">-{fmtQty(m.quantity)} {m.unit}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{m.reason || m.person || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ReportSection>
+      </div>
+
+      {/* Current Inventory Report */}
+      <ReportSection title="Current Inventory Report" subtitle="Reflects the same data as the Inventory Overview table">
+        {currentReportItems.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No inventory items match the current filters.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/60 text-left">
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Item</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Category</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Unit</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase text-right">Current Stock</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase text-right">Min Stock</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentReportItems.map((item) => {
+                  const isOut = item.currentStock <= 0;
+                  const isLow = item.currentStock > 0 && item.currentStock <= item.minimumStock;
+                  return (
+                    <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{item.name}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{item.category}</td>
+                      <td className="px-4 py-2.5 text-slate-500 capitalize">{item.unit}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-slate-900">{fmtQty(item.currentStock)}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-500">{fmtQty(item.minimumStock)}</td>
+                      <td className="px-4 py-2.5">
+                        {isOut && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Out of Stock</span>}
+                        {isLow && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Low Stock</span>}
+                        {!isOut && !isLow && <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">In Stock</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ReportSection>
+    </div>
+  );
+}
+
 export default function InventoryManagement() {
+  const { user } = useAuth();
+  const [view, setView] = useState<"overview" | "reports">("overview");
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
@@ -209,12 +758,18 @@ export default function InventoryManagement() {
     }
 
     if (type === "in") {
-      inventoryStore.stockIn(item.id, qty);
+      inventoryStore.stockIn(item.id, qty, {
+        reason: stockNote.trim() || "Restock",
+        person: user?.name,
+      });
       toast.success(
         `Stocked in ${qty} ${item.unit}(s) to ${item.name}.`,
       );
     } else {
-      const result = inventoryStore.stockOut(item.id, qty);
+      const result = inventoryStore.stockOut(item.id, qty, {
+        reason: stockNote.trim() || "Usage",
+        person: user?.name,
+      });
       if (result.success) {
         toast.success(`Stocked out ${qty} ${item.unit}(s) from ${item.name}.`);
       } else {
@@ -258,6 +813,28 @@ export default function InventoryManagement() {
   return (
     <Layout menuItems={adminMenuItems} title="Inventory Management">
       <div className="space-y-6">
+        {/* Module Navigation */}
+        <div className="border-b border-slate-200">
+          <div className="flex gap-0 -mb-px">
+            <button
+              onClick={() => setView("overview")}
+              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "overview" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+            >
+              Inventory Overview
+            </button>
+            <button
+              onClick={() => setView("reports")}
+              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "reports" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+            >
+              Reports
+            </button>
+          </div>
+        </div>
+
+        {view === "reports" && <InventoryReports />}
+
+        {view === "overview" && (
+        <>
         {/* Low Stock Banner */}
         {lowStockItems.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
@@ -541,6 +1118,8 @@ export default function InventoryManagement() {
             </div>
           )}
         </Card>
+        </>
+        )}
       </div>
 
       {/* Add / Edit Item Dialog */}

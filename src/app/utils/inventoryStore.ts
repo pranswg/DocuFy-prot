@@ -33,10 +33,26 @@ export type AddonOption = {
   description: string;
 };
 
+export type StockMovementType = 'in' | 'out';
+
+export type StockMovement = {
+  id: string;
+  itemId: string;
+  itemName: string;
+  type: StockMovementType;
+  quantity: number;
+  unit: string;
+  reason?: string;
+  person?: string;
+  related?: string; // e.g. order/transaction reference
+  createdAt: string; // ISO timestamp
+};
+
 type Subscriber = () => void;
 
 class InventoryStore {
   private items: InventoryItem[] = [];
+  private movements: StockMovement[] = [];
   private subscribers: Set<Subscriber> = new Set();
   private initialized: boolean = false;
 
@@ -48,12 +64,14 @@ class InventoryStore {
     if (this.initialized) return;
 
     try {
-      const INVENTORY_VERSION = '2.0'; // Increment to force a reset
+      const INVENTORY_VERSION = '3.0'; // Increment to force a reset
       const storedVersion = localStorage.getItem('inventoryStoreVersion');
       const stored = localStorage.getItem('inventoryStore');
+      const storedMoves = localStorage.getItem('inventoryMovements');
 
       if (!stored || storedVersion !== INVENTORY_VERSION) {
         this.items = this.getDefaultItems();
+        this.movements = [];
         localStorage.setItem('inventoryStoreVersion', INVENTORY_VERSION);
         this.saveToLocalStorage();
       } else {
@@ -61,10 +79,17 @@ class InventoryStore {
         this.items = Array.isArray(parsed)
           ? parsed.map(item => this.normalizeItem(item))
           : [];
+        try {
+          const movesParsed = storedMoves ? JSON.parse(storedMoves) : [];
+          this.movements = Array.isArray(movesParsed) ? movesParsed : [];
+        } catch {
+          this.movements = [];
+        }
       }
     } catch (error) {
       console.error('Failed to load inventory from localStorage:', error);
       this.items = this.getDefaultItems();
+      this.movements = [];
     }
 
     this.initialized = true;
@@ -82,9 +107,33 @@ class InventoryStore {
   private saveToLocalStorage(): void {
     try {
       localStorage.setItem('inventoryStore', JSON.stringify(this.items));
+      localStorage.setItem('inventoryMovements', JSON.stringify(this.movements));
     } catch (error) {
       console.error('Failed to save inventory to localStorage:', error);
     }
+  }
+
+  private recordMovement(
+    item: InventoryItem,
+    type: StockMovementType,
+    quantity: number,
+    opts?: { reason?: string; person?: string; related?: string }
+  ): void {
+    this.movements = [
+      {
+        id: `mv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        itemId: item.id,
+        itemName: item.name,
+        type,
+        quantity,
+        unit: item.unit,
+        reason: opts?.reason,
+        person: opts?.person,
+        related: opts?.related,
+        createdAt: new Date().toISOString(),
+      },
+      ...this.movements,
+    ];
   }
 
   private getDefaultItems(): InventoryItem[] {
@@ -152,17 +201,18 @@ class InventoryStore {
   }
 
   // Stock In (restocking): add quantity
-  stockIn(id: string, quantity: number): InventoryItem | undefined {
+  stockIn(id: string, quantity: number, opts?: { reason?: string; person?: string }): InventoryItem | undefined {
     if (quantity <= 0) return undefined;
     const item = this.getItemById(id);
     if (!item) return undefined;
     const updated = { ...item, currentStock: item.currentStock + quantity };
     this.updateItem(id, { currentStock: updated.currentStock });
+    this.recordMovement(item, 'in', quantity, opts);
     return updated;
   }
 
   // Stock Out (usage/sale): deduct quantity, never below zero
-  stockOut(id: string, quantity: number): { success: boolean; message: string; item?: InventoryItem } {
+  stockOut(id: string, quantity: number, opts?: { reason?: string; person?: string; related?: string }): { success: boolean; message: string; item?: InventoryItem } {
     if (quantity <= 0) return { success: false, message: 'Quantity must be greater than zero.' };
     const item = this.getItemById(id);
     if (!item) return { success: false, message: 'Item not found.' };
@@ -171,6 +221,7 @@ class InventoryStore {
     }
     const updated = { ...item, currentStock: item.currentStock - quantity };
     this.updateItem(id, { currentStock: updated.currentStock });
+    this.recordMovement(item, 'out', quantity, opts);
     return { success: true, message: 'Stock deducted.', item: updated };
   }
 
@@ -210,7 +261,7 @@ class InventoryStore {
 
   // Deduct paper pieces for an order, matched by paper size.
   // Returns how many pieces were actually deducted for that size.
-  deductPaperPieces(paperSize: string, pieces: number): number {
+  deductPaperPieces(paperSize: string, pieces: number, opts?: { reason?: string; person?: string; related?: string }): number {
     if (pieces <= 0) return 0;
     const item = this.getPaperItemBySize(paperSize);
     if (!item) return 0;
@@ -222,7 +273,17 @@ class InventoryStore {
     const deductedPieces = Math.round(deductedUnits * pcsPerUnit);
 
     this.updateItem(item.id, { currentStock: newStock });
+    if (deductedUnits > 0) {
+      this.recordMovement(item, 'out', deductedUnits, opts ?? { reason: 'Order printing' });
+    }
     return deductedPieces;
+  }
+
+  // Stock movement history, optionally filtered by type
+  getMovements(type?: StockMovementType): StockMovement[] {
+    this.loadFromLocalStorage();
+    if (!type) return [...this.movements];
+    return this.movements.filter(m => m.type === type);
   }
 
   // Paper size options for the customer order form (from Paper items)
