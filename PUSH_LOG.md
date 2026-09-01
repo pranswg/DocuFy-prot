@@ -196,9 +196,8 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ---
 
-## September 01, 2026 11:03 AM (PHT) — prans
-- Push to `testbranch2`: two mock customers seeded in `dataStore` for UI checking.
-- **`src/app/utils/dataStore.ts`**: `initialOrders` (previously empty) now seeds two online GCash orders so both the staff/admin lists show them on every fresh load (dataStore is the single source both lists read from).
-  - **Maria Santos** (`ORD-2026-0001`, `status: 'Awaiting Payment'`, `paymentVerified: false`, GCash `GCS-2026-000123`, ₱75.00) → shows as **PENDING** in Payment Verification and is **excluded** from the Orders/queue list (UnifiedOrders `queueOrders` filters out `awaitingPayment`).
-  - **John Dela Cruz** (`ORD-2026-0002`, `status: 'In Queue'`, `paymentVerified: true`, GCash `GCS-2026-000124`, ₱120.00) → shows on the **Orders/queue list as 'In Queue'** and as **VERIFIED** in Payment Verification.
-  - Both carry full details (attached files, cost breakdown, colored mode, PHT timestamps) for realistic rendering; `ordersStore`/`UnifiedOrders` won't overwrite them since the store is non-empty on load.
+## September 01, 2026 09:21 PM (PHT) — prans
+- Push to `testbranch2`: merged aeprnts's dashboard/inventory-reports work + expanded mock sales data for dashboard testing.
+- **Merge commit** `100acb00` pulled in aeprnts's `96c41a6` ("Add dynamic admin dashboard (Overview/Sales/Services) & inventory reports; stock-movement tracking") — `AdminDashboard.tsx` 3-tab rewrite, `InventoryManagement.tsx` Inventory Overview | Reports toggle, `inventoryStore.ts` stock-movement tracking (v3.0, `inventoryMovements` localStorage). Only `PUSH_LOG.md` conflicted (kept both entries, oldest→newest).
+- **Mock customers** `c52332b0`: two online GCash orders seeded in `dataStore` for Payment Verification + Orders-list UI checking (Maria Santos pending / John Dela Cruz in-queue).
+- **`src/app/utils/dataStore.ts`**: added **10 more seed orders** (`ORD-2026-0003` → `ORD-2026-0012`) spanning **Jun–Sep 2026** so the admin dashboard has a multi-month **Sales Trend**, varied **Best Selling Services** (Colored/B&W/Photocopy/School Supplies), a filled **paper-size donut** (A4/Short/Long), meaningful **Total Sales / Orders / walk-in / active-customer** KPIs, and populated **Recent Transactions**. Kept the two Payment-Verification orders. Old months are mostly `Completed`/`Released`; one Aug order is `Canceled` (excluded from revenue); Sep has three completed/released today. First time the local branch reflects BOTH prans + aeprnts work in one history for aeprnts to pull.
