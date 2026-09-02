@@ -760,15 +760,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <SortableHeader column="time">
                     Time
                   </SortableHeader>
-                  <SortableHeader column="type">
-                    Type
-                  </SortableHeader>
-                  <SortableHeader column="pages">
-                    Pages
-                  </SortableHeader>
-                  <SortableHeader column="copies">
-                    Copies
-                  </SortableHeader>
                   <SortableHeader column="status">
                     Status
                   </SortableHeader>
@@ -791,7 +782,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       <React.Fragment key={period}>
                         <tr className="bg-gray-50 border-y border-gray-200">
                           <td
-                            colSpan={11}
+                            colSpan={8}
                             className="px-6 py-3"
                           >
                             <div className="flex items-center gap-3">
@@ -857,20 +848,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <Badge
                                   variant="outline"
-                                  className="text-xs font-medium border-gray-200 bg-gray-50"
-                                >
-                                  {order.type}
-                                </Badge>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {order.pages}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {order.copies}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <Badge
-                                  variant="outline"
                                   className={`text-xs font-medium capitalize ${getStatusBadgeClasses(order.status)}`}
                                 >
                                   {order.status === "inQueue"
@@ -916,7 +893,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 )}
                 {Object.keys(groupedOrders).length === 0 && (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={8}>
                       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                         <Search className="w-12 h-12 mb-3" />
                         <p className="text-sm font-medium">
@@ -975,68 +952,69 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Print job details fields */}
-                  <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Paper Size
-                    </p>
-                    <p className="font-semibold text-[#1c1f26]">
-                      {selectedOrder.paperSize}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Number of Copies
-                    </p>
-                    <p className="font-semibold text-[#1c1f26]">
-                      {selectedOrder.copies}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Total Pages
-                    </p>
-                    <p className="font-semibold text-[#1c1f26]">
-                      {selectedOrder.pages}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Order Source
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={`text-sm font-medium ${
-                        selectedOrder.orderSource === "online"
-                          ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                          : "bg-blue-50 text-blue-700 border-blue-200"
-                      }`}
-                    >
-                      {selectedOrder.orderSource === "online"
-                        ? "🌐 Online"
-                        : "🏪 Walk-in"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Attached Files */}
-                {selectedOrder.attachedFiles &&
-                  selectedOrder.attachedFiles.length > 0 && (
-                    <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                        Attached Files
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-2 gap-px bg-gray-100">
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Paper Size
                       </p>
-                      <FileAttachments
-                        files={selectedOrder.attachedFiles}
-                        orderId={selectedOrder.id}
-                        showDownload={true}
-                      />
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedOrder.paperSize}
+                      </p>
                     </div>
-                  )}
+
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Number of Copies
+                      </p>
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedOrder.copies}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Total Pages
+                      </p>
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedOrder.pages}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Order Source
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`text-sm font-medium ${
+                          selectedOrder.orderSource === "online"
+                            ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
+                        }`}
+                      >
+                        {selectedOrder.orderSource === "online"
+                          ? "🌐 Online"
+                          : "🏪 Walk-in"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Attached Files */}
+                  {selectedOrder.attachedFiles &&
+                    selectedOrder.attachedFiles.length > 0 && (
+                      <div className="bg-white p-4 border-t border-gray-100">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                          Attached Files
+                        </p>
+                        <FileAttachments
+                          files={selectedOrder.attachedFiles}
+                          orderId={selectedOrder.id}
+                          showDownload={true}
+                        />
+                      </div>
+                    )}
+                </div>
               </div>
 
               {/* Additional Information Section */}
@@ -1047,90 +1025,94 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </h3>
                 </div>
 
-                {/* Status */}
-                <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Status
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className={`text-sm font-medium capitalize ${getStatusBadgeClasses(selectedOrder.status)}`}
-                  >
-                    {selectedOrder.status === "inQueue"
-                      ? "In Queue"
-                      : selectedOrder.status === "onHold"
-                        ? "On Hold"
-                        : selectedOrder.status}
-                  </Badge>
-                </div>
-                {!selectedOrder.paymentVerified && (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate(`${userRole === "admin" ? "/admin" : "/staff"}/payment-verification?orderId=${encodeURIComponent(selectedOrder.id)}`)}
-                    className="border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Verify Payment
-                  </Button>
-                </div>
-                )}
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-2 gap-px bg-gray-100">
+                    {/* Status */}
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Status
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`text-sm font-medium capitalize ${getStatusBadgeClasses(selectedOrder.status)}`}
+                      >
+                        {selectedOrder.status === "inQueue"
+                          ? "In Queue"
+                          : selectedOrder.status === "onHold"
+                            ? "On Hold"
+                            : selectedOrder.status}
+                      </Badge>
+                    </div>
 
-                {/* Payment Status */}
-                <div className="p-4 bg-white border border-gray-200 rounded-xl">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Payment Status
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className={`text-sm font-medium ${
-                      selectedOrder.paymentVerified
-                        ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                        : "bg-white border-2 border-blue-200 text-yellow-700 border-blue-200"
-                    }`}
-                  >
-                    {selectedOrder.paymentVerified
-                      ? "✓ Verified"
-                      : "⚠ Not Verified"}
-                  </Badge>
-                </div>
-
-                {/* Hold Reason */}
-                {selectedOrder.holdReason && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <AlertCircle className="w-4 h-4" /> Hold
-                      Reason
-                    </p>
-                    <p className="text-sm text-blue-900 leading-relaxed">
-                      {selectedOrder.holdReason}
-                    </p>
+                    {/* Payment Status */}
+                    <div className="bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Payment Status
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`text-sm font-medium ${
+                          selectedOrder.paymentVerified
+                            ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
+                            : "bg-white border-2 border-blue-200 text-yellow-700 border-blue-200"
+                        }`}
+                      >
+                        {selectedOrder.paymentVerified
+                          ? "✓ Verified"
+                          : "⚠ Not Verified"}
+                      </Badge>
+                    </div>
                   </div>
-                )}
 
-                {selectedOrder.cancellationReason && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <AlertCircle className="w-4 h-4" /> Cancellation Reason
-                    </p>
-                    <p className="text-sm text-red-900 leading-relaxed">
-                      {selectedOrder.cancellationReason}
-                    </p>
-                  </div>
-                )}
+                  {/* Hold Reason */}
+                  {selectedOrder.holdReason && (
+                    <div className="bg-blue-50 p-4 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> Hold Reason
+                      </p>
+                      <p className="text-sm text-blue-900 leading-relaxed">
+                        {selectedOrder.holdReason}
+                      </p>
+                    </div>
+                  )}
 
-                {/* Special Instructions */}
-                {selectedOrder.notes && (
-                  <div className="bg-white border-2 border-blue-200 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <FileText className="w-4 h-4" /> Special
-                      Instructions
-                    </p>
-                    <p className="text-sm text-blue-900 leading-relaxed">
-                      {selectedOrder.notes}
-                    </p>
-                  </div>
-                )}
+                  {selectedOrder.cancellationReason && (
+                    <div className="bg-red-50 p-4 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> Cancellation Reason
+                      </p>
+                      <p className="text-sm text-red-900 leading-relaxed">
+                        {selectedOrder.cancellationReason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Special Instructions */}
+                  {selectedOrder.notes && (
+                    <div className="bg-blue-50 p-4 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4" /> Special Instructions
+                      </p>
+                      <p className="text-sm text-blue-900 leading-relaxed">
+                        {selectedOrder.notes}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Verify Payment */}
+                  {!selectedOrder.paymentVerified && (
+                    <div className="bg-white p-4 border-t border-gray-100">
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate(`${userRole === "admin" ? "/admin" : "/staff"}/payment-verification?orderId=${encodeURIComponent(selectedOrder.id)}`)}
+                        className="border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Verify Payment
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Invoice Section - Only show when order is Completed or Released */}

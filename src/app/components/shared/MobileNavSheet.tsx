@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Clock,
   Bell,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMobileNav } from "../../contexts/MobileNavContext";
@@ -306,6 +307,13 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   </p>
                 </div>
                 <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => navigateAndClose("/")}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    <Home className="w-4 h-4" /> Home
+                  </button>
                   <button
                     type="button"
                     onClick={() => navigateAndClose(`/${user?.role}/profile`)}

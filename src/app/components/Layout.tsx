@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Megaphone,
   Clock,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
@@ -468,6 +469,16 @@ export default function Layout({
                 type="button"
                 onClick={() => {
                   setIsProfileOpen(false);
+                  handleNavigation("/");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+              >
+                <Home className="w-4 h-4" /> Home
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false);
                   handleNavigation(`/${user?.role}/profile`);
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
@@ -666,6 +677,9 @@ export default function Layout({
             </button>
             {topProfilePresence && (
               <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <Home className="h-4 w-4" /> Home
+                </button>
                 <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
                   <User className="h-4 w-4" /> Profile Settings
                 </button>
