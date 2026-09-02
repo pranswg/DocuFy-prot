@@ -56,6 +56,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { FileAttachments } from "../ui/file-attachments";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore } from "../../utils/pricingStore";
 import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
@@ -177,6 +178,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     useState<string>("all");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showStatusForm, setShowStatusForm] = useState(false);
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<
     | "received"
     | "inQueue"
@@ -1538,7 +1540,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               Cancel
             </Button>
             <Button
-              onClick={confirmStatusUpdate}
+              onClick={() => setShowStatusConfirm(true)}
               className={
                 pendingStatus === "onHold"
                   ? "bg-blue-600 hover:bg-blue-700"
@@ -1558,6 +1560,55 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Update Confirmation */}
+      {showStatusConfirm && pendingStatus && selectedOrder && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowStatusConfirm}
+          onConfirm={() => { confirmStatusUpdate(); setShowStatusConfirm(false); }}
+          title={
+            pendingStatus === "canceled"
+              ? "Cancel Order?"
+              : pendingStatus === "released"
+                ? "Release Order?"
+                : pendingStatus === "onHold"
+                  ? "Place Order On Hold?"
+                  : `Mark Order as ${
+                      pendingStatus === "inQueue"
+                        ? "In Queue"
+                        : pendingStatus.charAt(0).toUpperCase() + pendingStatus.slice(1)
+                    }?`
+          }
+          description={
+            pendingStatus === "canceled"
+              ? `Cancel order ${selectedOrder.id}? This will change the order status to Cancelled${
+                  statusFormData.cancellationReason
+                    ? ` with reason "${statusFormData.cancellationReason}"`
+                    : ""
+                }. This action cannot be undone and the customer will be notified.`
+              : pendingStatus === "onHold"
+                ? `Place order ${selectedOrder.id} On Hold${
+                    statusFormData.holdReason
+                      ? ` with reason "${statusFormData.holdReason}"`
+                      : ""
+                  }? The customer will be notified.`
+                : pendingStatus === "released"
+                  ? `Release order ${selectedOrder.id}? This confirms the customer has picked up the order and generates the invoice.`
+                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : pendingStatus.charAt(0).toUpperCase() + pendingStatus.slice(1)}" and notify the customer?`
+          }
+          confirmLabel={
+            pendingStatus === "canceled"
+              ? "Cancel Order"
+              : pendingStatus === "released"
+                ? "Release Order"
+                : "Confirm Update"
+          }
+          cancelLabel="Go Back"
+          destructive={pendingStatus === "canceled"}
+          requirePhrase={pendingStatus === "canceled"}
+        />
+      )}
 
       <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
         <DialogContent className="max-w-4xl max-h-[90vh]">

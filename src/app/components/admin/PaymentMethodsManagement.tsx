@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   paymentMethodsStore,
@@ -60,6 +61,8 @@ export default function PaymentMethodsManagement() {
     qrCode: undefined,
   });
   const [deleting, setDeleting] = useState<PaymentMethodType | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [toggleMethod, setToggleMethod] = useState<PaymentMethodType | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -304,7 +307,7 @@ export default function PaymentMethodsManagement() {
                       size="icon"
                       title={method.active ? "Deactivate" : "Activate"}
                       className={method.active ? "hover:bg-red-50" : "hover:bg-green-50"}
-                      onClick={() => toggleActive(method)}
+                      onClick={() => setToggleMethod(method)}
                     >
                       {method.active ? (
                         <Ban className="w-4 h-4 text-red-500" />
@@ -451,7 +454,7 @@ export default function PaymentMethodsManagement() {
             </Button>
             <Button
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={handleSave}
+              onClick={() => setShowSaveConfirm(true)}
             >
               {editingId ? (
                 <>
@@ -467,33 +470,56 @@ export default function PaymentMethodsManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Save / Add Payment Method Confirmation */}
+      {showSaveConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSaveConfirm}
+          onConfirm={handleSave}
+          title={editingId ? "Save Changes?" : "Add Payment Method?"}
+          description={
+            editingId
+              ? `Are you sure you want to update "${form.name.trim()}"? Its name, account details, and QR code will change immediately for customers.`
+              : `Create payment method "${form.name.trim()}"? It becomes available on the customer payment page immediately.`
+          }
+          confirmLabel={editingId ? "Save Changes" : "Add Payment Method"}
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+
+      {/* Activate / Deactivate Confirmation */}
+      {toggleMethod && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setToggleMethod(null)}
+          onConfirm={() => { toggleActive(toggleMethod); setToggleMethod(null); }}
+          title={toggleMethod.active ? "Deactivate Payment Method?" : "Activate Payment Method?"}
+          description={
+            toggleMethod.active
+              ? `Deactivate "${toggleMethod.name}"? Customers will no longer be able to select it for new payments (existing orders keep their reference).`
+              : `Activate "${toggleMethod.name}" so customers can pay with it again?`
+          }
+          confirmLabel={toggleMethod.active ? "Deactivate" : "Activate"}
+          cancelLabel="Go Back"
+          destructive={toggleMethod.active}
+        />
+      )}
+
       {/* Delete Confirm */}
-      <Dialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-500" />
-              </div>
-              <DialogTitle className="text-xl">Remove Payment Method?</DialogTitle>
-            </div>
-            <DialogDescription>
-              This will permanently remove{" "}
-              <strong>{deleting?.name}</strong> from the system. Existing
-              orders that used it keep their payment reference, but customers
-              will no longer be able to select it. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleting(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              <Trash2 className="w-4 h-4 mr-2" /> Remove
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {deleting && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setDeleting(null)}
+          onConfirm={confirmDelete}
+          title="Remove Payment Method?"
+          description={`This permanently removes "${deleting.name}" from the system. Existing orders that used it keep their payment reference, but customers can no longer select it. This cannot be undone.`}
+          confirmLabel="Remove"
+          cancelLabel="Keep Item"
+          destructive
+          requirePhrase
+        />
+      )}
     </Layout>
   );
 }

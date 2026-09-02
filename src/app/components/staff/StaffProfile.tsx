@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, BriefcaseBusiness, AlertCircle, Camera, Clock, Bell } from 'lucide-react';
+import { Kanban, LayoutGrid, ShoppingCart, User, Mail, Phone, Calendar, Shield, Save, ArrowLeft, CheckCircle, Key, BriefcaseBusiness, AlertCircle, Camera, Clock, Boxes, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { PasswordStrengthIndicator, validatePassword } from '../ui/password-strength-indicator';
 
@@ -17,6 +18,7 @@ const menuItems = [
   { label: 'Queue Board', path: '/staff/queue', icon: <Kanban className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <Shield className="w-5 h-5" /> },
+  { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Notifications', path: '/staff/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
@@ -40,6 +42,7 @@ export default function StaffProfile() {
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [mfaEnabled, setMfaEnabled] = useState(user?.mfaEnabled || false);
   const [profileImage, setProfileImage] = useState<string | null>(() => user?.profileImage || null);
   const [passwordData, setPasswordData] = useState({
@@ -392,7 +395,7 @@ export default function StaffProfile() {
             </div>
           </div>
         </Card>
-        <Button variant="outline" onClick={logout} className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700">Sign Out</Button>
+        <Button variant="outline" onClick={() => setShowLogoutConfirm(true)} className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700">Sign Out</Button>
       </div>
 
       <Dialog open={showDisableMFADialog} onOpenChange={setShowDisableMFADialog}>
@@ -494,6 +497,19 @@ export default function StaffProfile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={() => { logout(); setShowLogoutConfirm(false); }}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your session will be preserved, but sign-in will be required to continue."
+          confirmLabel="Sign Out"
+          cancelLabel="Stay Signed In"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

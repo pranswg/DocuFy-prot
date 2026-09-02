@@ -25,6 +25,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   pricingStore,
@@ -113,6 +114,8 @@ export default function PricingManagement() {
 
   const [legacyEditing, setLegacyEditing] = useState<PricingItemSpec | null>(null);
   const [legacyEditValue, setLegacyEditValue] = useState("");
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showLegacySaveConfirm, setShowLegacySaveConfirm] = useState(false);
 
   useEffect(() => {
     const load = () => {
@@ -608,13 +611,27 @@ export default function PricingManagement() {
             </Button>
             <Button
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={handleSave}
+              onClick={() => setShowSaveConfirm(true)}
             >
               <Edit2 className="w-4 h-4 mr-2" /> Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Save Matrix Price Confirmation */}
+      {showSaveConfirm && editing && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSaveConfirm}
+          onConfirm={handleSave}
+          title="Update Price?"
+          description={`Are you sure you want to set ${EditTargetLabel(editing)} to ₱${editValue}? This applies instantly everywhere in the system.`}
+          confirmLabel="Save Changes"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
 
       {/* Edit Legacy Dialog */}
       <Dialog
@@ -666,7 +683,7 @@ export default function PricingManagement() {
             </Button>
             <Button
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={handleLegacySave}
+              onClick={() => setShowLegacySaveConfirm(true)}
             >
               <Edit2 className="w-4 h-4 mr-2" /> Save Changes
             </Button>
@@ -674,43 +691,36 @@ export default function PricingManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Save Legacy Rate Confirmation */}
+      {showLegacySaveConfirm && legacyEditing && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLegacySaveConfirm}
+          onConfirm={handleLegacySave}
+          title="Update Legacy Rate?"
+          description={`Are you sure you want to set "${legacyEditing.label}" to ₱${legacyEditValue}? This changes the legacy rate/rule used by the standard document flow.`}
+          confirmLabel="Save Changes"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+
       {/* Reset Confirm */}
-      <Dialog
-        open={showResetConfirm}
-        onOpenChange={(open) => {
-          if (!open && !editing && !legacyEditing) setShowResetConfirm(false);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B]">
-              Reset pricing to defaults?
-            </DialogTitle>
-            <DialogDescription>
-              This restores all prices across every service (Document, Vellum,
-              Sticker, Photo) and the legacy per-page rates to their
-              original values. This applies everywhere immediately and cannot be
-              undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              className="h-11 w-full sm:w-auto"
-              onClick={() => setShowResetConfirm(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              className="h-11 w-full sm:w-auto"
-              onClick={confirmReset}
-            >
-              <RotateCcw className="w-4 h-4 mr-2" /> Reset Pricing
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {showResetConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => {
+            if (!editing && !legacyEditing) setShowResetConfirm(false);
+          }}
+          onConfirm={confirmReset}
+          title="Reset Pricing to Defaults?"
+          description="This restores all prices across every service (Document, Vellum, Sticker, Photo) and the legacy per-page rates to their original values. This applies everywhere immediately and cannot be undone."
+          confirmLabel="Reset Pricing"
+          cancelLabel="Cancel"
+          destructive
+          requirePhrase
+        />
+      )}
     </Layout>
   );
 }

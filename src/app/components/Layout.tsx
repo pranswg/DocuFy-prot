@@ -18,7 +18,8 @@ import {
   ArrowLeft,
   Megaphone,
   Clock,
-  Home,
+Home,
+  Boxes,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
@@ -32,6 +33,7 @@ import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
 import { useMobileNav } from "../contexts/MobileNavContext";
 import { nowPHT, subscribeInternetTime } from "../utils/pht";
+import { ConfirmationDialog } from "./ui/confirmation-dialog";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -101,6 +103,7 @@ export default function Layout({
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Live header clock — real internet GMT+8 (Philippines time), visible to
   // every user/role on every page through the shared Layout header.
@@ -209,6 +212,10 @@ export default function Layout({
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate("/");
   };
@@ -221,6 +228,11 @@ export default function Layout({
 
     // Navigate if clickable
     if (!notification.clickable) return;
+    // Inventory alert → open the read-only/staff or admin inventory page.
+    if (notification.type === 'inventory' && user) {
+      navigate(user.role === 'staff' ? '/staff/inventory' : '/admin/inventory');
+      return;
+    }
     // Order/payment/status notification → open that specific order
     if (notification.relatedOrderId && user) {
       if (user.role === 'customer') {
@@ -245,16 +257,22 @@ export default function Layout({
     setIsNotificationOpen(false);
   };
 
-  const getNotificationIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: Notification['type'], priority?: Notification['priority']) => {
+    if (type === 'inventory') {
+      // Out of Stock → emergency/red; Low Stock → important/amber.
+      return priority === 'emergency'
+        ? { icon: AlertTriangle, color: 'bg-red-100 text-red-600', unreadDot: 'bg-red-500' }
+        : { icon: Boxes, color: 'bg-amber-100 text-amber-600', unreadDot: 'bg-amber-500' };
+    }
     switch (type) {
       case 'order':
-        return { icon: PackageIcon, color: 'bg-blue-100 text-blue-600' };
+        return { icon: PackageIcon, color: 'bg-blue-100 text-blue-600', unreadDot: 'bg-blue-500' };
       case 'payment':
-        return { icon: AlertTriangle, color: 'bg-yellow-100 text-yellow-600' };
+        return { icon: AlertTriangle, color: 'bg-yellow-100 text-yellow-600', unreadDot: 'bg-yellow-500' };
       case 'status_update':
-        return { icon: CheckCircle, color: 'bg-blue-100 text-blue-600' };
+        return { icon: CheckCircle, color: 'bg-blue-100 text-blue-600', unreadDot: 'bg-blue-500' };
       default:
-        return { icon: Bell, color: 'bg-gray-100 text-gray-600' };
+        return { icon: Bell, color: 'bg-gray-100 text-gray-600', unreadDot: 'bg-blue-500' };
     }
   };
 
@@ -312,7 +330,7 @@ export default function Layout({
       };
     }),
     ...notifications.map((n) => {
-      const meta = getNotificationIcon(n.type);
+      const meta = getNotificationIcon(n.type, n.priority);
       return {
         key: n.id,
         read: n.read,
@@ -321,7 +339,7 @@ export default function Layout({
         timestamp: n.timestamp,
         icon: meta.icon,
         color: meta.color,
-        unreadDot: "bg-blue-500",
+        unreadDot: meta.unreadDot,
         onClick: () => handleNotificationClick(n),
         clickable: n.clickable,
       };
@@ -761,6 +779,20 @@ export default function Layout({
           background-clip: padding-box;
         }
       `}</style>
+
+      {/* Sign Out Confirmation */}
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={confirmLogout}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your current session and app data will be preserved, but sign-in will be required to continue."
+          confirmLabel="Sign Out"
+          cancelLabel="Stay Signed In"
+          destructive={false}
+        />
+      )}
     </div>
   );
 }

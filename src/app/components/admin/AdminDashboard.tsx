@@ -466,8 +466,8 @@ function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) 
 // ─── Inventory Snapshot ───────────────────────────────────────────────────────
 function InventorySnapshot({ items, navigate }: { items: InventoryItem[]; navigate: ReturnType<typeof useNavigate> }) {
   const activeItems = items.filter((i) => !i.archived);
-  const lowStockItems = activeItems.filter((i) => i.currentStock > 0 && i.currentStock <= i.minimumStock);
-  const outOfStockItems = activeItems.filter((i) => i.currentStock === 0);
+  const lowStockItems = activeItems.filter((i) => inventoryStore.getInventoryStatus(i) === "low");
+  const outOfStockItems = activeItems.filter((i) => inventoryStore.getInventoryStatus(i) === "out");
   const urgentItems = [...outOfStockItems, ...lowStockItems].slice(0, 5);
 
   return (
@@ -501,7 +501,7 @@ function InventorySnapshot({ items, navigate }: { items: InventoryItem[]; naviga
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Needs Attention</p>
           {urgentItems.map((item) => {
-            const isOut = item.currentStock === 0;
+            const isOut = inventoryStore.getInventoryStatus(item) === "out";
             return (
               <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
                 <div className="flex items-center gap-2 min-w-0">

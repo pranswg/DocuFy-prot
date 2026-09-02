@@ -12,12 +12,14 @@ import {
   ShoppingCart,
   Clock,
   Bell,
-  Home,
+Home,
+  Boxes,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMobileNav } from "../../contexts/MobileNavContext";
 import { useIsMobile } from "../ui/use-mobile";
 import { usePresence } from "../ui/use-presence";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import {
   Sheet,
   SheetContent,
@@ -90,6 +92,11 @@ const staffMenuItems: MenuItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
   },
   {
+    label: "Inventory",
+    path: "/staff/inventory",
+    icon: <Boxes className="w-5 h-5" />,
+  },
+  {
     label: "Notifications",
     path: "/staff/notifications",
     icon: <Bell className="w-5 h-5" />,
@@ -107,6 +114,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profilePresence = usePresence(isProfileOpen, 200);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Preserve the nav scroll position across open/close (the Radix sheet
   // unmounts its content when closed, which would otherwise reset scrolling).
@@ -174,6 +182,10 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     setOpen(false);
     logout();
     router.navigate("/");
@@ -336,6 +348,19 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           </div>
         </div>
       </SheetContent>
+
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={confirmLogout}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your session and app data will be preserved, but sign-in will be required to continue."
+          confirmLabel="Sign Out"
+          cancelLabel="Stay Signed In"
+          destructive={false}
+        />
+      )}
     </Sheet>
   );
 }

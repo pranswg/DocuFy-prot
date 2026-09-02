@@ -7,6 +7,7 @@ import {
   Clock,
   ShoppingCart,
   CreditCard,
+  Boxes,
   Bell,
   BellRing,
   BadgeDollarSign,
@@ -43,6 +44,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
@@ -115,6 +117,11 @@ const staffMenuItems = [
     icon: <CreditCard className="w-5 h-5" />,
   },
   {
+    label: "Inventory",
+    path: "/staff/inventory",
+    icon: <Boxes className="w-5 h-5" />,
+  },
+  {
     label: "Notifications",
     path: "/staff/notifications",
     icon: <Bell className="w-5 h-5" />,
@@ -160,6 +167,8 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState("");
   const [priority, setPriority] = useState<AnnouncementPriority>("regular");
   const [recipients, setRecipients] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   useEffect(() => {
     const load = () => setAnnouncements(announcementsStore.getAnnouncementsFor(email));
@@ -215,6 +224,11 @@ export default function NotificationsPage() {
   const openSystemNotification = (n: Notification) => {
     notificationStore.markAsRead(n.id);
     if (!n.clickable) return;
+    // Inventory alert → open the read-only/staff or admin inventory page.
+    if (n.type === "inventory" && user) {
+      navigate(user.role === "staff" ? "/staff/inventory" : "/admin/inventory");
+      return;
+    }
     // Order/payment/status notification → open that specific order.
     if (n.relatedOrderId && user) {
       if (user.role === "customer") {
@@ -260,13 +274,11 @@ export default function NotificationsPage() {
     setMessage("");
     setPriority("regular");
     setRecipients("all");
+    setShowSendConfirm(false);
   };
 
   const handleDelete = (announcement: Announcement) => {
-    if (!confirm("Delete this notification? Users will no longer see it.")) return;
-    announcementsStore.deleteAnnouncement(announcement.id);
-    if (selected?.id === announcement.id) setSelected(null);
-    toast.success("Notification deleted");
+    setDeleteTarget(announcement);
   };
 
   const renderUrgentCard = (announcement: Announcement) => {
@@ -433,32 +445,71 @@ export default function NotificationsPage() {
     order: { icon: Package, color: "bg-[#F2F7FF] text-[#1D73EC]" },
     payment: { icon: AlertTriangle, color: "bg-amber-50 text-amber-600" },
     status_update: { icon: CheckCircle, color: "bg-[#F2F7FF] text-[#1D73EC]" },
+    inventory: { icon: Boxes, color: "bg-amber-50 text-amber-600" },
   };
 
   const renderSystemCard = (n: Notification) => {
     const meta = SYSTEM_META[n.type] || { icon: Bell, color: "bg-gray-100 text-gray-600" };
     const Icon = meta.icon;
     const read = n.read;
+    // Inventory alerts use priority-aware styling: Important → amber,
+    // Emergency → red, with an inline "View Inventory" action.
+    const isInventory = n.type === "inventory";
+    const isEmergency = isInventory && n.priority === "emergency";
+    const isImportant = isInventory && n.priority === "important";
+    const displayIcon = isEmergency ? AlertOctagon : isImportant ? AlertTriangle : Icon;
+    const iconColor = isEmergency
+      ? "bg-red-100 text-red-600"
+      : isImportant
+        ? "bg-amber-100 text-amber-600"
+        : read
+          ? "bg-gray-100 text-gray-400"
+          : meta.color;
+    const cardClass = isEmergency
+      ? "border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-50"
+      : isImportant
+        ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/80"
+        : read
+          ? "bg-white border-gray-100"
+          : "bg-[#F2F7FF]/60 border-[#1D73EC]/25";
     return (
       <Card
         key={n.id}
-        className={`p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
-          read ? "bg-white border-gray-100" : "bg-[#F2F7FF]/60 border-[#1D73EC]/25"
-        }`}
+        className={`p-4 sm:p-5 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+          read ? "opacity-80" : ""
+        } ${cardClass}`}
         onClick={() => openSystemNotification(n)}
       >
         <div className="flex items-start gap-4">
           <div
-            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              read ? "bg-gray-100 text-gray-400" : meta.color
-            }`}
+            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconColor}`}
           >
-            <Icon className="w-5 h-5" />
+            <displayIcon className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
+                  {isInventory && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                        isEmergency
+                          ? "bg-red-600 text-white"
+                          : "bg-amber-500 text-white"
+                      }`}
+                    >
+                      {isEmergency ? (
+                        <AlertOctagon className="w-3 h-3" />
+                      ) : (
+                        <AlertTriangle className="w-3 h-3" />
+                      )}
+                      {n.priority === "emergency"
+                        ? "Out of Stock"
+                        : n.priority === "important"
+                          ? "Low Stock"
+                          : "Inventory"}
+                    </span>
+                  )}
                   {!read && <span className="w-2 h-2 rounded-full bg-[#1D73EC]" />}
                 </div>
                 <h3
@@ -473,9 +524,24 @@ export default function NotificationsPage() {
                 </p>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              {formatSentTime(n.timestamp.toISOString())}
-            </p>
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <p className="text-xs text-gray-400">
+                {formatSentTime(n.timestamp.toISOString())}
+              </p>
+              {isInventory && !read && user && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openSystemNotification(n);
+                  }}
+                >
+                  <Boxes className="w-3.5 h-3.5" />
+                  View Inventory
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -737,7 +803,7 @@ export default function NotificationsPage() {
                       ? "bg-amber-500 hover:bg-amber-600"
                       : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               }`}
-              onClick={handleSend}
+              onClick={() => setShowSendConfirm(true)}
             >
               {priority === "emergency" ? (
                 <AlertOctagon className="w-4 h-4 mr-2" />
@@ -751,6 +817,39 @@ export default function NotificationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Notification Confirmation */}
+      {deleteTarget && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            announcementsStore.deleteAnnouncement(deleteTarget.id);
+            if (selected?.id === deleteTarget.id) setSelected(null);
+            toast.success("Notification deleted");
+            setDeleteTarget(null);
+          }}
+          title="Delete this notification?"
+          description={`"${deleteTarget.title}" will be permanently removed. All users will no longer see this notification. This action cannot be undone.`}
+          confirmLabel="Delete Notification"
+          cancelLabel="Keep It"
+          requirePhrase
+        />
+      )}
+
+      {/* Send Notification Confirmation */}
+      {showSendConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowSendConfirm}
+          onConfirm={() => { handleSend(); setShowSendConfirm(false); }}
+          title={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} notification?`}
+          description={`This will broadcast "${title}" to all users. It will appear in the Notifications panel for everyone and cannot be unsent once delivered.`}
+          confirmLabel={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification`}
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

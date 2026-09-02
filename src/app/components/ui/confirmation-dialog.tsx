@@ -10,7 +10,7 @@ import {
 import { Button } from './button';
 import { Input } from './input';
 import { Label } from './label';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -18,8 +18,12 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   title: string;
   description: string;
-  confirmationPhrase?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
   destructive?: boolean;
+  requirePhrase?: boolean;
+  confirmationPhrase?: string;
+  loading?: boolean;
 }
 
 export function ConfirmationDialog({
@@ -28,8 +32,12 @@ export function ConfirmationDialog({
   onConfirm,
   title,
   description,
-  confirmationPhrase = "Docufy",
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   destructive = true,
+  requirePhrase = false,
+  confirmationPhrase = "Docufy",
+  loading = false,
 }: ConfirmationDialogProps) {
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
@@ -41,19 +49,22 @@ export function ConfirmationDialog({
     }
   }, [open]);
 
+  const canConfirm = requirePhrase ? inputValue.trim() === confirmationPhrase : true;
+
   const handleConfirm = () => {
-    if (inputValue.trim() === confirmationPhrase) {
-      onConfirm();
-      onOpenChange(false);
-      setInputValue('');
-      setError('');
-    } else {
+    if (loading) return;
+    if (requirePhrase && inputValue.trim() !== confirmationPhrase) {
       setError(`Please type "${confirmationPhrase}" exactly to confirm.`);
+      return;
     }
+    onConfirm();
+    onOpenChange(false);
+    setInputValue('');
+    setError('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && canConfirm && !loading) {
       handleConfirm();
     }
   };
@@ -75,50 +86,54 @@ export function ConfirmationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="confirmation-input" className="text-sm font-medium">
-              Type <span className="font-bold text-red-400">"{confirmationPhrase}"</span> to confirm
-            </Label>
-            <Input
-              id="confirmation-input"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                setError('');
-              }}
-              onKeyPress={handleKeyPress}
-              placeholder={confirmationPhrase}
-              className={error ? 'border-blue-500 focus-visible:ring-red-500' : ''}
-              autoComplete="off"
-            />
-            {error && (
-              <p className="text-sm text-red-400 font-medium">{error}</p>
-            )}
-          </div>
+        {requirePhrase && (
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="confirmation-input" className="text-sm font-medium">
+                Type <span className="font-bold text-red-400">"{confirmationPhrase}"</span> to confirm
+              </Label>
+              <Input
+                id="confirmation-input"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setError('');
+                }}
+                onKeyPress={handleKeyPress}
+                placeholder={confirmationPhrase}
+                className={error ? 'border-blue-500 focus-visible:ring-red-500' : ''}
+                autoComplete="off"
+              />
+              {error && (
+                <p className="text-sm text-red-400 font-medium">{error}</p>
+              )}
+            </div>
 
-          <div className="bg-white border-2 border-blue-200 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-amber-800">
-              <strong>Warning:</strong> This action requires confirmation for maximum protection.
-            </p>
+            <div className="bg-white border-2 border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Warning:</strong> This action requires confirmation for maximum protection.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         <DialogFooter className="gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={loading}
           >
-            Cancel
+            {cancelLabel}
           </Button>
           <Button
             type="button"
             variant={destructive ? "destructive" : "default"}
             onClick={handleConfirm}
-            disabled={!inputValue.trim()}
+            disabled={!canConfirm || loading}
           >
-            Confirm
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

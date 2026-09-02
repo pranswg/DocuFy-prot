@@ -315,6 +315,8 @@ export default function Staff() {
 
   const [activating, setActivating] = useState<Staff | null>(null);
   const [deactivating, setDeactivating] = useState<Staff | null>(null);
+  const [showAddConfirm, setShowAddConfirm] = useState(false);
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
 
   const activeCount = staff.filter((s) => s.status === "Active").length;
   const inactiveCount = staff.length - activeCount;
@@ -832,7 +834,7 @@ export default function Staff() {
             </Button>
             <Button
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={handleAddStaff}
+              onClick={() => setShowAddConfirm(true)}
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Create Staff Account
@@ -948,7 +950,7 @@ export default function Staff() {
             </Button>
             <Button
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={handleSaveEdit}
+              onClick={() => setShowEditConfirm(true)}
             >
               Save Changes
             </Button>
@@ -969,6 +971,7 @@ export default function Staff() {
             ? `${activating.name} will regain access to the system and can sign in again.`
             : ""
         }
+        confirmLabel="Activate"
         destructive={false}
       />
 
@@ -984,7 +987,30 @@ export default function Staff() {
             ? `${deactivating.name} will no longer be able to sign in until the account is reactivated.`
             : ""
         }
+        confirmLabel="Deactivate"
         destructive={true}
+      />
+
+      <ConfirmationDialog
+        open={showAddConfirm}
+        onOpenChange={setShowAddConfirm}
+        onConfirm={handleAddStaff}
+        title="Create Staff Account?"
+        description={`This will create a new sign-in account for ${newStaff.fullName.trim() || "this staff member"} (${newStaff.email.trim() || ""}). They will be able to log in with the credentials you set.`}
+        confirmLabel="Create Account"
+        cancelLabel="Go Back"
+        destructive={false}
+      />
+
+      <ConfirmationDialog
+        open={showEditConfirm}
+        onOpenChange={setShowEditConfirm}
+        onConfirm={handleSaveEdit}
+        title={`Save Changes${editingStaff ? ` to ${editForm?.name || editingStaff.name}?` : "?"}`}
+        description={`Are you sure you want to save the changes to ${editingStaff?.name || "this staff member"}'s account? Changes to email or role take effect immediately.`}
+        confirmLabel="Save Changes"
+        cancelLabel="Go Back"
+        destructive={false}
       />
     </Layout>
   );

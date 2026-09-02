@@ -1,7 +1,8 @@
 // Centralized notification store
 type Notification = {
   id: string;
-  type: 'order' | 'payment' | 'status_update';
+  type: 'order' | 'payment' | 'status_update' | 'inventory';
+  priority?: 'important' | 'emergency';
   title: string;
   message: string;
   timestamp: Date;
@@ -9,7 +10,7 @@ type Notification = {
   clickable: boolean;
   relatedOrderId?: string;
   relatedRoute?: string;
-  recipientRole?: 'customer' | 'staff' | 'admin' | 'all';
+  recipientRole?: 'customer' | 'staff' | 'admin' | 'staff_admin' | 'all';
   recipientEmail?: string;
 };
 
@@ -64,6 +65,7 @@ class NotificationStore {
     message: string,
     options?: {
       clickable?: boolean;
+      priority?: Notification['priority'];
       relatedOrderId?: string;
       relatedRoute?: string;
       recipientRole?: Notification['recipientRole'];
@@ -73,6 +75,7 @@ class NotificationStore {
     const notification: Notification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
+      priority: options?.priority,
       title,
       message,
       timestamp: new Date(),
@@ -94,8 +97,12 @@ class NotificationStore {
     if (!userRole) return this.notifications;
 
     return this.notifications.filter((n) => {
-      // Check role match
-      const roleMatch = n.recipientRole === 'all' || n.recipientRole === userRole;
+      // Role match: 'staff_admin' targets staff and admin only (inventory alerts).
+      const roleMatch =
+        n.recipientRole === 'all' ||
+        n.recipientRole === userRole ||
+        (n.recipientRole === 'staff_admin' &&
+          (userRole === 'staff' || userRole === 'admin'));
       // Check email match (if specified)
       const emailMatch = !n.recipientEmail || n.recipientEmail === userEmail;
       return roleMatch && emailMatch;

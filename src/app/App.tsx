@@ -31,8 +31,13 @@ import JobBoard from './components/customer/JobBoard';
 import JobApplyForm from './components/customer/JobApplyForm';
 import NotificationsPage from './components/shared/NotificationsPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import StaffInventory from './components/staff/StaffInventory';
 import { MobileNavProvider } from './contexts/MobileNavContext';
 import MobileNavSheet from './components/shared/MobileNavSheet';
+// Module-level side effect: subscribes to the inventory store and emits Low
+// Stock / Out of Stock alerts to the Notifications system on any inventory
+// change (Stock In/Out, order deductions, item edits).
+import './utils/inventoryAlerts';
 
 // Simple error boundary component
 function ErrorBoundary() {
@@ -146,6 +151,10 @@ const router = createBrowserRouter([
       {
         path: 'payment-verification',
         element: <ProtectedRoute role="staff"><StaffPaymentVerificationUnified /></ProtectedRoute>,
+      },
+      {
+        path: 'inventory',
+        element: <ProtectedRoute role="staff"><StaffInventory /></ProtectedRoute>,
       },
       {
         path: 'notifications',

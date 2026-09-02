@@ -24,6 +24,7 @@ import {
   Camera,
   Layers,
   StickyNote,
+  Boxes,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
@@ -50,6 +51,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../ui/dialog';
+import { ConfirmationDialog } from '../ui/confirmation-dialog';
 
 const ALLOWED_FILE_TYPES = {
   "application/pdf": ".pdf",
@@ -72,7 +74,8 @@ const staffMenuItems = [
   { label: 'Clock-In & Timesheet', path: '/staff/timesheet', icon: <Clock className="w-5 h-5" /> },
   { label: 'Orders', path: '/staff/queue', icon: <Package className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
-  { label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
+{ label: 'Payment Verification', path: '/staff/payment-verification', icon: <CreditCard className="w-5 h-5" /> },
+  { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Notifications', path: '/staff/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
@@ -122,6 +125,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
   const [showDetectedPages, setShowDetectedPages] = useState<{ [fileId: string]: boolean }>({});
   const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
   const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
+  const [showProceedConfirm, setShowProceedConfirm] = useState(false);
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
@@ -1758,7 +1762,7 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
                   </Button>
                   <Button
                     className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                    onClick={handleProceedToQueue}
+                    onClick={() => setShowProceedConfirm(true)}
                     disabled={files.length === 0}
                   >
                     Proceed to In Queue
@@ -1804,6 +1808,20 @@ export default function UnifiedWalkInTransactions({ userRole }: UnifiedWalkInTra
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Proceed to In Queue Confirmation */}
+      {showProceedConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowProceedConfirm}
+          onConfirm={() => { handleProceedToQueue(); setShowProceedConfirm(false); }}
+          title="Place Walk-in Order?"
+          description={`This will create a walk-in order for ${customerType === "walkin" ? "Walk-in Customer" : (customerName || "Walk-in Customer")} with ${files.length} file(s), total ${formatCurrency(calculateTotal())}, and send it to the print queue immediately.`}
+          confirmLabel="Proceed to In Queue"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
       </StaffTimeInGate>
     </Layout>
   );

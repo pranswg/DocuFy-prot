@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { PasswordStrengthIndicator, validatePassword } from '../ui/password-strength-indicator';
 
@@ -38,6 +39,7 @@ export default function CustomerProfile() {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showMFADialog, setShowMFADialog] = useState(false);
   const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [mfaSecret, setMfaSecret] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -429,7 +431,7 @@ export default function CustomerProfile() {
         <div className="pb-4">
           <Button
             variant="outline"
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
           >
             Sign Out
@@ -625,6 +627,19 @@ export default function CustomerProfile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={() => { logout(); setShowLogoutConfirm(false); }}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your session will be preserved, but sign-in will be required to continue."
+          confirmLabel="Sign Out"
+          cancelLabel="Stay Signed In"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

@@ -50,6 +50,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import {
   BarChart,
   Bar,
@@ -612,6 +613,10 @@ export default function InventoryManagement() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [stockDialog, setStockDialog] = useState<StockDialogState>(null);
+  const [confirmType, setConfirmType] = useState<
+    "save" | "stockIn" | "stockOut" | "archive" | "restore" | null
+  >(null);
+  const [archiveTarget, setArchiveTarget] = useState<InventoryItem | null>(null);
 
   // Add / edit form state
   const [form, setForm] = useState({
@@ -1101,7 +1106,7 @@ export default function InventoryManagement() {
                             variant="ghost"
                             size="sm"
                             title={item.archived ? "Restore" : "Archive"}
-                            onClick={() => toggleArchive(item)}
+                            onClick={() => { setArchiveTarget(item); setConfirmType(item.archived ? "restore" : "archive"); }}
                           >
                             {item.archived ? (
                               <RotateCcw className="h-4 w-4" />
@@ -1257,7 +1262,7 @@ export default function InventoryManagement() {
               Cancel
             </Button>
             <Button
-              onClick={saveItem}
+              onClick={() => setConfirmType("save")}
               className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
               {editItem ? "Save Changes" : "Add Item"}
@@ -1265,6 +1270,32 @@ export default function InventoryManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Save / Add Item Confirmation */}
+      {confirmType === "save" && editItem && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setConfirmType(null)}
+          onConfirm={saveItem}
+          title="Save Changes?"
+          description={`Are you sure you want to update "${form.name.trim()}"? Its details, stock level (${Math.max(0, Number(form.currentStock) || 0)} ${form.unit}(s)), and reorder level will be overwritten.`}
+          confirmLabel="Save Changes"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+      {confirmType === "save" && !editItem && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setConfirmType(null)}
+          onConfirm={saveItem}
+          title="Add Item?"
+          description={`Are you sure you want to add "${form.name.trim()}" to inventory? It will appear in the active inventory immediately with an initial stock of ${Math.max(0, Number(form.currentStock) || 0)} ${form.unit}(s).`}
+          confirmLabel="Add Item"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
 
       {/* Stock In / Out Dialog */}
       <Dialog open={stockDialog !== null} onOpenChange={(open) => { if (!open) setStockDialog(null); }}>
@@ -1336,7 +1367,7 @@ export default function InventoryManagement() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={submitStock}
+                  onClick={() => setConfirmType(stockDialog.type === "in" ? "stockIn" : "stockOut")}
                   className={
                     stockDialog.type === "in"
                       ? "bg-green-600 text-white hover:bg-green-700"
@@ -1350,6 +1381,58 @@ export default function InventoryManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Stock In Confirmation */}
+      {confirmType === "stockIn" && stockDialog && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setConfirmType(null)}
+          onConfirm={submitStock}
+          title="Stock In Item?"
+          description={`Are you sure you want to add ${Math.floor(Number(stockQty)) || 0} ${stockDialog.item.unit}(s) to "${stockDialog.item.name}"? The stock level will increase permanently.`}
+          confirmLabel="Stock In"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+      {confirmType === "stockOut" && stockDialog && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setConfirmType(null)}
+          onConfirm={submitStock}
+          title="Stock Out Item?"
+          description={`Are you sure you want to deduct ${Math.floor(Number(stockQty)) || 0} ${stockDialog.item.unit}(s) from "${stockDialog.item.name}"? This reduces available stock (cannot go below 0) and records a usage/sale movement.`}
+          confirmLabel="Stock Out"
+          cancelLabel="Go Back"
+          destructive
+        />
+      )}
+
+      {/* Archive / Restore Confirmation */}
+      {confirmType === "archive" && archiveTarget && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => { setConfirmType(null); setArchiveTarget(null); }}
+          onConfirm={() => { toggleArchive(archiveTarget); setArchiveTarget(null); }}
+          title="Archive Item?"
+          description={`Are you sure you want to archive "${archiveTarget.name}"? It will be hidden from active inventory and no longer used for order deductions, but kept in the Archived view.`}
+          confirmLabel="Archive"
+          cancelLabel="Keep Item"
+          destructive
+        />
+      )}
+      {confirmType === "restore" && archiveTarget && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => { setConfirmType(null); setArchiveTarget(null); }}
+          onConfirm={() => { toggleArchive(archiveTarget); setArchiveTarget(null); }}
+          title="Restore Item?"
+          description={`Are you sure you want to restore "${archiveTarget.name}" to active inventory? It will be available for order deductions and add-ons again.`}
+          confirmLabel="Restore"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </Layout>
   );
 }

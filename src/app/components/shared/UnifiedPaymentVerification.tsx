@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
 import { formatPHTime, formatPHDate } from "../../utils/pht";
 import {
@@ -119,6 +120,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showProofImage, setShowProofImage] = useState(false);
+  const [pendingVerifyAction, setPendingVerifyAction] = useState<
+    "verified" | "rejected" | null
+  >(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -606,10 +610,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   <div className="flex gap-3">
                     <Button
                       className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
-                      onClick={() => {
-                        handleVerifyPayment("verified");
-                        setShowDialog(false);
-                      }}
+                      onClick={() => setPendingVerifyAction("verified")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Approve Payment
@@ -735,9 +736,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               onClick={() => {
                 if (!rejectionReason.trim())
                   return toast.error("Please provide a reason");
-                handleVerifyPayment("rejected");
-                setShowRejectDialog(false);
-                setRejectionReason("");
+                setPendingVerifyAction("rejected");
               }}
             >
               <XCircle className="w-4 h-4 mr-2" /> Confirm
@@ -777,6 +776,44 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Verify Payment Confirmation */}
+      {pendingVerifyAction === "verified" && selectedPayment && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setPendingVerifyAction(null)}
+          onConfirm={() => {
+            handleVerifyPayment("verified");
+            setShowDialog(false);
+            setPendingVerifyAction(null);
+          }}
+          title="Approve Payment?"
+          description={`Verify the ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
+          confirmLabel="Approve Payment"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+      {pendingVerifyAction === "rejected" && selectedPayment && (
+        <ConfirmationDialog
+          open
+          onOpenChange={() => setPendingVerifyAction(null)}
+          onConfirm={() => {
+            handleVerifyPayment("rejected");
+            setShowRejectDialog(false);
+            setRejectionReason("");
+            setPendingVerifyAction(null);
+          }}
+          title="Reject Payment?"
+          description={`The ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
+            rejectionReason.trim() ? ` (${rejectionReason.trim()})` : ""
+          }. The customer will be notified. This cannot be undone.`}
+          confirmLabel="Reject Payment"
+          cancelLabel="Keep Payment"
+          destructive
+          requirePhrase
+        />
+      )}
       </StaffTimeInGate>
     </Layout>
   );
