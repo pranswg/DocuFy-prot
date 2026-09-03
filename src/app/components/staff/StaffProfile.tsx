@@ -15,9 +15,9 @@ import { PasswordStrengthIndicator, validatePassword } from '../ui/password-stre
 const menuItems = [
   { label: 'Dashboard', path: '/staff/dashboard', icon: <LayoutGrid className="w-5 h-5" /> },
   { label: 'Clock-In & Timesheet', path: '/staff/timesheet', icon: <Clock className="w-5 h-5" /> },
-  { label: 'Queue Board', path: '/staff/queue', icon: <Kanban className="w-5 h-5" /> },
   { label: 'Walk-in Transactions', path: '/staff/walk-in', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Payment Verification', path: '/staff/payment-verification', icon: <Shield className="w-5 h-5" /> },
+  { label: 'Queue Board', path: '/staff/queue', icon: <Kanban className="w-5 h-5" /> },
   { label: 'Inventory', path: '/staff/inventory', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Notifications', path: '/staff/notifications', icon: <Bell className="w-5 h-5" /> },
 ];

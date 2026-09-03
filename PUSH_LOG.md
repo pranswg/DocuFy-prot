@@ -236,3 +236,13 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Inventory-aware notifications**: the notifications page now renders inventory alerts with color-coded styling (red emergency border + icon / amber important border + icon). Because this is a system alert, it only shows a `View Inventory` button and cannot be marked read.
 - **Dashboard inventory snapshot**: the admin dashboard's Inventory snapshot now uses the same shared status logic as the rest of the app to detect low/out items, so the snapshot and the alerts stay consistent with the inventory page.
 - All of the above build cleanly (`npm run build` passes; only the pre-existing large-chunk warning remains).
+
+---
+
+## September 3, 2026 09:35 AM (PHT) — prans
+- Push to `testbranch2`: merged aeprnts's inventory alerts / confirmation-dialog work into the local branch and landed the "Home" + order-list + nav-order changes.
+- **Merged aeprnts's commits locally** (`0b5e2763` confirmation dialogs + `3b904ea7` inventory low/out alerts & staff inventory page), resolving import conflicts in `Layout.tsx` and `MobileNavSheet.tsx` by keeping both sides' icon imports (`Home` + `Boxes`). Build passes.
+- **"Home" added to profile dropdowns**: the desktop sidebar, top-right profile menu, and mobile nav profile dropdowns now include a **Home** option that navigates back to the landing page (`/`) for all roles.
+- **Order list columns + details dialog cleanup** (`unified/UnifiedOrders.tsx`): removed the Type/Pages/Copies columns (and their sort wiring) from the admin/staff orders table for a tidier list; collapsed the Print Job Details and Additional Information sections of the order-details dialog so each is one unified container with hairline-separated grid cells (Attached Files, status/payment, hold/cancel/notes, Verify Payment inside).
+- **Admin & staff sidebar tab order** (`adminMenuItems.tsx` + all staff page menus + mobile nav): reordered in both sidebars to: Dashboard, Walk-in Transactions, Payment Verification, Orders, Inventory, Attendance (admin), Staff (admin), Job Board (admin), Pricing Management (admin), Content Management (admin), Notifications. Staff keeps its staff-only **Clock-In & Timesheet** right after Dashboard; both keep **Inventory** and **Notifications**; admin keeps **Payment Methods** after Payment Verification.
+- Build passes.

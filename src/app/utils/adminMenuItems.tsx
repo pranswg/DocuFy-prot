@@ -23,6 +23,11 @@ export const adminMenuItems = [
     icon: <LayoutDashboard className="w-5 h-5" />,
   },
   {
+    label: "Walk-in Transactions",
+    path: "/admin/walk-in",
+    icon: <ShoppingCart className="w-5 h-5" />,
+  },
+  {
     label: "Payment Verification",
     path: "/admin/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
@@ -33,19 +38,9 @@ export const adminMenuItems = [
     icon: <QrCode className="w-5 h-5" />,
   },
   {
-    label: "Pricing Management",
-    path: "/admin/pricing",
-    icon: <BadgeDollarSign className="w-5 h-5" />,
-  },
-  {
     label: "Orders",
     path: "/admin/orders",
     icon: <Package className="w-5 h-5" />,
-  },
-  {
-    label: "Walk-in Transactions",
-    path: "/admin/walk-in",
-    icon: <ShoppingCart className="w-5 h-5" />,
   },
   {
     label: "Inventory",
@@ -53,19 +48,24 @@ export const adminMenuItems = [
     icon: <Boxes className="w-5 h-5" />,
   },
   {
-    label: "Staff",
-    path: "/admin/staff",
-    icon: <Users className="w-5 h-5" />,
-  },
-  {
     label: "Attendance",
     path: "/admin/attendance",
     icon: <Clock className="w-5 h-5" />,
   },
   {
+    label: "Staff",
+    path: "/admin/staff",
+    icon: <Users className="w-5 h-5" />,
+  },
+  {
     label: "Job Board",
     path: "/admin/job-board",
     icon: <Briefcase className="w-5 h-5" />,
+  },
+  {
+    label: "Pricing Management",
+    path: "/admin/pricing",
+    icon: <BadgeDollarSign className="w-5 h-5" />,
   },
   {
     label: "Content Management",

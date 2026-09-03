@@ -33,11 +33,6 @@ const menuItems = [
     icon: <Clock className="w-5 h-5" />,
   },
   {
-    label: "Orders",
-    path: "/staff/queue",
-    icon: <Package className="w-5 h-5" />,
-  },
-  {
     label: "Walk-in Transactions",
     path: "/staff/walk-in",
     icon: <ShoppingCart className="w-5 h-5" />,
@@ -46,6 +41,11 @@ const menuItems = [
     label: "Payment Verification",
     path: "/staff/payment-verification",
     icon: <CreditCard className="w-5 h-5" />,
+  },
+  {
+    label: "Orders",
+    path: "/staff/queue",
+    icon: <Package className="w-5 h-5" />,
   },
   {
     label: "Inventory",
