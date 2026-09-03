@@ -246,3 +246,8 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Order list columns + details dialog cleanup** (`unified/UnifiedOrders.tsx`): removed the Type/Pages/Copies columns (and their sort wiring) from the admin/staff orders table for a tidier list; collapsed the Print Job Details and Additional Information sections of the order-details dialog so each is one unified container with hairline-separated grid cells (Attached Files, status/payment, hold/cancel/notes, Verify Payment inside).
 - **Admin & staff sidebar tab order** (`adminMenuItems.tsx` + all staff page menus + mobile nav): reordered in both sidebars to: Dashboard, Walk-in Transactions, Payment Verification, Orders, Inventory, Attendance (admin), Staff (admin), Job Board (admin), Pricing Management (admin), Content Management (admin), Notifications. Staff keeps its staff-only **Clock-In & Timesheet** right after Dashboard; both keep **Inventory** and **Notifications**; admin keeps **Payment Methods** after Payment Verification.
 - Build passes.
+
+---
+
+## September 3, 2026 01:35 PM (PHT) — prans
+- **Reverted the customer mobile responsive polish** (`98ed32a2`, reverts `140574d1`): the previous push added an Order Progress timeline to `OrderTracking`, turned the CustomerDashboard/CustomerOrders order lists into mobile card rows, added a "Start a New Order" CTA to the customer dashboard, and reworked the NewPrintRequest nav buttons. These were deemed incorrect and reverted wholesale — the customer files (CustomerDashboard, CustomerOrders, NewPrintRequest, OrderTracking) and the docs (AGENTS.md, PUSH_LOG.md) are back to their state before that commit. Build passes.
