@@ -17,7 +17,6 @@ import {
   ShoppingCart,
   ChevronDown,
   X,
-  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -61,11 +60,6 @@ const menuItems = [
     label: "Job Board",
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/customer/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

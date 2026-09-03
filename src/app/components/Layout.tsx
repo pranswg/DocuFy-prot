@@ -145,12 +145,10 @@ export default function Layout({
 
   // Track announcements unread (sidebar badge)
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
-  const [urgentAnnouncements, setUrgentAnnouncements] = useState(0);
 
   useEffect(() => {
     const updateAnnouncements = () => {
       setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email));
-      setUrgentAnnouncements(announcementsStore.getUrgentUnreadCount(user?.email));
     };
     updateAnnouncements();
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
@@ -250,6 +248,13 @@ export default function Layout({
     notificationStore.markAllAsRead(user?.role, user?.email);
     announcementsStore.markAllRead(user?.email || "");
     toast.success('All notifications marked as read');
+  };
+
+  // "Show All Notifications" in the bell dropdown → the full notification page
+  // (the one previously reached via the sidebar Notifications tab, still routed).
+  const handleShowAllNotifications = () => {
+    setIsNotificationOpen(false);
+    if (user) navigate(`/${user.role}/notifications`);
   };
 
   const handleAnnouncementClick = (announcement: Announcement) => {
@@ -400,7 +405,6 @@ export default function Layout({
       >
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-          const isNotificationsItem = item.path.endsWith("/notifications");
           return (
             <div key={item.path} className="relative group w-full flex justify-center px-3">
               <button
@@ -415,12 +419,6 @@ export default function Layout({
               >
                 <div className="relative flex-shrink-0 flex items-center justify-center">
                   {item.icon}
-                  {isNotificationsItem && urgentAnnouncements > 0 && (
-                    <span
-                      title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}
-                      className="absolute -bottom-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#0B2C5B]"
-                    />
-                  )}
                 </div>
                 {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
                 {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
@@ -666,9 +664,16 @@ export default function Layout({
                         ))
                       )}
                     </div>
-                    <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="px-4 py-2.5 border-t border-gray-100 space-y-2">
                       <button className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg text-sm font-semibold bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all" onClick={handleMarkAllRead}>
                         Mark all as read
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleShowAllNotifications}
+                        className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg text-sm font-semibold bg-[#1D73EC] text-white hover:bg-[#10316B] transition-all"
+                      >
+                        <Bell className="w-4 h-4" /> Show All Notifications
                       </button>
                     </div>
                   </div>

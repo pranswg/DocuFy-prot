@@ -6,7 +6,6 @@ import {
   Package,
   ShoppingCart,
   Clock,
-  Bell,
   Boxes,
 } from 'lucide-react';
 
@@ -40,11 +39,6 @@ const staffMenuItems = [
     label: 'Inventory',
     path: '/staff/inventory',
     icon: <Boxes className="w-5 h-5" />,
-  },
-  {
-    label: 'Notifications',
-    path: '/staff/notifications',
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

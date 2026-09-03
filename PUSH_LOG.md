@@ -275,3 +275,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 3, 2026 03:30 PM (PHT) - prans
 - **LANDING PAGE "GET STARTED" CTA - ALWAYS SOLID FILLED**: the hero "Get Started" button (the Landing Page's primary CTA, navigates to `/signup`) is now always a filled primary-color button instead of the previous white/outline style. It uses `bg-[#1D73EC]` (Docufy customer primary blue) with white text for contrast, a desktop hover that darkens to `bg-[#10316B]` plus a subtle lift, and an `active:scale-95` pressed/active state for touch devices. It stays `size="lg"` (`h-10 px-6`) for a comfortable mobile tap target and gets a subtle blue shadow for extra prominence. The filled style is consistent on desktop, tablet, and mobile and never switches to an outline/transparent style at smaller widths. The button's functionality and destination (`/signup`) are unchanged. Build passes.
+
+
+
+---
+
+## September 3, 2026 04:00 PM (PHT) - prans
+- **NOTIFICATIONS - SIDEBAR TAB REMOVED, ACCESS VIA HEADER BELL DROPDOWN**: removed the dedicated "Notifications" tab/item from EVERY sidebar (desktop left sidebar, admin menu, staff/customer mobile `MobileNavSheet`, and all per-page `menuItems` arrays passed to the shared Layout), so no empty space or broken nav item remains. The buried urgent-announcement dot on that sidebar item and its now-unused `urgentAnnouncements` state in Layout/MobileNavSheet were removed too. The original Notification page/routes (`/customer/notifications`, `/staff/notifications`, `/admin/notifications`) are UNCHANGED and still exist.
+- **Header bell icon kept + "Show All Notifications" button**: the header bell stays fully functional on all screen sizes with its unread-count badge and dropdown (merged notifications + announcements feed). A new prominent solid-blue "Show All Notifications" button was added at the BOTTOM of that bell dropdown (below "Mark all as read") that closes the dropdown and navigates to the role's original Notifications page (`handleShowAllNotifications` -> `navigate('/{role}/notifications')`).
+- **Navigation flow change**: access to the full Notifications page is now `Header Bell Icon -> Notification Preview/Dropdown -> Show All Notifications -> Original Notification Page` instead of `Sidebar -> Notifications -> Page`. No duplicate notification system, no second page, no bottom navigation bar, no broken routes or dead links. Build passes.
