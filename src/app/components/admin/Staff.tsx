@@ -833,6 +833,7 @@ export default function Staff() {
               Cancel
             </Button>
             <Button
+              data-primary-action
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowAddConfirm(true)}
             >
@@ -949,6 +950,7 @@ export default function Staff() {
               Cancel
             </Button>
             <Button
+              data-primary-action
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowEditConfirm(true)}
             >

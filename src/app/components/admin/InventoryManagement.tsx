@@ -1262,6 +1262,7 @@ export default function InventoryManagement() {
               Cancel
             </Button>
             <Button
+              data-primary-action
               onClick={() => setConfirmType("save")}
               className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
             >
@@ -1367,6 +1368,7 @@ export default function InventoryManagement() {
                   Cancel
                 </Button>
                 <Button
+                  data-primary-action
                   onClick={() => setConfirmType(stockDialog.type === "in" ? "stockIn" : "stockOut")}
                   className={
                     stockDialog.type === "in"

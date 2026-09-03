@@ -63,79 +63,82 @@ export function ConfirmationDialog({
     setError('');
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && canConfirm && !loading) {
-      handleConfirm();
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            {destructive && (
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-400" />
-              </div>
-            )}
-            <DialogTitle className="text-xl">{title}</DialogTitle>
-          </div>
-          <DialogDescription className="text-base">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-
-        {requirePhrase && (
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="confirmation-input" className="text-sm font-medium">
-                Type <span className="font-bold text-red-400">"{confirmationPhrase}"</span> to confirm
-              </Label>
-              <Input
-                id="confirmation-input"
-                value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setError('');
-                }}
-                onKeyPress={handleKeyPress}
-                placeholder={confirmationPhrase}
-                className={error ? 'border-blue-500 focus-visible:ring-red-500' : ''}
-                autoComplete="off"
-              />
-              {error && (
-                <p className="text-sm text-red-400 font-medium">{error}</p>
+        {/* Wrapping in a form lets the shared dialog Enter handler (which finds a
+            submit button) trigger the confirm action consistently with mouse clicks.
+            The cancel button is type="button" so it never becomes the primary. */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirm();
+          }}
+          className="contents"
+        >
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              {destructive && (
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
               )}
+              <DialogTitle className="text-xl">{title}</DialogTitle>
             </div>
+            <DialogDescription className="text-base">
+              {description}
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="bg-white border-2 border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800">
-                <strong>Warning:</strong> This action requires confirmation for maximum protection.
-              </p>
+          {requirePhrase && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="confirmation-input" className="text-sm font-medium">
+                  Type <span className="font-bold text-red-400">"{confirmationPhrase}"</span> to confirm
+                </Label>
+                <Input
+                  id="confirmation-input"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    setError('');
+                  }}
+                  placeholder={confirmationPhrase}
+                  className={error ? 'border-blue-500 focus-visible:ring-red-500' : ''}
+                  autoComplete="off"
+                />
+                {error && (
+                  <p className="text-sm text-red-400 font-medium">{error}</p>
+                )}
+              </div>
+
+              <div className="bg-white border-2 border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-amber-800">
+                  <strong>Warning:</strong> This action requires confirmation for maximum protection.
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <DialogFooter className="gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            variant={destructive ? "destructive" : "default"}
-            onClick={handleConfirm}
-            disabled={!canConfirm || loading}
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              type="submit"
+              variant={destructive ? "destructive" : "default"}
+              disabled={!canConfirm || loading}
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {confirmLabel}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
