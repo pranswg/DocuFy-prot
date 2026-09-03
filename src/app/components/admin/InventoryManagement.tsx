@@ -71,6 +71,13 @@ const CATEGORIES = [
 
 const UNIT_OPTIONS = ["ream", "piece", "box", "bottle", "pack", "roll"];
 
+// Menu items + page title are configurable so the same full-featured inventory
+// module can be served to both admin and staff (staff get identical access).
+interface InventoryManagementProps {
+  menuItems?: { label: string; path: string; icon: React.ReactNode }[];
+  title?: string;
+}
+
 type StockDialogState =
   | { type: "in" | "out"; item: InventoryItem }
   | null;
@@ -603,7 +610,10 @@ function InventoryReports() {
   );
 }
 
-export default function InventoryManagement() {
+export default function InventoryManagement({
+  menuItems = adminMenuItems,
+  title = "Inventory Management",
+}: InventoryManagementProps) {
   const { user } = useAuth();
   const [view, setView] = useState<"overview" | "reports">("overview");
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -816,7 +826,7 @@ export default function InventoryManagement() {
   const lowStockItems = inventoryStore.getLowStockItems();
 
   return (
-    <Layout menuItems={adminMenuItems} title="Inventory Management">
+    <Layout menuItems={menuItems} title={title || "Inventory Management"}>
       <div className="space-y-6">
         {/* Module Navigation */}
         <div className="border-b border-slate-200">
