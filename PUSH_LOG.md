@@ -268,3 +268,10 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 3, 2026 03:00 PM (PHT) - prans
 - **MOBILE HEADER - PROFILE ICON REMOVED, ACCOUNT VIA SIDEBAR ONLY**: the top-right circular avatar/profile button (and its dropdown) in the shared header (`Layout.tsx`) is now hidden at mobile widths for ALL roles (`{!isMobile && ...}` wraps it), so the mobile header stays clean and uncluttered at `hamburger | page title | notifications` with no empty gap. Desktop is unchanged - staff/admin/customer still open their profile from the top-right avatar and the desktop left sidebar. On mobile, account access is exclusively through the hamburger menu's sidebar (`MobileNavSheet`), which already has a clearly-tappable account section at its bottom (avatar + email/role + dropdown `Home` / `My Profile` / `Sign Out`); tapping `My Profile` closes the sidebar and lands on the full profile page (Account Settings / Personal Information / Change Password all live there), and the browser Back / profile back-arrow return to the previous page naturally via normal router history. No separate profile system created; existing account functionality untouched. Build passes.
+
+
+
+---
+
+## September 3, 2026 03:30 PM (PHT) - prans
+- **LANDING PAGE "GET STARTED" CTA - ALWAYS SOLID FILLED**: the hero "Get Started" button (the Landing Page's primary CTA, navigates to `/signup`) is now always a filled primary-color button instead of the previous white/outline style. It uses `bg-[#1D73EC]` (Docufy customer primary blue) with white text for contrast, a desktop hover that darkens to `bg-[#10316B]` plus a subtle lift, and an `active:scale-95` pressed/active state for touch devices. It stays `size="lg"` (`h-10 px-6`) for a comfortable mobile tap target and gets a subtle blue shadow for extra prominence. The filled style is consistent on desktop, tablet, and mobile and never switches to an outline/transparent style at smaller widths. The button's functionality and destination (`/signup`) are unchanged. Build passes.

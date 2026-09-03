@@ -173,7 +173,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button
                   size="lg"
-                  className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all"
+                  className="bg-[#1D73EC] text-white hover:bg-[#10316B] transition-all active:scale-95 shadow-md shadow-[#1D73EC]/25"
                   onClick={() => navigate("/signup")}
                 >
                   Get Started{" "}
