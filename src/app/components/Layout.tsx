@@ -676,37 +676,39 @@ export default function Layout({
               )}
             </div>
 
-            <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsTopProfileOpen(!isTopProfileOpen);
-                setIsProfileOpen(false);
-                setIsNotificationOpen(false);
-              }}
-              aria-label="Open profile"
-              aria-expanded={isTopProfileOpen}
-              aria-haspopup="menu"
-              className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
-            >
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
-                {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
-              </div>
-            </button>
-            {topProfilePresence && (
-              <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
-                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  <Home className="h-4 w-4" /> Home
+            {!isMobile && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTopProfileOpen(!isTopProfileOpen);
+                    setIsProfileOpen(false);
+                    setIsNotificationOpen(false);
+                  }}
+                  aria-label="Open profile"
+                  aria-expanded={isTopProfileOpen}
+                  aria-haspopup="menu"
+                  className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+                >
+                  <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
+                    {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
+                  </div>
                 </button>
-                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  <User className="h-4 w-4" /> Profile Settings
-                </button>
-                <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50">
-                  <LogOut className="h-4 w-4" /> Sign Out
-                </button>
+                {topProfilePresence && (
+                  <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                    <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <Home className="h-4 w-4" /> Home
+                    </button>
+                    <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <User className="h-4 w-4" /> Profile Settings
+                    </button>
+                    <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            </div>
 
           </div>
         </header>
