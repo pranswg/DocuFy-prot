@@ -2349,10 +2349,10 @@ export default function NewPrintRequest() {
           )}
 
           {/* Navigation Buttons */}
-          <div className="mt-1 pt-6 border-t gap-4 sm:gap-5 grid grid-cols-2">
+          <div className="flex items-center justify-between mt-1 pt-6 border-t gap-4 sm:gap-5">
             <Button
               variant="outline"
-              className="h-12 sm:h-11 px-2 sm:px-6 text-sm sm:text-base font-medium"
+              className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"
               onClick={() => {
                 if (currentStep > 1) {
                   const prev = currentStep - 1;
@@ -2366,29 +2366,34 @@ export default function NewPrintRequest() {
               {currentStep === 1 ? "Cancel" : "Back"}
             </Button>
 
-            <Button
-              className="h-12 sm:h-11 px-2 sm:px-6 text-sm sm:text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
-              onClick={() => {
-                if (currentStep < 4) {
-                  const nextStep = currentStep + 1;
-                  setCurrentStep(nextStep);
-                  scrollPageToTop();
-                } else {
-                  setShowPlaceOrderConfirm(true);
-                }
-              }}
-              disabled={
-                (currentStep === 1 && files.length === 0) ||
-                analyzingFileId !== null ||
-                (currentStep === 4 && (!files.length || !paymentMethod))
-              }
-            >
-              {currentStep < 4
-                ? analyzingFileId
-                  ? "Analyzing..."
-                  : "Next Step"
-                : "Place Order"}
-            </Button>
+            <div className="flex gap-2 sm:gap-3">
+              {currentStep < 4 ? (
+                <Button
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    const nextStep = currentStep + 1;
+                    setCurrentStep(nextStep);
+                    scrollPageToTop();
+                  }}
+                  disabled={
+                    (currentStep === 1 && files.length === 0) ||
+                    analyzingFileId !== null
+                  }
+                >
+                  {analyzingFileId
+                    ? "Analyzing..."
+                    : "Next Step"}
+                </Button>
+              ) : (
+                <Button
+                  className="min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"
+                  onClick={() => setShowPlaceOrderConfirm(true)}
+                  disabled={files.length === 0 || !paymentMethod}
+                >
+                  Place Order
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
       </div>
