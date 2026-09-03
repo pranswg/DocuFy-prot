@@ -10,6 +10,7 @@ import {
   Package,
   Bell,
   X,
+  ChevronRight,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -112,17 +113,32 @@ export default function CustomerDashboard() {
     <Layout menuItems={menuItems} title="Dashboard">
       <div className="space-y-4 sm:space-y-6 h-auto overflow-visible pb-6 sm:pb-10 max-w-7xl mx-auto">
 
-        {/* Welcome Message */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Welcome back, {user?.name?.split(' ')[0] || 'User'}!
-          </h1>
-          <Button
-            onClick={() => setShopOpen(true)}
-            className="h-9 sm:h-10 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 active:scale-[0.97]"
-          >
-            <MapPin className="w-4 h-4" /> Shop Location
-          </Button>
+        {/* Welcome + primary action (spec §8) */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Hello, {user?.name?.split(' ')[0] || 'User'} 👋
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              What would you like to print today?
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/customer/new-request")}
+              className="h-12 flex-1 md:flex-none bg-[#2F6FD6] text-white hover:bg-[#2557b8] transition-all duration-200 active:scale-[0.97] shadow-md px-6 text-base"
+            >
+              <FileText className="w-5 h-5" /> Start a New Order
+            </Button>
+            <Button
+              onClick={() => setShopOpen(true)}
+              className="h-12 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 active:scale-[0.97]"
+              aria-label="Shop Location"
+            >
+              <MapPin className="w-4 h-4" />
+              <span className="hidden sm:inline">Shop Location</span>
+            </Button>
+          </div>
         </div>
 
         {/* Application Notifications */}
@@ -290,7 +306,7 @@ export default function CustomerDashboard() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto flex-grow">
+              <div className="overflow-x-auto hidden sm:block flex-grow">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b-2 border-gray-200">
@@ -366,6 +382,42 @@ export default function CustomerDashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile: recent orders as responsive cards (spec §17) */}
+              <div className="sm:hidden flex-grow space-y-3">
+                {recentOrders.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Package className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+                    <p className="text-sm font-semibold text-gray-500">No recent orders</p>
+                    <p className="mt-1 text-xs text-gray-400">Your print requests will appear here once you have placed an order.</p>
+                  </div>
+                ) : (
+                  recentOrders.map((order) => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => navigate(`/customer/track/${order.id}`)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition-all active:scale-[0.98]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-gray-900">{order.id}</span>
+                          <span className="font-semibold text-gray-900">{order.total || "₱0.00"}</span>
+                        </div>
+                        <div className="mt-1.5">
+                          <Badge className={`${getStatusColor(order.status)} font-medium`}>
+                            {order.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 truncate text-xs text-gray-500">
+                          {order.date || "N/A"}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+                    </button>
+                  ))
+                )}
               </div>
               <Button
                 onClick={() => navigate("/customer/orders")}

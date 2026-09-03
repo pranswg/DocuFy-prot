@@ -289,9 +289,10 @@ export default function CustomerOrders() {
           </div>
         </Card>
 
-        {/* ── Orders Table ───────────────────────────────────── */}
+        {/* ── Orders Table / Cards ───────────────────────────── */}
         <Card className="p-6 bg-white shadow-sm">
-          <div className="overflow-x-auto">
+          {/* Desktop: table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -304,16 +305,16 @@ export default function CustomerOrders() {
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Status
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Pages
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Total
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Date
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
                     Time
                   </th>
                 </tr>
@@ -358,16 +359,16 @@ export default function CustomerOrders() {
                           {order.status}
                         </Badge>
                       </td>
-                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
+                      <td className="py-4 px-4 text-sm text-gray-600">
                         {order.pages || 0}
                       </td>
-                      <td className="hidden sm:table-cell py-4 px-4 text-sm font-medium text-gray-900">
+                      <td className="py-4 px-4 text-sm font-medium text-gray-900">
                         {order.total}
                       </td>
-                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
+                      <td className="py-4 px-4 text-sm text-gray-600">
                         {formatPHDate(order.date, "short")}
                       </td>
-                      <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
+                      <td className="py-4 px-4 text-sm text-gray-600">
                         {formatPHTime(order.createdAt || order.date)}
                       </td>
                     </tr>
@@ -375,6 +376,48 @@ export default function CustomerOrders() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile: order cards (spec §17) */}
+          <div className="space-y-3 sm:hidden">
+            {filteredOrders.length === 0 ? (
+              <div className="py-14 text-center">
+                <Package className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
+                <p className="text-sm font-semibold text-gray-500">No orders found</p>
+                <p className="mt-1 text-xs text-gray-400">Try changing your filters, or place a new print request.</p>
+                <Button
+                  className="mt-5 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+                  onClick={() => navigate("/customer/new-request")}
+                >
+                  Start New Order
+                </Button>
+              </div>
+            ) : (
+              filteredOrders.map((order) => (
+                <button
+                  key={order.id}
+                  type="button"
+                  onClick={() => navigate(`/customer/track/${order.id}`)}
+                  className="flex w-full flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-gray-900">{order.id}</p>
+                      <p className="mt-0.5 truncate text-xs text-gray-500">{order.fileName || "N/A"}</p>
+                    </div>
+                    <span className="text-sm font-bold text-[#2F6FD6]">{order.total}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge className={`${getStatusColor(order.status)} font-medium`}>
+                      {order.status}
+                    </Badge>
+                    <p className="text-xs text-gray-500">
+                      {formatPHDate(order.date, "short")} · {formatPHTime(order.createdAt || order.date)}
+                    </p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </Card>
       </div>

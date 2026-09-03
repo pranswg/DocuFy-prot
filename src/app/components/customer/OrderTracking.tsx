@@ -18,6 +18,10 @@ import {
   ChevronDown,
   X,
   Bell,
+  Hourglass,
+  CircleDollarSign,
+  PackagePlus,
+  PencilLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -68,6 +72,164 @@ const menuItems = [
     icon: <Bell className="w-5 h-5" />,
   },
 ];
+
+// ── Order progress timeline (spec §15) ──────────────────────────────────────
+// A vertical, mobile-friendly timeline that shows the print-job flow at a
+// glance: Order Placed → Received → In Queue → Printing → Completed →
+// Ready for Pickup. The current step is highlighted; future steps stay muted.
+// Special states (Awaiting Payment / On Hold / Canceled) render a clear note
+// instead of a misleading ticking progress bar.
+
+interface StepDef {
+  label: string;
+  description: (sub: string) => string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const STEPS: StepDef[] = [
+  {
+    label: "Order Placed",
+    description: (sub) => `Your ${sub} has been received.`,
+    icon: PencilLine,
+  },
+  {
+    label: "Received",
+    description: () => "Admin/Staff has accepted your order and checked your file.",
+    icon: FileText,
+  },
+  {
+    label: "In Queue",
+    description: () => "Your order is waiting for an available printer.",
+    icon: Hourglass,
+  },
+  {
+    label: "Printing",
+    description: () => "Your document is currently being printed.",
+    icon: Printer,
+  },
+  {
+    label: "Completed",
+    description: () => "Printing is finished and your order is ready for pickup.",
+    icon: CheckCircle,
+  },
+  {
+    label: "Released",
+    description: () => "Your order has been released — you can now collect it.",
+    icon: PackagePlus,
+  },
+];
+
+const FLOW_INDEX: Record<string, number> = {
+  Received: 1,
+  "In Queue": 2,
+  Printing: 3,
+  Completed: 4,
+  Released: 5,
+};
+
+function Steps({ status, createdAt }: { status: string; createdAt?: string }) {
+  const isSpecial =
+    status === "Awaiting Payment" || status === "On Hold" || status === "Canceled";
+  const current = isSpecial ? 0 : FLOW_INDEX[status] ?? 0;
+  const currentTime = createdAt
+    ? formatPHDate(createdAt, "short") + " · " + formatPHTime(createdAt)
+    : "";
+
+  return (
+    <Card className="p-4 sm:p-6 bg-white shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">Order Progress</h2>
+        <Badge className={`border ${getStatusBadgeClasses(status)}`}>
+          {status}
+        </Badge>
+      </div>
+
+      {status === "Canceled" && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <X className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <p className="text-sm text-red-800">
+            <strong>This order was canceled.</strong> No further printing will take
+            place. If this was a mistake, please contact the shop.
+          </p>
+        </div>
+      )}
+
+      {status === "Awaiting Payment" && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <CircleDollarSign className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <p className="text-sm text-amber-800">
+            <strong>Waiting for payment verification.</strong> The order will enter
+            the print queue as soon as your payment is approved.
+          </p>
+        </div>
+      )}
+
+      {status === "On Hold" && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4">
+          <PauseCircle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
+          <p className="text-sm text-orange-800">
+            <strong>This order is temporarily on hold.</strong> It will resume
+            processing once the issue is resolved.
+          </p>
+        </div>
+      )}
+
+      <ol className="relative">
+        {STEPS.map((step, index) => {
+          const Icon = step.icon;
+          const done = index <= current;
+          const isNow = index === current;
+          const isLast = index === STEPS.length - 1;
+          return (
+            <li key={step.label} className="relative flex gap-4 pb-8 last:pb-0">
+              {!isLast && (
+                <span
+                  className={`absolute left-[22px] top-10 bottom-0 w-0.5 ${
+                    index < current ? "bg-[#2F6FD6]" : "bg-gray-200"
+                  }`}
+                  aria-hidden="true"
+                />
+              )}
+              <div
+                className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-4 ${
+                  done ? "bg-[#2F6FD6] text-white ring-blue-100" : "bg-gray-100 text-gray-400 ring-gray-50"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 pt-1">
+                <p
+                  className={`text-sm font-semibold ${
+                    done ? "text-gray-900" : "text-gray-400"
+                  } ${isNow ? "flex items-center gap-2" : ""}`}
+                >
+                  {step.label}
+                  {isNow && status !== "Canceled" && !isSpecial && (
+                    <span className="rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#2F6FD6]">
+                      Current
+                    </span>
+                  )}
+                </p>
+                <p
+                  className={`mt-0.5 text-xs leading-relaxed ${
+                    done ? "text-gray-600" : "text-gray-400"
+                  }`}
+                >
+                  {step.description(status === "Released" ? "printed job" : "order")}
+                </p>
+                {isNow && currentTime && !isSpecial && (
+                  <p className="mt-1 text-xs font-medium text-[#2F6FD6]">
+                    {currentTime}
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </Card>
+  );
+}
 
 export default function OrderTracking() {
   const { orderId } = useParams();
@@ -307,6 +469,12 @@ export default function OrderTracking() {
             </Badge>
           </div>
         </Card>
+
+        {/* Progress Timeline */}
+        <Steps
+          status={currentOrderStatus}
+          createdAt={orderData?.createdAt || orderData?.date}
+        />
 
         {/* Order Summary */}
         <Card className="p-4 sm:p-6 bg-white shadow-sm">
