@@ -60,6 +60,7 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore } from "../../utils/pricingStore";
 import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { inventoryStore } from "../../utils/inventoryStore";
 
 // Fallback estimate when an order has no stored cost breakdown, using the
 // shared centralized pricing so admin/staff estimates stay in lockstep.
@@ -116,6 +117,10 @@ type OrderType = {
     addonsCost: number;
     total: number;
   };
+  expectedPaperUsage?: { size: string; sheets: number }[];
+  paperDeductedOnCreate?: boolean;
+  paperConfirmed?: boolean;
+  errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
   statusUpdatedAt?: Date;
   createdAt?: Date;
   lastUpdatedAt?: Date;
@@ -179,6 +184,12 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showStatusForm, setShowStatusForm] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [showPaperConfirm, setShowPaperConfirm] = useState(false);
+  const [paperFormData, setPaperFormData] = useState<{
+    noErrors: boolean;
+    reason: string;
+    wastedSheets: number;
+  }>({ noErrors: false, reason: "", wastedSheets: 0 });
   const [pendingStatus, setPendingStatus] = useState<
     | "received"
     | "inQueue"
@@ -423,14 +434,98 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     setErrorMessage("");
   };
 
-  const confirmStatusUpdate = () => {
+  // Paper display helper: map an order's paper-size label back to an internal code
+  const paperCodeFromLabel = (label: string): string => {
+    const map: Record<string, string> = {
+      "A4": "a4", "Short": "short", "Legal": "legal",
+      "Long": "long", "Folio": "long", "A3": "a4",
+    };
+    return map[label] || (label || "a4").toLowerCase() || "a4";
+  };
+
+  // Open the Error Usage dialog (called when staff/admin mark an order Completed).
+  // It captures only error usage — whether there were errors and how many sheets
+  // were wasted — with quick-reason chips so staff don't have to type during peak hours.
+  const openPaperConfirm = () => {
+    if (!selectedOrder) return;
+    setPaperFormData({ noErrors: false, reason: "", wastedSheets: 0 });
+    setShowPaperConfirm(true);
+  };
+
+  // Called by the Error Usage dialog confirm. Deducts the expected (planned)
+  // paper usage from inventory and records any error usage for audit.
+  const getExpectedUsage = (): { size: string; sheets: number }[] => {
+    if (!selectedOrder) return [];
+    if (selectedOrder.expectedPaperUsage && selectedOrder.expectedPaperUsage.length > 0) {
+      return selectedOrder.expectedPaperUsage;
+    }
+    // Legacy order without stored per-size usage: best-effort single estimate.
+    const pps = parseInt(selectedOrder.pagesPerSheet || "1", 10) || 1;
+    const expected = Math.ceil((selectedOrder.pages || 0) / pps) * (selectedOrder.copies || 1);
+    return [{ size: paperCodeFromLabel(selectedOrder.paperSize), sheets: expected }];
+  };
+
+  // Deduct the CONFIRMED actual paper usage and complete the order status update.
+  const confirmPaperUsage = (forceNoErrors = false) => {
+    if (!selectedOrder) return;
+
+    const noError = forceNoErrors || paperFormData.noErrors;
+
+    // Deduct the EXPECTED (planned) usage per size. Legacy orders placed before
+    // this feature were auto-deducted at placement, so they are skipped to avoid
+    // double-counting. New orders (paperDeductedOnCreate === false) are deducted here.
+    if (selectedOrder.paperDeductedOnCreate === false && !selectedOrder.paperConfirmed) {
+      getExpectedUsage().forEach((u) => {
+        if (u.sheets > 0) {
+          inventoryStore.deductPaperPieces(u.size, u.sheets, {
+            reason: "Order completion",
+            person: selectedOrder.customer,
+            related: `Order ${selectedOrder.id}`,
+          });
+        }
+      });
+    }
+
+    // Record error usage for audit. If no error, nothing more is kept.
+    const errorUsage = noError
+      ? { noErrors: true, reason: undefined, wastedSheets: 0 }
+      : {
+          noErrors: false,
+          reason: paperFormData.reason,
+          wastedSheets: paperFormData.wastedSheets,
+        };
+
+    if (!noError && paperFormData.wastedSheets > 0) {
+      toast.info(
+        `Error usage recorded: ${paperFormData.wastedSheets} wasted sheet(s) for order ${selectedOrder.id}`,
+      );
+    }
+
+    setShowPaperConfirm(false);
+    confirmStatusUpdate({
+      paperConfirmed: true,
+      errorUsage,
+    });
+  };
+
+  const confirmStatusUpdate = (paperData?: {
+    paperConfirmed: boolean;
+    errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
+  }) => {
     if (!selectedOrder || !pendingStatus) return;
+
+    // Persist paper-usage confirmation fields onto the updated order when completing.
+    let extraOrder: Record<string, unknown> = {};
+    if (pendingStatus === "completed" && paperData) {
+      extraOrder = { ...paperData };
+    }
 
     // Update the status with form data (including hold reason if applicable)
     const updatedOrders = orders.map((o) =>
       o.id === selectedOrder.id
         ? {
             ...o,
+            ...extraOrder,
             status: pendingStatus,
             holdReason:
               pendingStatus === "onHold"
@@ -444,6 +539,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
     const updatedSelectedOrder = {
       ...selectedOrder,
+      ...extraOrder,
       status: pendingStatus,
       holdReason:
         pendingStatus === "onHold"
@@ -545,17 +641,30 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
   // QUEUE-VISIBLE ORDERS: orders still awaiting payment verification are excluded
   // from the Orders/queue list until staff/admin verifies them (they then enter as Received).
+  // Completed, Released, and Canceled are also excluded from the default view —
+  // they only appear when their specific status filter is selected.
   const queueOrders = useMemo(
-    () => orders.filter((o) => o.status !== "awaitingPayment"),
+    () =>
+      orders.filter(
+        (o) =>
+          o.status !== "awaitingPayment" &&
+          o.status !== "completed" &&
+          o.status !== "released" &&
+          o.status !== "canceled",
+      ),
     [orders],
   );
 
   const filteredOrders = useMemo(() => {
-    let filtered = queueOrders;
+    // When a specific status filter is selected, show from the full orders list
+    // (so completed/released/canceled appear when their filter is chosen).
+    // When "all", show only the active queue (excludes awaitingPayment + terminal statuses).
+    const base = statusFilter !== "all" ? orders : queueOrders;
+    let filtered = [...base];
 
     // SYSTEM-WIDE SORTING: Sort by most recent status update (newest first)
     // This ensures orders with recent updates appear at the top
-    filtered = [...filtered].sort((a, b) => {
+    filtered = filtered.sort((a, b) => {
       const aTime = a.statusUpdatedAt?.getTime() || a.submittedAt.getTime();
       const bTime = b.statusUpdatedAt?.getTime() || b.submittedAt.getTime();
       // Sort descending (newest first) - 8:02 AM appears above 8:00 AM
@@ -599,6 +708,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
     return filtered;
   }, [
+    orders,
     queueOrders,
     searchQuery,
     sortColumn,
@@ -1245,7 +1355,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "received"
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "hover:bg-blue-50 hover:border-blue-300"
                     }
                     onClick={() =>
@@ -1263,7 +1373,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "inQueue"
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
@@ -1281,7 +1391,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "printing"
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
@@ -1299,7 +1409,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "completed"
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
                     }
                     onClick={() =>
@@ -1317,7 +1427,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "onHold"
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "hover:bg-blue-50 hover:border-blue-300"
                     }
                     onClick={() => handleUpdateStatus("onHold")}
@@ -1333,7 +1443,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     }
                     className={
                       selectedOrder.status === "released"
-                        ? "bg-gray-600 hover:bg-gray-700"
+                        ? "bg-gray-600 text-white hover:bg-gray-700"
                         : "hover:bg-gray-50 hover:border-gray-300"
                     }
                     onClick={() =>
@@ -1540,13 +1650,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               Cancel
             </Button>
             <Button
-              onClick={() => setShowStatusConfirm(true)}
+              onClick={() =>
+                pendingStatus === "completed"
+                  ? openPaperConfirm()
+                  : setShowStatusConfirm(true)
+              }
               className={
                 pendingStatus === "onHold"
-                  ? "bg-blue-600 hover:bg-blue-700"
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
                   : pendingStatus === "canceled"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
               }
               disabled={
                 (pendingStatus === "canceled" &&
@@ -1556,6 +1670,122 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               }
             >
               Confirm Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Usage (shown when marking an order Completed) */}
+      <Dialog
+        open={showPaperConfirm}
+        onOpenChange={setShowPaperConfirm}
+      >
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        >
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">
+              Error Usage
+            </DialogTitle>
+            <DialogDescription>
+              Record whether any error usage occurred for order{" "}
+              {selectedOrder?.id}. Inventory is deducted based on the expected
+              sheets, and any wasted sheets are tracked separately.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Inventory items used for this order */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-[#2F6FD6]" />
+                <span className="text-sm font-medium text-gray-700">
+                  Inventory items used
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {getExpectedUsage().map((u) => {
+                  const displayName =
+                    inventoryStore.getPaperSizeOptions().find(
+                      (opt) => opt.name.toLowerCase() === u.size.toLowerCase(),
+                    )?.displayName || u.size;
+                  return (
+                    <div
+                      key={u.size}
+                      className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5 text-sm"
+                    >
+                      <span className="text-gray-700 capitalize">{displayName}</span>
+                      <span className="font-medium text-gray-900">
+                        {u.sheets} sheet{u.sheets !== 1 && "s"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                These items will be deducted from inventory.
+              </p>
+            </div>
+
+            <div>
+              <Label>Error usage reason</Label>
+              <Select
+                value={paperFormData.reason}
+                onValueChange={(v) =>
+                  setPaperFormData((prev) => ({ ...prev, reason: v }))
+                }
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Printing Error">Printing Error</SelectItem>
+                  <SelectItem value="Equipment Issue">Equipment Issue</SelectItem>
+                  <SelectItem value="Out of Ink">Out of Ink</SelectItem>
+                  <SelectItem value="Paper Jam">Paper Jam</SelectItem>
+                  <SelectItem value="Misalignment">Misalignment</SelectItem>
+                  <SelectItem value="Customer Request">Customer Request</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Wasted sheets</Label>
+              <input
+                type="number"
+                min={0}
+                value={paperFormData.wastedSheets}
+                onChange={(e) =>
+                  setPaperFormData((prev) => ({
+                    ...prev,
+                    wastedSheets: Math.max(0, Number(e.target.value) || 0),
+                  }))
+                }
+                className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2F6FD6] focus:outline-none"
+              />
+            </div>
+
+            <p className="text-xs text-gray-500">
+              No printing errors? Click <span className="font-medium">No Errors</span>.
+              Otherwise pick a quick reason and the number of wasted sheets so the
+              error usage is tracked. Inventory is deducted by the expected sheets
+              for this order.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => confirmPaperUsage(true)}
+            >
+              No Errors
+            </Button>
+            <Button
+              onClick={() => confirmPaperUsage(false)}
+              disabled={!paperFormData.reason}
+              className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+            >
+              Confirm Error Usage
             </Button>
           </DialogFooter>
         </DialogContent>

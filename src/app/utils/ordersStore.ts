@@ -40,6 +40,11 @@ type OrderType = {
   downPaymentRequired?: boolean;
   downPaymentAmount?: number;
   downPaymentVerified?: boolean;
+  // Paper usage confirmation fields
+  expectedPaperUsage?: { size: string; sheets: number }[];
+  paperDeductedOnCreate?: boolean;
+  paperConfirmed?: boolean;
+  errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
   // Timestamp tracking fields
   statusUpdatedAt?: Date; // Tracks when status was last changed
   createdAt?: Date; // Tracks when order was created
@@ -133,6 +138,10 @@ class OrdersStore {
         downPaymentVerified: updatedOrder.downPaymentVerified,
         downPaymentRequired: updatedOrder.downPaymentRequired,
         downPaymentAmount: updatedOrder.downPaymentAmount,
+        expectedPaperUsage: updatedOrder.expectedPaperUsage,
+        paperDeductedOnCreate: updatedOrder.paperDeductedOnCreate,
+        paperConfirmed: updatedOrder.paperConfirmed,
+        errorUsage: updatedOrder.errorUsage,
         statusUpdatedAt: updatedOrder.statusUpdatedAt?.toISOString(),
         lastUpdatedAt: updatedOrder.lastUpdatedAt?.toISOString(),
       });
@@ -200,6 +209,10 @@ class OrdersStore {
       downPaymentRequired: order.downPaymentRequired,
       downPaymentAmount: order.downPaymentAmount,
       downPaymentVerified: order.downPaymentVerified,
+      expectedPaperUsage: order.expectedPaperUsage,
+      paperDeductedOnCreate: order.paperDeductedOnCreate,
+      paperConfirmed: order.paperConfirmed,
+      errorUsage: order.errorUsage,
       statusUpdatedAt: order.statusUpdatedAt?.toISOString(),
       createdAt: order.createdAt?.toISOString(),
       lastUpdatedAt: order.lastUpdatedAt?.toISOString(),
@@ -240,6 +253,10 @@ class OrdersStore {
       downPaymentRequired: order.downPaymentRequired,
       downPaymentAmount: order.downPaymentAmount,
       downPaymentVerified: order.downPaymentVerified,
+      expectedPaperUsage: order.expectedPaperUsage,
+      paperDeductedOnCreate: order.paperDeductedOnCreate,
+      paperConfirmed: order.paperConfirmed,
+      errorUsage: order.errorUsage,
       statusUpdatedAt: order.statusUpdatedAt ? new Date(order.statusUpdatedAt) : undefined,
       createdAt: order.createdAt ? new Date(order.createdAt) : undefined,
       lastUpdatedAt: order.lastUpdatedAt ? new Date(order.lastUpdatedAt) : undefined,

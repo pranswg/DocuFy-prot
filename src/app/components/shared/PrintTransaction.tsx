@@ -630,21 +630,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           url: URL.createObjectURL(f.file),
           uploadedAt: now.toISOString(),
         })),
+        expectedPaperUsage: (() => {
+          const map: Record<string, number> = {};
+          files.forEach((f) => {
+            if (f.printType === "photo") return;
+            const pps = parseInt(f.pagesPerSheet || "1", 10) || 1;
+            const sheets = Math.ceil(f.pageCount / pps) * (f.copies || 1);
+            const size = f.paperSize || "a4";
+            map[size] = (map[size] || 0) + sheets;
+          });
+          return Object.entries(map).map(([size, sheets]) => ({ size, sheets }));
+        })(),
+        paperDeductedOnCreate: false,
       };
 
       ordersStore.addOrder(newOrder);
-
-      // Deduct paper from inventory
-      const paperBySize: Record<string, number> = {};
-      files.forEach((f) => {
-        const pps = parseInt(f.pagesPerSheet || "1", 10) || 1;
-        const sheets = Math.ceil(f.pageCount / pps) * (f.copies || 1);
-        const size = f.paperSize || "a4";
-        paperBySize[size] = (paperBySize[size] || 0) + sheets;
-      });
-      Object.entries(paperBySize).forEach(([size, pieces]) => {
-        inventoryStore.deductPaperPieces(size, pieces);
-      });
     }
 
     toast.success(
@@ -766,20 +766,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       downPaymentRequired: requiresDownPayment,
       downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
       downPaymentVerified: false,
+      expectedPaperUsage: (() => {
+        const map: Record<string, number> = {};
+        files.forEach((f) => {
+          if (f.printType === "photo") return;
+          const pps = parseInt(f.pagesPerSheet || "1", 10) || 1;
+          const sheets = Math.ceil(f.pageCount / pps) * (f.copies || 1);
+          const size = f.paperSize || "a4";
+          map[size] = (map[size] || 0) + sheets;
+        });
+        return Object.entries(map).map(([size, sheets]) => ({ size, sheets }));
+      })(),
+      paperDeductedOnCreate: false,
     };
 
     dataStore.addOrder(newOrder);
-
-    const paperBySize: Record<string, number> = {};
-    files.forEach((f) => {
-      const pps = parseInt(f.pagesPerSheet || "1", 10) || 1;
-      const sheets = Math.ceil(f.pageCount / pps) * (f.copies || 1);
-      const size = f.paperSize || "a4";
-      paperBySize[size] = (paperBySize[size] || 0) + sheets;
-    });
-    Object.entries(paperBySize).forEach(([size, pieces]) => {
-      inventoryStore.deductPaperPieces(size, pieces);
-    });
 
     const notifTitle = isOnline
       ? "New Order — Payment Verification Pending"
@@ -1180,7 +1181,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 </div>
 
                 {fileData.colorAnalysis && (
-                  <div className="mb-3 sm:mb-6 p-3 sm:p-4 bg-white border-2 border-blue-200 rounded-lg">
+                  <div className="mb-3 sm:mb-2 p-3 sm:p-4 bg-white border-2 border-blue-200 rounded-lg">
                     <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
                       Document Analysis Results
@@ -1316,7 +1317,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           type="button"
                           key={pt}
                           variant="outline"
-                          onClick={() => updateFileOption(fileData.id, "printType", pt)}
+                          onClick={() => {
+                            updateFileOption(
+                              fileData.id,
+                              "printType",
+                              fileData.printType === pt ? "" : pt,
+                            );
+                          }}
                           className={`group min-h-12 h-12 px-3 text-base font-medium transition-all duration-150 active:scale-95 ${fileData.printType === pt ? "bg-[#2F6FD6] text-white" : ""}`}
                         >
                           {pt === "document" && (
@@ -1443,33 +1450,32 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       ) : (
                         <>
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Paper Size</Label>
-                            <Select
-                              value={fileData.paperSize}
-                              onValueChange={(value) =>
-                                updateFileOption(fileData.id, "paperSize", value)
-                              }
-                            >
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availablePaperSizes.length > 0 ? (
-                                  availablePaperSizes.map((size) => (
-                                    <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
-                                      {size.displayName}
-                                      {!size.inStock && " (Out of Stock)"}
-                                    </SelectItem>
-                                  ))
-                                ) : (
-                                  <SelectItem value="a4">A4</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Paper Size</Label>
+                              <Select
+                                value={fileData.paperSize}
+                                onValueChange={(value) =>
+                                  updateFileOption(fileData.id, "paperSize", value)
+                                }
+                              >
+                                <SelectTrigger className="h-10">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availablePaperSizes.length > 0 ? (
+                                    availablePaperSizes.map((size) => (
+                                      <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
+                                        {size.displayName}
+                                        {!size.inStock && " (Out of Stock)"}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="a4">A4</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Number of Copies</Label>
                               <Input
@@ -1521,7 +1527,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               onValueChange={(value) =>
                                 updateFileOption(fileData.id, "colorMode", value)
                               }
-                              className="gap-2"
+                              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                             >
                               <label
                                 className={`flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
