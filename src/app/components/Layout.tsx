@@ -959,9 +959,9 @@ export default function Layout({
           onConfirm={confirmLogout}
           title="Sign out of Docufy?"
           description="You will be returned to the sign-in page. Your current session and app data will be preserved, but sign-in will be required to continue."
-          confirmLabel="Sign Out"
+          confirmLabel="Log Out"
           cancelLabel="Stay Signed In"
-          destructive={false}
+          destructive={true}
         />
       )}
     </div>
