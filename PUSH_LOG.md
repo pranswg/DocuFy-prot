@@ -246,3 +246,50 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Order list columns + details dialog cleanup** (`unified/UnifiedOrders.tsx`): removed the Type/Pages/Copies columns (and their sort wiring) from the admin/staff orders table for a tidier list; collapsed the Print Job Details and Additional Information sections of the order-details dialog so each is one unified container with hairline-separated grid cells (Attached Files, status/payment, hold/cancel/notes, Verify Payment inside).
 - **Admin & staff sidebar tab order** (`adminMenuItems.tsx` + all staff page menus + mobile nav): reordered in both sidebars to: Dashboard, Walk-in Transactions, Payment Verification, Orders, Inventory, Attendance (admin), Staff (admin), Job Board (admin), Pricing Management (admin), Content Management (admin), Notifications. Staff keeps its staff-only **Clock-In & Timesheet** right after Dashboard; both keep **Inventory** and **Notifications**; admin keeps **Payment Methods** after Payment Verification.
 - Build passes.
+
+---
+
+## September 3, 2026 01:35 PM (PHT) — prans
+- **Reverted the customer mobile responsive polish** (`98ed32a2`, reverts `140574d1`): the previous push added an Order Progress timeline to `OrderTracking`, turned the CustomerDashboard/CustomerOrders order lists into mobile card rows, added a "Start a New Order" CTA to the customer dashboard, and reworked the NewPrintRequest nav buttons. These were deemed incorrect and reverted wholesale — the customer files (CustomerDashboard, CustomerOrders, NewPrintRequest, OrderTracking) and the docs (AGENTS.md, PUSH_LOG.md) are back to their state before that commit. Build passes.
+
+
+
+---
+
+## September 3, 2026 02:15 PM (PHT) - prans
+- **ENTER KEY = PRIMARY ACTION (system-wide)**: pressing Enter in any dialog, confirmation prompt, or form now triggers that context's primary action (submit/confirm) instead of nothing or a stray newline - while never hijacking multiline text areas (Enter still inserts a new line there) and never double-submitting. Centralized in the shared dialog so it applies everywhere with one change.
+- **Shared DialogContent Enter handler** (`ui/dialog.tsx`): while a dialog is open, a document-level Enter listener (added per-open, removed on close) finds the dialog's primary action - a `button[type="submit"]` first, else an element marked `data-primary-action` - and clicks it exactly once after `preventDefault()` (blocks the native double-submit). It skips when focus is inside a `textarea` (newline preserved) or outside that dialog; `Shift+Enter` is never intercepted.
+- **ConfirmationDialog now submits on Enter** (`ui/confirmation-dialog.tsx`): the header + phrase field + footer are wrapped in a `display:contents` form whose submit handler runs the confirm action, and the confirm button is now `type="submit"` (kept `disabled={!canConfirm || loading}` for the destructive/cancel/requirePhrase safety); the legacy `onKeyPress`/`handleKeyPress` dead logic was removed. Covers all 59 confirmation usages (Place Order, Cancel Order, Stock Out/In, Approve/Reject Payment, Delete Notification, Reset Pricing, Sign Out, Time In/Out, etc.).
+- **Formless admin CRUD dialogs get `data-primary-action`** so Enter triggers their primary button (which previously did nothing because there was no `<form>`): Inventory Add/Edit + Stock In/Out, Staff Register/Edit, Payment Methods Add/Edit, Pricing Management matrix price + legacy rate editors, AdminAttendance Adjust Time, and AdminProfile Change Password. Form-based dialogs (Job Board, Staff/Job apply, Login/SignUp/ForgotPassword, customer Payment Verification) already submit natively via their `type="submit"` button + `<form onSubmit>`. Read-only detail/invoice dialogs (no meaningful primary action) are intentionally left alone. Build passes.
+
+
+
+---
+
+## September 3, 2026 03:00 PM (PHT) - prans
+- **MOBILE HEADER - PROFILE ICON REMOVED, ACCOUNT VIA SIDEBAR ONLY**: the top-right circular avatar/profile button (and its dropdown) in the shared header (`Layout.tsx`) is now hidden at mobile widths for ALL roles (`{!isMobile && ...}` wraps it), so the mobile header stays clean and uncluttered at `hamburger | page title | notifications` with no empty gap. Desktop is unchanged - staff/admin/customer still open their profile from the top-right avatar and the desktop left sidebar. On mobile, account access is exclusively through the hamburger menu's sidebar (`MobileNavSheet`), which already has a clearly-tappable account section at its bottom (avatar + email/role + dropdown `Home` / `My Profile` / `Sign Out`); tapping `My Profile` closes the sidebar and lands on the full profile page (Account Settings / Personal Information / Change Password all live there), and the browser Back / profile back-arrow return to the previous page naturally via normal router history. No separate profile system created; existing account functionality untouched. Build passes.
+
+
+
+---
+
+## September 3, 2026 03:30 PM (PHT) - prans
+- **LANDING PAGE "GET STARTED" CTA - ALWAYS SOLID FILLED**: the hero "Get Started" button (the Landing Page's primary CTA, navigates to `/signup`) is now always a filled primary-color button instead of the previous white/outline style. It uses `bg-[#1D73EC]` (Docufy customer primary blue) with white text for contrast, a desktop hover that darkens to `bg-[#10316B]` plus a subtle lift, and an `active:scale-95` pressed/active state for touch devices. It stays `size="lg"` (`h-10 px-6`) for a comfortable mobile tap target and gets a subtle blue shadow for extra prominence. The filled style is consistent on desktop, tablet, and mobile and never switches to an outline/transparent style at smaller widths. The button's functionality and destination (`/signup`) are unchanged. Build passes.
+
+
+
+---
+
+## September 3, 2026 04:00 PM (PHT) - prans
+- **NOTIFICATIONS - SIDEBAR TAB REMOVED, ACCESS VIA HEADER BELL DROPDOWN**: removed the dedicated "Notifications" tab/item from EVERY sidebar (desktop left sidebar, admin menu, staff/customer mobile `MobileNavSheet`, and all per-page `menuItems` arrays passed to the shared Layout), so no empty space or broken nav item remains. The buried urgent-announcement dot on that sidebar item and its now-unused `urgentAnnouncements` state in Layout/MobileNavSheet were removed too. The original Notification page/routes (`/customer/notifications`, `/staff/notifications`, `/admin/notifications`) are UNCHANGED and still exist.
+- **Header bell icon kept + "Show All Notifications" button**: the header bell stays fully functional on all screen sizes with its unread-count badge and dropdown (merged notifications + announcements feed). A new prominent solid-blue "Show All Notifications" button was added at the BOTTOM of that bell dropdown (below "Mark all as read") that closes the dropdown and navigates to the role's original Notifications page (`handleShowAllNotifications` -> `navigate('/{role}/notifications')`).
+- **Navigation flow change**: access to the full Notifications page is now `Header Bell Icon -> Notification Preview/Dropdown -> Show All Notifications -> Original Notification Page` instead of `Sidebar -> Notifications -> Page`. No duplicate notification system, no second page, no bottom navigation bar, no broken routes or dead links. Build passes.
+
+
+
+---
+
+## September 3, 2026 06:30 PM (PHT) - prans
+- **NOTIFICATION DROPDOWN - LARGER, READABLE PANEL**: the header bell dropdown is now a proper notification panel instead of a small compact popover. Width grew (20rem -> 24rem) and it got a max-height capped to the viewport (`max-h-[min(32rem,calc(100vh-6rem))]`) as a flex column so the header + footer buttons stay fixed while only the list scrolls. Each notification item is roomier and more legible: more horizontal/vertical padding, a bigger icon chip (40px, larger icon), larger title/message/time text, and a bigger unread dot. The header shows the title plus an "N unread" count, the empty state is larger, and the "Mark all as read" / "Show All Notifications" buttons are taller (h-11) with comfortable spacing. Responsive on mobile - it stays within the viewport width (`min(24rem, calc(100vw-1.5rem))`, right-anchored) and height so there is NO horizontal scrolling.
+- **NOTIFICATION CLICK = VIEW FIRST, THEN MARK READ**: clicking a notification/announcement in the bell dropdown no longer just silently marks it read and closes. It now opens a DETAIL DIALOG that shows the type badge (Order / Payment / Status Update / Inventory Alert, or the announcement type), an Important/Emergency priority badge when applicable, the full title, the COMPLETE message, and the date/time (PHT). Mark-as-read now happens ONLY once the detail is opened/viewed, never before.
+- **Action button + no accidental navigation**: if the notification has a destination, the detail dialog shows a primary action button - "View Order", "View Inventory", or "Go to Page" - that the user clicks to navigate to the relevant page (order tracking for customers, orders list for staff/admin, inventory for alerts). Notifications without a destination show a plain Close. Already-read notifications still open the same detail view. Notifications are never deleted or hidden when marked read and stay in the full Notifications page/history. "Mark all as read" remains its own separate action.

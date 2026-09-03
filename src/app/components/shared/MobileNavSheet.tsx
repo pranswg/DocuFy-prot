@@ -11,7 +11,6 @@ import {
   CreditCard,
   ShoppingCart,
   Clock,
-  Bell,
 Home,
   Boxes,
 } from "lucide-react";
@@ -29,7 +28,6 @@ import {
 } from "../ui/sheet";
 import logoImage from "../../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
 import { adminMenuItems } from "../../utils/adminMenuItems";
-import { announcementsStore } from "../../utils/announcementsStore";
 
 interface MenuItem {
   label: string;
@@ -57,11 +55,6 @@ const customerMenuItems: MenuItem[] = [
     label: "Job Board",
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/customer/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 
@@ -96,11 +89,6 @@ const staffMenuItems: MenuItem[] = [
     path: "/staff/inventory",
     icon: <Boxes className="w-5 h-5" />,
   },
-  {
-    label: "Notifications",
-    path: "/staff/notifications",
-    icon: <Bell className="w-5 h-5" />,
-  },
 ];
 
 interface MobileNavSheetProps {
@@ -134,12 +122,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
     router.subscribe,
     () => router.state.location.pathname,
     () => router.state.location.pathname,
-  );
-
-  const urgentAnnouncements = useSyncExternalStore(
-    announcementsStore.subscribe,
-    () => announcementsStore.getUrgentUnreadCount(user?.email || ""),
-    () => announcementsStore.getUrgentUnreadCount(user?.email || ""),
   );
 
   useEffect(() => {
@@ -244,7 +226,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
               const isActive =
                 pathname === item.path ||
                 pathname.startsWith(`${item.path}/`);
-              const isNotificationsItem = item.path.endsWith("/notifications");
               return (
                 <div key={item.path} className="w-full flex justify-center px-3">
                   <button
@@ -259,12 +240,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   >
                     <div className="relative flex-shrink-0 flex items-center justify-center">
                       {item.icon}
-                      {isNotificationsItem && urgentAnnouncements > 0 && (
-                        <span
-                          title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}
-                          className="absolute -bottom-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#1D73EC]"
-                        />
-                      )}
                     </div>
                     <span className="text-sm font-medium whitespace-nowrap truncate">
                       {item.label}

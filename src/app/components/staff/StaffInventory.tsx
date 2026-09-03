@@ -8,7 +8,6 @@ import {
   Package,
   ShoppingCart,
   CreditCard,
-  Bell,
 } from "lucide-react";
 import Layout from "../Layout";
 import {
@@ -48,11 +47,6 @@ const staffMenuItems = [
     label: "Inventory",
     path: "/staff/inventory",
     icon: <Boxes className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/staff/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

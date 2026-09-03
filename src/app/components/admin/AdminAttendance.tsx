@@ -743,7 +743,7 @@ export default function AdminAttendancePage() {
               <Button variant="outline" onClick={() => setAdjust(null)}>
                 Cancel
               </Button>
-              <Button className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white" onClick={() => setShowSaveAdjustConfirm(true)}>
+              <Button data-primary-action className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white" onClick={() => setShowSaveAdjustConfirm(true)}>
                 Save Changes
               </Button>
             </DialogFooter>

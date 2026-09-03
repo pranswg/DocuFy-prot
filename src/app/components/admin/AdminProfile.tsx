@@ -462,6 +462,7 @@ export default function AdminProfile() {
               Cancel
             </Button>
             <Button
+              data-primary-action
               onClick={handleChangePassword}
               disabled={!validatePassword(passwordData.newPassword).isValid || (passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')}
               className={`${

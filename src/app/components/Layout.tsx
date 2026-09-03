@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Printer,
   CheckCircle,
+  CheckCheck,
   Package as PackageIcon,
   AlertTriangle,
   FileText,
@@ -20,6 +21,8 @@ import {
   Clock,
 Home,
   Boxes,
+  ArrowRight,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
@@ -27,13 +30,24 @@ import { notificationStore, type Notification } from "../utils/notificationStore
 import {
   announcementsStore,
   type Announcement,
+  ANNOUNCEMENT_TYPE_LABELS,
+  ANNOUNCEMENT_PRIORITY_LABELS,
 } from "../utils/announcementsStore";
 import { toast } from "sonner";
 import { useIsMobile } from "./ui/use-mobile";
 import { usePresence } from "./ui/use-presence";
 import { useMobileNav } from "../contexts/MobileNavContext";
-import { nowPHT, subscribeInternetTime } from "../utils/pht";
+import { nowPHT, subscribeInternetTime, toPHT } from "../utils/pht";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -53,6 +67,19 @@ interface LayoutProps {
 // this module-level value survives remounts so the sidebar stays put until the
 // user scrolls it themselves.
 let savedSidebarScrollTop = 0;
+
+const NOTIF_TYPE_LABEL: Record<Notification["type"], string> = {
+  order: "Order",
+  payment: "Payment",
+  status_update: "Status Update",
+  inventory: "Inventory Alert",
+};
+
+const NOTIF_PRIORITY_LABEL = (p?: Notification["priority"]): string | undefined => {
+  if (p === "important") return "Important";
+  if (p === "emergency") return "Emergency";
+  return undefined;
+};
 
 export default function Layout({
   children,
@@ -145,12 +172,39 @@ export default function Layout({
 
   // Track announcements unread (sidebar badge)
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
-  const [urgentAnnouncements, setUrgentAnnouncements] = useState(0);
+
+  // Detail view opened from the bell dropdown — shows full content first, marks
+  // read on view, and (when the item has a destination) offers an action button.
+  type BellDetail = {
+    kind: "notification" | "announcement";
+    title: string;
+    message: string;
+    timestamp: Date;
+    typeLabel?: string;
+    priorityLabel?: string;
+    priority?: Notification["priority"];
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    action?: { label: string; run: () => void } | null;
+  };
+  const [selectedDetail, setSelectedDetail] = useState<BellDetail | null>(null);
+
+  const formatDetailTime = (date: Date) => {
+    const pht = toPHT(date);
+    const opts: Intl.DateTimeFormatOptions = {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    };
+    return pht.toLocaleString("en-US", opts);
+  };
 
   useEffect(() => {
     const updateAnnouncements = () => {
       setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email));
-      setUrgentAnnouncements(announcementsStore.getUrgentUnreadCount(user?.email));
     };
     updateAnnouncements();
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
@@ -221,19 +275,11 @@ export default function Layout({
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
-    notificationStore.markAsRead(notification.id);
-
-    setIsNotificationOpen(false);
-
-    // Navigate if clickable
-    if (!notification.clickable) return;
-    // Inventory alert → open the read-only/staff or admin inventory page.
+    // Navigate to the notification's destination (called from the detail view's action button).
     if (notification.type === 'inventory' && user) {
       navigate(user.role === 'staff' ? '/staff/inventory' : '/admin/inventory');
       return;
     }
-    // Order/payment/status notification → open that specific order
     if (notification.relatedOrderId && user) {
       if (user.role === 'customer') {
         navigate(`/customer/track/${notification.relatedOrderId}`);
@@ -246,15 +292,81 @@ export default function Layout({
     if (notification.relatedRoute) navigate(notification.relatedRoute);
   };
 
+  const openNotificationDetail = (notification: Notification) => {
+    // Mark read only once it is opened/viewed — never before.
+    notificationStore.markAsRead(notification.id);
+    const meta = getNotificationIcon(notification.type, notification.priority);
+    const hasDestination =
+      (notification.type === 'inventory' && !!user) ||
+      (!!notification.relatedOrderId && !!user) ||
+      !!notification.relatedRoute;
+    setSelectedDetail({
+      kind: 'notification',
+      title: notification.title,
+      message: notification.message,
+      timestamp: notification.timestamp,
+      typeLabel: NOTIF_TYPE_LABEL[notification.type],
+      priorityLabel: NOTIF_PRIORITY_LABEL(notification.priority),
+      priority: notification.priority,
+      icon: meta.icon,
+      color: meta.color,
+      action: hasDestination
+        ? {
+            label:
+              notification.type === 'inventory'
+                ? 'View Inventory'
+                : notification.relatedOrderId
+                  ? 'View Order'
+                  : 'Go to Page',
+            run: () => {
+              setSelectedDetail(null);
+              setIsNotificationOpen(false);
+              handleNotificationClick(notification);
+            },
+          }
+        : null,
+    });
+  };
+
   const handleMarkAllRead = () => {
     notificationStore.markAllAsRead(user?.role, user?.email);
     announcementsStore.markAllRead(user?.email || "");
     toast.success('All notifications marked as read');
   };
 
-  const handleAnnouncementClick = (announcement: Announcement) => {
-    announcementsStore.markRead(announcement.id, user?.email || "");
+  // "Show All Notifications" in the bell dropdown → the full notification page
+  // (the one previously reached via the sidebar Notifications tab, still routed).
+  const handleShowAllNotifications = () => {
     setIsNotificationOpen(false);
+    if (user) navigate(`/${user.role}/notifications`);
+  };
+
+  const openAnnouncementDetail = (announcement: Announcement) => {
+    // Mark read only once it is opened/viewed — never before.
+    announcementsStore.markRead(announcement.id, user?.email || "");
+    const meta =
+      announcement.priority === "emergency"
+        ? { icon: AlertTriangle, color: "bg-red-100 text-red-600", unreadDot: "bg-red-500" }
+        : announcement.priority === "important"
+          ? { icon: AlertTriangle, color: "bg-amber-100 text-amber-600", unreadDot: "bg-amber-500" }
+          : { icon: Megaphone, color: "bg-blue-100 text-blue-600", unreadDot: "bg-blue-500" };
+    setSelectedDetail({
+      kind: 'announcement',
+      title: announcement.title,
+      message: announcement.message,
+      timestamp: new Date(announcement.sentAt),
+      typeLabel: ANNOUNCEMENT_TYPE_LABELS[announcement.type],
+      priorityLabel: ANNOUNCEMENT_PRIORITY_LABELS[announcement.priority],
+      priority:
+        announcement.priority === 'emergency'
+          ? 'emergency'
+          : announcement.priority === 'important'
+            ? 'important'
+            : undefined,
+      icon: meta.icon,
+      color: meta.color,
+      action: null,
+    });
   };
 
   const getNotificationIcon = (type: Notification['type'], priority?: Notification['priority']) => {
@@ -325,7 +437,7 @@ export default function Layout({
         icon: meta.icon,
         color: meta.color,
         unreadDot: meta.unreadDot,
-        onClick: () => handleAnnouncementClick(a),
+        onClick: () => openAnnouncementDetail(a),
         clickable: true,
       };
     }),
@@ -340,7 +452,7 @@ export default function Layout({
         icon: meta.icon,
         color: meta.color,
         unreadDot: meta.unreadDot,
-        onClick: () => handleNotificationClick(n),
+        onClick: () => openNotificationDetail(n),
         clickable: n.clickable,
       };
     }),
@@ -400,7 +512,6 @@ export default function Layout({
       >
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-          const isNotificationsItem = item.path.endsWith("/notifications");
           return (
             <div key={item.path} className="relative group w-full flex justify-center px-3">
               <button
@@ -415,12 +526,6 @@ export default function Layout({
               >
                 <div className="relative flex-shrink-0 flex items-center justify-center">
                   {item.icon}
-                  {isNotificationsItem && urgentAnnouncements > 0 && (
-                    <span
-                      title={`${urgentAnnouncements} important/urgent announcement${urgentAnnouncements === 1 ? "" : "s"}`}
-                      className="absolute -bottom-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#0B2C5B]"
-                    />
-                  )}
                 </div>
                 {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
                 {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
@@ -618,15 +723,18 @@ export default function Layout({
                       setIsNotificationOpen(false);
                     }}
                   />
-                  <div className={`absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
+                  <div className={`absolute right-0 mt-2 w-[min(24rem,calc(100vw-1.5rem))] max-h-[min(32rem,calc(100vh-6rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                    <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-bold text-base text-gray-900">Notifications</h3>
+                      {combinedUnread > 0 && (
+                        <span className="text-[11px] font-semibold text-[#1D73EC]">{combinedUnread} unread</span>
+                      )}
                     </div>
-                    <div className="max-h-96 overflow-y-auto">
+                    <div className="overflow-y-auto flex-1 min-h-0">
                       {bellItems.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">No notifications</p>
+                        <div className="p-10 text-center">
+                          <Bell className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                          <p className="text-sm text-gray-500">No notifications yet</p>
                         </div>
                       ) : (
                         bellItems.map((item, index) => (
@@ -634,7 +742,7 @@ export default function Layout({
                             key={item.key}
                             role={item.clickable ? "button" : undefined}
                             tabIndex={item.clickable ? 0 : undefined}
-                            className={`p-4 ${index !== bellItems.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50 transition-colors ${item.clickable ? 'cursor-pointer' : ''} ${!item.read ? 'bg-blue-50/50' : ''}`}
+                            className={`px-5 py-4 ${index !== bellItems.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50 transition-colors ${item.clickable ? 'cursor-pointer' : ''} ${!item.read ? 'bg-blue-50/50' : ''}`}
                             onClick={item.onClick}
                             onKeyDown={item.clickable ? (event) => {
                               if (event.key === 'Enter' || event.key === ' ') {
@@ -643,32 +751,39 @@ export default function Layout({
                               }
                             } : undefined}
                           >
-                            <div className="flex gap-3">
-                              <div className={`w-8 h-8 ${item.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                <item.icon className="w-4 h-4" />
+                            <div className="flex gap-4">
+                              <div className={`w-10 h-10 ${item.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                                <item.icon className="w-5 h-5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs ${!item.read ? 'font-bold' : 'font-medium'} text-gray-900`}>
+                                <p className={`text-sm ${!item.read ? 'font-bold' : 'font-medium'} text-gray-900`}>
                                   {item.title}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-relaxed">
                                   {item.message}
                                 </p>
-                                <p className="text-[10px] text-gray-400 mt-1">
+                                <p className="text-xs text-gray-400 mt-1.5">
                                   {formatTimeAgo(item.timestamp)}
                                 </p>
                               </div>
                               {!item.read && (
-                                <div className={`w-2 h-2 ${item.unreadDot} rounded-full flex-shrink-0 mt-1`} />
+                                <div className={`w-2.5 h-2.5 ${item.unreadDot} rounded-full flex-shrink-0 mt-1.5`} />
                               )}
                             </div>
                           </div>
                         ))
                       )}
                     </div>
-                    <div className="px-4 py-2.5 border-t border-gray-100">
-                      <button className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg text-sm font-semibold bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all" onClick={handleMarkAllRead}>
-                        Mark all as read
+                    <div className="px-5 py-3.5 border-t border-gray-100 space-y-2.5">
+                      <button className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all" onClick={handleMarkAllRead}>
+                        <CheckCheck className="w-4 h-4" /> Mark all as read
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleShowAllNotifications}
+                        className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold bg-[#1D73EC] text-white hover:bg-[#10316B] transition-all"
+                      >
+                        <Bell className="w-4 h-4" /> Show All Notifications
                       </button>
                     </div>
                   </div>
@@ -676,37 +791,93 @@ export default function Layout({
               )}
             </div>
 
-            <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsTopProfileOpen(!isTopProfileOpen);
-                setIsProfileOpen(false);
-                setIsNotificationOpen(false);
-              }}
-              aria-label="Open profile"
-              aria-expanded={isTopProfileOpen}
-              aria-haspopup="menu"
-              className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
-            >
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
-                {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
-              </div>
-            </button>
-            {topProfilePresence && (
-              <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
-                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  <Home className="h-4 w-4" /> Home
+            {/* Notification/Announcement detail dialog opened from the bell dropdown */}
+            <Dialog open={!!selectedDetail} onOpenChange={(open) => { if (!open) setSelectedDetail(null); }}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {selectedDetail?.priorityLabel && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                          selectedDetail.priority === "emergency" ? "bg-red-600 text-white" : "bg-amber-500 text-white"
+                        }`}
+                      >
+                        <AlertTriangle className="w-3 h-3" />
+                        {selectedDetail.priorityLabel}
+                      </span>
+                    )}
+                    {selectedDetail?.typeLabel && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20">
+                        {selectedDetail.typeLabel}
+                      </span>
+                    )}
+                  </div>
+                  <DialogTitle className="text-[#10316B] text-lg leading-snug">
+                    {selectedDetail?.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-sm">
+                    {selectedDetail && (
+                      <span className="inline-flex items-center gap-1.5 text-gray-500">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatDetailTime(selectedDetail.timestamp)}
+                      </span>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed">
+                  {selectedDetail?.message}
+                </div>
+                <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button variant="outline" className="h-10 w-full sm:w-auto" onClick={() => setSelectedDetail(null)}>
+                    Close
+                  </Button>
+                  {selectedDetail?.action && (
+                    <Button
+                      onClick={() => {
+                        setSelectedDetail(null);
+                        selectedDetail.action?.run();
+                      }}
+                      className="h-10 w-full sm:w-auto bg-[#1D73EC] text-white hover:bg-[#10316B]"
+                    >
+                      <ArrowRight className="w-4 h-4" /> {selectedDetail.action.label}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {!isMobile && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTopProfileOpen(!isTopProfileOpen);                    setIsProfileOpen(false);
+                    setIsNotificationOpen(false);
+                  }}
+                  aria-label="Open profile"
+                  aria-expanded={isTopProfileOpen}
+                  aria-haspopup="menu"
+                  className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+                >
+                  <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
+                    {profileImage ? <img src={profileImage} alt="Profile" className="h-full w-full object-cover" /> : profileInitial}
+                  </div>
                 </button>
-                <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  <User className="h-4 w-4" /> Profile Settings
-                </button>
-                <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50">
-                  <LogOut className="h-4 w-4" /> Sign Out
-                </button>
+                {topProfilePresence && (
+                  <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                    <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <Home className="h-4 w-4" /> Home
+                    </button>
+                    <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate(`/${user?.role}/profile`); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <User className="h-4 w-4" /> Profile Settings
+                    </button>
+                    <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            </div>
 
           </div>
         </header>

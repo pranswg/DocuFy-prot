@@ -83,11 +83,6 @@ const customerMenuItems = [
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
   },
-  {
-    label: "Notifications",
-    path: "/customer/notifications",
-    icon: <Bell className="w-5 h-5" />,
-  },
 ];
 
 const staffMenuItems = [
@@ -120,11 +115,6 @@ const staffMenuItems = [
     label: "Inventory",
     path: "/staff/inventory",
     icon: <Boxes className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/staff/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

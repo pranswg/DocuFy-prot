@@ -18,7 +18,6 @@ import {
   ShoppingCart,
   CreditCard,
   Boxes,
-  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -72,11 +71,6 @@ const menuItems = [
     label: "Inventory",
     path: "/staff/inventory",
     icon: <Boxes className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/staff/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
 

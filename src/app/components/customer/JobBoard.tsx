@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   FileText,
   Briefcase,
-  Bell,
   Clock,
   MapPin,
   Package,
@@ -41,7 +40,6 @@ const menuItems = [
   { label: 'Print Request', path: '/customer/new-request', icon: <FileText className="w-5 h-5" /> },
   { label: 'My Orders', path: '/customer/orders', icon: <Package className="w-5 h-5" /> },
   { label: 'Job Board', path: '/customer/job-board', icon: <Briefcase className="w-5 h-5" /> },
-  { label: 'Notifications', path: '/customer/notifications', icon: <Bell className="w-5 h-5" /> },
 ];
 
 const STATUS_COLORS: Record<string, string> = {

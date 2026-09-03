@@ -13,7 +13,6 @@ import {
   ShoppingCart,
   Clock,
   BadgeDollarSign,
-  Bell,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -71,10 +70,5 @@ export const adminMenuItems = [
     label: "Content Management",
     path: "/admin/content",
     icon: <Settings className="w-5 h-5" />,
-  },
-  {
-    label: "Notifications",
-    path: "/admin/notifications",
-    icon: <Bell className="w-5 h-5" />,
   },
 ];
