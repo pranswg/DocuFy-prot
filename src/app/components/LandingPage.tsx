@@ -91,7 +91,7 @@ export default function LandingPage() {
       <div className="fixed top-1/3 left-1/3 w-64 h-64 bg-[#1D73EC] rounded-full opacity-5 blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white backdrop-blur-md sticky top-0 z-50 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 border-b border-gray-200 bg-white backdrop-blur-md z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <img
@@ -151,7 +151,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section
         id="home"
-        className="bg-white w-full py-10 sm:py-20 relative z-10"
+        className="bg-white w-full pt-24 sm:pt-32 pb-10 sm:pb-20 relative z-10"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12 items-center">
