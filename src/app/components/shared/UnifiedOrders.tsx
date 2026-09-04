@@ -812,7 +812,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         </div>
 
         {/* Summary Cards - 2 Rows */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
           {([
             ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
             ["received", "Received", "Orders received", FileText, stats.received],
@@ -828,22 +828,22 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               <div
                 key={key}
                 onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
-                className={`flex flex-col p-5 rounded-[22px] border-2 bg-white shadow-sm transition-all duration-200 hover:shadow-md ${s.hover} ${s.hoverBg} ${
+                className={`flex flex-col p-2.5 rounded-xl border-2 bg-white shadow-sm transition-all duration-200 hover:shadow-md ${s.hover} ${s.hoverBg} ${
                   statusFilter === key ? `${s.bg} ${s.accent} shadow-md` : "border-gray-100"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${s.chip}`}>
-                    <Icon className={`w-5 h-5 ${s.icon}`} />
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${s.chip}`}>
+                    <Icon className={`w-4 h-4 ${s.icon}`} />
                   </div>
-                  <p className={`text-sm font-medium leading-tight ${s.label}`}>
+                  <p className={`text-xs font-semibold leading-tight ${s.label}`}>
                     {label}
                   </p>
                 </div>
-                <p className="mt-4 pl-[52px] text-3xl font-bold leading-none text-[#1c1f26]">
+                <p className="mt-2 pl-10 text-lg font-bold leading-none text-[#1c1f26]">
                   {count}
                 </p>
-                <p className={`mt-2 pl-[52px] text-xs font-medium ${s.icon} opacity-80`}>
+                <p className={`hidden sm:block mt-1 pl-10 text-[11px] font-medium truncate ${s.icon} opacity-80`}>
                   {description}
                 </p>
               </div>
