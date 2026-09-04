@@ -387,3 +387,9 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **Dashboard announcement banner**: clickable cards (no arrow/CTA) for important/emergency announcements that open the shared modal; all urgent banners shown (emergency first).
 - **Layout header improvements**: added `headerSearch` prop for optional search field, enlarged notification bell for better touch interaction.
 - **TypeScript fixes across 7 stores**: fixed `Set.delete()` returning boolean in subscribe cleanup functions (dataStore, notificationStore, attendanceStore, applicationsStore, ordersStore, jobsStore, paymentMethodsStore) causing `useEffect` type errors; fixed CustomerProfile null/undefined mismatch and implicit `any` on setFormData callbacks.
+
+---
+
+## September 5, 2026 8:50 AM (PHT) - agopr
+- **Staff Dashboard complete redesign**: removed Quick Actions, Shop Hours, and Staff Reminders. Replaced with operational-first layout: 4 summary cards (Total Orders, On Hold, In Progress, Ready for Pickup), Orders Requiring Attention section (on-hold and unverified-payment orders with issue details), Active Orders queue table (desktop table + mobile stacked list with position, customer, service, status, source, and time ago), Inventory Status panel (total/low/out-of-stock counts with problem item list), and Recent Activity feed.
+- **Staff Dashboard data sources**: now subscribes to both ordersStore and inventoryStore for live reactive data across all operational sections.
