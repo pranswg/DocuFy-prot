@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
-import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -52,7 +51,6 @@ import {
   announcementsStore,
   ANNOUNCEMENT_TYPE_LABELS,
   ANNOUNCEMENT_PRIORITY_LABELS,
-  formatSentTime,
   type Announcement,
   type AnnouncementType,
   type AnnouncementPriority,
@@ -61,6 +59,11 @@ import {
   notificationStore,
   type Notification,
 } from "../../utils/notificationStore";
+import {
+  AnnouncementDetailsModal,
+  type AnnouncementDetailData,
+} from "./AnnouncementDetailsModal";
+import { toPHT, toPHTKey, formatPHTime } from "../../utils/pht";
 
 const customerMenuItems = [
   {
@@ -118,7 +121,7 @@ const staffMenuItems = [
   },
 ];
 
-// What a notice is about — shown as a small category chip where useful.
+// What an announcement is about — shown as a small type label where useful.
 const TYPE_ICON: Record<
   AnnouncementType,
   React.ComponentType<{ className?: string }>
@@ -130,16 +133,85 @@ const TYPE_ICON: Record<
   promo: Sparkles,
 };
 
-function CategoryChip({ type }: { type: AnnouncementType }) {
-  if (type === "announcement") return null;
+const NOTIF_TYPE_LABEL: Record<Notification["type"], string> = {
+  order: "Order",
+  payment: "Payment",
+  status_update: "Status Update",
+  inventory: "Inventory Alert",
+};
+
+const NOTIF_PRIORITY_LABEL = (
+  p?: Notification["priority"],
+): string | undefined => {
+  if (p === "important") return "Important";
+  if (p === "emergency") return "Emergency";
+  return undefined;
+};
+
+type FeedCategory = "announcements" | "orders" | "inventory";
+type FilterKey = "all" | "unread" | FeedCategory;
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "announcements", label: "Announcements" },
+  { key: "orders", label: "Orders" },
+];
+
+// Inventory is an INTERNAL operational module — only admin and staff may see
+// inventory-related functionality. Customers never get an Inventory filter.
+const STAFF_FILTERS: { key: FilterKey; label: string }[] = [
+  ...FILTERS,
+  { key: "inventory", label: "Inventory" },
+];
+
+type FeedItem = {
+  key: string;
+  kind: "announcement" | "notification";
+  category: FeedCategory;
+  source: Announcement | Notification;
+  title: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;
+  priority?: "important" | "emergency";
+  priorityLabel?: string;
+  typeLabel?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  markRead: () => void;
+  open: () => void;
+  action?: { label: string; run: () => void } | null;
+};
+
+function PriorityBadge({ priority }: { priority: "important" | "emergency" }) {
+  const emergency = priority === "emergency";
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-semibold uppercase tracking-wide">
-      {ANNOUNCEMENT_TYPE_LABELS[type]}
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+        emergency
+          ? "bg-red-50 text-red-600 border border-red-200"
+          : "bg-amber-50 text-amber-700 border border-amber-200"
+      }`}
+    >
+      {emergency ? (
+        <AlertOctagon className="w-3 h-3" />
+      ) : (
+        <AlertTriangle className="w-3 h-3" />
+      )}
+      {priority}
     </span>
   );
 }
 
-// ── Urgent cards (Important Announcements section) ──────────────────────────
+const FILTER_EMPTY_TEXT: Record<FilterKey, string> = {
+  all: "No notifications yet",
+  unread: "No unread notifications",
+  announcements: "No announcements",
+  orders: "No order updates",
+  inventory: "No inventory alerts",
+};
+
 export default function NotificationsPage() {
   const { user } = useAuth();
   const email = user?.email || "";
@@ -147,10 +219,9 @@ export default function NotificationsPage() {
   const navigate = useNavigate();
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [selected, setSelected] = useState<Announcement | null>(null);
-
-  // Order/payment/status system notifications shown alongside announcements
-  const [systemNotifications, setSystemNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [detail, setDetail] = useState<AnnouncementDetailData | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
@@ -161,7 +232,8 @@ export default function NotificationsPage() {
   const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   useEffect(() => {
-    const load = () => setAnnouncements(announcementsStore.getAnnouncementsFor(email));
+    const load = () =>
+      setAnnouncements(announcementsStore.getAnnouncementsFor(email));
     load();
     const unsubscribe = announcementsStore.subscribe(load);
     return unsubscribe;
@@ -169,7 +241,9 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const load = () =>
-      setSystemNotifications(notificationStore.getNotifications(user?.role, user?.email));
+      setNotifications(
+        notificationStore.getNotifications(user?.role, user?.email),
+      );
     load();
     const unsubscribe = notificationStore.subscribe(load);
     return unsubscribe;
@@ -182,55 +256,208 @@ export default function NotificationsPage() {
         ? staffMenuItems
         : customerMenuItems;
 
-  const emergency = announcements.filter((a) => a.priority === "emergency");
-  const important = announcements.filter((a) => a.priority === "important");
-  const regular = announcements.filter((a) => a.priority === "regular");
-
-  const unreadAnnouncements = announcements.filter((a) => !a.readBy.includes(email)).length;
-  const unreadSystem = systemNotifications.filter((n) => !n.read).length;
-  const unread = unreadAnnouncements + unreadSystem;
-  const unreadUrgent = [...emergency, ...important].filter(
-    (a) => !a.readBy.includes(email),
-  ).length;
-
-  const isRead = (a: Announcement) => a.readBy.includes(email);
-
-  // Combined "Notifications" feed: regular announcements + system (order/payment)
-  // notifications, newest first.
-  const regularFeed: (Announcement | Notification)[] = [
-    ...regular,
-    ...systemNotifications,
-  ].sort((a, b) => {
-    const timeOf = (x: Announcement | Notification) =>
-      "sentAt" in x ? new Date(x.sentAt).getTime() : x.timestamp.getTime();
-    return timeOf(b) - timeOf(a);
-  });
-
-  const openNotification = (announcement: Announcement) => {
-    announcementsStore.markRead(announcement.id, email);
-    setSelected(announcement);
-  };
-
-  const openSystemNotification = (n: Notification) => {
-    notificationStore.markAsRead(n.id);
-    if (!n.clickable) return;
-    // Inventory alert → open the read-only/staff or admin inventory page.
+  // ── Opening a notification → mark read + open the shared detail modal ──────
+  const runNotificationAction = (n: Notification) => {
     if (n.type === "inventory" && user) {
-      navigate(user.role === "staff" ? "/staff/inventory" : "/admin/inventory");
+      navigate(
+        user.role === "staff" ? "/staff/inventory" : "/admin/inventory",
+      );
       return;
     }
-    // Order/payment/status notification → open that specific order.
     if (n.relatedOrderId && user) {
       if (user.role === "customer") {
         navigate(`/customer/track/${n.relatedOrderId}`);
       } else {
-        // Admin/staff: go to the Orders list and open the customer's order right away.
-        navigate(`/${user.role}/orders?orderId=${encodeURIComponent(n.relatedOrderId)}`);
+        navigate(
+          `/${user.role}/orders?orderId=${encodeURIComponent(n.relatedOrderId)}`,
+        );
       }
       return;
     }
     if (n.relatedRoute) navigate(n.relatedRoute);
   };
+
+  const notificationDestination = (
+    n: Notification,
+  ): { label: string; run: () => void } | null => {
+    if (!user) return null;
+    if (n.type === "inventory")
+      return { label: "View Inventory", run: () => runNotificationAction(n) };
+    if (n.relatedOrderId)
+      return { label: "View Order", run: () => runNotificationAction(n) };
+    if (n.relatedRoute)
+      return { label: "Go to Page", run: () => runNotificationAction(n) };
+    return null;
+  };
+
+  const openAnnouncement = (a: Announcement) => {
+    announcementsStore.markRead(a.id, email);
+    setDetail({
+      title: a.title,
+      message: a.message,
+      timestamp: new Date(a.sentAt),
+      priority:
+        a.priority === "emergency"
+          ? "emergency"
+          : a.priority === "important"
+            ? "important"
+            : undefined,
+      typeLabel: ANNOUNCEMENT_TYPE_LABELS[a.type],
+      priorityLabel:
+        a.priority !== "regular"
+          ? ANNOUNCEMENT_PRIORITY_LABELS[a.priority]
+          : undefined,
+      action: null,
+    });
+  };
+
+  const openNotification = (n: Notification) => {
+    notificationStore.markAsRead(n.id);
+    setDetail({
+      title: n.title,
+      message: n.message,
+      timestamp: n.timestamp,
+      priority:
+        n.priority === "emergency"
+          ? "emergency"
+          : n.priority === "important"
+            ? "important"
+            : undefined,
+      typeLabel: NOTIF_TYPE_LABEL[n.type],
+      priorityLabel: NOTIF_PRIORITY_LABEL(n.priority),
+      action: notificationDestination(n),
+    });
+  };
+
+  const notificationMeta = (n: Notification) => {
+    if (n.type === "inventory") {
+      return n.priority === "emergency"
+        ? { icon: AlertOctagon, bg: "bg-red-50 text-red-600" }
+        : { icon: Boxes, bg: "bg-amber-50 text-amber-600" };
+    }
+    switch (n.type) {
+      case "payment":
+        return { icon: AlertTriangle, bg: "bg-yellow-50 text-yellow-600" };
+      case "status_update":
+        return { icon: CheckCircle, bg: "bg-blue-50 text-[#1D73EC]" };
+      case "order":
+      default:
+        return { icon: Package, bg: "bg-blue-50 text-[#1D73EC]" };
+    }
+  };
+
+  // ── One unified feed: announcements + system notifications, newest first ───
+  const feed: FeedItem[] = [];
+  for (const a of announcements) {
+    const isEmergency = a.priority === "emergency";
+    const isImportant = a.priority === "important";
+    const meta = isEmergency
+      ? { icon: AlertTriangle, bg: "bg-red-50 text-red-600" }
+      : isImportant
+        ? { icon: AlertTriangle, bg: "bg-amber-50 text-amber-600" }
+        : { icon: TYPE_ICON[a.type], bg: "bg-blue-50 text-[#1D73EC]" };
+    feed.push({
+      key: a.id,
+      kind: "announcement",
+      category: "announcements",
+      source: a,
+      title: a.title,
+      message: a.message,
+      timestamp: new Date(a.sentAt),
+      read: a.readBy.includes(email),
+      priority: isEmergency ? "emergency" : isImportant ? "important" : undefined,
+      priorityLabel:
+        a.priority !== "regular"
+          ? ANNOUNCEMENT_PRIORITY_LABELS[a.priority]
+          : undefined,
+      typeLabel: ANNOUNCEMENT_TYPE_LABELS[a.type],
+      icon: meta.icon,
+      iconBg: meta.bg,
+      markRead: () => announcementsStore.markRead(a.id, email),
+      open: () => openAnnouncement(a),
+      action: null,
+    });
+  }
+  for (const n of notifications) {
+    // Inventory alerts are internal (staff/admin only) — never render them to
+    // customers, even defensively.
+    if (n.type === "inventory" && user?.role === "customer") continue;
+    const meta = notificationMeta(n);
+    feed.push({
+      key: n.id,
+      kind: "notification",
+      category: n.type === "inventory" ? "inventory" : "orders",
+      source: n,
+      title: n.title,
+      message: n.message,
+      timestamp: n.timestamp,
+      read: n.read,
+      priority:
+        n.priority === "emergency"
+          ? "emergency"
+          : n.priority === "important"
+            ? "important"
+            : undefined,
+      priorityLabel: NOTIF_PRIORITY_LABEL(n.priority),
+      typeLabel: NOTIF_TYPE_LABEL[n.type],
+      icon: meta.icon,
+      iconBg: meta.bg,
+      markRead: () => notificationStore.markAsRead(n.id),
+      open: () => openNotification(n),
+      action: notificationDestination(n),
+    });
+  }
+  feed.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+  const unread = feed.filter((item) => !item.read).length;
+
+  const filtered = feed.filter((item) => {
+    switch (filter) {
+      case "unread":
+        return !item.read;
+      case "announcements":
+        return item.category === "announcements";
+      case "orders":
+        return item.category === "orders";
+      case "inventory":
+        return item.category === "inventory";
+      default:
+        return true;
+    }
+  });
+
+  // Group the filtered feed by Philippines date (TODAY / YESTERDAY / SEPT 3 …).
+  const today = toPHT(new Date());
+  const yesterday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - 1,
+  );
+  const sameDay = (p: Date, d: Date) =>
+    p.getFullYear() === d.getFullYear() &&
+    p.getMonth() === d.getMonth() &&
+    p.getDate() === d.getDate();
+  const groupMap = new Map<string, { label: string; items: FeedItem[] }>();
+  for (const item of filtered) {
+    const key = toPHTKey(item.timestamp);
+    if (!groupMap.has(key)) {
+      const pht = toPHT(item.timestamp);
+      const label = sameDay(pht, today)
+        ? "Today"
+        : sameDay(pht, yesterday)
+          ? "Yesterday"
+          : pht
+              .toLocaleDateString("en-US", { month: "long", day: "numeric" })
+              .toUpperCase();
+      groupMap.set(key, { label, items: [] });
+    }
+    groupMap.get(key)!.items.push(item);
+  }
+  const groups = [...groupMap.entries()].map(([id, g]) => ({
+    id,
+    label: g.label,
+    items: g.items,
+  }));
 
   const handleMarkAllRead = () => {
     announcementsStore.markAllRead(email);
@@ -267,435 +494,223 @@ export default function NotificationsPage() {
     setShowSendConfirm(false);
   };
 
-  const handleDelete = (announcement: Announcement) => {
-    setDeleteTarget(announcement);
-  };
-
-  const renderUrgentCard = (announcement: Announcement) => {
-    const isEmergency = announcement.priority === "emergency";
-    const read = isRead(announcement);
+  const renderItem = (item: FeedItem, last: boolean) => {
+    const isEmergency = item.priority === "emergency";
+    const isImportant = item.priority === "important";
+    const rowBg = isEmergency
+      ? "bg-red-50/30"
+      : isImportant
+        ? "bg-amber-50/20"
+        : !item.read
+          ? "bg-blue-50/20"
+          : "";
+    const leftBorder = isEmergency
+      ? "border-l-2 border-l-red-400"
+      : isImportant
+        ? "border-l-2 border-l-amber-400"
+        : "";
     return (
-      <Card
-        key={announcement.id}
-        className={`relative overflow-hidden cursor-pointer transition-all ${
-          isEmergency
-            ? "border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-50 hover:shadow-md"
-            : "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/80 hover:shadow-md"
-        } ${read ? "opacity-80" : ""}`}
-        onClick={() => openNotification(announcement)}
+      <div
+        key={item.key}
+        role="button"
+        tabIndex={0}
+        className={`group flex items-start gap-3 px-3.5 sm:px-5 py-3 cursor-pointer transition-colors hover:bg-gray-50 ${rowBg} ${leftBorder} ${last ? "" : "border-b border-gray-50"}`}
+        onClick={item.open}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            item.open();
+          }
+        }}
       >
-        <div className="flex items-start gap-4 p-4 sm:p-5">
-          <div
-            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              isEmergency
-                ? "bg-red-100 text-red-600"
-                : "bg-amber-100 text-amber-600"
-            }`}
+        <div
+          className={`w-8 h-8 ${item.iconBg} rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5`}
+        >
+          <item.icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {(item.priorityLabel || item.kind === "announcement") && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {item.priorityLabel && (
+                <PriorityBadge
+                  priority={item.priority as "important" | "emergency"}
+                />
+              )}
+              {item.kind === "announcement" && (
+                <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+                  {item.typeLabel}
+                </span>
+              )}
+            </div>
+          )}
+          <p
+            className={`text-sm mt-0.5 leading-snug ${item.read ? "font-medium text-gray-800" : "font-bold text-gray-900"}`}
           >
-            {isEmergency ? (
-              <AlertOctagon className="w-5 h-5" />
-            ) : (
-              <AlertTriangle className="w-5 h-5" />
+            {item.title}
+          </p>
+          <p className="text-[13px] text-gray-500 mt-0.5 line-clamp-1 leading-snug">
+            {item.message}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[11px] text-gray-400">
+              {formatPHTime(item.timestamp)}
+            </span>
+            {item.action && (
+              <button
+                type="button"
+                className="text-[11px] font-semibold text-[#1D73EC] hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  item.markRead();
+                  item.action?.run();
+                }}
+              >
+                {item.action.label}
+              </button>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                      isEmergency
-                        ? "bg-red-600 text-white"
-                        : "bg-amber-500 text-white"
-                    }`}
-                  >
-                    {isEmergency ? (
-                      <>
-                        <AlertOctagon className="w-3 h-3" />
-                        {ANNOUNCEMENT_PRIORITY_LABELS.emergency}
-                      </>
-                    ) : (
-                      <>
-                        <AlertTriangle className="w-3 h-3" />
-                        {ANNOUNCEMENT_PRIORITY_LABELS.important.toUpperCase()}
-                      </>
-                    )}
-                  </span>
-                  <CategoryChip type={announcement.type} />
-                  {!read && (
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isEmergency ? "bg-red-500" : "bg-amber-500"
-                      }`}
-                    />
-                  )}
-                </div>
-                <h3
-                  className={`text-sm mt-2 ${
-                    read ? "font-bold text-gray-800" : "font-extrabold text-gray-900"
-                  }`}
-                >
-                  {announcement.title}
-                </h3>
-                <p className="text-sm text-gray-700 mt-0.5 line-clamp-2">
-                  {announcement.message}
-                </p>
-              </div>
-              {isAdmin && (
-                <button
-                  type="button"
-                  title="Delete notification"
-                  aria-label={`Delete ${announcement.title}`}
-                  className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(announcement);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              {formatSentTime(announcement.sentAt)}
-            </p>
-          </div>
         </div>
-      </Card>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0 mt-1">
+          {!item.read && (
+            <span
+              className={`w-2 h-2 rounded-full ${isEmergency ? "bg-red-500" : isImportant ? "bg-amber-500" : "bg-[#1D73EC]"}`}
+            />
+          )}
+          {isAdmin && item.kind === "announcement" && (
+            <button
+              type="button"
+              title="Delete notification"
+              aria-label={`Delete ${item.title}`}
+              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(item.source as Announcement);
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
     );
   };
-
-  const renderRegularCard = (announcement: Announcement) => {
-    const Icon = TYPE_ICON[announcement.type];
-    const read = isRead(announcement);
-    return (
-      <Card
-        key={announcement.id}
-        className={`p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
-          read ? "bg-white border-gray-100" : "bg-[#F2F7FF]/60 border-[#1D73EC]/25"
-        }`}
-        onClick={() => openNotification(announcement)}
-      >
-        <div className="flex items-start gap-4">
-          <div
-            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              read ? "bg-gray-100 text-gray-400" : "bg-[#F2F7FF] text-[#1D73EC]"
-            }`}
-          >
-            <Icon className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <CategoryChip type={announcement.type} />
-                  {!read && <span className="w-2 h-2 rounded-full bg-[#1D73EC]" />}
-                </div>
-                <h3
-                  className={`text-sm mt-1.5 ${
-                    read ? "font-semibold text-gray-900" : "font-bold text-gray-900"
-                  }`}
-                >
-                  {announcement.title}
-                </h3>
-                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                  {announcement.message}
-                </p>
-              </div>
-              {isAdmin && (
-                <button
-                  type="button"
-                  title="Delete notification"
-                  aria-label={`Delete ${announcement.title}`}
-                  className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(announcement);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              {formatSentTime(announcement.sentAt)}
-            </p>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // System (order/payment/status) notification card, styled to match the
-  // regular announcement cards so both kinds read as one unified feed.
-  const SYSTEM_META: Record<
-    string,
-    { icon: React.ComponentType<{ className?: string }>; color: string }
-  > = {
-    order: { icon: Package, color: "bg-[#F2F7FF] text-[#1D73EC]" },
-    payment: { icon: AlertTriangle, color: "bg-amber-50 text-amber-600" },
-    status_update: { icon: CheckCircle, color: "bg-[#F2F7FF] text-[#1D73EC]" },
-    inventory: { icon: Boxes, color: "bg-amber-50 text-amber-600" },
-  };
-
-  const renderSystemCard = (n: Notification) => {
-    const meta = SYSTEM_META[n.type] || { icon: Bell, color: "bg-gray-100 text-gray-600" };
-    const Icon = meta.icon;
-    const read = n.read;
-    // Inventory alerts use priority-aware styling: Important → amber,
-    // Emergency → red, with an inline "View Inventory" action.
-    const isInventory = n.type === "inventory";
-    const isEmergency = isInventory && n.priority === "emergency";
-    const isImportant = isInventory && n.priority === "important";
-    const displayIcon = isEmergency ? AlertOctagon : isImportant ? AlertTriangle : Icon;
-    const iconColor = isEmergency
-      ? "bg-red-100 text-red-600"
-      : isImportant
-        ? "bg-amber-100 text-amber-600"
-        : read
-          ? "bg-gray-100 text-gray-400"
-          : meta.color;
-    const cardClass = isEmergency
-      ? "border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-50"
-      : isImportant
-        ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/80"
-        : read
-          ? "bg-white border-gray-100"
-          : "bg-[#F2F7FF]/60 border-[#1D73EC]/25";
-    return (
-      <Card
-        key={n.id}
-        className={`p-4 sm:p-5 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-          read ? "opacity-80" : ""
-        } ${cardClass}`}
-        onClick={() => openSystemNotification(n)}
-      >
-        <div className="flex items-start gap-4">
-          <div
-            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconColor}`}
-          >
-            <displayIcon className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {isInventory && (
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                        isEmergency
-                          ? "bg-red-600 text-white"
-                          : "bg-amber-500 text-white"
-                      }`}
-                    >
-                      {isEmergency ? (
-                        <AlertOctagon className="w-3 h-3" />
-                      ) : (
-                        <AlertTriangle className="w-3 h-3" />
-                      )}
-                      {n.priority === "emergency"
-                        ? "Out of Stock"
-                        : n.priority === "important"
-                          ? "Low Stock"
-                          : "Inventory"}
-                    </span>
-                  )}
-                  {!read && <span className="w-2 h-2 rounded-full bg-[#1D73EC]" />}
-                </div>
-                <h3
-                  className={`text-sm mt-1.5 ${
-                    read ? "font-semibold text-gray-900" : "font-bold text-gray-900"
-                  }`}
-                >
-                  {n.title}
-                </h3>
-                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                  {n.message}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-2">
-              <p className="text-xs text-gray-400">
-                {formatSentTime(n.timestamp.toISOString())}
-              </p>
-              {isInventory && !read && user && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openSystemNotification(n);
-                  }}
-                >
-                  <Boxes className="w-3.5 h-3.5" />
-                  View Inventory
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  const renderFeedItem = (item: Announcement | Notification) =>
-    "sentAt" in item ? renderRegularCard(item as Announcement) : renderSystemCard(item as Notification);
 
   return (
     <Layout menuItems={menuItems} title="Notifications">
-      <div className="space-y-6">
+      <div className="mx-auto max-w-3xl space-y-5 pb-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center shrink-0">
-              <Bell className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#10316B]">Notifications</h2>
-              <p className="text-gray-600 mt-1">
-                Announcements and updates from Docufy.
-                {isAdmin && " Send announcements to everyone in the system."}
-              </p>
-            </div>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#10316B]">
+              Notifications
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Announcements and updates from Docufy.
+              {isAdmin && " Send announcements to everyone in the system."}
+            </p>
           </div>
           {isAdmin && (
             <Button
-              className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              className="h-10 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               onClick={() => setShowCreate(true)}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1.5" />
               Create Notification
             </Button>
           )}
         </div>
 
-        {/* Unread summary + mark all read */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-sm text-gray-600 flex items-center gap-1.5">
-            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-[#1D73EC] text-white text-xs font-bold">
+        {/* Unread count + mark all read */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-sm text-gray-600 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#1D73EC] text-white text-xs font-bold">
               {unread}
             </span>
             unread notification{unread === 1 ? "" : "s"}
-            {unreadUrgent > 0 && (
-              <span className="inline-flex items-center gap-1 ml-2 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-                <AlertTriangle className="w-3 h-3" />
-                {unreadUrgent} Important
-              </span>
-            )}
           </p>
           {unread > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-[#2F6FD6] hover:bg-[#F2F7FF] h-8"
+            <button
+              type="button"
               onClick={handleMarkAllRead}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F6FD6] hover:text-[#1D73EC] transition-colors"
             >
-              <CheckCheck className="w-4 h-4 mr-1" />
+              <CheckCheck className="w-4 h-4" />
               Mark all as read
-            </Button>
+            </button>
           )}
         </div>
 
-        {announcements.length === 0 && systemNotifications.length === 0 ? (
-          <Card className="p-16 text-center">
-            <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-8 h-8 text-[#1D73EC]/40" />
-            </div>
-            <p className="text-gray-600 font-medium">No notifications yet</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Admin announcements and order updates will appear here.
-            </p>
-          </Card>
-        ) : (
-          <>
-            {/* ── IMPORTANT ANNOUNCEMENTS ── */}
-            {(emergency.length > 0 || important.length > 0) && (
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-amber-500 text-white flex items-center justify-center">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-base font-bold text-[#10316B] tracking-wide">
-                    Important Announcements
-                  </h3>
-                </div>
-                <div className="space-y-3">
-                  {emergency.map(renderUrgentCard)}
-                  {important.map(renderUrgentCard)}
-                </div>
-              </section>
-            )}
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {(user?.role === "customer" ? FILTERS : STAFF_FILTERS).map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                filter === f.key
+                  ? "bg-[#1D73EC] text-white"
+                  : "bg-white text-gray-600 border border-gray-200 hover:border-[#1D73EC]/40 hover:text-[#1D73EC]"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
-            {/* ── NOTIFICATIONS ── */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-[#1D73EC] text-white flex items-center justify-center">
-                  <Bell className="w-4 h-4" />
+        {/* Unified feed */}
+        {feed.length === 0 ? (
+          <div className="rounded-2xl border border-gray-100 bg-white py-14 px-6 text-center">
+            <div className="w-12 h-12 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Bell className="w-6 h-6 text-[#1D73EC]/40" />
+            </div>
+            <p className="text-sm font-semibold text-gray-700">
+              No notifications yet
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              Announcements and order updates will appear here.
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-gray-100 bg-white py-12 px-6 text-center">
+            <p className="text-sm font-semibold text-gray-700">
+              {FILTER_EMPTY_TEXT[filter]}
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              Adjust your filter to see more notifications.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+            {groups.map((group) => (
+              <Fragment key={group.id}>
+                <div className="px-4 sm:px-5 pt-4 pb-2.5 border-b border-gray-100">
+                  <span className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                      {group.label}
+                    </span>
+                    <span className="flex-1 h-px bg-gray-100" />
+                  </span>
                 </div>
-                <h3 className="text-base font-bold text-[#10316B] tracking-wide">
-                  Notifications
-                </h3>
-              </div>
-              {regularFeed.length === 0 ? (
-                <Card className="py-12 text-center">
-                  <div className="w-14 h-14 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <Bell className="w-7 h-7 text-[#1D73EC]/40" />
-                  </div>
-                  <p className="text-gray-500 font-medium">No regular notifications</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    General system notifications will appear here.
-                  </p>
-                </Card>
-              ) : (
-                <div className="space-y-3">{regularFeed.map(renderFeedItem)}</div>
-              )}
-            </section>
-          </>
+                <div className="divide-y divide-gray-50">
+                  {group.items.map((item, i) =>
+                    renderItem(item, i === group.items.length - 1),
+                  )}
+                </div>
+              </Fragment>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* View Notification Dialog */}
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {selected && selected.priority !== "regular" && (
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                    selected.priority === "emergency"
-                      ? "bg-red-600 text-white"
-                      : "bg-amber-500 text-white"
-                  }`}
-                >
-                  {selected.priority === "emergency" ? (
-                    <AlertOctagon className="w-3 h-3" />
-                  ) : (
-                    <AlertTriangle className="w-3 h-3" />
-                  )}
-                  {ANNOUNCEMENT_PRIORITY_LABELS[selected.priority]}
-                </span>
-              )}
-              {selected && selected.type !== "announcement" && (
-                <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20">
-                  {ANNOUNCEMENT_TYPE_LABELS[selected.type]}
-                </span>
-              )}
-            </div>
-            <DialogTitle className="text-[#10316B]">{selected?.title}</DialogTitle>
-            <DialogDescription>
-              {selected && formatSentTime(selected.sentAt)}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed">
-            {selected?.message}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="h-10 w-full sm:w-auto" onClick={() => setSelected(null)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Shared Announcement Details Modal — same one used across Docufy */}
+      <AnnouncementDetailsModal
+        open={!!detail}
+        onOpenChange={(open) => {
+          if (!open) setDetail(null);
+        }}
+        announcement={detail}
+      />
 
       {/* Create Notification Dialog (Admin) */}
       <Dialog
@@ -716,7 +731,9 @@ export default function NotificationsPage() {
               <div className="w-10 h-10 rounded-lg bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center">
                 <BellRing className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-[#10316B]">Create Notification</DialogTitle>
+              <DialogTitle className="text-[#10316B]">
+                Create Notification
+              </DialogTitle>
             </div>
             <DialogDescription>
               This announcement will be sent to all users across the system.
@@ -746,23 +763,32 @@ export default function NotificationsPage() {
             </div>
             <div className="space-y-2">
               <Label>Notification Type</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as AnnouncementPriority)}>
+              <Select
+                value={priority}
+                onValueChange={(v) =>
+                  setPriority(v as AnnouncementPriority)
+                }
+              >
                 <SelectTrigger className="h-11 bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="regular">Regular Notification</SelectItem>
-                  <SelectItem value="important">Important Announcement</SelectItem>
-                  <SelectItem value="emergency">Emergency Announcement</SelectItem>
+                  <SelectItem value="important">
+                    Important Announcement
+                  </SelectItem>
+                  <SelectItem value="emergency">
+                    Emergency Announcement
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-400">
                 {priority === "regular" &&
-                  "Normal system notification — appears under Notifications."}
+                  "Normal system notification — appears in the unified notifications list."}
                 {priority === "important" &&
-                  "Highlighted announcement — appears under Important Announcements."}
+                  "Highlighted announcement — shown with an Important badge in the list."}
                 {priority === "emergency" &&
-                  "Critical announcement — appears at the very top with a strong alert style."}
+                  "Critical announcement — shown with an Emergency badge at the top of the list."}
               </p>
             </div>
             <div className="space-y-2">
@@ -788,10 +814,10 @@ export default function NotificationsPage() {
             <Button
               className={`h-11 w-full sm:w-auto ${
                 priority === "emergency"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : priority === "important"
-                      ? "bg-amber-500 hover:bg-amber-600"
-                      : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : priority === "important"
+                    ? "bg-amber-500 hover:bg-amber-600"
+                    : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
               }`}
               onClick={() => setShowSendConfirm(true)}
             >
@@ -802,7 +828,8 @@ export default function NotificationsPage() {
               ) : (
                 <Megaphone className="w-4 h-4 mr-2" />
               )}
-              Send {ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification
+              Send{" "}
+              {ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -815,7 +842,7 @@ export default function NotificationsPage() {
           onOpenChange={() => setDeleteTarget(null)}
           onConfirm={() => {
             announcementsStore.deleteAnnouncement(deleteTarget.id);
-            if (selected?.id === deleteTarget.id) setSelected(null);
+            if (detail?.title === deleteTarget.title) setDetail(null);
             toast.success("Notification deleted");
             setDeleteTarget(null);
           }}
@@ -832,7 +859,10 @@ export default function NotificationsPage() {
         <ConfirmationDialog
           open
           onOpenChange={setShowSendConfirm}
-          onConfirm={() => { handleSend(); setShowSendConfirm(false); }}
+          onConfirm={() => {
+            handleSend();
+            setShowSendConfirm(false);
+          }}
           title={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} notification?`}
           description={`This will broadcast "${title}" to all users. It will appear in the Notifications panel for everyone and cannot be unsent once delivered.`}
           confirmLabel={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification`}
