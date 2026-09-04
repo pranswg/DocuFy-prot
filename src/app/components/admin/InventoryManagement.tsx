@@ -1089,6 +1089,7 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Stock In"
+                            className="text-gray-600 hover:bg-gray-100"
                             onClick={() => openStock("in", item)}
                           >
                             <PackagePlus className="h-4 w-4" />
@@ -1098,6 +1099,7 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Stock Out"
+                            className="border-red-200 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500"
                             onClick={() => openStock("out", item)}
                           >
                             <PackageMinus className="h-4 w-4" />
@@ -1107,6 +1109,7 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Edit"
+                            className="text-gray-600 hover:bg-gray-100"
                             onClick={() => openEdit(item)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -1116,6 +1119,7 @@ export default function InventoryManagement({
                             variant="ghost"
                             size="sm"
                             title={item.archived ? "Restore" : "Archive"}
+                            className="text-gray-500 hover:bg-gray-100"
                             onClick={() => { setArchiveTarget(item); setConfirmType(item.archived ? "restore" : "archive"); }}
                           >
                             {item.archived ? (

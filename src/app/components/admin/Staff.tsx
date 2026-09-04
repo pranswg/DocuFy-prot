@@ -647,17 +647,17 @@ export default function Staff() {
                           title="Edit staff"
                           onClick={() => openEdit(member)}
                         >
-                          <Edit2 className="w-4 h-4 text-gray-500" />
+                          <Edit2 className="w-4 h-4 text-[#2F6FD6]" />
                         </Button>
                         {member.status === "Active" ? (
                           <Button
                             variant="ghost"
                             size="icon"
                             title="Deactivate account"
-                            className="hover:bg-red-50"
+                            className="group bg-red-50 hover:bg-red-500 hover:text-white transition-all"
                             onClick={() => setDeactivating(member)}
                           >
-                            <Ban className="w-4 h-4 text-red-500" />
+                            <Ban className="w-4 h-4 text-red-500 group-hover:text-white" />
                           </Button>
                         ) : (
                           <Button

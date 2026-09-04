@@ -220,7 +220,7 @@ export default function StaffProfile() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Profile</h1>
               <p className="text-gray-600">Manage your personal information and account settings</p>
             </div>
-            <Button variant="outline" onClick={() => navigate('/staff/dashboard')}>
+            <Button variant="outline" className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900" onClick={() => navigate('/staff/dashboard')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>

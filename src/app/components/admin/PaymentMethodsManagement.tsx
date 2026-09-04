@@ -300,17 +300,17 @@ export default function PaymentMethodsManagement() {
                       title="Edit payment method"
                       onClick={() => openEdit(method)}
                     >
-                      <Edit2 className="w-4 h-4 text-gray-500" />
+                      <Edit2 className="w-4 h-4 text-[#2F6FD6]" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       title={method.active ? "Deactivate" : "Activate"}
-                      className={method.active ? "hover:bg-red-50" : "hover:bg-green-50"}
+                      className={method.active ? "group bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition-all" : "hover:bg-green-50"}
                       onClick={() => setToggleMethod(method)}
                     >
                       {method.active ? (
-                        <Ban className="w-4 h-4 text-red-500" />
+                        <Ban className="w-4 h-4 text-red-500 group-hover:text-white" />
                       ) : (
                         <UserCheck className="w-4 h-4 text-green-600" />
                       )}
@@ -319,10 +319,10 @@ export default function PaymentMethodsManagement() {
                       variant="ghost"
                       size="icon"
                       title="Delete payment method"
-                      className="hover:bg-red-50"
+                      className="group bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition-all"
                       onClick={() => setDeleting(method)}
                     >
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <Trash2 className="w-4 h-4 text-red-500 group-hover:text-white" />
                     </Button>
                   </div>
                 </div>
@@ -363,13 +363,11 @@ export default function PaymentMethodsManagement() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. GCash"
-                className="h-11 bg-white text-sm"
+                className="h-11 bg-white text-sm border-gray-300 focus:border-[#2F6FD6] focus:ring-[#2F6FD6]/20"
               />
-              <p className="text-xs text-gray-500 flex items-start gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                Automatic reference-number detection from the payment screenshot
-                only works for GCash. Other methods require the customer to enter
-                the reference manually.
+              <p className="text-xs text-gray-500">
+                Auto-detection of the reference number only works for GCash.
+                Other methods require the customer to enter the reference manually.
               </p>
             </div>
 
@@ -381,7 +379,7 @@ export default function PaymentMethodsManagement() {
                 value={form.accountName}
                 onChange={(e) => setForm({ ...form, accountName: e.target.value })}
                 placeholder="e.g. Juan Dela Cruz"
-                className="h-11 bg-white text-sm"
+                className="h-11 bg-white text-sm border-gray-300 focus:border-[#2F6FD6] focus:ring-[#2F6FD6]/20"
               />
             </div>
 
@@ -393,7 +391,7 @@ export default function PaymentMethodsManagement() {
                 value={form.accountNumber}
                 onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
                 placeholder="e.g. 09XXXXXXXXX"
-                className="h-11 bg-white text-sm"
+                className="h-11 bg-white text-sm border-gray-300 focus:border-[#2F6FD6] focus:ring-[#2F6FD6]/20"
               />
             </div>
 
@@ -416,8 +414,8 @@ export default function PaymentMethodsManagement() {
                     variant="ghost"
                     size="icon"
                     title="Remove QR"
-                    className="text-red-500"
-                    onClick={() => setForm({ ...form, qrCode: undefined })}
+                   className="text-red-500 hover:bg-red-500 hover:text-white rounded p-0.5 transition-all"
+                   onClick={() => setForm({ ...form, qrCode: undefined })}
                   >
                     <X className="w-4 h-4" />
                   </Button>

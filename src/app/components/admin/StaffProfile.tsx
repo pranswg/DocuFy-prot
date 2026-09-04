@@ -484,7 +484,7 @@ export default function JobBoardManagement() {
               variant="outline"
               size="default"
               onClick={() => setViewState('list')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Job Postings
@@ -586,7 +586,7 @@ export default function JobBoardManagement() {
               variant="outline"
               size="default"
               onClick={() => setViewState('applicants')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Applicants

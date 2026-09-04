@@ -725,7 +725,7 @@ export default function JobApplyForm() {
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/customer/job-board")}
-                className="flex-1"
+                className="flex-1 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
               >
                 Cancel
               </Button>

@@ -257,7 +257,7 @@ export default function StaffTimesheet() {
               disabled={curDone}
               className={`mt-6 h-14 w-full max-w-sm rounded-xl text-base font-bold transition-all disabled:opacity-100 ${
                 isOnClock
-                  ? "bg-[#1c1f26] hover:bg-slate-800 text-white"
+                  ? "bg-[#2557b8] hover:bg-[#1d4e99] text-white"
                   : curDone
                     ? "cursor-default bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"
                     : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"

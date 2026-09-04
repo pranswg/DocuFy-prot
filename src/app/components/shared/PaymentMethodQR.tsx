@@ -41,7 +41,7 @@ export default function PaymentMethodQRPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 text-xs border-[#1D73EC]/40 text-[#1D73EC] hover:bg-[#F2F7FF]"
+            className="h-8 text-xs border-2 border-[#1D73EC]/40 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
             onClick={() => downloadQRCode(qr, filename)}
             disabled={!qr}
           >

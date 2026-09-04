@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import { pricingStore, type PricingValues } from "../../utils/pricingStore";
@@ -15,6 +15,10 @@ import {
   Briefcase,
   Eye,
   CheckCircle,
+  Upload,
+  Camera,
+  Image,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -38,6 +42,12 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  shopPhotosStore,
+  MAX_PHOTOS,
+  type ShopPhoto,
+} from "../../utils/shopPhotosStore";
 
 const menuItems = adminMenuItems;
 
@@ -103,6 +113,54 @@ export default function ContentManagement() {
     const load = () => setPricing(pricingStore.getPricing());
     return pricingStore.subscribe(load);
   }, []);
+
+  const { user } = useAuth();
+  const shopPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(
+    shopPhotosStore.getPhotos(),
+  );
+  useEffect(() => {
+    const load = () => setShopPhotos(shopPhotosStore.getPhotos());
+    return shopPhotosStore.subscribe(load);
+  }, []);
+
+  const SHOP_PHOTO_FILE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+  const MAX_SHOP_PHOTO_MB = 3;
+
+  const handleShopPhotoUpload = (file: File | undefined) => {
+    if (!file) return;
+    if (shopPhotos.length >= MAX_PHOTOS) {
+      toast.error(`You can upload up to ${MAX_PHOTOS} photos only.`);
+      return;
+    }
+    if (!SHOP_PHOTO_FILE_TYPES.includes(file.type)) {
+      toast.error("Please upload an image file (PNG, JPG, WebP, or GIF).");
+      return;
+    }
+    if (file.size > MAX_SHOP_PHOTO_MB * 1024 * 1024) {
+      toast.error(`Photo is too large. Please use an image under ${MAX_SHOP_PHOTO_MB} MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const ok = shopPhotosStore.addPhoto(
+        reader.result as string,
+        user?.name || "Admin",
+      );
+      if (ok) {
+        toast.success("Shop location photo added.");
+      } else {
+        toast.error(`You can upload up to ${MAX_PHOTOS} photos only.`);
+      }
+    };
+    reader.onerror = () => toast.error("Could not read the photo file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveShopPhoto = (id: string) => {
+    shopPhotosStore.removePhoto(id);
+    toast.success("Shop location photo removed.");
+  };
 
   const saveLandingContent = () => {
     localStorage.setItem(
@@ -362,23 +420,75 @@ export default function ContentManagement() {
                       }
                       placeholder="Near the Library Entrance"
                     />
-                  </div>
-                </div>
-              </div>
-            </Card>
+                   </div>
+                 </div>
 
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">
-                About Docufy Section
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="aboutTitle">Section Title</Label>
-                  <Input
-                    id="aboutTitle"
-                    value={landingContent.aboutTitle}
-                    onChange={(e) =>
-                      setLandingContent({
+                 <div>
+                   <Label>Shop Photos</Label>
+                   <p className="text-sm text-gray-500 mt-1 mb-3">
+                     Add up to 3 photos of the shop's location so customers can
+                     find it easily. ({shopPhotos.length}/{MAX_PHOTOS} added)
+                   </p>
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                     {shopPhotos.map((photo) => (
+                       <div
+                         key={photo.id}
+                         className="relative group rounded-lg overflow-hidden border border-gray-200"
+                       >
+                         <img
+                           src={photo.dataUrl}
+                           alt="Shop location"
+                           className="w-full h-32 object-cover"
+                         />
+                         <button
+                           type="button"
+                           onClick={() => handleRemoveShopPhoto(photo.id)}
+                           className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors"
+                           title="Remove photo"
+                         >
+                           <X className="w-4 h-4" />
+                         </button>
+                       </div>
+                     ))}
+                     {shopPhotos.length < MAX_PHOTOS && (
+                       <button
+                         type="button"
+                         onClick={() => shopPhotoInputRef.current?.click()}
+                         className="flex flex-col items-center justify-center gap-2 h-32 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 hover:border-[#2F6FD6] hover:text-[#2F6FD6] transition-colors"
+                       >
+                         <Upload className="w-6 h-6" />
+                         <span className="text-sm font-medium">
+                           Upload Photo
+                         </span>
+                       </button>
+                     )}
+                   </div>
+                   <input
+                     ref={shopPhotoInputRef}
+                     type="file"
+                     accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                     className="hidden"
+                     onChange={(e) => {
+                       handleShopPhotoUpload(e.target.files?.[0]);
+                       e.target.value = "";
+                     }}
+                   />
+                 </div>
+               </div>
+             </Card>
+
+             <Card className="p-6">
+               <h2 className="text-xl font-bold text-gray-900 mb-6">
+                 About Docufy Section
+               </h2>
+               <div className="space-y-4">
+                 <div>
+                   <Label htmlFor="aboutTitle">Section Title</Label>
+                   <Input
+                     id="aboutTitle"
+                     value={landingContent.aboutTitle}
+                     onChange={(e) =>
+                       setLandingContent({
                         ...landingContent,
                         aboutTitle: e.target.value,
                       })
@@ -546,6 +656,23 @@ export default function ContentManagement() {
                   </div>
                 </div>
               </div>
+              {shopPhotos.length > 0 && (
+                <div className="mt-4">
+                  <p className="font-semibold text-[#1D73EC] mb-2">
+                    Shop Photos
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {shopPhotos.map((photo) => (
+                      <img
+                        key={photo.id}
+                        src={photo.dataUrl}
+                        alt="Shop location"
+                        className="w-full h-20 object-cover rounded border border-gray-200"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* About Docufy Preview */}

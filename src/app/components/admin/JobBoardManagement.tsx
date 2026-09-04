@@ -441,7 +441,7 @@ export default function JobBoardManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-600 text-xs px-3"
+                      className="bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-600 hover:text-white text-xs px-3 transition-all"
                       onClick={() => handleArchiveJob(job)}
                     >
                       Archive
@@ -450,7 +450,7 @@ export default function JobBoardManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-600 text-xs px-3"
+                      className="bg-white border-2 border-blue-300 text-blue-600 hover:bg-blue-600 hover:text-white text-xs px-3 transition-all"
                       onClick={() => setJobToRestore(job)}
                     >
                       Restore
@@ -514,7 +514,7 @@ export default function JobBoardManagement() {
               variant="outline"
               size="default"
               onClick={() => setViewState('list')}
-              className="flex items-center gap-2 shrink-0"
+              className="flex items-center gap-2 shrink-0 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Job Postings
@@ -618,7 +618,7 @@ export default function JobBoardManagement() {
               variant="outline"
               size="default"
               onClick={() => setViewState('applicants')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Applicants
@@ -752,7 +752,7 @@ export default function JobBoardManagement() {
                       }))
                     }
                   >
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="bg-white border-gray-300 focus:border-[#2F6FD6] h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -923,7 +923,7 @@ export default function JobBoardManagement() {
                     }))
                   }
                 >
-                  <SelectTrigger className="h-10 bg-white">
+                  <SelectTrigger className="h-10 bg-white border-gray-300 focus:border-[#2F6FD6]">
                     <SelectValue placeholder="Select job type" />
                   </SelectTrigger>
                   <SelectContent>

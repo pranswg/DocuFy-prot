@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Banknote,
   Loader2,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -33,13 +34,41 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
-import { dataStore } from "../../utils/dataStore";
+import { dataStore, type Order as DataStoreOrder } from "../../utils/dataStore";
+import { notificationStore } from "../../utils/notificationStore";
 import {
   paymentMethodsStore,
   type PaymentMethodType,
 } from "../../utils/paymentMethodsStore";
 import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
 import Tesseract from "tesseract.js";
+
+const PENDING_ORDER_KEY = "docufy_pending_online_order";
+const PRINT_DRAFT_KEY = "docufy_print_draft";
+
+function readPendingOrder(): (Record<string, unknown> & { id?: string }) | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingFlow(orderId: string) {
+  sessionStorage.removeItem(PENDING_ORDER_KEY);
+  try {
+    const draft = sessionStorage.getItem(PRINT_DRAFT_KEY);
+    if (draft) {
+      const parsed = JSON.parse(draft) as { orderId?: string };
+      if (parsed.orderId === orderId) {
+        sessionStorage.removeItem(PRINT_DRAFT_KEY);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 let ocrWorkerPromise: Promise<Tesseract.Worker> | null = null;
 
@@ -299,18 +328,44 @@ export default function PaymentVerification() {
         return;
       }
 
-      // Save the reference number to the order in dataStore
-      // The payment will remain unverified until admin/staff manually verifies it
-      const order = dataStore.getOrders().find((o) => o.id === orderId);
-      if (order) {
+      // The order only enters the system NOW (on Submit Reference). For online
+      // payments the order is withheld earlier; we materialize it here from the
+      // held payload so backing out never leaves a phantom order in the queue.
+      const pendingOrder = readPendingOrder();
+      const existingOrder = dataStore.getOrders().find((o) => o.id === orderId);
+
+      if (pendingOrder && pendingOrder.id === orderId) {
+        dataStore.addOrder({
+          ...(pendingOrder as unknown as object),
+          paymentReferenceNumber: referenceNumber,
+          paymentVerified: false,
+          paymentProofUrl: imagePreviewUrl || undefined,
+        } as DataStoreOrder);
+        clearPendingFlow(orderId);
+      } else if (existingOrder) {
         dataStore.updateOrder(orderId!, {
           paymentReferenceNumber: referenceNumber,
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
         });
-
-        toast.success("Payment details submitted. Awaiting verification by staff.");
       }
+
+      if (existingOrder || pendingOrder?.id === orderId) {
+        notificationStore.addNotification(
+          "order",
+          "New Order — Payment Verification Pending",
+          `New order #${orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
+          { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
+        );
+        notificationStore.addNotification(
+          "order",
+          "New Order — Payment Verification Pending",
+          `New order #${orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
+          { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
+        );
+      }
+
+      toast.success("Payment details submitted. Awaiting verification by staff.");
     }
 
     // Show success dialog instead of navigating immediately
@@ -333,6 +388,23 @@ export default function PaymentVerification() {
       backButtonPath="/customer/new-request"
     >
       <div className="max-w-3xl mx-auto space-y-8">
+        {/* Back to previous step (returns to the resumed print request) */}
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              navigate("/customer/new-request", {
+                state: { fromPaymentVerification: true },
+              })
+            }
+            className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+
         {/* Header */}
         <div>
           <h1 className="text-3xl font-semibold text-gray-900">
@@ -351,6 +423,24 @@ export default function PaymentVerification() {
             before processing can begin.
           </AlertDescription>
         </Alert>
+
+        {/* Status Card */}
+        <Card className="p-6 bg-yellow-50 border border-blue-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">
+                Waiting for Admin Verification
+              </h3>
+              <p className="text-sm text-gray-600">
+                Once you submit your reference number, an
+                administrator will verify your payment. You'll
+                be notified when your order is approved and
+                begins processing.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {/* Payment Method Display/Selector */}
         <Card className="p-6 bg-white shadow-sm">
@@ -712,7 +802,7 @@ export default function PaymentVerification() {
                           type="button"
                           onClick={handleRemoveFile}
                           title="Remove file"
-                          className="p-1.5 text-red-500 rounded hover:bg-red-50 transition-all"
+                          className="p-1.5 text-red-500 rounded hover:bg-red-500 hover:text-white transition-all"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -735,7 +825,7 @@ export default function PaymentVerification() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+                  className="flex-1 bg-white text-[#1D73EC] border-2 border-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
                 >
                   Submit Reference
                 </Button>
@@ -757,9 +847,24 @@ export default function PaymentVerification() {
                 Cancel
               </Button>
               <Button
-                onClick={() =>
-                  navigate(`/customer/track/${orderId}`)
-                }
+                onClick={() => {
+                  const pendingOrder = readPendingOrder();
+                  if (pendingOrder && pendingOrder.id === orderId) {
+                    const base = pendingOrder as unknown as DataStoreOrder;
+                    dataStore.addOrder({
+                      ...base,
+                      status: "Received",
+                      paymentMethod: "Cash",
+                      holdReason: undefined,
+                      paymentReferenceNumber: undefined,
+                      paymentVerified: true,
+                      paymentProofUrl: undefined,
+                    });
+                    clearPendingFlow(orderId);
+                    toast.success("Order confirmed. Pay when you collect.");
+                  }
+                  navigate(`/customer/track/${orderId}`);
+                }}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Confirm Order
@@ -767,24 +872,6 @@ export default function PaymentVerification() {
             </div>
           </Card>
         )}
-
-        {/* Status Card */}
-        <Card className="p-6 bg-yellow-50 border border-blue-200">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-1">
-                Waiting for Admin Verification
-              </h3>
-              <p className="text-sm text-gray-600">
-                Once you submit your reference number, an
-                administrator will verify your payment. You'll
-                be notified when your order is approved and
-                begins processing.
-              </p>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Image Preview Dialog */}

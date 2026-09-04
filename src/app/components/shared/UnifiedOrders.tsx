@@ -270,7 +270,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
-          total: `?${((order.costBreakdown?.total || fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
+          total: `?${((!isNaN(order.costBreakdown?.total) ? order.costBreakdown?.total : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
           paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: order.paymentVerified || false,
@@ -560,7 +560,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
-          total: `?${((updatedSelectedOrder.costBreakdown?.total || fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
+          total: `?${((!isNaN(updatedSelectedOrder.costBreakdown?.total) ? updatedSelectedOrder.costBreakdown?.total : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
           paymentMethod: updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
@@ -1305,14 +1305,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                             Printing ({invoiceData.totalPages} pages � {invoiceData.copies} copies)
                           </span>
                           <span className="font-medium text-gray-900">
-                            ?{invoiceData.costBreakdown.printingCost.toFixed(2)}
+                            ?{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
                           </span>
                         </div>
                         {invoiceData.addons.length > 0 && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Add-ons</span>
                             <span className="font-medium text-gray-900">
-                              ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                              ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -2026,7 +2026,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons Subtotal:
                         </span>
                         <span className="font-bold text-gray-900">
-                          ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                            ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2044,7 +2044,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         Printing Cost ({invoiceData.totalPages} pages � {invoiceData.copies} copies):
                       </span>
                       <span className="text-gray-900">
-                        ?{invoiceData.costBreakdown.printingCost.toFixed(2)}
+                        ?{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
                       </span>
                     </div>
                     {invoiceData.addons.length > 0 && (
@@ -2053,7 +2053,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons:
                         </span>
                         <span className="text-gray-900">
-                          ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                          ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                         </span>
                       </div>
                     )}

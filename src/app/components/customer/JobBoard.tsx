@@ -234,7 +234,7 @@ export default function JobBoard() {
                                 variant="outline"
                                 size="sm"
                                 disabled
-                                className="w-full text-xs opacity-60 sm:w-auto"
+                                className="w-full text-xs sm:w-auto"
                               >
                                 Applied
                               </Button>

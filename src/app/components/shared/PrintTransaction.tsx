@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import {
   LayoutDashboard,
   FileText,
@@ -181,6 +181,80 @@ interface PrintTransactionProps {
   userRole?: "admin" | "staff";
 }
 
+// Draft + pending-order persistence so an online payment order is only pushed to
+// the system once the customer actually submits their payment reference, and so
+// returning to the print request resumes where they left off.
+const PRINT_DRAFT_KEY = "docufy_print_draft";
+const PENDING_ORDER_KEY = "docufy_pending_online_order";
+
+type PrintDraft = {
+  orderId: string;
+  files: Array<{
+    id: string;
+    fileName: string;
+    pageCount: number;
+    contentType: ContentType;
+    printType: FileData["printType"];
+    paperSize: string;
+    copies: number;
+    colorMode: string;
+    pagesPerSheet: string;
+    orientation: string;
+    pageRange: string;
+    specificPages: string;
+    twoSided: string;
+    margins: string;
+    scale: string;
+    customScale: number;
+    notes: string;
+    photoSize: PhotoSizeKey;
+    photoFinish: "matte" | "glossy";
+    photoQty: number;
+  }>;
+  selectedAddons: { [key: string]: number };
+  serviceType: ServiceType;
+  paymentMethod: string;
+  currentStep: number;
+};
+
+function savePrintDraft(draft: PrintDraft) {
+  sessionStorage.setItem(PRINT_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function readPrintDraft(): PrintDraft | null {
+  try {
+    const raw = sessionStorage.getItem(PRINT_DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as PrintDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPrintDraft() {
+  sessionStorage.removeItem(PRINT_DRAFT_KEY);
+}
+
+function savePendingOrder(payload: Record<string, unknown>) {
+  sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(payload));
+}
+
+function readPendingOrder():
+  | (Record<string, unknown> & { id: string })
+  | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown> & { id?: string };
+    return parsed.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingOrder() {
+  sessionStorage.removeItem(PENDING_ORDER_KEY);
+}
+
 function NumberStepper({
   value,
   min = 1,
@@ -209,7 +283,7 @@ function NumberStepper({
         aria-label="Decrease"
         onClick={() => commit((Number(draft) || min) - 1)}
         disabled={Number(draft) <= min}
-        className="p-2.5 px-4 bg-gray-50 active:bg-gray-200 text-gray-700 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="p-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Minus className="w-4 h-4" />
       </button>
@@ -229,7 +303,7 @@ function NumberStepper({
         type="button"
         aria-label="Increase"
         onClick={() => commit((Number(draft) || min) + 1)}
-        className="p-2.5 px-4 bg-gray-50 active:bg-gray-200 text-gray-700 font-bold transition-colors"
+        className="p-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition-colors"
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -239,6 +313,7 @@ function NumberStepper({
 
 export default function PrintTransaction({ mode, userRole }: PrintTransactionProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const isWalkin = mode === "walkin";
   const role = userRole || "staff";
@@ -323,6 +398,65 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     return unsubscribe;
   }, []);
 
+  // Resume an in-progress online payment print request. If the customer backed
+  // out of payment verification (or left via the sidebar) before submitting
+  // their reference, restore the draft so they continue where they left off.
+  const [isResumed, setIsResumed] = useState(false);
+  useEffect(() => {
+    if (isWalkin) return;
+    const draft = readPrintDraft();
+    if (!draft) return;
+    const restoredFiles: FileData[] = draft.files.map((f) => ({
+      id: f.id,
+      file: new File([], f.fileName),
+      fileName: f.fileName,
+      pageCount: f.pageCount,
+      colorAnalysis: null,
+      contentType: f.contentType,
+      printType: f.printType,
+      paperSize: f.paperSize,
+      copies: f.copies,
+      colorMode: f.colorMode,
+      pagesPerSheet: f.pagesPerSheet,
+      orientation: f.orientation,
+      pageRange: f.pageRange,
+      specificPages: f.specificPages,
+      twoSided: f.twoSided,
+      margins: f.margins,
+      scale: f.scale,
+      customScale: f.customScale,
+      notes: f.notes,
+      photoSize: f.photoSize,
+      photoFinish: f.photoFinish,
+      photoQty: f.photoQty,
+    }));
+    setFiles(restoredFiles);
+    setSelectedAddons(draft.selectedAddons || {});
+    setServiceType(draft.serviceType || "document");
+    setPaymentMethod(draft.paymentMethod || "");
+    if (draft.paymentMethod) {
+      setSubmittedOrderId(draft.orderId);
+    }
+    // Bring the customer straight to the payment review step.
+    setCurrentStep(4);
+    setIsResumed(true);
+
+    // Resume at payment verification when the customer arrives here via the
+    // sidebar "Print Request" (or browser back). The in-page "Go Back" button
+    // in payment verification passes fromPaymentVerification:true so the order
+    // can instead be reviewed/edited on the previous step without jumping away.
+    if (
+      draft.paymentMethod &&
+      !location.state?.fromPaymentVerification
+    ) {
+      navigate(`/customer/payment/${draft.orderId}`, {
+        replace: true,
+        state: { paymentMethod: draft.paymentMethod, showSuccessAfter: true },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectedMethod = onlineMethods.find(
     (m) => m.name === paymentMethod,
   );
@@ -351,9 +485,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     "Please staple per set",
     "Front page color only",
     "Please arrange pages in order",
-    "Double-check page count before printing",
-    "Use best quality settings",
-    "Please fold in half",
     "Bind on left side",
   ];
 
@@ -832,16 +963,71 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       paperDeductedOnCreate: false,
     };
 
+    // ONLINE payment orders are NOT pushed to the system yet. We hold the full
+    // order payload as a pending order + a resume draft, then only create the
+    // real order once the customer submits their payment reference on the
+    // payment verification page. Backing out / going to the dashboard simply
+    // leaves the pending order unsaved (never entered the queue).
+    if (isOnline) {
+      const orderData = {
+        orderId,
+        total,
+        paymentMethod: methodLabel,
+        timestamp: new Date().toISOString(),
+        downPaymentRequired: requiresDownPayment,
+        downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
+      };
+      localStorage.setItem(`order_${orderId}`, JSON.stringify(orderData));
+
+      savePendingOrder(newOrder as unknown as Record<string, unknown>);
+      savePrintDraft({
+        orderId,
+        files: files.map((f) => ({
+          id: f.id,
+          fileName: f.fileName,
+          pageCount: f.pageCount,
+          contentType: f.contentType,
+          printType: f.printType,
+          paperSize: f.paperSize,
+          copies: f.copies,
+          colorMode: f.colorMode,
+          pagesPerSheet: f.pagesPerSheet,
+          orientation: f.orientation,
+          pageRange: f.pageRange,
+          specificPages: f.specificPages,
+          twoSided: f.twoSided,
+          margins: f.margins,
+          scale: f.scale,
+          customScale: f.customScale,
+          notes: f.notes,
+          photoSize: f.photoSize,
+          photoFinish: f.photoFinish,
+          photoQty: f.photoQty,
+        })),
+        selectedAddons,
+        serviceType,
+        paymentMethod,
+        currentStep,
+      });
+
+      setSubmittedOrderId(orderId);
+
+      navigate(`/customer/payment/${orderId}`, {
+        state: {
+          paymentMethod: methodLabel,
+          total,
+          showSuccessAfter: true,
+        },
+      });
+      return;
+    }
+
     dataStore.addOrder(newOrder);
 
-    const notifTitle = isOnline
-      ? "New Order — Payment Verification Pending"
-      : requiresDownPayment ? "New Order — Down Payment Required" : "New Print Request";
-    const notifMsg = isOnline
-      ? `New order #${orderId} from ${user?.email || "customer"} is awaiting ${methodLabel} payment verification. Amount: ₱${Math.round(total)}.`
-      : requiresDownPayment
-        ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
-        : `New print request #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total.`;
+    const notifTitle = requiresDownPayment ? "New Order — Down Payment Required" : "New Print Request";
+    const notifMsg = requiresDownPayment
+      ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
+      : `New print request #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total.`;
 
     notificationStore.addNotification("order", notifTitle, notifMsg, {
       clickable: true,
@@ -858,7 +1044,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const orderData = {
       orderId,
       total,
-      paymentMethod: isOnline ? methodLabel : "cash",
+      paymentMethod: methodLabel,
       timestamp: new Date().toISOString(),
       downPaymentRequired: requiresDownPayment,
       downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
@@ -869,18 +1055,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
 
     setSubmittedOrderId(orderId);
-
-    if (isOnline) {
-      navigate(`/customer/payment/${orderId}`, {
-        state: {
-          paymentMethod: methodLabel,
-          total,
-          showSuccessAfter: true,
-        },
-      });
-    } else {
-      setShowSuccessModal(true);
-    }
+    setShowSuccessModal(true);
   };
 
   const handleCancelOrder = () => {
@@ -921,6 +1096,32 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   const content = (
     <div className={isWalkin ? "max-w-4xl mx-auto space-y-8" : "max-w-4xl mx-auto space-y-2 sm:space-y-3"}>
+      {!isWalkin && isResumed && submittedOrderId && (
+        <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-3 min-w-0">
+            <Clock className="w-5 h-5 text-[#2F6FD6] mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 text-sm">
+                Resuming your print request
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                You left this request at Payment Verification before submitting your reference. Your order has not been finalized yet — continue where you left off.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(`/customer/payment/${submittedOrderId}`, {
+                state: { paymentMethod, showSuccessAfter: true },
+              })
+            }
+            className="shrink-0 bg-white text-[#2F6FD6] border-2 border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all"
+          >
+            Go to Payment Verification
+          </Button>
+        </div>
+      )}
       {/* Step Indicator */}
       <Card className={isWalkin ? "p-6 bg-white shadow-sm" : "p-4 sm:p-6 bg-white shadow-sm"}>
         <div className={isWalkin ? "flex items-center justify-between" : "flex items-center justify-center w-full"}>
@@ -1149,7 +1350,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             variant="ghost"
                             size="sm"
                             onClick={() => removeFile(fileData.id)}
-                            className="text-red-400 hover:text-red-500 hover:bg-white border-2 border-blue-200"
+                            className="text-red-400 hover:bg-red-500 hover:text-white border-2 border-red-200 hover:border-red-500 transition-all"
                             disabled={analyzingFileId === fileData.id}
                           >
                             <X className="w-4 h-4 mr-1" />
@@ -1240,15 +1441,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     </h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-blue-800">Total Pages:</span>
-                        <span className="font-medium text-blue-900">
+                        <span className="text-black">Total Pages:</span>
+                        <span className="font-medium text-black">
                           {fileData.colorAnalysis.totalPages}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-800">Color Pages:</span>
+                        <span className="text-black">Color Pages:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-blue-900">
+                          <span className="font-medium text-black">
                             {fileData.colorAnalysis.colorPages.length > 0
                               ? `${fileData.colorAnalysis.colorPages.length} pages`
                               : "None"}
@@ -1277,9 +1478,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       )}
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-800">B&amp;W Pages:</span>
+                        <span className="text-black">B&amp;W Pages:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-blue-900">
+                          <span className="font-medium text-black">
                             {fileData.colorAnalysis.bwPages.length} pages
                           </span>
                           {fileData.colorAnalysis.bwPages.length > 0 && (
@@ -1531,14 +1732,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Number of Copies</Label>
-                              <NumberStepper
-                                min={1}
-                                value={fileData.copies}
-                                onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
-                              />
-                            </div>
+                            <Label className="text-sm font-medium">Number of Copies</Label>
+                            <NumberStepper
+                              min={1}
+                              value={fileData.copies}
+                              onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
+                            />
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Page Range</Label>
                               <Select
@@ -1580,7 +1779,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                             >
                               <label
-                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
                                   fileData.colorMode === "bw"
                                     ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
                                     : "border-gray-200 hover:border-gray-300"
@@ -1599,7 +1798,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 </div>
                               </label>
                               <label
-                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
                                   fileData.colorMode === "colored"
                                     ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
                                     : "border-gray-200 hover:border-gray-300"
@@ -1654,7 +1853,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                   const newNotes = currentNotes
                                     ? `${currentNotes}\n${template}`
                                     : template;
-                                  updateFileOption(fileData.id, "notes", newNotes);
+                                  updateFileOption(fileData.id, "notes", newNotes.slice(0, 100));
                                 }}
                               >
                                 <SelectTrigger className="h-9 text-black sm:hidden">
@@ -1678,7 +1877,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                       const newNotes = currentNotes
                                         ? `${currentNotes}\n${template}`
                                         : template;
-                                      updateFileOption(fileData.id, "notes", newNotes);
+                                      updateFileOption(fileData.id, "notes", newNotes.slice(0, 100));
                                     }}
                                     className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors"
                                   >
@@ -2285,13 +2484,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       {onlineMethods.map((method) => (
                         <div
                           key={method.id}
-                          className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
+                          className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
                             paymentMethod === method.name
-                              ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
-                              : "border-gray-200 hover:border-gray-400 cursor-pointer"
+                              ? "border-[#2F6FD6] bg-white"
+                              : "border-gray-200 hover:border-gray-300"
                           }`}
                           onClick={() => setPaymentMethod(method.name)}
                         >
+                          {paymentMethod === method.name && (
+                            <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                          )}
                           <RadioGroupItem value={method.name} id={`pm-${method.id}`} disabled={false} />
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
@@ -2321,13 +2523,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       ))}
 
                       <div
-                        className={`flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
+                        className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
                           paymentMethod === "cash"
-                            ? "border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-300 scale-[1.01] cursor-pointer"
-                            : "border-gray-200 hover:border-gray-400 cursor-pointer"
+                            ? "border-[#2F6FD6] bg-white"
+                            : "border-gray-200 hover:border-gray-300"
                         }`}
                         onClick={() => setPaymentMethod("cash")}
                       >
+                        {paymentMethod === "cash" && (
+                          <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                        )}
                         <RadioGroupItem value="cash" id="cash" />
                         <div className="flex items-center gap-3 flex-1">
                           <div className="w-10 h-10 bg-[#73bbff] rounded-lg flex items-center justify-center">
@@ -2474,7 +2679,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     navigate(dashboardPath);
                   }
                 }}
-                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all"
+                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition-all"
               >
                 Back
               </button>
@@ -2500,7 +2705,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "flex items-center justify-between mt-1 pt-6 border-t gap-4 sm:gap-5"}>
           <Button
             variant="outline"
-            className={isWalkin ? undefined : "min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"}
+            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"}`}
             onClick={() => {
               if (currentStep > 1) {
                 const prev = currentStep - 1;
@@ -2525,7 +2730,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   setCurrentStep(nextStep);
                   scrollPageToTop();
                 }}
-                disabled={(currentStep === 1 && files.length === 0) || analyzingFileId !== null}
+                disabled={
+                  (currentStep === 1 && files.length === 0) ||
+                  (currentStep === 2 && files.length > 0 && !files.every((f) => f.printType)) ||
+                  analyzingFileId !== null
+                }
               >
                 {analyzingFileId ? "Analyzing..." : "Next Step"}
               </Button>
@@ -2553,7 +2762,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   }}
                   disabled={isWalkin ? files.length === 0 : files.length === 0 || !paymentMethod}
                 >
-                  {isWalkin ? "Proceed to In Queue" : "Place Order"}
+                  {isWalkin ? "Proceed to In Queue" : isOnline ? "Go to Payment Verification" : "Place Order"}
                 </Button>
               </>
             )}
@@ -2826,19 +3035,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         </Dialog>
       )}
 
-      {/* Place Order Confirmation (customer only) */}
+      {/* Place Order / Go to Payment Verification Confirmation (customer only) */}
       {!isWalkin && showPlaceOrderConfirm && (
         <ConfirmationDialog
           open
           onOpenChange={setShowPlaceOrderConfirm}
           onConfirm={() => { handleSubmit(); setShowPlaceOrderConfirm(false); }}
-          title="Place this order?"
-          description={`Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod === "" ? "your selected method" : paymentMethod}. This will create your order${
-            paymentMethod !== "" && paymentMethod !== "cash"
-              ? " and take you to payment verification"
-              : ""
-          }, reserve paper stock, and notify staff. Review your details before confirming.`}
-          confirmLabel="Place Order"
+          title={isOnline ? "Go to Payment Verification?" : "Place this order?"}
+          description={
+            isOnline
+              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number. Your order is NOT placed in the system until you submit your reference.`
+              : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod === "" ? "your selected method" : paymentMethod}. This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`
+          }
+          confirmLabel={isOnline ? "Go to Payment Verification" : "Place Order"}
           cancelLabel="Go Back"
           destructive={false}
         />

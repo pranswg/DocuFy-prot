@@ -600,7 +600,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                           onClick={() =>
                             setShowProofImage(true)
                           }
-                          className="text-[#1D73EC] border-[#1D73EC]/20 hover:bg-[#F2F7FF] h-7"
+                           className="text-[#1D73EC] border-2 border-[#1D73EC]/30 hover:bg-[#1D73EC] hover:text-white h-7 transition-all"
                         >
                           <Eye className="w-3.5 h-3.5 mr-1" />{" "}
                           View Proof
@@ -621,7 +621,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   </p>
                   <div className="flex gap-3">
                     <Button
-                      className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
+                       className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-all"
                       onClick={() => setPendingVerifyAction("verified")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
@@ -629,7 +629,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 border-[#1D73EC]/20 text-[#10316B] hover:bg-gray-50"
+                      className="flex-1 border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
                       onClick={() => {
                         setShowDialog(false);
                         setShowRejectDialog(true);
@@ -781,7 +781,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             <Button
               variant="outline"
               onClick={() => setShowProofImage(false)}
-              className="font-semibold border-[#1D73EC] text-[#1D73EC] hover:bg-[#F2F7FF]"
+               className="font-semibold border-2 border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
             >
               Close Preview
             </Button>

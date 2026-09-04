@@ -238,7 +238,7 @@ export default function PricingManagement() {
         <Button
           variant="outline"
           size="sm"
-          className="text-[#2F6FD6] border-[#2F6FD6]/40 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] h-9"
+          className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
           onClick={() => openEdit(target)}
         >
           <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
@@ -282,7 +282,7 @@ export default function PricingManagement() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+                        className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all"
                         title="Edit"
                         onClick={() => openEdit(target)}
                       >
@@ -467,7 +467,7 @@ export default function PricingManagement() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+                              className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all"
                               title="Edit price"
                               onClick={() =>
                                 openEdit({ kind: "photo", size, field: "price" })
@@ -487,7 +487,7 @@ export default function PricingManagement() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+                              className="h-7 w-7 p-0 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all"
                               title="Edit minimum order"
                               onClick={() =>
                                 openEdit({ kind: "photo", size, field: "minQty" })
@@ -549,7 +549,7 @@ export default function PricingManagement() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-[#2F6FD6] border-[#2F6FD6]/40 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] h-9"
+                          className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
                           onClick={() => openLegacyEdit(item)}
                         >
                           <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit

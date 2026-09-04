@@ -21,6 +21,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingValues } from "../utils/pricingStore";
+import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import {
   Dialog,
   DialogContent,
@@ -41,10 +42,20 @@ export default function LandingPage() {
   const [activeService, setActiveService] = useState(0);
   const [docColorMode, setDocColorMode] = useState<"bw" | "color">("bw");
   const [showAboutMore, setShowAboutMore] = useState(false);
+  const [showShopPhotos, setShowShopPhotos] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
     return pricingStore.subscribe(load);
+  }, []);
+
+  const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(
+    shopPhotosStore.getPhotos(),
+  );
+  useEffect(() => {
+    const load = () => setShopPhotos(shopPhotosStore.getPhotos());
+    return shopPhotosStore.subscribe(load);
   }, []);
 
   // Load landing page content from localStorage or use defaults
@@ -1168,8 +1179,61 @@ export default function LandingPage() {
               referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
+          {shopPhotos.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowShopPhotos(!showShopPhotos)}
+                className="flex items-center gap-2 text-sm font-medium text-[#2F6FD6] hover:text-[#1e5bb8] transition-colors"
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    showShopPhotos ? "rotate-180" : ""
+                  }`}
+                />
+                {showShopPhotos ? "Hide Shop Photos" : "View Shop Photos"}
+              </button>
+              {showShopPhotos && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {shopPhotos.map((photo) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setLightboxPhoto(photo.dataUrl)}
+                      className="cursor-pointer"
+                    >
+                      <img
+                        src={photo.dataUrl}
+                        alt="Shop location"
+                        className="w-full h-24 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-[#2F6FD6] transition-all"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {lightboxPhoto && (
+        <Dialog open onOpenChange={() => setLightboxPhoto(null)}>
+          <DialogContent className="sm:max-w-2xl p-0 bg-black border-0 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setLightboxPhoto(null)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={lightboxPhoto}
+              alt="Shop location full view"
+              className="w-full max-h-[80vh] object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

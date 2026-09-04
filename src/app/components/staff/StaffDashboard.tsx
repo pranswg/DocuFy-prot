@@ -153,22 +153,18 @@ export default function StaffDashboard() {
     return { total, received, inQueue, printing, completed, released, onHold, inProgress, allCompleted };
   }, [allOrders]);
 
-  // ── Active Orders table ───────────────────────────────────────────────────
-  // Sorted NEWEST-FIRST by statusUpdatedAt (mirrors the Orders page sort).
-  // Shows only non-finished, non-canceled orders (received/inQueue/printing/onHold).
-  // Capped at 6 rows as a "top-of-queue" preview.
+  // Active orders list (received / in queue / printing / on hold), newest first
   const activeOrders = useMemo(() => {
     return [...allOrders]
       .sort((a, b) => {
-        // Match Orders page: sort by statusUpdatedAt desc, fall back to submittedAt
         const aTime = (a.statusUpdatedAt ?? a.submittedAt).getTime();
         const bTime = (b.statusUpdatedAt ?? b.submittedAt).getTime();
-        return bTime - aTime; // newest first
+        return bTime - aTime;
       })
       .filter(
         (o) =>
           o.status === "received" ||
-          o.status === "inQueue"  ||
+          o.status === "inQueue" ||
           o.status === "printing" ||
           o.status === "onHold"
       )
@@ -370,20 +366,6 @@ export default function StaffDashboard() {
               </table>
             </div>
 
-            {/* Footer note */}
-            {activeOrders.length > 0 && (
-              <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                <p className="text-xs text-gray-400 font-medium">
-                  Showing {activeOrders.length} most recently updated active order{activeOrders.length > 1 ? "s" : ""}
-                </p>
-                <button
-                  onClick={() => navigate("/staff/queue")}
-                  className="text-xs font-bold text-[#1D73EC] hover:underline"
-                >
-                  See all {stats.received + stats.inQueue + stats.printing + stats.onHold} active →
-                </button>
-              </div>
-            )}
           </Card>
 
           {/* Bottom Row: Staff Reminders & Shop Hours */}
