@@ -731,25 +731,35 @@ function SalesTab({ metrics }: { metrics: DashboardMetrics }) {
   return (
     <div className="space-y-6">
       {/* Summary row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Total Revenue</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{fmt(totalSales)}</p>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Revenue</p>
+          <p className="text-base font-bold text-gray-900 mt-1">{fmt(totalSales)}</p>
         </Card>
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Highest Sales</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{highestMonth ? highestMonth.name : "—"}</p>
-          {highestMonth && <p className="text-xs text-slate-500 mt-0.5">{fmt(highestMonth.sales)}</p>}
+        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Highest Sales</p>
+          <p className="text-base font-bold mt-1">
+            {highestMonth ? (
+              <span className="inline-block bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-xs font-semibold">{highestMonth.name}</span>
+            ) : "—"}
+          </p>
+          {highestMonth && <p className="text-xs font-semibold text-slate-900 mt-1">{fmt(highestMonth.sales)}</p>}
         </Card>
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Lowest Sales</p>
-          <p className="text-2xl font-bold text-red-500 mt-1">{lowestMonth ? lowestMonth.name : "—"}</p>
-          {lowestMonth && <p className="text-xs text-slate-500 mt-0.5">{fmt(lowestMonth.sales)}</p>}
+        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Lowest Sales</p>
+          <p className="text-base font-bold mt-1">
+            {lowestMonth ? (
+              <span className="inline-block bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-xs font-semibold">{lowestMonth.name}</span>
+            ) : "—"}
+          </p>
+          {lowestMonth && <p className="text-xs font-semibold text-slate-900 mt-1">{fmt(lowestMonth.sales)}</p>}
         </Card>
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Sales Periods</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{monthlySales.length}</p>
-          <p className="text-xs text-slate-500 mt-0.5">months with data</p>
+        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Sales Periods</p>
+          <p className="text-base font-bold text-gray-900 mt-1">
+            {monthlySales.length}{" "}
+            <span className="text-xs font-medium text-gray-500">months with data</span>
+          </p>
         </Card>
       </div>
 
@@ -802,20 +812,21 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
   return (
     <div className="space-y-6">
       {/* Summary row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Most-Used Service</p>
-          <p className="text-lg font-bold text-slate-900 mt-1">{topService ? topService.name : "—"}</p>
-          {topService && <p className="text-xs text-slate-500 mt-0.5">{topService.count.toLocaleString()} orders</p>}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Most-Used Service</p>
+          <p className="text-xs font-semibold text-gray-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
+          {topService && <span className="inline-block mt-1 text-[10px] font-semibold text-[#2F6FD6] bg-blue-50 px-1.5 py-0.5 rounded-full">{topService.count.toLocaleString()} orders</span>}
         </Card>
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Best-Selling by Revenue</p>
-          <p className="text-lg font-bold text-[#2F6FD6] mt-1">{topService ? topService.name : "—"}</p>
-          {topService && <p className="text-xs text-slate-500 mt-0.5">{fmt(topService.revenue)}</p>}
+        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Best-Selling Revenue</p>
+          <p className="text-xs font-semibold text-gray-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
+          {topService && <span className="inline-block mt-1 text-[10px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">{fmt(topService.revenue)}</span>}
         </Card>
-        <Card className="p-5 bg-white shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase">Total Orders</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{totalOrders.toLocaleString()}</p>
+        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl col-span-2 justify-self-center w-full max-w-[calc(50%-0.375rem)] sm:col-span-1 sm:max-w-none flex flex-col items-center text-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Orders</p>
+          <p className="text-xs font-semibold text-gray-900 mt-1.5">{totalOrders.toLocaleString()}</p>
+          <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">all services</span>
         </Card>
       </div>
 
@@ -824,14 +835,14 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
         {activeServices.length === 0 ? (
           <EmptyState icon={BarChart3} message="No service data yet" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-4 font-semibold text-slate-500">Service</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-500">Orders</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-500">Revenue</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-500">% of Total</th>
+                  <th className="text-left py-2 px-2.5 font-semibold text-slate-500">Service</th>
+                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500">Orders</th>
+                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500">Revenue</th>
+                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500 hidden sm:table-cell">% of Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -840,15 +851,20 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
                   const pct = totalRev > 0 ? (svc.revenue / totalRev) * 100 : 0;
                   return (
                     <tr key={svc.name} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="py-3 px-4 font-medium text-slate-800">
+                      <td className="py-2 px-2.5 font-medium text-slate-800">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-[#2F6FD6]">{i + 1}</span>
-                          {svc.name}
+                          <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center text-[10px] font-bold text-[#2F6FD6] shrink-0">{i + 1}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{svc.name}</span>
+                            <span className="block sm:hidden w-16 h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+                              <span className="block h-full bg-[#2F6FD6] rounded-full" style={{ width: `${pct}%` }} />
+                            </span>
+                          </span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-slate-600">{svc.count.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-right font-semibold text-slate-900">{fmt(svc.revenue)}</td>
-                      <td className="py-3 px-4 text-right text-slate-500">{pct.toFixed(1)}%</td>
+                      <td className="py-2 px-2.5 text-right text-slate-600">{svc.count.toLocaleString()}</td>
+                      <td className="py-2 px-2.5 text-right font-semibold text-slate-900">{fmt(svc.revenue)}</td>
+                      <td className="py-2 px-2.5 text-right text-slate-500 hidden sm:table-cell">{pct.toFixed(1)}%</td>
                     </tr>
                   );
                 })}
@@ -861,15 +877,17 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
       {/* Service chart */}
       {activeServices.length > 0 && (
         <SectionCard title="Revenue by Service" subtitle="Visual comparison">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={activeServices} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-              <Tooltip formatter={(v: number) => [fmt(v), "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
-              <Bar dataKey="revenue" fill="#2F6FD6" radius={[6, 6, 0, 0]} isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="h-44 lg:h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={activeServices} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
+                <Tooltip formatter={(v: number) => [fmt(v), "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                <Bar dataKey="revenue" fill="#2F6FD6" radius={[6, 6, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </SectionCard>
       )}
     </div>
