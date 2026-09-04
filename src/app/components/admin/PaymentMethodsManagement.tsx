@@ -365,6 +365,12 @@ export default function PaymentMethodsManagement() {
                 placeholder="e.g. GCash"
                 className="h-11 bg-white text-sm"
               />
+              <p className="text-xs text-gray-500 flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                Automatic reference-number detection from the payment screenshot
+                only works for GCash. Other methods require the customer to enter
+                the reference manually.
+              </p>
             </div>
 
             <div className="space-y-2">

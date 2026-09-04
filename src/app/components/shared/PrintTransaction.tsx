@@ -271,6 +271,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     (m) => m.name === paymentMethod,
   );
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
+  const isGcash = isOnline && paymentMethod.toLowerCase() === "gcash";
 
   const viewMethodQR = (name: string) => {
     setPaymentMethod(name);
@@ -1383,54 +1384,62 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 onValueChange={(value) =>
                                   updateFileOption(fileData.id, "photoFinish", value as "matte" | "glossy")
                                 }
-                                className="flex gap-2"
+                                className="flex flex-col gap-2"
                               >
                                 <label
-                                  className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
-                                    fileData.photoFinish === "matte"
-                                      ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
-                                      : "border-gray-200 hover:border-gray-300"
-                                  }`}
-                                >
-                                  <RadioGroupItem value="matte" />
-                                  <span className="text-sm font-medium text-gray-900">Matte</span>
-                                </label>
-                                <label
-                                  className={`flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                  className={`relative overflow-hidden flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
                                     fileData.photoFinish === "glossy"
                                       ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
                                       : "border-gray-200 hover:border-gray-300"
                                   }`}
                                 >
+                                  {fileData.photoFinish === "glossy" && (
+                                    <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                                  )}
                                   <RadioGroupItem value="glossy" />
                                   <span className="text-sm font-medium text-gray-900">Glossy</span>
+                                </label>
+                                <label
+                                  className={`relative overflow-hidden flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                                    fileData.photoFinish === "matte"
+                                      ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
+                                      : "border-gray-200 hover:border-gray-300"
+                                  }`}
+                                >
+                                  {fileData.photoFinish === "matte" && (
+                                    <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                                  )}
+                                  <RadioGroupItem value="matte" />
+                                  <span className="text-sm font-medium text-gray-900">Matte</span>
                                 </label>
                               </RadioGroup>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Quantity</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={fileData.photoQty}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value);
-                                updateFileOption(fileData.id, "photoQty", Math.max(1, v || 1));
-                              }}
-                              className="h-10"
-                            />
-                            {(() => {
-                              const item = pricingStore.getMatrix().photo[fileData.photoSize];
-                              const minQty = item ? item.minQty : 0;
-                              return minQty > 0 ? (
-                                <p className="text-xs text-gray-500">
-                                  Minimum order: {minQty} pcs. Price: {formatPrice(item.price)} each.
-                                </p>
-                              ) : (
-                                <p className="text-xs text-gray-500">Price: {formatPrice(item.price)} each.</p>
-                              );
-                            })()}
+                          <div className="sm:grid sm:grid-cols-2 sm:gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Quantity</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={fileData.photoQty}
+                                onChange={(e) => {
+                                  const v = parseInt(e.target.value);
+                                  updateFileOption(fileData.id, "photoQty", Math.max(1, v || 1));
+                                }}
+                                className="h-10"
+                              />
+                              {(() => {
+                                const item = pricingStore.getMatrix().photo[fileData.photoSize];
+                                const minQty = item ? item.minQty : 0;
+                                return minQty > 0 ? (
+                                  <p className="text-xs text-gray-500">
+                                    Minimum order: {minQty} pcs. Price: {formatPrice(item.price)} each.
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-500">Price: {formatPrice(item.price)} each.</p>
+                                );
+                              })()}
+                            </div>
                           </div>
                           <div className="pt-3 mt-3 border-t border-gray-300">
                             <div className="flex justify-between items-center">
@@ -1525,12 +1534,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                             >
                               <label
-                                className={`flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
                                   fileData.colorMode === "bw"
                                     ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
                                     : "border-gray-200 hover:border-gray-300"
                                 }`}
                               >
+                                {fileData.colorMode === "bw" && (
+                                  <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                                )}
                                 <RadioGroupItem value="bw" id={`bw-${fileData.id}`} />
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-900 text-sm">Black and White</p>
@@ -1541,12 +1553,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 </div>
                               </label>
                               <label
-                                className={`flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
                                   fileData.colorMode === "colored"
                                     ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
                                     : "border-gray-200 hover:border-gray-300"
                                 }`}
                               >
+                                {fileData.colorMode === "colored" && (
+                                  <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                                )}
                                 <RadioGroupItem value="colored" id={`colored-${fileData.id}`} />
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-900 text-sm">Colored</p>
@@ -2293,6 +2308,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         placing your order. Please upload your{" "}
                         {paymentMethod} payment receipt there.
                       </p>
+                      {!isGcash && (
+                        <p className="text-xs text-gray-500 bg-white border border-gray-200 rounded-lg p-3 mt-2">
+                          <strong>Auto-detection:</strong> the{" "}
+                          reference number is only auto-detected from
+                          the payment screenshot for GCash payments.
+                          For {paymentMethod} you will enter it
+                          manually.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

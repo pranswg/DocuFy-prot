@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import {
   CreditCard,
@@ -64,7 +64,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
   return orders
     .map((order, index) => {
       const orderDate = order.statusUpdatedAt ? new Date(order.statusUpdatedAt) : new Date(order.date);
-      const totalAmount = parseFloat(order.total.replace('₱', '').replace(',', ''));
+      const totalAmount = parseFloat(order.total.replace('?', '').replace(',', ''));
 
       // Determine status based on paymentVerified field (SINGLE SOURCE OF TRUTH)
       // A payment only shows "Verified" once staff/admin actually approves it.
@@ -325,7 +325,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   Total Verified
                 </p>
                 <p className="text-2xl font-bold">
-                  ₱{stats.totalAmount.toLocaleString()}
+                  ?{stats.totalAmount.toLocaleString()}
                 </p>
               </div>
             </div>
@@ -338,17 +338,22 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             <table className="w-full text-left">
               <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
-                    Customer
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider w-12">
+                    #
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    <div className="flex flex-col leading-tight">
+                      Customer
+                      <span className="text-[10px] font-medium text-gray-400 normal-case tracking-normal">
+                        Order ID
+                      </span>
+                    </div>
+                  </th>
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Payment ID
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
-                    Order ID
-                  </th>
                   <th
-                    className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleSort("submittedAt")}
                   >
                     <div className="flex items-center gap-1">
@@ -359,7 +364,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     </div>
                   </th>
                   <th
-                    className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleSort("time")}
                   >
                     <div className="flex items-center gap-1">
@@ -369,14 +374,14 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Method
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Amount
                   </th>
                   <th
-                    className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={handleStatusFilterCycle}
                   >
                     <div className="flex items-center gap-1">
@@ -388,7 +393,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider text-right">
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider text-right">
                     Action
                   </th>
                 </tr>
@@ -396,41 +401,48 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               <tbody className="bg-white divide-y divide-[#F2F7FF]">
                 {filteredPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={9} className="py-16 text-center">
                       <CreditCard className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
                       <p className="text-sm font-semibold text-gray-500">No payments to verify</p>
                       <p className="mt-1 text-xs text-gray-400">Payment records will appear here when customers place orders.</p>
                     </td>
                   </tr>
-                ) : filteredPayments.map((payment) => (
+                ) : filteredPayments.map((payment, index) => (
                   <tr
                     key={payment.id}
                     className="hover:bg-[#F2F7FF]/50 transition-colors cursor-pointer group"
                     onClick={() => handleOpenDetails(payment)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={payment.customer} />
-                        <p className="text-sm font-semibold text-[#1c1f26]">
-                          {payment.customer}
-                        </p>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="w-8 h-8 rounded-full bg-[#1D73EC] text-white flex items-center justify-center font-bold text-sm">
+                        {index + 1}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={payment.customer} />
+                        <div>
+                          <p className="text-sm font-semibold text-[#1c1f26]">
+                            {payment.customer}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {payment.orderId}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <span className="text-sm font-medium text-[#10316B]">
                         {payment.id}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {payment.orderId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatPHDate(payment.submittedAt, "short")}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                       {payment.time}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <Badge
                         variant="outline"
                         className="text-xs font-medium border-[#1D73EC]/20 bg-[#F2F7FF] py-1 text-[#1D73EC]"
@@ -449,15 +461,15 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         {payment.method}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <span className="text-sm font-semibold text-[#1c1f26]">
-                        ₱{payment.amount.toLocaleString()}
+                        ?{payment.amount.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <StatusBadge status={payment.status} />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-4 py-4 whitespace-nowrap text-right">
                       <Button
                         variant="outline"
                         size="sm"
@@ -540,7 +552,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     Amount to Verify
                   </p>
                   <p className="text-2xl font-bold text-[#1D73EC]">
-                    ₱{selectedPayment.amount.toLocaleString()}
+                    ?{selectedPayment.amount.toLocaleString()}
                   </p>
                 </div>
 
@@ -788,7 +800,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             setPendingVerifyAction(null);
           }}
           title="Approve Payment?"
-          description={`Verify the ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
+          description={`Verify the ${selectedPayment.method} payment of ?${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
           confirmLabel="Approve Payment"
           cancelLabel="Go Back"
           destructive={false}
@@ -805,7 +817,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             setPendingVerifyAction(null);
           }}
           title="Reject Payment?"
-          description={`The ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
+          description={`The ${selectedPayment.method} payment of ?${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
             rejectionReason.trim() ? ` (${rejectionReason.trim()})` : ""
           }. The customer will be notified. This cannot be undone.`}
           confirmLabel="Reject Payment"

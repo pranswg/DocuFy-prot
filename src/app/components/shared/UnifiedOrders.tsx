@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   Kanban,
@@ -270,7 +270,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
-          total: `₱${((order.costBreakdown?.total || fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
+          total: `?${((order.costBreakdown?.total || fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
           paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: order.paymentVerified || false,
@@ -444,8 +444,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   };
 
   // Open the Error Usage dialog (called when staff/admin mark an order Completed).
-  // It captures only error usage — whether there were errors and how many sheets
-  // were wasted — with quick-reason chips so staff don't have to type during peak hours.
+  // It captures only error usage � whether there were errors and how many sheets
+  // were wasted � with quick-reason chips so staff don't have to type during peak hours.
   const openPaperConfirm = () => {
     if (!selectedOrder) return;
     setPaperFormData({ noErrors: false, reason: "", wastedSheets: 0 });
@@ -560,7 +560,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
-          total: `₱${((updatedSelectedOrder.costBreakdown?.total || fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
+          total: `?${((updatedSelectedOrder.costBreakdown?.total || fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
           paymentMethod: updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
@@ -623,7 +623,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   };
 
   // Helper function to categorize orders by time period (PHT, matching the
-  // PHT wall-clock used everywhere else in the system — not the device timezone)
+  // PHT wall-clock used everywhere else in the system � not the device timezone)
   const getTimePeriod = (date: Date) => {
     const hour = toPHT(date).getHours();
     if (hour >= 6 && hour < 12)
@@ -641,7 +641,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
   // QUEUE-VISIBLE ORDERS: orders still awaiting payment verification are excluded
   // from the Orders/queue list until staff/admin verifies them (they then enter as Received).
-  // Completed, Released, and Canceled are also excluded from the default view —
+  // Completed, Released, and Canceled are also excluded from the default view �
   // they only appear when their specific status filter is selected.
   const queueOrders = useMemo(
     () =>
@@ -761,7 +761,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     children: React.ReactNode;
   }) => (
     <th
-      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
+      className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
       onClick={() => handleSort(column)}
     >
       <div className="flex items-center gap-1">
@@ -792,7 +792,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 <span className="font-semibold tabular-nums">
                   {headerTime}
                 </span>
-                <span className="text-gray-400">•</span>
+                <span className="text-gray-400">�</span>
                 <span className="text-gray-500">{headerDate}</span>
               </div>
             </div>
@@ -857,15 +857,28 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">
                     #
                   </th>
-                  <SortableHeader column="customer">
-                    Customer
-                  </SortableHeader>
-                  <SortableHeader column="id">
-                    Order ID
-                  </SortableHeader>
+                  <th
+                    className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort("customer")}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className="flex flex-col leading-tight">
+                        Customer
+                        <span className="text-[10px] font-medium text-gray-400 normal-case tracking-normal">
+                          Order ID
+                        </span>
+                      </div>
+                      {sortColumn === "customer" &&
+                        (sortDirection === "asc" ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        ))}
+                    </div>
+                  </th>
                   <SortableHeader column="submittedAt">
                     Date
                   </SortableHeader>
@@ -878,7 +891,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <SortableHeader column="orderSource">
                     Source
                   </SortableHeader>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Action
                   </th>
                 </tr>
@@ -894,8 +907,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       <React.Fragment key={period}>
                         <tr className="bg-gray-50 border-y border-gray-200">
                           <td
-                            colSpan={8}
-                            className="px-6 py-3"
+                            colSpan={7}
+                            className="px-4 py-3"
                           >
                             <div className="flex items-center gap-3">
                               <span className="text-xl">
@@ -925,17 +938,20 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 handleOpenDetails(order)
                               }
                             >
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-4 py-4 whitespace-nowrap">
                                 <div className="w-8 h-8 rounded-full bg-[#1D73EC] text-white flex items-center justify-center font-bold text-sm">
                                   {periodStartIndex + index + 1}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-3">
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
                                   <Avatar name={order.customer} />
                                   <div>
                                     <p className="font-semibold text-sm text-[#1c1f26]">
                                       {order.customer}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      {order.id}
                                     </p>
                                     {order.notes && (
                                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
@@ -946,18 +962,13 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900">
-                                  {order.id}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                 {formatPHDate(displayDate, "short")}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                 {formatPHTime(displayDate)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-4 py-4 whitespace-nowrap">
                                 <Badge
                                   variant="outline"
                                   className={`text-xs font-medium capitalize ${getStatusBadgeClasses(order.status)}`}
@@ -969,7 +980,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                       : order.status}
                                 </Badge>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-4 py-4 whitespace-nowrap">
                                 <Badge
                                   variant="outline"
                                   className={`text-xs font-medium ${
@@ -983,7 +994,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     : "Walk-in"}
                                 </Badge>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-4 py-4 whitespace-nowrap">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1106,8 +1117,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         }`}
                       >
                         {selectedOrder.orderSource === "online"
-                          ? "🌐 Online"
-                          : "🏪 Walk-in"}
+                          ? "?? Online"
+                          : "?? Walk-in"}
                       </Badge>
                     </div>
                   </div>
@@ -1170,8 +1181,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         }`}
                       >
                         {selectedOrder.paymentVerified
-                          ? "✓ Verified"
-                          : "⚠ Not Verified"}
+                          ? "? Verified"
+                          : "? Not Verified"}
                       </Badge>
                     </div>
                   </div>
@@ -1278,8 +1289,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
-                          {invoiceData.paymentStatus === 'verified' ? '✓ Verified' :
-                           invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '⚠ Pending'}
+                          {invoiceData.paymentStatus === 'verified' ? '? Verified' :
+                           invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '? Pending'}
                         </Badge>
                       </div>
                     </div>
@@ -1291,17 +1302,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">
-                            Printing ({invoiceData.totalPages} pages × {invoiceData.copies} copies)
+                            Printing ({invoiceData.totalPages} pages � {invoiceData.copies} copies)
                           </span>
                           <span className="font-medium text-gray-900">
-                            ₱{invoiceData.costBreakdown.printingCost.toFixed(2)}
+                            ?{invoiceData.costBreakdown.printingCost.toFixed(2)}
                           </span>
                         </div>
                         {invoiceData.addons.length > 0 && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Add-ons</span>
                             <span className="font-medium text-gray-900">
-                              ₱{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                              ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1921,8 +1932,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                             : "bg-yellow-100 text-yellow-700"
                       }
                     >
-                      {invoiceData.paymentStatus === 'verified' ? '✓ Verified' :
-                       invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '⚠ Pending'}
+                      {invoiceData.paymentStatus === 'verified' ? '? Verified' :
+                       invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '? Pending'}
                     </Badge>
                   </div>
                   <div className="flex justify-between py-2 border-b">
@@ -2003,10 +2014,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       {invoiceData.addons.map((addon, index) => (
                         <div key={index} className="flex justify-between py-2 border-b">
                           <span className="font-semibold text-gray-600">
-                            {addon.name} × {addon.quantity}:
+                            {addon.name} � {addon.quantity}:
                           </span>
                           <span className="text-gray-900">
-                            ₱{addon.subtotal.toFixed(2)}
+                            ?{addon.subtotal.toFixed(2)}
                           </span>
                         </div>
                       ))}
@@ -2015,7 +2026,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons Subtotal:
                         </span>
                         <span className="font-bold text-gray-900">
-                          ₱{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                          ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2030,10 +2041,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <div className="space-y-2">
                     <div className="flex justify-between py-2">
                       <span className="font-semibold text-gray-600">
-                        Printing Cost ({invoiceData.totalPages} pages × {invoiceData.copies} copies):
+                        Printing Cost ({invoiceData.totalPages} pages � {invoiceData.copies} copies):
                       </span>
                       <span className="text-gray-900">
-                        ₱{invoiceData.costBreakdown.printingCost.toFixed(2)}
+                        ?{invoiceData.costBreakdown.printingCost.toFixed(2)}
                       </span>
                     </div>
                     {invoiceData.addons.length > 0 && (
@@ -2042,7 +2053,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons:
                         </span>
                         <span className="text-gray-900">
-                          ₱{invoiceData.costBreakdown.addonsCost.toFixed(2)}
+                          ?{invoiceData.costBreakdown.addonsCost.toFixed(2)}
                         </span>
                       </div>
                     )}

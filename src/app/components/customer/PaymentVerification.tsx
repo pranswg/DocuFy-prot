@@ -13,10 +13,10 @@ import {
   Briefcase,
   X,
   Image,
-  Eye,
   Smartphone,
   CheckCircle2,
   Banknote,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -39,6 +39,77 @@ import {
   type PaymentMethodType,
 } from "../../utils/paymentMethodsStore";
 import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
+import Tesseract from "tesseract.js";
+
+let ocrWorkerPromise: Promise<Tesseract.Worker> | null = null;
+
+function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = Tesseract.createWorker("eng");
+  }
+  return ocrWorkerPromise;
+}
+
+// Preprocess an uploaded image so OCR can read light-gray / low-contrast text.
+// Upscales, converts to grayscale, and boosts contrast / darkens so faint text
+// (e.g. GCash "Ref No." labels in light gray) becomes clearly readable black.
+async function preprocessImage(file: File): Promise<HTMLCanvasElement> {
+  const bitmap = await createImageBitmap(file);
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width * scale;
+  canvas.height = bitmap.height * scale;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  const contrast = 1.7;
+  const brightness = -35;
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const adjusted = (gray - 128) * contrast + 128 + brightness;
+    const v = Math.max(0, Math.min(255, adjusted));
+    d[i] = v;
+    d[i + 1] = v;
+    d[i + 2] = v;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+// Extract a GCash-style reference number from the OCR text. Prefers the digits
+// shown after a "Ref No." / "Reference Number" label (spanning line breaks);
+// only falls back to a standalone digit run when no label is found, and even
+// then only for a plausible reference length so random numbers are ignored.
+function extractReferenceNumber(text: string): string {
+  const labelMatch = text.match(
+    /(?:Ref\.?\s*No\.?|Reference\s*Number)\s*[:.\-\s\n]*([0-9][0-9\s,.\-]*)/i,
+  );
+  if (labelMatch) {
+    const ref = labelMatch[1].replace(/[^\d]/g, "");
+    if (ref.length >= 6) return ref.slice(0, 20);
+  }
+
+  // Fallback: find standalone digit groups and prefer one near 13 digits
+  // (typical GCash reference) so phone numbers / random groups are avoided.
+  const candidates: string[] = [];
+  for (const m of text.matchAll(/(?:^|[^\d])(\d[\d\s,.\-]{5,19})(?:[^\d]|$)/g)) {
+    const digits = m[1].replace(/[^\d]/g, "");
+    if (digits.length >= 6 && digits.length <= 20) {
+      candidates.push(digits);
+    }
+  }
+  if (candidates.length) {
+    candidates.sort(
+      (a, b) =>
+        Math.abs(a.length - 13) - Math.abs(b.length - 13) ||
+        b.length - a.length,
+    );
+    return candidates[0].slice(0, 20);
+  }
+  return "";
+}
 
 const menuItems = [
   {
@@ -95,6 +166,7 @@ export default function PaymentVerification() {
     : undefined;
   const methodUnavailable =
     isOnline && !onlineMethods.some((m) => m.name === paymentMethod);
+  const isGcash = paymentMethod.toLowerCase() === "gcash";
 
   // Live online payment methods that admin manages
   useEffect(() => {
@@ -133,20 +205,40 @@ export default function PaymentVerification() {
     }
   }, [onlineMethods, paymentMethod]);
 
-  // Simulate OCR scanning to extract reference number from image
+  // OCR scan to extract the GCash reference number from the uploaded image.
+  // The image is preprocessed (grayscale + contrast boost) so light-gray
+  // "Ref No." / "Reference Number" labels are readable, then the digits after
+  // the label are extracted even when the number wraps across two lines.
   const scanReferenceNumber = async (file: File) => {
     setIsScanning(true);
     toast.info("Scanning image for reference number...");
+    try {
+      const worker = await getOcrWorker();
+      const canvas = await preprocessImage(file);
+      const result = await worker.recognize(canvas);
+      const text = result.data.text;
 
-    // Simulate OCR processing delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      let ref = extractReferenceNumber(text);
 
-    // Generate a mock reference number (in production, use actual OCR)
-    const mockReferenceNumber = `REF${Math.floor(100000000 + Math.random() * 900000000)}`;
+      // Cap length defensively (GCash references are ~13 digits).
+      ref = ref.slice(0, 20);
 
-    setReferenceNumber(mockReferenceNumber);
-    setIsScanning(false);
-    toast.success("Reference number detected and auto-filled!");
+      if (ref.length >= 6) {
+        setReferenceNumber(ref);
+        toast.success("Reference number detected. Please review it before submitting.");
+      } else {
+        toast.error(
+          "Could not detect a reference number. Please enter it manually.",
+        );
+      }
+    } catch (err) {
+      console.error("OCR failed:", err);
+      toast.error(
+        "Could not read the image. Please enter the reference number manually.",
+      );
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleFileUpload = async (
@@ -178,8 +270,8 @@ export default function PaymentVerification() {
       const url = URL.createObjectURL(file);
       setImagePreviewUrl(url);
 
-      // Auto-scan for reference number if digital payment (not cash)
-      if (paymentMethod !== "cash") {
+      // Auto-scan for reference number ONLY for GCash payments
+      if (isGcash) {
         await scanReferenceNumber(file);
       }
     }
@@ -187,6 +279,13 @@ export default function PaymentVerification() {
 
   const handleViewImage = () => {
     setShowImagePreview(true);
+  };
+
+  const handleRemoveFile = () => {
+    setProofFile(null);
+    setImagePreviewUrl(null);
+    setReferenceNumber("");
+    setFileError("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -521,6 +620,12 @@ export default function PaymentVerification() {
                   Enter the reference number from your{" "}
                   {selectedMethod?.name || "payment"} receipt
                 </p>
+                {isScanning && (
+                  <p className="text-sm text-[#2F6FD6] flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Scanning image for the reference number...
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -585,16 +690,13 @@ export default function PaymentVerification() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
                           onClick={handleViewImage}
-                          className="text-[#2F6FD6] border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+                          className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                         >
-                          <Eye className="w-4 h-4 mr-1" />
                           View
-                        </Button>
+                        </button>
                         <label className="cursor-pointer">
                           <span className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                             Change
@@ -606,6 +708,14 @@ export default function PaymentVerification() {
                             className="hidden"
                           />
                         </label>
+                        <button
+                          type="button"
+                          onClick={handleRemoveFile}
+                          title="Remove file"
+                          className="p-1.5 text-red-500 rounded hover:bg-red-50 transition-all"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
