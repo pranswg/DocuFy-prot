@@ -181,6 +181,62 @@ interface PrintTransactionProps {
   userRole?: "admin" | "staff";
 }
 
+function NumberStepper({
+  value,
+  min = 1,
+  onCommit,
+}: {
+  value: number;
+  min?: number;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState<string>(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = (n: number) => {
+    const safe = Math.max(min, n || min);
+    setDraft(String(safe));
+    onCommit(safe);
+  };
+
+  return (
+    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit">
+      <button
+        type="button"
+        aria-label="Decrease"
+        onClick={() => commit((Number(draft) || min) - 1)}
+        disabled={Number(draft) <= min}
+        className="p-2.5 px-4 bg-gray-50 active:bg-gray-200 text-gray-700 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <Input
+        type="number"
+        min={min}
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (!draft || Number(draft) < min) commit(min);
+          else commit(Number(draft));
+        }}
+        className="h-10 w-16 rounded-none border-0 text-center font-bold text-gray-900 focus-visible:ring-0 focus-visible:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        aria-label="Increase"
+        onClick={() => commit((Number(draft) || min) + 1)}
+        className="p-2.5 px-4 bg-gray-50 active:bg-gray-200 text-gray-700 font-bold transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 export default function PrintTransaction({ mode, userRole }: PrintTransactionProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1418,25 +1474,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <div className="sm:grid sm:grid-cols-2 sm:gap-4">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Quantity</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={fileData.photoQty}
-                                onChange={(e) => {
-                                  const v = parseInt(e.target.value);
-                                  updateFileOption(fileData.id, "photoQty", Math.max(1, v || 1));
-                                }}
-                                className="h-10"
-                              />
                               {(() => {
                                 const item = pricingStore.getMatrix().photo[fileData.photoSize];
-                                const minQty = item ? item.minQty : 0;
-                                return minQty > 0 ? (
-                                  <p className="text-xs text-gray-500">
-                                    Minimum order: {minQty} pcs. Price: {formatPrice(item.price)} each.
-                                  </p>
-                                ) : (
-                                  <p className="text-xs text-gray-500">Price: {formatPrice(item.price)} each.</p>
+                                const minQty = item ? item.minQty : 1;
+                                return (
+                                  <>
+                                    <NumberStepper
+                                      min={minQty}
+                                      value={fileData.photoQty}
+                                      onCommit={(n) => updateFileOption(fileData.id, "photoQty", n)}
+                                    />
+                                    <p className="text-xs text-gray-500">
+                                      {minQty > 1 ? `Minimum order: ${minQty} pcs. ` : ""}Price: {formatPrice(item?.price || 0)} each.
+                                    </p>
+                                  </>
                                 );
                               })()}
                             </div>
@@ -1482,15 +1533,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             </div>
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Number of Copies</Label>
-                              <Input
-                                type="number"
-                                min="1"
+                              <NumberStepper
+                                min={1}
                                 value={fileData.copies}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value);
-                                  updateFileOption(fileData.id, "copies", Math.max(1, value || 1));
-                                }}
-                                className="h-10"
+                                onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
                               />
                             </div>
                             <div className="space-y-2">
@@ -2413,6 +2459,44 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         )}
 
         {/* Navigation Buttons */}
+        {isWalkin && currentStep === 4 ? (
+          <div className="flex flex-col gap-2 mt-6 pt-4 border-t border-gray-100">
+            {/* Top row: Back + Cancel Order */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentStep > 1) {
+                    const prev = currentStep - 1;
+                    setCurrentStep(prev);
+                    scrollPageToTop();
+                  } else {
+                    navigate(dashboardPath);
+                  }
+                }}
+                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelOrder}
+                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 active:scale-[0.98] transition-all"
+              >
+                Cancel Order
+              </button>
+            </div>
+            {/* Bottom row: Proceed to In Queue */}
+            <button
+              type="button"
+              onClick={() => setShowProceedConfirm(true)}
+              disabled={files.length === 0}
+              className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+            >
+              Proceed to In Queue
+            </button>
+          </div>
+        ) : (
         <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "flex items-center justify-between mt-1 pt-6 border-t gap-4 sm:gap-5"}>
           <Button
             variant="outline"
@@ -2475,6 +2559,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             )}
           </div>
         </div>
+        )}
       </Card>
     </div>
   );

@@ -650,14 +650,14 @@ export default function Layout({
       {/* ─── MAIN CONTENT ─── */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         <header className="min-h-16 bg-white border-b border-gray-200 px-3 sm:px-6 lg:px-8 py-2 flex items-center justify-between z-40 flex-shrink-0 shadow-sm">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {isMobile ? (
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(!isMobileNavOpen)}
                 aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
                 aria-expanded={isMobileNavOpen}
-                className="rounded-xl p-2 text-[#1D73EC] transition-all duration-200 hover:bg-[#F2F7FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+                className="rounded-xl p-2 text-[#1D73EC] transition-all duration-200 hover:bg-[#F2F7FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2 shrink-0"
               >
                 <Menu className={`h-6 w-6 transition-transform duration-200 ${isMobileNavOpen ? "rotate-90" : "rotate-0"}`} />
               </button>
@@ -667,17 +667,17 @@ export default function Layout({
                 type="button"
                 onClick={() => backButtonPath ? navigate(backButtonPath) : navigate(-1)}
                 aria-label="Go back"
-                className="rounded-xl p-2 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+                className="rounded-xl p-2 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
             )}
-            <h1 className="text-base font-bold text-[#1c1f26] truncate">
+            <h1 className="text-base font-bold text-[#1c1f26] truncate min-w-0">
               {displayTitle}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             {/* Live clock — Philippines (Manila) time for all users */}
             <div className="hidden sm:flex flex-col items-end leading-tight select-none">
               <span className="text-xs font-bold tabular-nums text-[#1c1f26]">

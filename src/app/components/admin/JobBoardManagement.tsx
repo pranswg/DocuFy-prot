@@ -20,6 +20,8 @@ import {
   Settings,
   Eye,
   ExternalLink,
+  ChevronDown,
+  Inbox,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -80,6 +82,7 @@ export default function JobBoardManagement() {
   const [jobToRestore, setJobToRestore] = useState<any>(null);
   const [viewState, setViewState] = useState<'list' | 'applicants' | 'application'>('list');
   const [jobFilter, setJobFilter] = useState<'active' | 'archived'>('active');
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [selectedApplicant, setSelectedApplicant] =
     useState<any>(null);
@@ -397,75 +400,99 @@ export default function JobBoardManagement() {
 
           {/* Job Listings */}
           <div className="grid grid-cols-1 gap-6">
-            {jobs.filter(job => job.status === jobFilter).map((job) => (
+            {jobs.filter(job => job.status === jobFilter).map((job) => {
+              const isExpanded = expandedJobId === job.id;
+              return (
               <Card
                 key={job.id}
-                className="p-6 bg-white shadow-sm"
+                className="p-4 sm:p-6 bg-white shadow-sm"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-xl font-semibold text-gray-900">
+                {/* Title + type + apps badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base sm:text-xl font-semibold text-gray-900 leading-snug">
                         {job.title}
                       </h3>
-                      <Badge className="bg-blue-100 text-blue-700">
-                        {job.type}
-                      </Badge>
-                      <Badge className={job.status === 'archived' ? 'bg-gray-100 text-gray-700' : 'bg-blue-100 text-blue-700'}>
-                        {job.status}
-                      </Badge>
-                    </div>
-
-                    <p className="text-gray-600 mb-4">
-                      {job.description}
-                    </p>
-
-                    <div className="flex items-center gap-6 text-sm text-gray-600">
-                      <div>
-                        <strong>Duration:</strong> {job.duration}
-                      </div>
-                      <div>
-                        <strong>Applications:</strong>{" "}
-                        {job.applicants.length}
-                      </div>
-                      <div>
-                        <strong>Posted:</strong> {job.id}
-                      </div>
+                      <Badge className="bg-blue-100 text-blue-700">{job.type}</Badge>
+                      {job.status === 'archived' && (
+                        <Badge className="bg-gray-100 text-gray-700">{job.status}</Badge>
+                      )}
                     </div>
                   </div>
+                  <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-gray-500 px-2 py-1 rounded-full bg-slate-50">
+                    <Users className="w-3.5 h-3.5 text-[#1D73EC]" />
+                    {job.applicants.length}
+                  </span>
+                </div>
 
-                  <div className="flex items-center gap-2 ml-6">
+                {/* Action buttons */}
+                <div className="flex items-center justify-between gap-2 mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-2 border-blue-200 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white text-xs px-3"
+                    onClick={() => handleViewApplicants(job)}
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1" />
+                    View Applicants
+                  </Button>
+                  {job.status === 'active' ? (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-2 border-blue-200 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
-                      onClick={() => handleViewApplicants(job)}
+                      className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-600 text-xs px-3"
+                      onClick={() => handleArchiveJob(job)}
                     >
-                      View Applicants
+                      Archive
                     </Button>
-                    {job.status === 'active' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-600"
-                        onClick={() => handleArchiveJob(job)}
-                      >
-                        Archive
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-600"
-                        onClick={() => setJobToRestore(job)}
-                      >
-                        Restore
-                      </Button>
-                    )}
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-600 text-xs px-3"
+                      onClick={() => setJobToRestore(job)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </div>
+
+                {/* Metadata stats bar */}
+                <div className="flex items-center gap-4 text-xs text-gray-500 py-2 border-t border-gray-100 mt-3">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+                    <strong className="font-medium text-gray-600">Duration:</strong> {job.duration}
+                  </div>
+                  <div>
+                    <strong className="font-medium text-gray-600">Applications:</strong> {job.applicants.length}
+                  </div>
+                  <div className="min-w-0">
+                    <strong className="font-medium text-gray-600">Posted:</strong>{" "}
+                    <span className="truncate">{job.id}</span>
+                  </div>
+                </div>
+
+                {/* Collapsible description accordion */}
+                <div className="border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                    className="flex w-full items-center justify-between gap-2 py-2 text-left text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] transition-colors"
+                    aria-expanded={isExpanded}
+                  >
+                    <span>{isExpanded ? "Hide description" : "Show description"}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                  <div className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                    <div className="min-h-0 overflow-hidden">
+                      <p className="pb-2 text-sm text-gray-600 leading-relaxed">{job.description}</p>
+                    </div>
                   </div>
                 </div>
               </Card>
-            ))}
+              );
+            })}
             {jobs.filter(job => job.status === jobFilter).length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <p className="text-lg font-medium">No {jobFilter} jobs found</p>
@@ -482,21 +509,21 @@ export default function JobBoardManagement() {
 
       {viewState === 'applicants' && (
         <div className="space-y-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <Button
               variant="outline"
               size="default"
               onClick={() => setViewState('list')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Job Postings
             </Button>
-            <div>
-              <h1 className="text-2xl font-semibold text-[#10316B]">
+            <div className="text-left">
+              <h1 className="text-lg font-bold text-gray-900 sm:text-2xl sm:font-semibold sm:text-[#10316B] leading-snug">
                 Applicants for {selectedJob?.title}
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-xs text-gray-500 mt-1 sm:text-base sm:text-gray-600">
                 Review and manage student applications for this position.
               </p>
             </div>
@@ -574,8 +601,10 @@ export default function JobBoardManagement() {
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-gray-500 bg-white border rounded-lg">
-                No applications received yet.
+              <div className="w-full p-8 text-center bg-gray-50/50 border border-dashed border-gray-200 rounded-xl mt-4">
+                <Inbox className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-500">No applications received yet.</p>
+                <p className="text-xs text-gray-400 mt-1">Applications will appear here once students apply.</p>
               </div>
             )}
           </div>
