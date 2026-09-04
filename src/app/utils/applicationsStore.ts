@@ -73,7 +73,7 @@ class ApplicationsStore {
 
   subscribe(fn: Subscriber): () => void {
     this.subscribers.add(fn);
-    return () => this.subscribers.delete(fn);
+    return () => { this.subscribers.delete(fn); };
   }
 
   private notify(): void {

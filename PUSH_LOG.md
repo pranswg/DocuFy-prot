@@ -378,3 +378,24 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - DARKER BUTTON OUTLINES (system-wide ui/button.tsx): the default/outline/secondary button variants changed their light blue border (border-blue-200) to a darker more visible border-blue-400 so outline buttons like ''Back'' are clearly visible.
 - PRINT OPTION SELECTED LEFT-BORDER INDICATORS (PrintTransaction): the selected Color Mode option and Photo Finish option now keep their full selected style plus a soft rounded blue left-edge indicator bar; the Photo Finish (Matte/Glossy) options were re-stacked vertically (Glossy top, Matte below) and the photo panel re-arranged so Photo Size + Quantity stack on the left and Finish on the right.
 - TIGHTER ORDERS & PAYMENT-VERIFICATION TABLES: reduced column horizontal padding (px-6 to px-4), narrowed the # column (w-16 to w-12), tightened the avatar-to-customer-name gap (gap-3 to gap-2), and matched the Orders period group-row padding, so the numbers, customer names, and categories sit closer together.
+
+---
+
+## September 5, 2026 8:17 AM (PHT) - agopr
+- **Customer Dashboard complete redesign**: order-focused layout with welcome greeting first, 3 summary cards (Total Orders, In Progress, Ready for Pickup), prominent Current Order section with 4-step progress timeline, Recent Orders list with search, and blue Shop Hours + Quick Tips cards.
+- **Shared AnnouncementDetailsModal**: new reusable component (`src/app/components/shared/AnnouncementDetailsModal.tsx`) used by both the dashboard announcement banner and the Layout notification dropdown for a consistent announcement viewing experience.
+- **Dashboard announcement banner**: clickable cards (no arrow/CTA) for important/emergency announcements that open the shared modal; all urgent banners shown (emergency first).
+- **Layout header improvements**: added `headerSearch` prop for optional search field, enlarged notification bell for better touch interaction.
+- **TypeScript fixes across 7 stores**: fixed `Set.delete()` returning boolean in subscribe cleanup functions (dataStore, notificationStore, attendanceStore, applicationsStore, ordersStore, jobsStore, paymentMethodsStore) causing `useEffect` type errors; fixed CustomerProfile null/undefined mismatch and implicit `any` on setFormData callbacks.
+
+---
+
+## September 5, 2026 8:50 AM (PHT) - agopr
+- **Staff Dashboard complete redesign**: removed Quick Actions, Shop Hours, and Staff Reminders. Replaced with operational-first layout: 4 summary cards (Total Orders, On Hold, In Progress, Ready for Pickup), Orders Requiring Attention section (on-hold and unverified-payment orders with issue details), Active Orders queue table (desktop table + mobile stacked list with position, customer, service, status, source, and time ago), Inventory Status panel (total/low/out-of-stock counts with problem item list), and Recent Activity feed.
+- **Staff Dashboard data sources**: now subscribes to both ordersStore and inventoryStore for live reactive data across all operational sections.
+
+---
+
+## September 5, 2026 9:09 AM (PHT) - agopr
+- **Notifications page redesigned as a compact unified inbox**: removed the separate "Important Announcements" section and oversized notification cards. Announcements and order/payment/status/inventory system notifications now live in ONE list, grouped by Philippines date (TODAY / YESTERDAY / MONTH DAY). Each item is a compact row — small tinted icon, single-line title (bold when unread), one-line message, PHT timestamp, and a small unread dot. Priority is shown through subtle indicators only: small red Emergency / amber Important badges, a thin colored left border, and a faint background tint — no loud full-card backgrounds. Clicking any item opens the SAME shared AnnouncementDetailsModal (mark-as-read happens only once viewed; read items stay visible and clickable). Compact pill filters added: All / Unread / Announcements / Orders / Inventory. Top area is now just the header, an unread-count pill, and "Mark all as read". Inline action links ("View Inventory" / "View Order") appear only on notifications that genuinely need one. Admin's Create Notification button/dialog and hover delete actions preserved. Content centered at a comfortable width with clean responsive mobile stacking.
+- **Inventory removed from the customer-facing Notifications page (role separation)**: inventory is an internal operational module, so customers no longer see the Inventory filter chip — the filter row is now role-aware (customers see All / Unread / Announcements / Orders only; the Inventory filter appears exclusively for Staff and Admin). Customer notification feeds also skip inventory-type notifications defensively, so no internal stock/low-stock/out-of-stock information can surface to customers. Admin and Staff inventory functionality (pages, menus, dashboards, stock alerts, paper tracking) is unchanged.

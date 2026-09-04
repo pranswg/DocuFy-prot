@@ -47,6 +47,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "./ui/dialog";
+import { AnnouncementDetailsModal, type AnnouncementDetailData } from "./shared/AnnouncementDetailsModal";
 import { Button } from "./ui/button";
 
 interface LayoutProps {
@@ -60,6 +61,7 @@ interface LayoutProps {
   showBackButton?: boolean;
   backButtonPath?: string;
   hideMobileBackButton?: boolean;
+  headerSearch?: React.ReactNode;
 }
 
 // Persist the desktop sidebar's scroll position across route changes. Layout is
@@ -88,6 +90,7 @@ export default function Layout({
   showBackButton = false,
   backButtonPath,
   hideMobileBackButton = false,
+  headerSearch,
 }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -677,6 +680,12 @@ export default function Layout({
             </h1>
           </div>
 
+          {headerSearch && (
+            <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+              {headerSearch}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 flex-shrink-0">
             {/* Live clock — Philippines (Manila) time for all users */}
             <div className="hidden sm:flex flex-col items-end leading-tight select-none">
@@ -705,9 +714,9 @@ export default function Layout({
                 aria-label={`Notifications${combinedUnread > 0 ? `, ${combinedUnread} unread` : ''}`}
                 aria-expanded={isNotificationOpen}
                 aria-haspopup="true"
-                className={`p-2 rounded-xl border transition-all relative ${isNotificationOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
+                className={`p-2.5 rounded-xl border transition-all relative ${isNotificationOpen ? "bg-gray-100 border-gray-300" : "hover:bg-gray-50 border-transparent"}`}
               >
-                <Bell className="w-5 h-5 text-gray-600" />
+                <Bell className="w-[22px] h-[22px] text-gray-600" />
                 {combinedUnread > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                     {combinedUnread > 99 ? '99+' : combinedUnread}
@@ -791,60 +800,20 @@ export default function Layout({
               )}
             </div>
 
-            {/* Notification/Announcement detail dialog opened from the bell dropdown */}
-            <Dialog open={!!selectedDetail} onOpenChange={(open) => { if (!open) setSelectedDetail(null); }}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    {selectedDetail?.priorityLabel && (
-                      <span
-                        className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                          selectedDetail.priority === "emergency" ? "bg-red-600 text-white" : "bg-amber-500 text-white"
-                        }`}
-                      >
-                        <AlertTriangle className="w-3 h-3" />
-                        {selectedDetail.priorityLabel}
-                      </span>
-                    )}
-                    {selectedDetail?.typeLabel && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20">
-                        {selectedDetail.typeLabel}
-                      </span>
-                    )}
-                  </div>
-                  <DialogTitle className="text-[#10316B] text-lg leading-snug">
-                    {selectedDetail?.title}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm">
-                    {selectedDetail && (
-                      <span className="inline-flex items-center gap-1.5 text-gray-500">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {formatDetailTime(selectedDetail.timestamp)}
-                      </span>
-                    )}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed">
-                  {selectedDetail?.message}
-                </div>
-                <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button variant="outline" className="h-10 w-full sm:w-auto" onClick={() => setSelectedDetail(null)}>
-                    Close
-                  </Button>
-                  {selectedDetail?.action && (
-                    <Button
-                      onClick={() => {
-                        setSelectedDetail(null);
-                        selectedDetail.action?.run();
-                      }}
-                      className="h-10 w-full sm:w-auto bg-[#1D73EC] text-white hover:bg-[#10316B]"
-                    >
-                      <ArrowRight className="w-4 h-4" /> {selectedDetail.action.label}
-                    </Button>
-                  )}
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            {/* Announcement Details Modal — shared across all entry points */}
+            <AnnouncementDetailsModal
+              open={!!selectedDetail}
+              onOpenChange={(open) => { if (!open) setSelectedDetail(null); }}
+              announcement={selectedDetail ? {
+                title: selectedDetail.title,
+                message: selectedDetail.message,
+                timestamp: selectedDetail.timestamp,
+                priority: selectedDetail.priority,
+                typeLabel: selectedDetail.typeLabel,
+                priorityLabel: selectedDetail.priorityLabel,
+                action: selectedDetail.action,
+              } : null}
+            />
 
             {!isMobile && (
               <div className="relative">

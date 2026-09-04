@@ -152,7 +152,7 @@ class OrdersStore {
 
   subscribe(callback: Subscriber): () => void {
     this.subscribers.add(callback);
-    return () => this.subscribers.delete(callback);
+    return () => { this.subscribers.delete(callback); };
   }
 
   private notify(): void {
