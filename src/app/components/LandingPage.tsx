@@ -8,10 +8,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Briefcase,
-  ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bookmark,
   LayoutTemplate,
   Sparkles,
@@ -41,6 +40,7 @@ export default function LandingPage() {
   const servicesCarouselRef = useRef<HTMLDivElement>(null);
   const [activeService, setActiveService] = useState(0);
   const [docColorMode, setDocColorMode] = useState<"bw" | "color">("bw");
+  const [showAboutMore, setShowAboutMore] = useState(false);
 
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
@@ -132,23 +132,54 @@ export default function LandingPage() {
       setActiveService(closestIndex);
     };
 
-    const onScrollEnd = () => {
-      update();
-    };
-
     update();
     el.addEventListener("scroll", update, { passive: true });
-    el.addEventListener("scrollend", onScrollEnd as EventListener, {
-      passive: true,
-    });
     window.addEventListener("resize", update);
 
     return () => {
       el.removeEventListener("scroll", update);
-      el.removeEventListener("scrollend", onScrollEnd as EventListener);
       window.removeEventListener("resize", update);
     };
   }, []);
+
+  // Auto-center the active card when the services section enters the viewport
+  useEffect(() => {
+    const section = document.getElementById("services");
+    if (!section) return;
+
+    // Center the initial card on mount
+    const timer = setTimeout(() => {
+      const el = servicesCarouselRef.current;
+      if (!el) return;
+      const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
+      const target = cards[activeService];
+      if (!target) return;
+      const cardRect = target.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
+      el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
+    }, 500);
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          const el = servicesCarouselRef.current;
+          if (!el) return;
+          const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
+          const target = cards[activeService];
+          if (!target) return;
+          const cardRect = target.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
+          el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(section);
+    return () => { observer.disconnect(); clearTimeout(timer); };
+  }, [activeService]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -350,62 +381,62 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center justify-end gap-2 mb-4 md:mb-6">
             <button
-              onClick={() => goToService(activeService - 1)}
+              onClick={() => { setActiveService((p) => Math.max(p - 1, 0)); goToService(activeService - 1); }}
               aria-label="Previous service"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => goToService(activeService + 1)}
+              onClick={() => { setActiveService((p) => Math.min(p + 1, 2)); goToService(activeService + 1); }}
               aria-label="Next service"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
           <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300 [&>*]:will-change-transform">
             {/* Card 1: Standard Document Printing (B&W / Color toggle) */}
-            <Card data-service-card onMouseEnter={() => setActiveService(0)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
-                  <Printer className="h-5 w-5 text-[#1D73EC]" />
+            <Card data-service-card onClick={() => goToService(0)} onTouchStart={() => setActiveService(0)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
+                  <Printer className="h-4 w-4 text-[#1D73EC]" />
                 </div>
-                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
                   Standard Document Printing
                 </h4>
               </div>
 
-              <div className="mb-3 inline-flex w-fit items-center rounded-full border border-blue-200 bg-[#F2F7FF] p-0.5">
+              <div className="mb-2.5 inline-flex w-fit items-center rounded-full border border-blue-200 bg-[#F2F7FF] p-0.5">
                 <button
-                  onClick={() => setDocColorMode("bw")}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${docColorMode === "bw" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
+                  onClick={(e) => { e.stopPropagation(); setDocColorMode("bw"); }}
+                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-all ${docColorMode === "bw" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
                 >
                   B&W
                 </button>
                 <button
-                  onClick={() => setDocColorMode("color")}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${docColorMode === "color" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
+                  onClick={(e) => { e.stopPropagation(); setDocColorMode("color"); }}
+                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-all ${docColorMode === "color" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
                 >
                   <Sparkles className="h-3 w-3" />
                   Color
                 </button>
               </div>
 
-              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
+              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
                 ₱{docColorMode === "bw" ? pricing.bw.toFixed(2) : pricing.colorHigh.toFixed(2)}{" "}
-                <span className="text-sm font-normal text-gray-500">/ page</span>
+                <span className="text-[10px] font-normal text-gray-500">/ page</span>
               </div>
-              <p className="mb-4 text-xs leading-relaxed text-gray-600">
+              <p className="mb-3 text-[11px] leading-snug text-gray-600">
                 {docColorMode === "bw"
-                  ? "Crisp black & white prints for documents, handouts, and thesis drafts."
+                  ? "Crisp B&W prints for documents, handouts, and thesis drafts."
                   : "Vibrant full-color prints for presentations, posters, and photos."}
               </p>
               <div className="mt-auto">
                 <Button
-                  onClick={() => navigate("/signup")}
-                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
+                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
                 >
                   Order Now
                 </Button>
@@ -413,35 +444,35 @@ export default function LandingPage() {
             </Card>
 
             {/* Card 2: Binding & Finishing */}
-            <Card data-service-card onMouseEnter={() => setActiveService(1)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 1 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
-                  <Bookmark className="h-5 w-5 text-[#1D73EC]" />
+            <Card data-service-card onClick={() => goToService(1)} onTouchStart={() => setActiveService(1)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 1 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
+                  <Bookmark className="h-4 w-4 text-[#1D73EC]" />
                 </div>
-                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
                   Binding & Finishing
                 </h4>
               </div>
 
-              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
+              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
                 ₱{content.bindingPrice}+{" "}
-                <span className="text-sm font-normal text-gray-500">starting</span>
+                <span className="text-[10px] font-normal text-gray-500">starting</span>
               </div>
-              <ul className="mb-4 space-y-1.5 text-xs text-gray-600">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Coil binding
+              <ul className="mb-3 space-y-1 text-[11px] text-gray-600">
+                <li className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Coil binding
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Stapled & stapleless
+                <li className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Stapled & stapleless
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Hardbound covers
+                <li className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Hardbound covers
                 </li>
               </ul>
               <div className="mt-auto">
                 <Button
-                  onClick={() => navigate("/signup")}
-                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
+                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
                 >
                   Order Now
                 </Button>
@@ -449,27 +480,27 @@ export default function LandingPage() {
             </Card>
 
             {/* Card 3: Document Encoding & Layout */}
-            <Card data-service-card onMouseEnter={() => setActiveService(2)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 2 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
-                  <LayoutTemplate className="h-5 w-5 text-[#1D73EC]" />
+            <Card data-service-card onClick={() => goToService(2)} onTouchStart={() => setActiveService(2)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 2 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
+                  <LayoutTemplate className="h-4 w-4 text-[#1D73EC]" />
                 </div>
-                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
                   Document Encoding & Layout
                 </h4>
               </div>
 
-              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
+              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
                 Custom
-                <span className="text-sm font-normal text-gray-500"> / document</span>
+                <span className="text-[10px] font-normal text-gray-500"> / document</span>
               </div>
-              <p className="mb-4 text-xs leading-relaxed text-gray-600">
+              <p className="mb-3 text-[11px] leading-snug text-gray-600">
                 Custom layout design, formatting, and encoding for student theses, reports, and faculty documents.
               </p>
               <div className="mt-auto">
                 <Button
-                  onClick={() => navigate("/signup")}
-                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
+                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
                 >
                   Order Now
                 </Button>
@@ -505,35 +536,35 @@ export default function LandingPage() {
               Visit us during our operating hours
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            <Card className="p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:gap-8">
+            <Card className="p-4 sm:p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#F2F7FF] rounded-full -translate-y-16 translate-x-16" />
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#F2F7FF] rounded-full translate-y-12 -translate-x-12" />
               <div className="relative z-10">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 bg-[#1D73EC] rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-7 h-7 text-white" />
+                <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#1D73EC] rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
                   </div>
-                  <div>
-                    <h4 className="text-2xl font-bold mb-4 text-[#1c1f26]">
+                  <div className="min-w-0 w-full">
+                    <h4 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4 text-[#1c1f26]">
                       Shop Hours
                     </h4>
-                    <div className="space-y-3 text-gray-700 text-lg">
+                    <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Monday - Friday:
+                          Mon - Fri:
                         </span>{" "}
                         {content.hoursMonFri}
                       </p>
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Saturday:
+                          Sat:
                         </span>{" "}
                         {content.hoursSat}
                       </p>
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Sunday:
+                          Sun:
                         </span>{" "}
                         {content.hoursSun}
                       </p>
@@ -543,19 +574,19 @@ export default function LandingPage() {
               </div>
             </Card>
 
-            <Card className="p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
+            <Card className="p-4 sm:p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-32 h-32 bg-[#F2F7FF] rounded-full -translate-y-16 -translate-x-16" />
               <div className="absolute bottom-0 right-0 w-24 h-24 bg-[#F2F7FF] rounded-full translate-y-12 translate-x-12" />
               <div className="relative z-10">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 bg-[#1D73EC] rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-7 h-7 text-white" />
+                <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#1D73EC] rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
                   </div>
-                  <div>
-                    <h4 className="text-2xl font-bold mb-4 text-[#1c1f26]">
+                  <div className="min-w-0 w-full">
+                    <h4 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4 text-[#1c1f26]">
                       Location
                     </h4>
-                    <div className="space-y-3 text-gray-700 text-m">
+                    <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
                       <p className="font-semibold text-[#1D73EC]">
                         {content.locationCampus}
                       </p>
@@ -564,7 +595,7 @@ export default function LandingPage() {
                     </div>
                     <Button
                       onClick={() => setShowShopMap(true)}
-                      className="mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all duration-200 active:scale-[0.97]"
+                      className="mt-3 sm:mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all duration-200 active:scale-[0.97] text-xs sm:text-sm h-9 sm:h-10"
                     >
                       <MapPin className="w-4 h-4" /> Shop Location
                     </Button>
@@ -602,12 +633,46 @@ export default function LandingPage() {
               <p className="mt-1 text-sm text-gray-400">Please check back later for new opportunities.</p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-6 lg:gap-8">
               {jobs.map((job) => {
                 const isExpanded = expandedJobId === job.id;
                 return (
-                <Card key={job.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:border-[#1D73EC] hover:shadow-md">
-                  <div className="p-6">
+                <Card key={job.id} className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 ${isExpanded ? "border-[#1D73EC] ring-2 ring-[#1D73EC]/15 shadow-md" : "border-gray-200 hover:border-[#1D73EC]/50"}`}>
+                  {/* Mobile: compact accordion row (default collapsed) */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                    className="flex min-h-[44px] w-full items-center justify-between gap-3 p-3 text-left md:hidden"
+                    aria-expanded={isExpanded}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">{job.title}</h4>
+                        <Badge className="shrink-0 bg-blue-100 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">Active</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-600">
+                        <span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}
+                      </p>
+                    </div>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 ${isExpanded ? "rotate-180 border-[#1D73EC] bg-[#1D73EC] text-white" : "border-blue-200 bg-white text-[#1D73EC]"}`}>
+                      <ChevronDown className="h-4 w-4" />
+                    </span>
+                  </button>
+
+                  {/* Mobile: expanded description + Apply Now (smooth height animation) */}
+                  <div className="md:hidden">
+                    <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+                          <p className="text-xs leading-relaxed text-gray-600">{job.description}</p>
+                          <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-3 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop: full card */}
+                  <div className="hidden p-6 md:block">
                     <div className="mb-6 flex items-start gap-4">
                       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
                         <Briefcase className="h-6 w-6 text-white" />
@@ -624,26 +689,7 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    <p className="mb-4 hidden text-sm leading-relaxed text-gray-600 md:block">{job.description}</p>
-
-                    <div className="md:hidden">
-                      <button
-                        onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
-                      >
-                        <span>Job Details</span>
-                        {isExpanded ? (
-                          <><ChevronUp className="h-4 w-4" /> Less</>
-                        ) : (
-                          <><ChevronDown className="h-4 w-4" /> More</>
-                        )}
-                      </button>
-                      {isExpanded && (
-                        <p className="mt-3 border-t border-gray-100 pt-3 text-sm leading-relaxed text-gray-600">
-                          {job.description}
-                        </p>
-                      )}
-                    </div>
+                    <p className="mb-4 text-sm leading-relaxed text-gray-600">{job.description}</p>
 
                     <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
                   </div>
@@ -670,12 +716,54 @@ export default function LandingPage() {
                 "Your printing companion"}
             </p>
           </div>
-          <Card className="p-12 bg-[#1D73EC] text-white shadow-2xl rounded-3xl relative overflow-hidden">
+          <Card className="group relative overflow-hidden rounded-3xl bg-[#1D73EC] p-5 text-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:p-10">
             <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
-            <div className="relative z-10">
-              <div className="max-w-3xl mx-auto">
-                <p className="text-xl text-center leading-relaxed text-white">
+            <div className="relative z-10 max-w-3xl mx-auto">
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5 text-white/90" />
+                <span className="text-sm font-semibold uppercase tracking-wide text-white/90 sm:text-base">
+                  Who we are
+                </span>
+              </div>
+
+              {/* Collapsed: short preview */}
+              <div className="mt-3 text-center sm:hidden">
+                <p className="text-sm leading-relaxed text-white/95">
+                  Docufy is a modern printing management system for students, faculty, and staff.
+                </p>
+              </div>
+
+              {/* Mobile expandable body */}
+              <div className="sm:hidden">
+                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${showAboutMore ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="pt-3 text-center">
+                      <p className="text-sm leading-relaxed text-white/95">
+                        {content.aboutBody ||
+                          "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile toggle */}
+              <div className="mt-3 text-center sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowAboutMore((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-95"
+                  aria-expanded={showAboutMore}
+                >
+                  {showAboutMore ? "Show less" : "Show more"}
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showAboutMore ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {/* Desktop: full body */}
+              <div className="hidden sm:block">
+                <p className="mt-4 text-center text-lg leading-relaxed text-white sm:text-xl">
                   {content.aboutBody ||
                     "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
                 </p>
@@ -688,46 +776,40 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-gray-200 bg-white/90 backdrop-blur-md relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-5 text-center md:flex-row md:justify-between md:text-left">
+            <div className="flex items-center gap-2.5">
               <img
                 src={logoImage}
                 alt="Docufy Logo"
-                className="w-10 h-10 rounded-full"
+                className="h-8 w-8 rounded-full"
               />
               <div>
-                <h1 className="font-bold text-[#1c1f26]">
-                  Docufy
-                </h1>
-                <p className="text-xs text-gray-500">
-                  Your Printing Companion
-                </p>
+                <h1 className="text-sm font-bold text-[#1c1f26]">Docufy</h1>
+                <p className="text-[11px] text-gray-500">Your Printing Companion</p>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8">
-              <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-600">
-                <button
-                  onClick={() => setShowTerms(true)}
-                  className="hover:text-[#1D73EC] transition-colors text-left"
-                >
-                  Terms & Conditions
-                </button>
-                <button
-                  onClick={() => setShowPrivacy(true)}
-                  className="hover:text-[#1D73EC] transition-colors text-left"
-                >
-                  Privacy Policy
-                </button>
-                <button className="hover:text-[#1D73EC] transition-colors text-left">
-                  Contact Us
-                </button>
-              </div>
-
-              <p className="text-gray-600 text-sm">
-                &copy; 2026 Docufy PSMS. All rights reserved.
-              </p>
+            <div className="flex items-center gap-5 text-xs text-gray-500 sm:text-sm">
+              <button
+                onClick={() => setShowTerms(true)}
+                className="transition-colors hover:text-[#1D73EC]"
+              >
+                Terms
+              </button>
+              <button
+                onClick={() => setShowPrivacy(true)}
+                className="transition-colors hover:text-[#1D73EC]"
+              >
+                Privacy
+              </button>
+              <button className="transition-colors hover:text-[#1D73EC]">
+                Contact
+              </button>
             </div>
+
+            <p className="text-xs text-gray-400 md:text-sm">
+              &copy; 2026 Docufy PSMS
+            </p>
           </div>
         </div>
       </footer>

@@ -323,3 +323,14 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 4, 2026 (PHT) - prans
 - **CUSTOMER SIDEBAR - NOTIFICATIONS TAB REMOVED (re-applied after PrintTransaction merge)**: the customer print-request page (`shared/PrintTransaction.tsx`, which now powers customer New Print Request after the print-flow unification) had re-introduced a "Notifications" tab in the customer sidebar menu. Removed it so the customer sidebar again shows only Dashboard, Print Request, My Orders, and Job Board - notifications are accessed only via the header bell dropdown (Bell -> "Show All Notifications" -> `/customer/notifications`), the same as before the unify. The staff menu in the same file is unchanged. Build passes.
+
+---
+
+## September 4, 2026 2:57 PM (PHT) - Althea09-git
+- **SERVICES & PRICING MOBILE CARDS COMPACTED**: reduced card width to 200px, padding to p-4, icons/text/price all smaller for a more compact carousel on mobile; cards use a square (aspect-square) layout on mobile.
+- **SERVICES & PRICING BLUE HIGHLIGHT FIXED**: removed the isManualNav guard that was blocking the scroll-based active-card detection; cards now highlight reliably on click/tap/swipe with a clear blue background tint (bg-[#F0F7FF]), thick blue border, blue ring, and strong shadow; added onTouchStart for reliable mobile tap detection.
+- **CAROUSEL AUTO-CENTERS ACTIVE CARD**: added IntersectionObserver so the active card auto-scrolls to center when the Services & Pricing section enters the viewport; on initial page load the first card centers after a short delay; arrows/dots also scroll to center.
+- **SHOP INFO CARDS SIDE-BY-SIDE ON MOBILE**: changed the grid from grid-cols-1 to grid-cols-2 so Shop Hours and Location sit in one row on mobile; cards made compact with smaller padding, icons, text, and a responsive stacked layout.
+- **JOB OPENINGS COMPACT ACCORDION ON MOBILE**: replaced the large vertical job cards with a compact collapsible accordion list; collapsed row shows title, schedule, Active badge, and a rotating chevron; tap expands to reveal description and Apply Now button with smooth height animation; title wraps instead of truncating, 44px touch target, flexible header layout.
+- **ABOUT DOCUFY INTERACTIVE ON MOBILE**: made the about card compact (p-5 instead of p-12) with a short one-line preview and a Show more/Show less toggle; expands with a smooth height animation; added hover lift effect; desktop keeps the full body.
+- **FOOTER MINIMALIST ON MOBILE**: centered stack layout with smaller logo, shorter link labels (Terms/Privacy/Contact), subtle copyright, and clean spacing.
