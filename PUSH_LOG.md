@@ -378,3 +378,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - DARKER BUTTON OUTLINES (system-wide ui/button.tsx): the default/outline/secondary button variants changed their light blue border (border-blue-200) to a darker more visible border-blue-400 so outline buttons like ''Back'' are clearly visible.
 - PRINT OPTION SELECTED LEFT-BORDER INDICATORS (PrintTransaction): the selected Color Mode option and Photo Finish option now keep their full selected style plus a soft rounded blue left-edge indicator bar; the Photo Finish (Matte/Glossy) options were re-stacked vertically (Glossy top, Matte below) and the photo panel re-arranged so Photo Size + Quantity stack on the left and Finish on the right.
 - TIGHTER ORDERS & PAYMENT-VERIFICATION TABLES: reduced column horizontal padding (px-6 to px-4), narrowed the # column (w-16 to w-12), tightened the avatar-to-customer-name gap (gap-3 to gap-2), and matched the Orders period group-row padding, so the numbers, customer names, and categories sit closer together.
+
+---
+
+## September 5, 2026 8:17 AM (PHT) - agopr
+- **Customer Dashboard complete redesign**: order-focused layout with welcome greeting first, 3 summary cards (Total Orders, In Progress, Ready for Pickup), prominent Current Order section with 4-step progress timeline, Recent Orders list with search, and blue Shop Hours + Quick Tips cards.
+- **Shared AnnouncementDetailsModal**: new reusable component (`src/app/components/shared/AnnouncementDetailsModal.tsx`) used by both the dashboard announcement banner and the Layout notification dropdown for a consistent announcement viewing experience.
+- **Dashboard announcement banner**: clickable cards (no arrow/CTA) for important/emergency announcements that open the shared modal; all urgent banners shown (emergency first).
+- **Layout header improvements**: added `headerSearch` prop for optional search field, enlarged notification bell for better touch interaction.
+- **TypeScript fixes across 7 stores**: fixed `Set.delete()` returning boolean in subscribe cleanup functions (dataStore, notificationStore, attendanceStore, applicationsStore, ordersStore, jobsStore, paymentMethodsStore) causing `useEffect` type errors; fixed CustomerProfile null/undefined mismatch and implicit `any` on setFormData callbacks.
