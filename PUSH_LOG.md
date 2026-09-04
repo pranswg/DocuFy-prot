@@ -318,3 +318,8 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **INTERACTIVE B&W / COLOR TOGGLE**: the Standard Document Printing card now has an inline pill toggle that switches between the B&W per-page rate and the Color per-page rate (and swaps the description), wired to the live pricing store.
 - **CAROUSEL INTERACTION**: the cards form a horizontally swipeable/snapping slider with left/right navigation arrows and pagination dots at the bottom; the centered/active card gets a blue border + soft glow highlight that follows swipe, arrow, dot, or hover.
 - **COMPACT + SQUARE LAYOUT**: reduced internal padding, icons placed inline next to the card headers, and mobile cards are square (aspect-square) instead of tall rectangles; hover uses a smooth elevation lift hover:-translate-y-1 hover:shadow-lg with the same 	ransition-all duration-300.
+
+---
+
+## September 4, 2026 (PHT) - prans
+- **CUSTOMER SIDEBAR - NOTIFICATIONS TAB REMOVED (re-applied after PrintTransaction merge)**: the customer print-request page (`shared/PrintTransaction.tsx`, which now powers customer New Print Request after the print-flow unification) had re-introduced a "Notifications" tab in the customer sidebar menu. Removed it so the customer sidebar again shows only Dashboard, Print Request, My Orders, and Job Board - notifications are accessed only via the header bell dropdown (Bell -> "Show All Notifications" -> `/customer/notifications`), the same as before the unify. The staff menu in the same file is unchanged. Build passes.

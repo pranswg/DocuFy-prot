@@ -132,11 +132,6 @@ const customerMenuItems = [
     path: "/customer/job-board",
     icon: <Briefcase className="w-5 h-5" />,
   },
-  {
-    label: "Notifications",
-    path: "/customer/notifications",
-    icon: <Bell className="w-5 h-5" />,
-  },
 ];
 
 function scrollPageToTop() {
