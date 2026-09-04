@@ -79,7 +79,10 @@ export default function OrderTracking() {
 
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
-    return pricingStore.subscribe(load);
+    const unsubscribe = pricingStore.subscribe(load);
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

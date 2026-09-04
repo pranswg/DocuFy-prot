@@ -45,7 +45,13 @@ export default function CustomerProfile() {
     newPassword: '',
     confirmPassword: '',
   });
-  const [formData, setFormData] = useState(() => {
+  const [formData, setFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    studentId: string;
+  }>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     const nameParts = (user?.name || '').split(' ');
     const defaultFirstName = nameParts[0] || '';
@@ -162,7 +168,7 @@ export default function CustomerProfile() {
     } else {
       localStorage.removeItem('customer_profile_image');
     }
-    updateProfile({ profileImage });
+    updateProfile({ profileImage: profileImage ?? undefined });
     setIsEditing(false);
     setShowSavedMessage(true);
     setShowSaveDialog(false);
