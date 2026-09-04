@@ -1,15 +1,20 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   FileText,
   Clock,
   MapPin,
   Printer,
-  Package,
-  Palette,
   ArrowRight,
   CheckCircle2,
   Briefcase,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Bookmark,
+  LayoutTemplate,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -32,6 +37,10 @@ export default function LandingPage() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showShopMap, setShowShopMap] = useState(false);
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const servicesCarouselRef = useRef<HTMLDivElement>(null);
+  const [activeService, setActiveService] = useState(0);
+  const [docColorMode, setDocColorMode] = useState<"bw" | "color">("bw");
 
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
@@ -73,6 +82,74 @@ export default function LandingPage() {
   const content = getContent();
   const jobs = jobsStore.getActiveJobs();
 
+  useEffect(() => {
+    const el = servicesCarouselRef.current;
+    if (!el) return;
+
+    const update = () => {
+      if (window.innerWidth < 768) {
+        const cards = Array.from(
+          el.querySelectorAll<HTMLElement>("[data-service-card]")
+        );
+        cards.forEach((card) => {
+          const cardRect = card.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          const cardCenter = cardRect.left + cardRect.width / 2;
+          const center = elRect.left + elRect.width / 2;
+          const distance = Math.abs(cardCenter - center) / cardRect.width;
+
+          const scale = Math.max(1 - distance * 0.28, 0.75);
+          const opacity = Math.max(1 - distance * 1.1, 0.35);
+          card.style.transform = `scale(${scale})`;
+          card.style.opacity = opacity.toFixed(2);
+          card.style.zIndex = String(Math.round((1 - distance) * 10));
+        });
+      } else {
+        el.querySelectorAll<HTMLElement>("[data-service-card]").forEach(
+          (card) => {
+            card.style.transform = "";
+            card.style.zIndex = "";
+            card.style.opacity = "";
+          }
+        );
+      }
+
+      const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
+      if (!cards.length) return;
+      const elRect = el.getBoundingClientRect();
+      const center = elRect.left + elRect.width / 2;
+      let closestIndex = 0;
+      let closestDist = Infinity;
+      cards.forEach((card, i) => {
+        const cardRect = card.getBoundingClientRect();
+        const cardCenter = cardRect.left + cardRect.width / 2;
+        const dist = Math.abs(cardCenter - center);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIndex = i;
+        }
+      });
+      setActiveService(closestIndex);
+    };
+
+    const onScrollEnd = () => {
+      update();
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("scrollend", onScrollEnd as EventListener, {
+      passive: true,
+    });
+    window.addEventListener("resize", update);
+
+    return () => {
+      el.removeEventListener("scroll", update);
+      el.removeEventListener("scrollend", onScrollEnd as EventListener);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -82,6 +159,49 @@ export default function LandingPage() {
       });
     }
   };
+
+  const goToService = (index: number) => {
+    const el = servicesCarouselRef.current;
+    if (!el) return;
+    const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
+    if (!cards.length) return;
+    setActiveService(index);
+    const target = cards[Math.min(Math.max(index, 0), cards.length - 1)];
+    const cardRect = target.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
+    el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
+  };
+
+  const services = [
+    {
+      id: "document",
+      icon: <Printer className="h-5 w-5 text-[#1D73EC]" />,
+      iconBox: "bg-[#F2F7FF]",
+      title: "Standard Document Printing",
+      iconColor: "text-[#1D73EC]",
+      toggle: true,
+      cta: "Order Now",
+    },
+    {
+      id: "binding",
+      icon: <Bookmark className="h-5 w-5 text-[#1D73EC]" />,
+      iconBox: "bg-[#F2F7FF]",
+      title: "Binding & Finishing",
+      iconColor: "text-[#1D73EC]",
+      toggle: false,
+      cta: "Order Now",
+    },
+    {
+      id: "encoding",
+      icon: <LayoutTemplate className="h-5 w-5 text-[#1D73EC]" />,
+      iconBox: "bg-[#F2F7FF]",
+      title: "Document Encoding & Layout",
+      iconColor: "text-[#1D73EC]",
+      toggle: false,
+      cta: "Order Now",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#F2F7FF] relative overflow-hidden">
@@ -228,70 +348,145 @@ export default function LandingPage() {
               Affordable printing solutions for all your needs
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-            <Card className="p-8 bg-white shadow-lg rounded-2xl hover:shadow-2xl transition-all hover:scale-105 duration-200 border-2 border-[#F2F7FF] hover:border-[#1D73EC]">
-              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
-                <Printer className="w-8 h-8 text-[#1D73EC]" />
-              </div>
-              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
-                Black & White Printing
-              </h4>
-              <p className="text-gray-600 mb-6">
-                Standard document printing on various paper
-                sizes
-              </p>
-              <div className="text-4xl font-bold text-[#1D73EC]">
-                ₱{pricing.bw.toFixed(2)}{" "}
-                <span className="text-base font-normal text-gray-500">
-                  / page
-                </span>
-              </div>
-            </Card>
+          <div className="flex items-center justify-end gap-2 mb-4 md:mb-6">
+            <button
+              onClick={() => goToService(activeService - 1)}
+              aria-label="Previous service"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => goToService(activeService + 1)}
+              aria-label="Next service"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
 
-            <Card className="p-8 bg-[#1D73EC] text-white shadow-xl rounded-2xl hover:shadow-2xl transition-all hover:scale-105 duration-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
-              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
-              <div className="relative z-10">
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
-                  <Palette className="w-8 h-8 text-white" />
+          <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300 [&>*]:will-change-transform">
+            {/* Card 1: Standard Document Printing (B&W / Color toggle) */}
+            <Card data-service-card onMouseEnter={() => setActiveService(0)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                  <Printer className="h-5 w-5 text-[#1D73EC]" />
                 </div>
-                <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full mb-4">
-                  POPULAR
-                </div>
-                <h4 className="text-xl font-bold mb-3">
-                  Color Printing
+                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                  Standard Document Printing
                 </h4>
-                <p className="text-white/90 mb-6">
-                  High-quality color prints for presentations
-                  and projects
-                </p>
-                <div className="text-4xl font-bold">
-                  ₱{pricing.colorHigh.toFixed(2)}{" "}
-                  <span className="text-base font-normal text-white/80">
-                    / page
-                  </span>
-                </div>
+              </div>
+
+              <div className="mb-3 inline-flex w-fit items-center rounded-full border border-blue-200 bg-[#F2F7FF] p-0.5">
+                <button
+                  onClick={() => setDocColorMode("bw")}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${docColorMode === "bw" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
+                >
+                  B&W
+                </button>
+                <button
+                  onClick={() => setDocColorMode("color")}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${docColorMode === "color" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Color
+                </button>
+              </div>
+
+              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
+                ₱{docColorMode === "bw" ? pricing.bw.toFixed(2) : pricing.colorHigh.toFixed(2)}{" "}
+                <span className="text-sm font-normal text-gray-500">/ page</span>
+              </div>
+              <p className="mb-4 text-xs leading-relaxed text-gray-600">
+                {docColorMode === "bw"
+                  ? "Crisp black & white prints for documents, handouts, and thesis drafts."
+                  : "Vibrant full-color prints for presentations, posters, and photos."}
+              </p>
+              <div className="mt-auto">
+                <Button
+                  onClick={() => navigate("/signup")}
+                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                >
+                  Order Now
+                </Button>
               </div>
             </Card>
 
-            <Card className="p-8 bg-white shadow-lg rounded-2xl hover:shadow-2xl transition-all hover:scale-105 duration-200 border-2 border-[#F2F7FF] hover:border-[#1D73EC]">
-              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
-                <Package className="w-8 h-8 text-[#1D73EC]" />
+            {/* Card 2: Binding & Finishing */}
+            <Card data-service-card onMouseEnter={() => setActiveService(1)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 1 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                  <Bookmark className="h-5 w-5 text-[#1D73EC]" />
+                </div>
+                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                  Binding & Finishing
+                </h4>
               </div>
-              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
-                Binding & Finishing
-              </h4>
-              <p className="text-gray-600 mb-6">
-                Professional binding, stapling, and finishing
-                services
-              </p>
-              <div className="text-4xl font-bold text-[#1D73EC]">
+
+              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
                 ₱{content.bindingPrice}+{" "}
-                <span className="text-base font-normal text-gray-500">
-                  varies
-                </span>
+                <span className="text-sm font-normal text-gray-500">starting</span>
+              </div>
+              <ul className="mb-4 space-y-1.5 text-xs text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Coil binding
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Stapled & stapleless
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#1D73EC]" /> Hardbound covers
+                </li>
+              </ul>
+              <div className="mt-auto">
+                <Button
+                  onClick={() => navigate("/signup")}
+                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                >
+                  Order Now
+                </Button>
               </div>
             </Card>
+
+            {/* Card 3: Document Encoding & Layout */}
+            <Card data-service-card onMouseEnter={() => setActiveService(2)} className={`transition-all duration-300 border-2 p-5 bg-white rounded-2xl shadow-sm hover:-translate-y-1 hover:shadow-lg snap-center md:snap-align-none min-w-[240px] md:min-w-0 w-[240px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 2 ? "border-[#1D73EC] ring-4 ring-[#1D73EC]/20 shadow-lg" : "border-[#F2F7FF]"}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                  <LayoutTemplate className="h-5 w-5 text-[#1D73EC]" />
+                </div>
+                <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">
+                  Document Encoding & Layout
+                </h4>
+              </div>
+
+              <div className="mb-3 text-2xl font-bold text-[#1D73EC]">
+                Custom
+                <span className="text-sm font-normal text-gray-500"> / document</span>
+              </div>
+              <p className="mb-4 text-xs leading-relaxed text-gray-600">
+                Custom layout design, formatting, and encoding for student theses, reports, and faculty documents.
+              </p>
+              <div className="mt-auto">
+                <Button
+                  onClick={() => navigate("/signup")}
+                  className="w-full bg-[#1D73EC] text-sm text-white hover:bg-[#10316B]"
+                >
+                  Order Now
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Pagination dots */}
+          <div className="mt-5 flex items-center justify-center gap-2 md:hidden">
+            {services.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => goToService(i)}
+                aria-label={`Go to ${s.title}`}
+                className={`h-2.5 rounded-full transition-all duration-300 ${activeService === i ? "w-6 bg-[#1D73EC]" : "w-2.5 bg-blue-200 hover:bg-[#1D73EC]/40"}`}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -408,25 +603,53 @@ export default function LandingPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
-              {jobs.map((job) => (
-                <Card key={job.id} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-[#1D73EC] hover:shadow-md">
-                  <div className="mb-6 flex items-start gap-4">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
-                      <Briefcase className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <h4 className="text-lg font-bold text-[#1c1f26]">{job.title}</h4>
-                        <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">Active</Badge>
+              {jobs.map((job) => {
+                const isExpanded = expandedJobId === job.id;
+                return (
+                <Card key={job.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:border-[#1D73EC] hover:shadow-md">
+                  <div className="p-6">
+                    <div className="mb-6 flex items-start gap-4">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
+                        <Briefcase className="h-6 w-6 text-white" />
                       </div>
-                      <p className="mb-4 text-sm leading-relaxed text-gray-600">{job.description}</p>
-                      <p className="text-sm text-gray-700"><span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}</p>
-                      {job.location && <p className="text-sm text-gray-700"><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
+                      <div className="flex-1">
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <h4 className="text-lg font-bold text-[#1c1f26]">{job.title}</h4>
+                          <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">Active</Badge>
+                        </div>
+                        <div className="flex flex-col gap-1.5 text-sm text-gray-700 md:flex-row md:flex-wrap md:gap-x-5">
+                          <p><span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}</p>
+                          {job.location && <p><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
+                        </div>
+                      </div>
                     </div>
+
+                    <p className="mb-4 hidden text-sm leading-relaxed text-gray-600 md:block">{job.description}</p>
+
+                    <div className="md:hidden">
+                      <button
+                        onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                      >
+                        <span>Job Details</span>
+                        {isExpanded ? (
+                          <><ChevronUp className="h-4 w-4" /> Less</>
+                        ) : (
+                          <><ChevronDown className="h-4 w-4" /> More</>
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <p className="mt-3 border-t border-gray-100 pt-3 text-sm leading-relaxed text-gray-600">
+                          {job.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
                   </div>
-                  <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -309,3 +309,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **ONE ORDER PER STATUS MOCK DATA**: the seeded orders were rebuilt so there is exactly one order for each status (Awaiting Payment, Received, In Queue, Printing, Completed, On Hold, Released, Canceled) instead of many duplicates - making each status card / filter demo cleanly.
 - **TERMINAL STATUSES HIDDEN BY DEFAULT IN QUEUE**: Completed, Released, and Canceled orders no longer appear in the default orders list/view (alongside Awaiting Payment) - they only show when their specific status filter is selected, keeping the active queue focused on in-progress work.
 - **STATUS BUTTON FONT COLOR FIXED (order details)**: the selected (active) status buttons in the order detail view - Received, In Queue, Printing, Completed, On Hold, Released - previously had solid blue/gray fills with dark default text (low contrast). They now use white text on the colored fill so the label is always readable. Build passes.
+
+---
+
+## September 4, 2026 11:31 AM (PHT) - Althea09-git
+- **SERVICES & PRICING MOBILE REDESIGN** (LandingPage.tsx): the Services & Pricing section on mobile is now a compact, interactive 3-card carousel instead of large stacked vertical cards.
+- **3 COMPRESSED CARDS**: redesigned the cards as (1) Standard Document Printing, (2) Binding & Finishing, and (3) Document Encoding & Layout, with a compact primary "Order Now" CTA at the bottom of each.
+- **INTERACTIVE B&W / COLOR TOGGLE**: the Standard Document Printing card now has an inline pill toggle that switches between the B&W per-page rate and the Color per-page rate (and swaps the description), wired to the live pricing store.
+- **CAROUSEL INTERACTION**: the cards form a horizontally swipeable/snapping slider with left/right navigation arrows and pagination dots at the bottom; the centered/active card gets a blue border + soft glow highlight that follows swipe, arrow, dot, or hover.
+- **COMPACT + SQUARE LAYOUT**: reduced internal padding, icons placed inline next to the card headers, and mobile cards are square (aspect-square) instead of tall rectangles; hover uses a smooth elevation lift hover:-translate-y-1 hover:shadow-lg with the same 	ransition-all duration-300.
