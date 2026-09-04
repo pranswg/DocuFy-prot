@@ -244,7 +244,7 @@ export default function LandingPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 border-b border-gray-200 bg-white backdrop-blur-md z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <img
               src={logoImage}
               alt="Docufy Logo"
@@ -312,7 +312,7 @@ export default function LandingPage() {
                 {content.heroSubtitle}
               </div>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1c1f26] mb-5 leading-tight">
-                {content.heroTitle.split(",")[0]},
+                {content.heroTitle.split(",")[0]?.trim()},
                 <br />
                 <span className="text-[#1D73EC]">
                   {content.heroTitle.split(",")[1]?.trim()}
@@ -424,9 +424,12 @@ export default function LandingPage() {
                 </button>
               </div>
 
-              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
-                ₱{docColorMode === "bw" ? pricing.bw.toFixed(2) : pricing.colorHigh.toFixed(2)}{" "}
-                <span className="text-[10px] font-normal text-gray-500">/ page</span>
+              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
+                <span className="text-sm font-semibold">₱</span>
+                <span className="text-2xl font-bold leading-none">
+                  {docColorMode === "bw" ? pricing.bw.toFixed(2) : pricing.colorHigh.toFixed(2)}
+                </span>
+                <span className="ml-1 text-[10px] font-medium text-gray-500">/ page</span>
               </div>
               <p className="mb-3 text-[11px] leading-snug text-gray-600">
                 {docColorMode === "bw"
@@ -454,9 +457,10 @@ export default function LandingPage() {
                 </h4>
               </div>
 
-              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
-                ₱{content.bindingPrice}+{" "}
-                <span className="text-[10px] font-normal text-gray-500">starting</span>
+              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
+                <span className="text-sm font-semibold">₱</span>
+                <span className="text-2xl font-bold leading-none">{content.bindingPrice}+</span>
+                <span className="ml-1 text-[10px] font-medium text-gray-500">starting</span>
               </div>
               <ul className="mb-3 space-y-1 text-[11px] text-gray-600">
                 <li className="flex items-center gap-1.5">
@@ -490,9 +494,9 @@ export default function LandingPage() {
                 </h4>
               </div>
 
-              <div className="mb-2 text-xl font-bold text-[#1D73EC]">
-                Custom
-                <span className="text-[10px] font-normal text-gray-500"> / document</span>
+              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
+                <span className="text-2xl font-bold leading-none">Custom</span>
+                <span className="ml-1 text-[10px] font-medium text-gray-500">/ document</span>
               </div>
               <p className="mb-3 text-[11px] leading-snug text-gray-600">
                 Custom layout design, formatting, and encoding for student theses, reports, and faculty documents.
@@ -642,16 +646,16 @@ export default function LandingPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                    className="flex min-h-[44px] w-full items-center justify-between gap-3 p-3 text-left md:hidden"
+                    className="flex min-h-[52px] w-full items-center justify-between gap-3 p-3 text-left md:hidden"
                     aria-expanded={isExpanded}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">{job.title}</h4>
+                      <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">{job.title}</h4>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-600">
+                        <span>
+                          <span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}
+                        </span>
                         <Badge className="shrink-0 bg-blue-100 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">Active</Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-600">
-                        <span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}
                       </p>
                     </div>
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 ${isExpanded ? "rotate-180 border-[#1D73EC] bg-[#1D73EC] text-white" : "border-blue-200 bg-white text-[#1D73EC]"}`}>

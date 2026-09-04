@@ -334,3 +334,11 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - **JOB OPENINGS COMPACT ACCORDION ON MOBILE**: replaced the large vertical job cards with a compact collapsible accordion list; collapsed row shows title, schedule, Active badge, and a rotating chevron; tap expands to reveal description and Apply Now button with smooth height animation; title wraps instead of truncating, 44px touch target, flexible header layout.
 - **ABOUT DOCUFY INTERACTIVE ON MOBILE**: made the about card compact (p-5 instead of p-12) with a short one-line preview and a Show more/Show less toggle; expands with a smooth height animation; added hover lift effect; desktop keeps the full body.
 - **FOOTER MINIMALIST ON MOBILE**: centered stack layout with smaller logo, shorter link labels (Terms/Privacy/Contact), subtle copyright, and clean spacing.
+
+---
+
+## September 4, 2026 3:09 PM (PHT) - Althea09-git
+- **HEADER LOGO/TITLE ALIGNMENT**: grouped the logo icon and "Docufy PSMS" text with a fixed 8px (gap-2) flexbox gap at all screen sizes so they align cleanly on the left of the header (removed the larger desktop gap).
+- **HERO TITLE SPACING FIX**: the hero title now trims the first segment of the stored heroTitle before rendering, so a saved "Print , Track" value displays cleanly as "Print, Track" (no stray space before the comma/output line break).
+- **JOB OPENING ACCORDION HEADER CONSISTENCY**: moved the "Active" badge out of the job-title row and positioned it inline next to the "Schedule" text on its own line, so the job title (left) and the right-aligned chevron button stay perfectly vertically aligned regardless of title length; headers now share a uniform minimum height (min-h 52px).
+- **SERVICES & PRICING PRICE ELEMENTS NORMALIZED**: normalized the pricing typography across all three cards into one consistent structure - currency symbol (₱) at small semibold, the price digit at a uniform 2xl bold, and the unit/qualifier (/ page, starting, / document) at a small medium-weight gray, all baseline-aligned so the currency, digit, and unit line up identically on every card.
