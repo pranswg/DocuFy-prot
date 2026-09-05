@@ -341,7 +341,7 @@ export default function PaymentVerification() {
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
         } as DataStoreOrder);
-        clearPendingFlow(orderId);
+        clearPendingFlow(orderId!);
       } else if (existingOrder) {
         dataStore.updateOrder(orderId!, {
           paymentReferenceNumber: referenceNumber,
@@ -860,7 +860,7 @@ export default function PaymentVerification() {
                       paymentVerified: true,
                       paymentProofUrl: undefined,
                     });
-                    clearPendingFlow(orderId);
+                    clearPendingFlow(orderId!);
                     toast.success("Order confirmed. Pay when you collect.");
                   }
                   navigate(`/customer/track/${orderId}`);

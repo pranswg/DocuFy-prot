@@ -12,6 +12,8 @@ export type JobType = {
   responsibilities?: string[];
   department?: string;
   posted?: string;
+  salary?: string;
+  schedule?: string;
 };
 
 type Subscriber = () => void;

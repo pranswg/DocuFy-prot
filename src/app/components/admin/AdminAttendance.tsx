@@ -105,11 +105,12 @@ function buildRow(
   const clockIn = morningIn ?? afternoonIn;
   const clockOut = afternoonOut ?? morningOut;
 
-  const isLive =
-    !!rec &&
+  const isLive = !!(
+    rec &&
     dateKey === toDateKey(new Date(now.getTime() + PHT_OFFSET_MS)) &&
     ((rec.morning.timeIn && !rec.morning.timeOut) ||
-      (rec.afternoon.timeIn && !rec.afternoon.timeOut));
+      (rec.afternoon.timeIn && !rec.afternoon.timeOut))
+  );
 
   const totalMs = rec ? sessionTotalMs(rec, now) : 0;
 

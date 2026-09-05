@@ -175,7 +175,7 @@ export default function JobApplyForm() {
       </Label>
       <Input
         id={id}
-        value={formData[id]}
+        value={typeof formData[id] === "string" ? formData[id] : ""}
         onChange={(e) =>
           setFormData((prev) => ({
             ...prev,

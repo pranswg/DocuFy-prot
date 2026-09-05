@@ -309,7 +309,7 @@ export default function JobBoardManagement() {
         job.id === jobId
           ? {
               ...job,
-              applicants: job.applicants.map((applicant) =>
+              applicants: job.applicants.map((applicant: any) =>
                 applicant.id === applicantId
                   ? { ...applicant, status: newStatus }
                   : applicant,

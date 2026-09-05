@@ -50,12 +50,13 @@ export function generateInvoiceData(orderData: any): InvoiceData {
   const printingCost = orderData.costBreakdown?.printingCost ||
     calculatePrintingCost(orderData.pages || 0, orderData.copies || 0, orderData.printType || orderData.colorMode);
 
-  const addonsWithSubtotal = (orderData.addons || []).map((addon: any) => ({
-    name: addon.name,
-    quantity: addon.quantity,
-    price: addon.price,
-    subtotal: addon.price * addon.quantity,
-  }));
+  const addonsWithSubtotal: { name: string; quantity: number; price: number; subtotal: number }[] =
+    (orderData.addons || []).map((addon: any) => ({
+      name: addon.name,
+      quantity: addon.quantity,
+      price: addon.price,
+      subtotal: addon.price * addon.quantity,
+    }));
 
   const addonsCost = addonsWithSubtotal.reduce((sum, addon) => sum + addon.subtotal, 0);
   const totalCost = printingCost + addonsCost;

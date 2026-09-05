@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { adminMenuItems } from "../../utils/adminMenuItems";
+import { adminMenuItems } from "../utils/adminMenuItems";
 import {
   LayoutDashboard,
   CreditCard,
@@ -21,32 +21,32 @@ import {
   Eye,
   ExternalLink,
 } from "lucide-react";
-import Layout from "../Layout";
-import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-import { Badge } from "../ui/badge";
+import Layout from "./Layout";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Badge } from "./ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../ui/dialog";
+} from "./ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "./ui/select";
 import { toast } from "sonner";
-import { jobsStore } from "../../utils/jobsStore";
-import { applicationsStore } from "../../utils/applicationsStore";
-import { todayPHTKey } from "../../utils/pht";
-import { notificationStore } from "../../utils/notificationStore";
+import { jobsStore } from "../utils/jobsStore";
+import { applicationsStore } from "../utils/applicationsStore";
+import { todayPHTKey } from "../utils/pht";
+import { notificationStore } from "../utils/notificationStore";
 
 const menuItems = adminMenuItems;
 
@@ -310,7 +310,7 @@ export default function JobBoardManagement() {
         job.id === jobId
           ? {
               ...job,
-              applicants: job.applicants.map((applicant) =>
+              applicants: job.applicants.map((applicant: any) =>
                 applicant.id === applicantId
                   ? { ...applicant, status: newStatus }
                   : applicant,

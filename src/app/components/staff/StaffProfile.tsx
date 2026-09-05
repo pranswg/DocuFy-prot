@@ -143,7 +143,7 @@ export default function StaffProfile() {
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     localStorage.setItem('staff_profile_image', profileImage || '');
-    updateProfile({ profileImage });
+    updateProfile({ profileImage: profileImage ?? undefined });
     setIsEditing(false);
     setShowSavedMessage(true);
     setTimeout(() => setShowSavedMessage(false), 3000);

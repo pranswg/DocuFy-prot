@@ -87,12 +87,14 @@ type OrderType = {
     | "completed"
     | "released"
     | "canceled"
-    | "onHold";
+    | "onHold"
+    | "awaitingPayment";
   time: string;
   paperSize: string;
   copies: number;
   submittedAt: Date;
   holdReason?: string;
+  cancellationReason?: string;
   attachedFiles?: {
     name: string;
     size: string;
@@ -102,14 +104,16 @@ type OrderType = {
   paymentVerified?: boolean;
   paymentReferenceNumber?: string;
   orderSource: "online" | "walkin";
-  orientation?: "portrait" | "landscape";
-  twoSided?: "yes" | "no";
-  pagesPerSheet?: "1" | "2" | "4";
+  paymentMethod?: string;
+  paymentProofUrl?: string;
+  orientation?: string;
+  twoSided?: string;
+  pagesPerSheet?: string;
   margins?: string;
   scale?: string;
   customScale?: number;
-  colorMode?: "bw" | "color";
-  pageRange?: "all" | "specific";
+  colorMode?: string;
+  pageRange?: string;
   specificPages?: string;
   addons?: { name: string; quantity: number; price: number }[];
   costBreakdown?: {
@@ -228,6 +232,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   // Read ?orderId=... so a notification click can deep-open a specific order
   const [searchParams] = useSearchParams();
   const openedOrderIdRef = useRef<string | null>(null);
+  const navigate = useNavigate();
 
   // Initialize and subscribe to orders store
   useEffect(() => {
@@ -270,7 +275,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
-          total: `?${((!isNaN(order.costBreakdown?.total) ? order.costBreakdown?.total : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
+          total: `?${((!isNaN(order.costBreakdown?.total as number) ? Number(order.costBreakdown?.total ?? 0) : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
           paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: order.paymentVerified || false,
@@ -560,7 +565,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
-          total: `?${((!isNaN(updatedSelectedOrder.costBreakdown?.total) ? updatedSelectedOrder.costBreakdown?.total : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
+          total: `?${((!isNaN(updatedSelectedOrder.costBreakdown?.total as number) ? Number(updatedSelectedOrder.costBreakdown?.total ?? 0) : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
           paymentMethod: updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash',
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
@@ -692,12 +697,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     // Only apply custom sorting if explicitly requested
     if (sortColumn) {
       filtered = [...filtered].sort((a, b) => {
-        let aVal = a[sortColumn as keyof OrderType];
-        let bVal = b[sortColumn as keyof OrderType];
-
-        if (typeof aVal === "string") aVal = aVal.toLowerCase();
-        if (typeof bVal === "string") bVal = bVal.toLowerCase();
-
+        const av = a[sortColumn as keyof OrderType] as string | number | undefined;
+        const bv = b[sortColumn as keyof OrderType] as string | number | undefined;
+        const aVal: string | number = av == null ? "" : typeof av === "string" ? av.toLowerCase() : av;
+        const bVal: string | number = bv == null ? "" : typeof bv === "string" ? bv.toLowerCase() : bv;
         if (aVal < bVal)
           return sortDirection === "asc" ? -1 : 1;
         if (aVal > bVal)

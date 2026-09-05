@@ -248,9 +248,9 @@ export default function LoginPage() {
                   {mfaCode.map((digit, index) => (
                     <Input
                       key={index}
-                      ref={(el) =>
-                        (mfaInputRefs.current[index] = el)
-                      }
+                      ref={(el) => {
+                        mfaInputRefs.current[index] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}

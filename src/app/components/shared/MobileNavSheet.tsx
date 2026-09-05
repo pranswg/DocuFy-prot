@@ -4,15 +4,12 @@ import {
   User,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   LayoutDashboard,
   FileText,
   Package,
   Briefcase,
-  CreditCard,
-  ShoppingCart,
-  Clock,
-Home,
-  Boxes,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMobileNav } from "../../contexts/MobileNavContext";
@@ -27,7 +24,20 @@ import {
   SheetTitle,
 } from "../ui/sheet";
 import logoImage from "../../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
-import { adminMenuItems } from "../../utils/adminMenuItems";
+import {
+  adminSections,
+  staffSections,
+  findActiveModule,
+  flattenSections,
+  childPathMatches,
+  type NavModule,
+  type NavSection,
+} from "../../utils/navigationConfig";
+import {
+  snapshotExpandedParents,
+  persistExpandedParents,
+  ensureParentExpanded,
+} from "../../utils/navExpandState";
 
 interface MenuItem {
   label: string;
@@ -58,39 +68,6 @@ const customerMenuItems: MenuItem[] = [
   },
 ];
 
-const staffMenuItems: MenuItem[] = [
-  {
-    label: "Dashboard",
-    path: "/staff/dashboard",
-    icon: <LayoutDashboard className="w-5 h-5" />,
-  },
-  {
-    label: "Clock-In & Timesheet",
-    path: "/staff/timesheet",
-    icon: <Clock className="w-5 h-5" />,
-  },
-  {
-    label: "Walk-in Transactions",
-    path: "/staff/walk-in",
-    icon: <ShoppingCart className="w-5 h-5" />,
-  },
-  {
-    label: "Payment Verification",
-    path: "/staff/payment-verification",
-    icon: <CreditCard className="w-5 h-5" />,
-  },
-  {
-    label: "Orders",
-    path: "/staff/queue",
-    icon: <Package className="w-5 h-5" />,
-  },
-  {
-    label: "Inventory",
-    path: "/staff/inventory",
-    icon: <Boxes className="w-5 h-5" />,
-  },
-];
-
 interface MobileNavSheetProps {
   router: ReturnType<typeof import("react-router").createBrowserRouter>;
 }
@@ -103,6 +80,14 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profilePresence = usePresence(isProfileOpen, 200);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Which parents have their inline submenu expanded. Kept as a Set so the
+  // active module can be auto-expanded without clobbering manual toggles. It
+  // reads from / writes to a module-level snapshot shared with the desktop
+  // sidebar so parent state stays consistent across screens.
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(
+    () => snapshotExpandedParents(),
+  );
 
   // Preserve the nav scroll position across open/close (the Radix sheet
   // unmounts its content when closed, which would otherwise reset scrolling).
@@ -123,6 +108,11 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
     () => router.state.location.pathname,
     () => router.state.location.pathname,
   );
+  const search = useSyncExternalStore(
+    router.subscribe,
+    () => router.state.location.search,
+    () => router.state.location.search,
+  );
 
   useEffect(() => {
     if (!isMobile && open) {
@@ -130,16 +120,130 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
     }
   }, [isMobile, open, setOpen]);
 
+  const navSections: NavSection[] | null =
+    user?.role === "admin"
+      ? adminSections
+      : user?.role === "staff"
+        ? staffSections
+        : null;
+
+  const customerNavigation: NavModule[] = customerMenuItems.map((item) => ({
+    label: item.label,
+    path: item.path,
+    icon: item.icon,
+  }));
+  const allModules: NavModule[] = navSections
+    ? flattenSections(navSections)
+    : customerNavigation;
+  const activeModule = findActiveModule(allModules, pathname, search);
+
+  // Always keep the parent of the current route expanded so navigation state
+  // matches the URL (auto-expands after navigating straight to a child).
+  useEffect(() => {
+    if (activeModule?.children?.length) {
+      ensureParentExpanded(activeModule.path);
+      setExpandedModules((prev) =>
+        prev.has(activeModule.path)
+          ? prev
+          : new Set(prev).add(activeModule.path),
+      );
+    }
+  }, [activeModule?.path, pathname, search]);
+
+  const isModuleExpanded = (module: NavModule) =>
+    !!module.children && expandedModules.has(module.path);
+
+  const toggleModule = (module: NavModule) => {
+    if (!module.children?.length) {
+      navigateAndClose(module.path);
+      return;
+    }
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(module.path)) next.delete(module.path);
+      else next.add(module.path);
+      persistExpandedParents(next);
+      return next;
+    });
+  };
+
   if (!user) {
     return null;
   }
 
-  const menuItems =
-    user.role === "admin"
-      ? adminMenuItems
-      : user.role === "staff"
-        ? staffMenuItems
-        : customerMenuItems;
+  // Renders a single nav row (leaf or expandable parent with inline submenu).
+  // Used inside collapsible sections (admin/staff) and the flat menu (customer).
+  const renderModuleItem = (module: NavModule) => {
+    const isActive = activeModule === module;
+    const hasChildren = !!module.children && module.children.length > 0;
+    const isExpanded = isModuleExpanded(module);
+    return (
+      <div key={module.path} className="w-full flex flex-col items-stretch px-3">
+        <button
+          type="button"
+          onClick={() => toggleModule(module)}
+          aria-current={isActive ? "page" : undefined}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white w-full px-4 py-3 gap-3.5 rounded-xl ${
+            isActive
+              ? "bg-white text-[#1D73EC] shadow-lg"
+              : "text-blue-100 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <div className="relative flex-shrink-0 flex items-center justify-center">
+            {module.icon}
+          </div>
+          <span className="text-sm font-medium whitespace-nowrap truncate">
+            {module.label}
+          </span>
+          {hasChildren && (
+            <span className="ml-auto flex-shrink-0 flex items-center justify-center">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 opacity-80" />
+              ) : (
+                <ChevronRight className="w-4 h-4 opacity-80" />
+              )}
+            </span>
+          )}
+          {isActive && !hasChildren && (
+            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />
+          )}
+        </button>
+        {hasChildren && isExpanded && (
+          <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/80">
+              {module.label}
+            </div>
+            {module.children!.map((childItem) => {
+              const isChildActive = childPathMatches(
+                childItem,
+                pathname,
+                search,
+              );
+              return (
+                <button
+                  key={childItem.path}
+                  type="button"
+                  onClick={() => navigateAndClose(childItem.path)}
+                  aria-current={isChildActive ? "page" : undefined}
+                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                    isChildActive
+                      ? "bg-white text-[#1D73EC] shadow-sm"
+                      : "text-blue-100 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span className="truncate">{childItem.label}</span>
+                  {isChildActive && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC] flex-shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const getInitials = (value?: string) => {
     if (!value) return "U";
@@ -222,33 +326,26 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
             aria-label="Primary navigation"
             className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
           >
-            {menuItems.map((item) => {
-              const isActive =
-                pathname === item.path ||
-                pathname.startsWith(`${item.path}/`);
-              return (
-                <div key={item.path} className="w-full flex justify-center px-3">
-                  <button
-                    type="button"
-                    onClick={() => navigateAndClose(item.path)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white w-full px-4 py-3 gap-3.5 rounded-xl ${
-                      isActive
-                        ? "bg-white text-[#1D73EC] shadow-lg"
-                        : "text-blue-100 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <div className="relative flex-shrink-0 flex items-center justify-center">
-                      {item.icon}
+            {navSections ? (
+            <div className="flex flex-col items-stretch w-full">
+              {navSections.map((section) => (
+                <div key={section.key} className="flex flex-col w-full">
+                  <div className="w-full px-3 pt-2 pb-0.5">
+                    <div className="w-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
+                      {section.label}
                     </div>
-                    <span className="text-sm font-medium whitespace-nowrap truncate">
-                      {item.label}
-                    </span>
-                    {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
-                  </button>
+                  </div>
+                  <div className="flex flex-col items-stretch w-full">
+                    {section.items.map(renderModuleItem)}
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-stretch w-full">
+              {allModules.map(renderModuleItem)}
+            </div>
+          )}
           </nav>
 
           <div className="relative mt-auto w-full px-3 pb-5">

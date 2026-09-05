@@ -5,6 +5,7 @@ import { toPHTKey } from './pht';
 type OrderType = {
   id: string;
   customer: string;
+  customerEmail?: string;
   pages: number;
   type: string;
   notes: string;
@@ -29,6 +30,7 @@ type OrderType = {
   customScale?: number;
   colorMode?: string;
   pageRange?: string;
+  specificPages?: string;
   totalPages?: number;
   addons?: { name: string; quantity: number; price: number }[];
   costBreakdown?: {

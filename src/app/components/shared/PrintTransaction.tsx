@@ -245,7 +245,7 @@ function readPendingOrder():
     const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, unknown> & { id?: string };
-    return parsed.id ? parsed : null;
+    return parsed.id ? (parsed as Record<string, unknown> & { id: string }) : null;
   } catch {
     return null;
   }

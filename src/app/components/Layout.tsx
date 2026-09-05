@@ -49,6 +49,20 @@ import {
 } from "./ui/dialog";
 import { AnnouncementDetailsModal, type AnnouncementDetailData } from "./shared/AnnouncementDetailsModal";
 import { Button } from "./ui/button";
+import {
+  adminSections,
+  staffSections,
+  findActiveModule,
+  flattenSections,
+  childPathMatches,
+  type NavModule,
+  type NavSection,
+} from "../utils/navigationConfig";
+import {
+  snapshotExpandedParents,
+  persistExpandedParents,
+  ensureParentExpanded,
+} from "../utils/navExpandState";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -106,6 +120,13 @@ export default function Layout({
   );
   const [isNavigationOpen, setIsNavigationOpen] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : false,
+  );
+  // Which parents have their inline submenu expanded. Kept as a Set so the
+  // active module can be auto-expanded without clobbering manual toggles. It
+  // reads from / writes to a module-level snapshot so a manually-opened parent
+  // stays expanded across route changes (Layout remounts per page).
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(
+    () => snapshotExpandedParents(),
   );
   // Collapsed-sidebar tooltip: a single viewport-positioned label that follows
   // the hovered item. Fixed to the icon's real coordinates so the name always
@@ -207,7 +228,7 @@ export default function Layout({
 
   useEffect(() => {
     const updateAnnouncements = () => {
-      setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email));
+      setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email ?? ""));
     };
     updateAnnouncements();
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
@@ -266,6 +287,151 @@ export default function Layout({
 
   const handleNavigation = (path: string) => {
     navigate(path);
+  };
+
+  // Sectioned navigation model: admin/staff use the shared section config
+  // (items grouped into collapsible sections; a section item may carry inline
+  // sub-menu children); customers keep the flat menu.
+  const navSections: NavSection[] | null =
+    user?.role === "admin"
+      ? adminSections
+      : user?.role === "staff"
+        ? staffSections
+        : null;
+
+  const customerModules: NavModule[] = menuItems.map((item) => ({
+      label: item.label,
+      path: item.path,
+      icon: item.icon,
+    }));
+
+  const allModules: NavModule[] = navSections
+    ? flattenSections(navSections)
+    : customerModules;
+
+  const activeModule = findActiveModule(
+    allModules,
+    location.pathname,
+    location.search,
+  );
+  const showLabels = isMobile || isSidebarExpanded;
+
+  // Always keep the parent of the current route expanded so navigation state
+  // matches the URL (auto-expands after navigating straight to a child).
+  useEffect(() => {
+    if (activeModule?.children?.length) {
+      ensureParentExpanded(activeModule.path);
+      setExpandedModules((prev) =>
+        prev.has(activeModule.path)
+          ? prev
+          : new Set(prev).add(activeModule.path),
+      );
+    }
+  }, [activeModule?.path, location.pathname, location.search]);
+
+  const isModuleExpanded = (module: NavModule) =>
+    !!module.children && expandedModules.has(module.path);
+
+  // Parent row click: leaf items navigate; parents toggle their inline submenu.
+  // In the collapsed (icon-only) sidebar, clicking a parent expands the whole
+  // sidebar first so the submenu has room to show (mirrors the profile button).
+  const toggleModule = (module: NavModule) => {
+    if (!module.children?.length) {
+      handleNavigation(module.path);
+      return;
+    }
+    if (!isMobile && !isSidebarExpanded) {
+      setIsSidebarExpanded(true);
+      setExpandedModules((prev) => {
+        const next = new Set(prev);
+        next.add(module.path);
+        persistExpandedParents(next);
+        return next;
+      });
+      return;
+    }
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(module.path)) next.delete(module.path);
+      else next.add(module.path);
+      persistExpandedParents(next);
+      return next;
+    });
+  };
+
+  // Renders a single nav row (leaf or expandable parent with inline submenu).
+  // Used inside collapsible sections (admin/staff) and the flat menu (customer).
+  const renderModuleItem = (module: NavModule) => {
+    const isActive = activeModule === module;
+    const hasChildren = !!module.children && module.children.length > 0;
+    const isExpanded = isModuleExpanded(module);
+    return (
+      <div key={module.path} className={`relative group w-full flex flex-col px-3 ${showLabels ? "items-stretch" : "items-center"}`}>
+        <button
+          type="button"
+          onClick={() => toggleModule(module)}
+          onMouseEnter={(e) => showSidebarTooltip(module.label, e)}
+          onMouseLeave={() => setSidebarTooltip(null)}
+          aria-current={isActive ? "page" : undefined}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            showLabels ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
+          } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
+        >
+          <div className="relative flex-shrink-0 flex items-center justify-center">
+            {module.icon}
+          </div>
+          {showLabels && <span className="text-sm font-medium whitespace-nowrap truncate">{module.label}</span>}
+          {hasChildren && showLabels && (
+            <span className="ml-auto flex-shrink-0 flex items-center justify-center">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 opacity-80" />
+              ) : (
+                <ChevronRight className="w-4 h-4 opacity-80" />
+              )}
+            </span>
+          )}
+          {isActive && !hasChildren && showLabels && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
+        </button>
+
+        {hasChildren && isExpanded && showLabels && (
+          <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/80">
+              {module.label}
+            </div>
+            <div className="flex flex-col items-stretch">
+              {module.children!.map((child) => {
+                const isChildActive = childPathMatches(
+                  child,
+                  location.pathname,
+                  location.search,
+                );
+                return (
+                  <button
+                    key={child.path}
+                    type="button"
+                    onClick={() => handleNavigation(child.path)}
+                    onMouseEnter={(e) => showSidebarTooltip(child.label, e)}
+                    onMouseLeave={() => setSidebarTooltip(null)}
+                    aria-current={isChildActive ? "page" : undefined}
+                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                      isChildActive
+                        ? "bg-white text-[#1D73EC] shadow-sm"
+                        : "text-blue-100 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span className="truncate">{child.label}</span>
+                    {isChildActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC] flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleLogout = () => {
@@ -513,29 +679,32 @@ export default function Layout({
         aria-label="Primary navigation"
         className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
       >
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-          return (
-            <div key={item.path} className="relative group w-full flex justify-center px-3">
-              <button
-                type="button"
-                onClick={() => handleNavigation(item.path)}
-                onMouseEnter={(e) => showSidebarTooltip(item.label, e)}
-                onMouseLeave={() => setSidebarTooltip(null)}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                  isMobile || isSidebarExpanded ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
-                } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
-              >
-                <div className="relative flex-shrink-0 flex items-center justify-center">
-                  {item.icon}
+        {navSections ? (
+          showLabels ? (
+            <div className="flex flex-col items-stretch w-full">
+              {navSections.map((section) => (
+                <div key={section.key} className="flex flex-col w-full">
+                  <div className="w-full px-3 pt-2 pb-0.5">
+                    <div className="w-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
+                      {section.label}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-stretch w-full">
+                    {section.items.map(renderModuleItem)}
+                  </div>
                 </div>
-                {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium whitespace-nowrap truncate">{item.label}</span>}
-                {isActive && (isMobile || isSidebarExpanded) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC]" />}
-              </button>
+              ))}
             </div>
-          );
-        })}
+          ) : (
+            <div className="flex flex-col items-center w-full space-y-2">
+              {allModules.map(renderModuleItem)}
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col items-stretch w-full">
+            {customerModules.map(renderModuleItem)}
+          </div>
+        )}
       </nav>
 
       <div className="relative mt-auto w-full px-3 pb-5">

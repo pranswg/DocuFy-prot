@@ -3,7 +3,7 @@
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 class SessionManager {
-  private timeoutId: NodeJS.Timeout | null = null;
+  private timeoutId: ReturnType<typeof setTimeout> | null = null;
   private onLogout: (() => void) | null = null;
 
   init(logoutCallback: () => void) {

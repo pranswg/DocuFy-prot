@@ -145,7 +145,7 @@ class InventoryStore {
       { id: 'inv-paper-legal', name: 'Bond Paper (Legal)', category: 'Paper', brand: '', unit: 'ream', currentStock: 8, minimumStock: 2, paperSize: 'legal', pcsPerUnit: 500 },
       { id: 'inv-ink-black', name: 'Printer Ink (Black)', category: 'Ink', brand: 'Epson', unit: 'bottle', currentStock: 5, minimumStock: 2, pcsPerUnit: 1 },
       { id: 'inv-ballpen', name: 'Ballpen (Black)', category: 'School supplies', brand: '', unit: 'piece', currentStock: 30, minimumStock: 10, pcsPerUnit: 1 },
-      { id: 'inv-staples', name: 'Staples', category: 'Add-ons', brand: '', unit: 'box', currentStock: 15, minimumStock: 4, price: 5, pcsPerUnit: 1, description: 'Box of staples for binding printed sets.' },
+      { id: 'inv-staples', name: 'Staples', category: 'Add-ons', brand: '', unit: 'box', currentStock: 15, minimumStock: 4, price: 5, pcsPerUnit: 1 },
     ];
   }
 

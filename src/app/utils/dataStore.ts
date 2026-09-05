@@ -296,8 +296,8 @@ const initialOrders: Order[] = [
     pageRange: 'all',
     holdReason: 'Waiting for customer payment.',
     addons: [
-      { id: 'ad-sketch', name: 'Sketch Pad', quantity: 1, price: 25 },
-      { id: 'ad-pen', name: 'Ballpen', quantity: 1, price: 12 },
+      { name: 'Sketch Pad', quantity: 1, price: 25 },
+      { name: 'Ballpen', quantity: 1, price: 12 },
     ],
     attachedFiles: [
       {

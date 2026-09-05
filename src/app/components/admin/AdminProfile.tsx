@@ -100,7 +100,7 @@ export default function AdminProfile() {
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     localStorage.setItem('admin_profile_image', profileImage || '');
-    updateProfile({ profileImage });
+    updateProfile({ profileImage: profileImage ?? undefined });
     setIsEditing(false);
     setShowSavedMessage(true);
     setTimeout(() => setShowSavedMessage(false), 3000);
