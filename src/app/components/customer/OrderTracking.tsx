@@ -11,7 +11,6 @@ import {
   Download,
   Eye,
   AlertCircle,
-  PauseCircle,
   Calendar,
   File,
   ShoppingCart,
@@ -26,7 +25,8 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { getOrderStatusStyle, getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
-import { formatPHTime, formatPHDate } from "../../utils/pht";
+import { formatPHTime, formatPHDate, formatPHDateTime } from "../../utils/pht";
+import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
 import {
   Dialog,
   DialogContent,
@@ -113,17 +113,16 @@ export default function OrderTracking() {
     }
   }, [orderData?.status]);
 
-  const currentOrderStatus = orderData?.status || "Received";
+  const currentOrderStatus = orderData?.status || "Awaiting Payment";
   const statusStyle = getOrderStatusStyle(currentOrderStatus);
   const currentOrderLabel = getCustomerStatusLabel(orderData);
   const holdReason = orderData?.holdReason;
-  const canCancelOrder = ["Received", "In Queue", "On Hold", "Awaiting Payment"].includes(currentOrderStatus);
+  const canCancelOrder = ["In Queue", "Awaiting Payment"].includes(currentOrderStatus);
 
   // Determine if order is completed or released
   const isOrderCompleted =
     currentOrderStatus === "Completed" ||
     currentOrderStatus === "Released";
-  const isOnHold = currentOrderStatus === "On Hold";
   const isAwaitingPayment = currentOrderStatus === "Awaiting Payment";
 
   const handleDownloadInvoice = () => {
@@ -224,7 +223,61 @@ export default function OrderTracking() {
           </p>
         </div>
 
-        {/* Current Status Banner (hold/payment details merged in) */}
+{/* Current Status Banner (payment details merged in) */}
+        {isAwaitingPayment && (
+          <Card className="p-6 bg-white border-2 border-amber-300 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  {orderData?.cancellationReason === "Payment Deadline Expired"
+                    ? "Awaiting Payment — Cancelled (Expired)"
+                    : "Awaiting Payment"}
+                  <Badge className="bg-amber-100 text-amber-800">
+                    Payment Pending
+                  </Badge>
+                </h3>
+                <p className="text-sm text-amber-800 mb-3 leading-relaxed">
+                  <strong>Details:</strong>{" "}
+                  {holdReason ||
+                    (orderData?.paymentMethod === "Cash"
+                      ? "Pay in cash at the shop to confirm this order."
+                      : "Your online payment is pending verification.")}
+                </p>
+                {orderData?.paymentMethod === "Cash" &&
+                  orderData?.paymentDeadline && (
+                    <div className="bg-white rounded-lg p-3 border border-amber-200 mb-3">
+                      <p className="text-xs text-gray-700">
+                        <strong className="text-amber-900">
+                          Payment deadline:
+                        </strong>{" "}
+                        <span className="font-mono text-sm text-amber-900">
+                          {formatPHDateTime(orderData.paymentDeadline)}
+                        </span>
+                        <span className="ml-2 inline-block">
+                          <PaymentDeadlineCountdown
+                            deadline={orderData.paymentDeadline}
+                          />
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                <div className="bg-white rounded-lg p-3 border border-amber-200">
+                  <p className="text-xs text-gray-700">
+                    <strong className="text-amber-900">What to do:</strong>{" "}
+                    {orderData?.paymentMethod === "Cash"
+                      ? "Visit the shop and pay this amount before the deadline. The staff will confirm your payment and your order will be added to the print queue automatically."
+                      : "Once Admin or Staff verifies your payment, your order will be added to the print queue automatically. You can track its progress here."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Current Status Banner */}
         <Card className={`p-5 bg-white shadow-sm border-l-4 ${statusStyle.accent}`}>
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center flex-shrink-0`}>
@@ -243,12 +296,6 @@ export default function OrderTracking() {
               {currentOrderStatus === "Canceled" && (
                 <X className={`w-5 h-5 ${statusStyle.icon}`} />
               )}
-              {currentOrderStatus === "Received" && (
-                <CheckCircle className={`w-5 h-5 ${statusStyle.icon}`} />
-              )}
-              {currentOrderStatus === "On Hold" && (
-                <PauseCircle className={`w-5 h-5 ${statusStyle.icon}`} />
-              )}
               {currentOrderStatus === "Awaiting Payment" && (
                 <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
               )}
@@ -261,47 +308,19 @@ export default function OrderTracking() {
                 <p className="font-bold text-gray-900 text-lg">
                   {currentOrderLabel}
                 </p>
-                {isOnHold && holdReason && (
-                  <Badge className="bg-blue-100 text-[#1D73EC] hover:bg-blue-100">
-                    Action Required
-                  </Badge>
-                )}
-                {isAwaitingPayment && (
-                  <Badge className="bg-amber-100 text-amber-800">
-                    Payment Pending
-                  </Badge>
-                )}
+                <Badge className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}>
+                  {currentOrderLabel}
+                </Badge>
               </div>
             </div>
           </div>
 
-          {/* On Hold details — merged inside the current status card */}
-          {isOnHold && holdReason && (
-            <div className="mt-0 pt-1 border-t border-blue-200">
-              <p className="text-sm text-blue-800 leading-relaxed">
-                <strong>Reason:</strong> {holdReason}
-              </p>
-              <div className="mt-1 bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <p className="text-xs text-gray-700">
-                  <strong className="text-[#10316B]">What to do:</strong>{" "}
-                  Please contact our staff or visit the shop to resolve this issue. Your order will resume processing once the issue is addressed.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Awaiting payment details — merged inside the current status card */}
-          {isAwaitingPayment && (
+          {/* Awaiting payment details */}
+          {isAwaitingPayment && holdReason && (
             <div className="mt-0 pt-1 border-t border-amber-200">
               <p className="text-sm text-amber-800 leading-relaxed">
-                <strong>Details:</strong> {holdReason || "Your online payment is pending verification."}
+                <strong>Details:</strong> {holdReason}
               </p>
-              <div className="mt-1 bg-amber-50 rounded-lg p-3 border border-amber-200">
-                <p className="text-xs text-gray-700">
-                  <strong className="text-amber-900">What to do:</strong>{" "}
-                  Once Admin or Staff verifies your payment, your order will be added to the print queue automatically. You can track its progress here.
-                </p>
-              </div>
             </div>
           )}
         </Card>
@@ -559,15 +578,17 @@ export default function OrderTracking() {
                     <ShoppingCart className="w-5 h-5 text-gray-600" />
                     <div>
                       <p className="font-medium text-gray-900">
-                        Payment at Pickup
+                        {orderData?.paymentVerified ? "Paid at the Shop" : "Awaiting Payment at Shop"}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Pay when you collect your order
+                        {orderData?.paymentVerified
+                          ? "Payment confirmed — order is being processed"
+                          : `Pay ₱${orderData?.total ? orderData.total.replace("₱", "") : "0.00"} in cash at the shop before the deadline`}
                       </p>
                     </div>
                   </div>
-                  <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
-                    Cash on Pickup
+                  <Badge className={orderData?.paymentVerified ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"}>
+                    {orderData?.paymentVerified ? "Verified" : "Pending"}
                   </Badge>
                 </div>
               ) : orderData?.status === "Canceled" ? (

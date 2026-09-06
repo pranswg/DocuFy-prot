@@ -79,7 +79,7 @@ export function generateInvoiceData(orderData: any): InvoiceData {
     invoiceNumber: `INV-${orderData.id}`,
     orderId: orderData.id,
     date: orderData.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    status: orderData.status || 'Received',
+    status: orderData.status || 'Completed',
     customerName: orderData.customerName || orderData.customer || 'N/A',
     customerEmail: orderData.customerEmail || `${(orderData.customerName || orderData.customer || 'customer').toLowerCase().replace(/\s+/g, '.')}@example.com`,
     fileName: orderData.fileName || orderData.attachedFiles?.[0]?.name || 'document.pdf',

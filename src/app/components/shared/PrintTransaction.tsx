@@ -84,6 +84,8 @@ import {
   type ColorTier,
 } from "../../utils/pricingStore";
 import PaymentMethodQRPanel from "./PaymentMethodQR";
+import { CashOnPickupAcknowledgement } from "./CashOnPickupAcknowledgement";
+import LegalPolicyDialog from "./LegalPolicyDialog";
 
 const ALLOWED_FILE_TYPES = {
   "application/pdf": ".pdf",
@@ -325,6 +327,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [breakdownFileId, setBreakdownFileId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   const downPaymentThreshold = pricing.downPaymentThreshold;
+  const fullPaymentThreshold = pricing.fullPaymentThreshold;
+
+  // Classify the upfront-payment requirement for a given order total.
+  //   none  → below the down-payment threshold (no upfront payment)
+  //   down  → 50% down payment required (downPaymentThreshold..fullPaymentThreshold)
+  //   full  → FULL payment required, no 50% option (≥ fullPaymentThreshold)
+  const paymentRequirementFor = (total: number): "full" | "down" | "none" => {
+    if (total >= fullPaymentThreshold) return "full";
+    if (total >= downPaymentThreshold) return "down";
+    return "none";
+  };
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
     return pricingStore.subscribe(load);
@@ -345,8 +358,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   // Payment (customer only)
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [cashAcknowledged, setCashAcknowledged] = useState(false);
   const [onlineMethods, setOnlineMethods] = useState<PaymentMethodType[]>([]);
   const [showQRModal, setShowQRModal] = useState(false);
+
+  // Down-payment tier choices (customer, orders ₱50–99): where to pay +
+  // whether to pay the 50% down payment or the full amount upfront.
+  const [paymentVenue, setPaymentVenue] = useState<"shop" | "online">("online");
+  const [paymentAmountChoice, setPaymentAmountChoice] = useState<"down" | "full">("down");
 
   const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
   const [selectedAddons, setSelectedAddons] = useState<{
@@ -354,6 +373,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   }>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPlaceOrderConfirm, setShowPlaceOrderConfirm] = useState(false);
+  const [showLegalPolicy, setShowLegalPolicy] = useState(false);
+  const [legalPolicyTab, setLegalPolicyTab] = useState<"terms" | "privacy">("terms");
   const [showProceedConfirm, setShowProceedConfirm] = useState(false);
   const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
   const [showOrderSummary, setShowOrderSummary] = useState(false);
@@ -737,6 +758,37 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     return filesTotal + addonsTotal;
   };
 
+  // HIGH-VALUE ORDERS: at/above the full payment threshold, Cash on Pickup is
+  // NOT selectable for customers — they must pay online so the full amount is
+  // verified before the order is queued.
+  const checkoutTotal = calculateTotal();
+  const flowTier = paymentRequirementFor(checkoutTotal);
+  const isDownTier = flowTier === "down";
+  const isFullTier = flowTier === "full";
+  const requiresDownPayment = isDownTier && paymentAmountChoice === "down";
+  const requiresFullPayment =
+    isFullTier || (isDownTier && paymentAmountChoice === "full");
+  const downPaymentValue = checkoutTotal * 0.5;
+
+  // Cash on Pickup is unavailable when the order must be paid online:
+  //  - full-payment tier (≥ fullPaymentThreshold): online only.
+  //  - down-payment tier with venue "online": online only.
+  const cashDisabled =
+    isFullTier || (isDownTier && paymentVenue === "online");
+
+  // Keep the payment method consistent with the chosen venue.
+  useEffect(() => {
+    if (cashDisabled && paymentMethod === "cash") {
+      setPaymentMethod("");
+    }
+  }, [cashDisabled, paymentMethod]);
+
+  useEffect(() => {
+    if (isDownTier && paymentVenue === "shop") {
+      setPaymentMethod("cash");
+    }
+  }, [isDownTier, paymentVenue]);
+
   const validatePhotoMinQty = (): boolean => {
     for (const f of files) {
       if (f.printType === "photo") {
@@ -759,6 +811,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setSelectedAddons({});
     setServiceType("document");
     setPaymentMethod("");
+    setCashAcknowledged(false);
+    setPaymentVenue("online");
+    setPaymentAmountChoice("down");
     setCustomerName("");
     setCustomerEmail("");
     setCustomerType("walkin");
@@ -788,7 +843,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         notes: hasPhoto
           ? `Walk-in photo print - ${files.filter((f) => f.printType === "photo").map((f) => `${f.photoQty} pc(s) ${PHOTO_SIZE_LABELS[f.photoSize]} (${f.photoFinish})`).join(", ")}`
           : `Walk-in transaction - ${files.length} file(s)`,
-        status: "received" as const,
+        status: "inQueue" as const,
         time: formatPHTime(now),
         paperSize: firstPhoto
           ? firstPhoto.photoSize === "2R" ? "2R" : firstPhoto.photoSize === "A4photo" ? "A4" : firstPhoto.photoSize
@@ -850,6 +905,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       return;
     }
 
+    if (!isOnline && paymentMethod === "cash" && !cashAcknowledged) {
+      toast.error(
+        "Please confirm the Cash on Pickup acknowledgment before placing your order.",
+      );
+      return;
+    }
+
+    if (!isWalkin && paymentMethod === "cash" && cashDisabled) {
+      toast.error(
+        isFullTier
+          ? `Cash on Pickup is not available for orders ₱${fullPaymentThreshold.toLocaleString()} and above. Please pay online via one of the available payment methods.`
+          : "Cash on Pickup is not available when paying online. Switch to 'Pay at the Shop' or choose an online payment method.",
+      );
+      return;
+    }
+
     const total = calculateTotal();
     const orderId = dataStore.getNextOrderId();
     const methodLabel = isOnline ? paymentMethod : "Cash";
@@ -862,22 +933,38 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
     const hasColor = files.some((f) => f.colorMode === "colored");
 
-    const requiresDownPayment = total >= downPaymentThreshold;
+    const requiresFullPayment = flowTier === "full" || (flowTier === "down" && paymentAmountChoice === "full");
+    const requiresDownPayment = flowTier === "down" && paymentAmountChoice === "down";
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
+
+    // Payment confirmation/verification deadline from the admin-editable order
+    // rules (hours; 0 = no auto-expiry). Cash = pay at the shop, online =
+    // submit reference + staff verification. Pending client confirmation.
+    const deadlineHours = isOnline
+      ? pricing.onlinePaymentVerificationHours
+      : pricing.cashPickupPaymentHours;
+    const paymentDeadline =
+      deadlineHours > 0
+        ? new Date(Date.now() + deadlineHours * 3_600_000).toISOString()
+        : undefined;
 
     const newOrder = {
       id: orderId,
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
-      status: isOnline || requiresDownPayment
-        ? ("Awaiting Payment" as const)
-        : ("Received" as const),
+      // Every customer order first passes payment confirmation/verification
+      // (staff confirm cash at the shop, or verify an online submission)
+      // before it can enter the print queue.
+      status: "Awaiting Payment" as const,
+      paymentDeadline,
       holdReason: isOnline
-        ? `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
-        : requiresDownPayment
-          ? `Down payment required: ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}). Please pay this amount via Cash before your order can be processed.`
-          : undefined,
+        ? requiresFullPayment
+          ? `${methodLabel} full payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the full payment is verified.`
+          : requiresDownPayment
+            ? `${methodLabel} down payment of ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}) is pending verification. Your order will be queued once the down payment is verified.`
+            : `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
+        : `Cash on Pickup: pay ₱${Math.round(total)}${requiresFullPayment ? " (full payment)" : requiresDownPayment ? ` (down payment of ₱${Math.round(downPaymentAmount)} — 50% of the total)` : ""} at the shop before your payment deadline to confirm this order.`,
       total: `₱${Math.round(total)}`,
       date: todayPHTKey(),
       paperSize:
@@ -949,6 +1036,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       downPaymentRequired: requiresDownPayment,
       downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
       downPaymentVerified: false,
+      fullPaymentRequired: requiresFullPayment,
+      fullPaymentAmount: requiresFullPayment ? total : undefined,
+      fullPaymentVerified: false,
       expectedPaperUsage: (() => {
         const map: Record<string, number> = {};
         files.forEach((f) => {
@@ -976,6 +1066,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         timestamp: new Date().toISOString(),
         downPaymentRequired: requiresDownPayment,
         downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
+        fullPaymentRequired: requiresFullPayment,
+        fullPaymentAmount: requiresFullPayment ? total : undefined,
       };
       localStorage.setItem(`order_${orderId}`, JSON.stringify(orderData));
 
@@ -1024,10 +1116,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
     dataStore.addOrder(newOrder);
 
-    const notifTitle = requiresDownPayment ? "New Order — Down Payment Required" : "New Print Request";
-    const notifMsg = requiresDownPayment
-      ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
-      : `New print request #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total.`;
+    const notifTitle = requiresFullPayment
+      ? "New Order — Full Payment Required"
+      : requiresDownPayment
+        ? "New Order — Down Payment Required"
+        : "New Order — Awaiting Cash Payment";
+    const notifMsg = requiresFullPayment
+      ? `New order #${orderId} from ${user?.email || "customer"} is awaiting FULL payment verification — ₱${Math.round(total)} (100% of total) required before the order can be printed.`
+      : requiresDownPayment
+        ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
+        : `New order #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total — Cash on Pickup, awaiting payment of ₱${Math.round(total)} at the shop.`;
 
     notificationStore.addNotification("order", notifTitle, notifMsg, {
       clickable: true,
@@ -1048,6 +1146,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       timestamp: new Date().toISOString(),
       downPaymentRequired: requiresDownPayment,
       downPaymentAmount: requiresDownPayment ? downPaymentAmount : undefined,
+      fullPaymentRequired: requiresFullPayment,
+      fullPaymentAmount: requiresFullPayment ? total : undefined,
     };
     localStorage.setItem(
       `order_${orderId}`,
@@ -2483,72 +2583,108 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   </h3>
                   <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
                     <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
-                      {onlineMethods.map((method) => (
-                        <div
-                          key={method.id}
-                          className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
-                            paymentMethod === method.name
-                              ? "border-[#2F6FD6] bg-white"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                          onClick={() => setPaymentMethod(method.name)}
-                        >
-                          {paymentMethod === method.name && (
-                            <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-                          )}
-                          <RadioGroupItem value={method.name} id={`pm-${method.id}`} disabled={false} />
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                              <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <Label htmlFor={`pm-${method.id}`} className="font-semibold text-gray-900 cursor-pointer">
-                                {method.name}
-                              </Label>
-                              <p className="text-xs text-gray-500">
-                                Pay via {method.name} mobile wallet
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                viewMethodQR(method.name);
-                              }}
-                              className="flex items-center gap-1 text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] shrink-0"
-                            >
-                              <QrCode className="w-3.5 h-3.5" />
-                              View QR
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                      {onlineMethods.map((method) => {
+  const onlineDisabled = isDownTier && paymentVenue === "shop";
+  return (
+    <div
+      key={method.id}
+      className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
+        onlineDisabled
+          ? "border-dashed border-gray-200 bg-gray-50 cursor-not-allowed opacity-70"
+          : paymentMethod === method.name
+            ? "border-[#2F6FD6] bg-white cursor-pointer active:scale-[0.98]"
+            : "border-gray-200 hover:border-gray-300 cursor-pointer active:scale-[0.98]"
+      }`}
+      onClick={
+        onlineDisabled ? undefined : () => setPaymentMethod(method.name)
+      }
+      title={onlineDisabled ? "Switch to 'Pay at the Shop' to pay in cash at the store" : undefined}
+    >
+      {paymentMethod === method.name && (
+        <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+      )}
+      <RadioGroupItem value={method.name} id={`pm-${method.id}`} disabled={onlineDisabled} />
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${onlineDisabled ? "bg-gray-100" : "bg-blue-100"}`}>
+          <Smartphone className={`w-5 h-5 ${onlineDisabled ? "text-gray-400" : "text-[#2F6FD6]"}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Label htmlFor={`pm-${method.id}`} className={`font-semibold cursor-pointer ${onlineDisabled ? "text-gray-400" : "text-gray-900"}`}>
+            {method.name}
+          </Label>
+          <p className="text-xs text-gray-500">
+            Pay via {method.name} mobile wallet
+          </p>
+        </div>
+        {!onlineDisabled && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              viewMethodQR(method.name);
+            }}
+            className="flex items-center gap-1 text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] shrink-0"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            View QR
+          </button>
+        )}
+      </div>
+    </div>
+  );
+})}
 
                       <div
-                        className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
-                          paymentMethod === "cash"
-                            ? "border-[#2F6FD6] bg-white"
-                            : "border-gray-200 hover:border-gray-300"
+                        className={`relative overflow-hidden flex items-center space-x-3 p-4 border-2 rounded-lg transition-all ${
+                          cashDisabled
+                            ? "border-dashed border-gray-200 bg-gray-50 cursor-not-allowed opacity-70"
+                            : paymentMethod === "cash"
+                              ? "border-[#2F6FD6] bg-white cursor-pointer active:scale-[0.98]"
+                              : "border-gray-200 hover:border-gray-300 cursor-pointer active:scale-[0.98]"
                         }`}
-                        onClick={() => setPaymentMethod("cash")}
+                        onClick={
+                          cashDisabled
+                            ? undefined
+                            : () => setPaymentMethod("cash")
+                        }
+                        title={
+                          cashDisabled
+                            ? isFullTier
+                              ? `Cash on Pickup is not available for orders ₱${fullPaymentThreshold.toLocaleString()} and above`
+                              : "Switch to 'Pay at the Shop' above to pay in cash at the store"
+                            : undefined
+                        }
                       >
                         {paymentMethod === "cash" && (
                           <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
                         )}
-                        <RadioGroupItem value="cash" id="cash" />
+                        <RadioGroupItem value="cash" id="cash" disabled={cashDisabled} />
                         <div className="flex items-center gap-3 flex-1">
                           <div className="w-10 h-10 bg-[#73bbff] rounded-lg flex items-center justify-center">
                             <Banknote className="w-5 h-5 text-blue-600" />
                           </div>
                           <div>
-                            <Label htmlFor="cash" className="font-semibold text-gray-900 cursor-pointer">
+                            <Label htmlFor="cash" className={`font-semibold cursor-pointer ${cashDisabled ? "text-gray-400" : "text-gray-900"}`}>
                               Cash on Pickup
                             </Label>
-                            <p className="text-xs text-gray-500">
-                              Pay when you collect your order
-                            </p>
+                            {cashDisabled ? (
+                              <p className="text-xs text-amber-600 font-medium">
+                                {isFullTier
+                                  ? `Not available for orders ₱${fullPaymentThreshold.toLocaleString()} and above`
+                                  : "Not available — pay online instead"}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-500">
+                                Pay when you collect your order
+                              </p>
+                            )}
                           </div>
                         </div>
+                        {cashDisabled && (
+                          <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            Unavailable
+                          </span>
+                        )}
                       </div>
                     </div>
                   </RadioGroup>
@@ -2575,12 +2711,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 </div>
               </Card>
 
+              {!isWalkin && paymentMethod === "cash" && (
+                <CashOnPickupAcknowledgement
+                  checked={cashAcknowledged}
+                  onChange={setCashAcknowledged}
+                />
+              )}
+
               {(() => {
                 const total = calculateTotal();
-                const requiresDownPayment = total >= downPaymentThreshold;
-                const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
-
-                if (requiresDownPayment) {
+                const requirement = paymentRequirementFor(total);
+                if (requirement === "full") {
                   return (
                     <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
                       <div className="flex items-start gap-3">
@@ -2589,38 +2730,39 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-amber-900 mb-1 flex items-center gap-2">
-                            Down Payment Required
+                            Full Payment Required
                             <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
-                              50% Upfront
+                              100% Upfront
                             </span>
                           </h4>
                           <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                            Orders totaling <strong>₱{downPaymentThreshold.toFixed(2)} or more</strong> require a{" "}
-                            <strong>50% down payment</strong> before printing begins. Your order will stay{" "}
-                            <strong>awaiting payment verification</strong> until the down payment is verified by Admin or Staff.
+                            Orders totaling <strong>₱{fullPaymentThreshold.toFixed(2)} or more</strong> must be{" "}
+                            <strong>paid in full</strong> before printing begins — the 50% down payment option is not available for this order. Your order will stay{" "}
+                            <strong>awaiting payment verification</strong> until the full payment is verified by Admin or Staff.
                           </p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                             <div className="p-3 bg-white rounded-lg border border-amber-200">
                               <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
-                                Down Payment Due
+                                Amount Due (Full Payment)
                               </p>
                               <p className="text-2xl font-bold text-amber-700">
-                                {formatCurrency(downPaymentValue)}
+                                {formatCurrency(total)}
                               </p>
                             </div>
                             <div className="p-3 bg-white rounded-lg border border-amber-200">
                               <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
-                                Balance on Pickup
+                                Down Payment Option
                               </p>
                               <p className="text-2xl font-bold text-gray-700">
-                                {formatCurrency(downPaymentValue)}
+                                Not Available
                               </p>
                             </div>
                           </div>
                           <div className="flex items-start gap-2 p-3 bg-amber-100 rounded-lg">
                             <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
                             <p className="text-xs text-amber-800">
-                              Pay the down payment via{" "}
+                              Pay{" "}
+                              <strong>{formatCurrency(total)}</strong> via{" "}
                               <strong>
                                 {isOnline
                                   ? paymentMethod
@@ -2628,8 +2770,169 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                     ? "Cash at the shop"
                                     : "your chosen payment method"}
                               </strong>
-                              {" "}and inform the staff to verify. Once verified, your order moves to the queue automatically.
+                              {" "}and inform the staff to verify. Once the full payment is verified, your order moves to the queue automatically.
                             </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (requirement === "down") {
+                  const downDue = total * 0.5;
+                  const payingFull = paymentAmountChoice === "full";
+                  return (
+                    <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CreditCard className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-amber-900 mb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                            How would you like to pay?
+                            <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full w-fit">
+                              Down Payment Required
+                            </span>
+                          </h4>
+                          <p className="text-sm text-amber-800 mb-4 leading-relaxed">
+                            Orders totaling <strong>₱{downPaymentThreshold.toFixed(2)} or more</strong> require at least a{" "}
+                            <strong>50% down payment</strong> before printing begins. Choose where to pay and how much you want to pay today.
+                          </p>
+
+                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">
+                            Pay at
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentVenue("shop")}
+                              className={`flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                                paymentVenue === "shop"
+                                  ? "border-[#2F6FD6] bg-white ring-2 ring-[#2F6FD6]/20"
+                                  : "border-amber-200 bg-white hover:border-amber-300"
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                                <Banknote className="w-5 h-5 text-[#2F6FD6]" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-900">Pay at the Shop</p>
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                                  Visit the shop and pay in cash. Your order stays{" "}
+                                  <strong>awaiting down payment</strong> and is <strong>not processed</strong> until the staff verifies your payment at the shop.
+                                </p>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentVenue("online")}
+                              className={`flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                                paymentVenue === "online"
+                                  ? "border-[#2F6FD6] bg-white ring-2 ring-[#2F6FD6]/20"
+                                  : "border-amber-200 bg-white hover:border-amber-300"
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                                <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-900">Pay Online</p>
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                                  Pay with your chosen payment method below. Your order stays{" "}
+                                  <strong>awaiting payment verification</strong> once you submit the payment reference.
+                                </p>
+                              </div>
+                            </button>
+                          </div>
+
+                          {paymentVenue === "shop" ? (
+                            <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-amber-200 mb-4">
+                              <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-amber-800">
+                                You selected <strong>Pay at the Shop</strong> — pay at least{" "}
+                                <strong>{formatCurrency(downDue)}</strong> (50% of total) when you visit. Your order will{" "}
+                                <strong>not be processed</strong> until the staff at the shop verifies the payment. You may also pay the full{" "}
+                                <strong>{formatCurrency(total)}</strong> at the shop.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                              <Info className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-blue-800">
+                                You selected <strong>Pay Online</strong> — choose your payment method below, then submit the{" "}
+                                payment reference after placing your order. Your order stays{" "}
+                                <strong>awaiting payment verification</strong> until Admin or Staff verifies it.
+                              </p>
+                            </div>
+                          )}
+
+                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">
+                            Amount to pay today
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentAmountChoice("down")}
+                              className={`flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                                paymentAmountChoice === "down"
+                                  ? "border-[#2F6FD6] bg-white ring-2 ring-[#2F6FD6]/20"
+                                  : "border-amber-200 bg-white hover:border-amber-300"
+                              }`}
+                            >
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                                  Down Payment (50%)
+                                </p>
+                                <p className="text-xl font-bold text-gray-900">
+                                  {formatCurrency(downDue)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Pay half now; settle the remaining{" "}
+                                  <strong>{formatCurrency(total - downDue)}</strong> on pickup.
+                                </p>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentAmountChoice("full")}
+                              className={`flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                                paymentAmountChoice === "full"
+                                  ? "border-[#2F6FD6] bg-white ring-2 ring-[#2F6FD6]/20"
+                                  : "border-amber-200 bg-white hover:border-amber-300"
+                              }`}
+                            >
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                                  Full Amount
+                                </p>
+                                <p className="text-xl font-bold text-gray-900">
+                                  {formatCurrency(total)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Pay everything now; nothing left to pay on pickup.
+                                </p>
+                              </div>
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                            <div className="p-3 bg-white rounded-lg border border-amber-200">
+                              <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
+                                {payingFull ? "Due Now (Full Payment)" : "Down Payment Due Now"}
+                              </p>
+                              <p className="text-2xl font-bold text-amber-700">
+                                {formatCurrency(payingFull ? total : downDue)}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white rounded-lg border border-amber-200">
+                              <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
+                                Balance on Pickup
+                              </p>
+                              <p className="text-2xl font-bold text-gray-700">
+                                {formatCurrency(payingFull ? 0 : total - downDue)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2661,6 +2964,31 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-slate-500 pt-2 text-center">
+                By placing your order, you agree to our{" "}
+                <button
+                  type="button"
+                  className="underline text-[#1D73EC] hover:text-[#10316B]"
+                  onClick={() => {
+                    setLegalPolicyTab("terms");
+                    setShowLegalPolicy(true);
+                  }}
+                >
+                  Terms &amp; Conditions
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  className="underline text-[#1D73EC] hover:text-[#10316B]"
+                  onClick={() => {
+                    setLegalPolicyTab("privacy");
+                    setShowLegalPolicy(true);
+                  }}
+                >
+                  Privacy Policy
+                </button>
+                .
+              </p>
             </div>
           )
         )}
@@ -2762,7 +3090,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       setShowPlaceOrderConfirm(true);
                     }
                   }}
-                  disabled={isWalkin ? files.length === 0 : files.length === 0 || !paymentMethod}
+                  disabled={isWalkin ? files.length === 0 : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged)}
                 >
                   {isWalkin ? "Proceed to In Queue" : isOnline ? "Go to Payment Verification" : "Place Order"}
                 </Button>
@@ -2938,7 +3266,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           <DialogContent className="max-w-md">
             <DialogHeader>
               <div className="flex justify-center mb-4">
-                {calculateTotal() >= downPaymentThreshold ? (
+                {paymentRequirementFor(calculateTotal()) !== "none" ? (
                   <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
                     <CreditCard className="w-10 h-10 text-amber-600" />
                   </div>
@@ -2949,48 +3277,58 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 )}
               </div>
               <DialogTitle className="text-center text-xl">
-                {calculateTotal() >= downPaymentThreshold
-                  ? "Order Submitted — Down Payment Required"
-                  : "Print Request Received!"}
+                {requiresFullPayment
+                  ? "Order Submitted — Full Payment Required"
+                  : requiresDownPayment
+                    ? "Order Submitted — Down Payment Required"
+                    : "Order Submitted — Awaiting Payment"}
               </DialogTitle>
               <DialogDescription className="text-center space-y-4 pt-4">
                 {(() => {
                   const total = calculateTotal();
-                  const requiresDownPayment = total >= downPaymentThreshold;
-                  const downPaymentValue = requiresDownPayment ? total * 0.5 : 0;
 
-                  return requiresDownPayment ? (
+                  return requiresFullPayment || requiresDownPayment ? (
                     <>
                       <p className="text-gray-700">
-                        Your order has been submitted and placed <strong>awaiting payment verification</strong>. A down payment must be made and verified before printing can begin.
+                        Your order has been submitted and placed <strong>awaiting payment verification</strong>. {requiresFullPayment
+                          ? "Full payment must be made and verified before printing can begin."
+                          : "A down payment must be made and verified before printing can begin."}
                       </p>
                       <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left space-y-2">
-                        <p className="text-sm font-bold text-amber-800">Down Payment Summary</p>
+                        <p className="text-sm font-bold text-amber-800">
+                          {requiresFullPayment ? "Full Payment Summary" : "Down Payment Summary"}
+                        </p>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Order Total</span>
                           <span className="font-semibold text-gray-900">{formatCurrency(total)}</span>
                         </div>
                         <div className="flex justify-between text-sm border-t border-amber-200 pt-2">
-                          <span className="text-amber-800 font-bold">Down Payment (50%)</span>
-                          <span className="font-bold text-amber-700">{formatCurrency(downPaymentValue)}</span>
+                          <span className="text-amber-800 font-bold">
+                            {requiresFullPayment ? "Amount Due (Full Payment)" : "Down Payment (50%)"}
+                          </span>
+                          <span className="font-bold text-amber-700">{formatCurrency(requiresFullPayment ? total : downPaymentValue)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Balance on Pickup</span>
-                          <span className="font-semibold text-gray-700">{formatCurrency(downPaymentValue)}</span>
+                          <span className="text-gray-600">Balance After Payment</span>
+                          <span className="font-semibold text-gray-700">{formatCurrency(requiresFullPayment ? 0 : downPaymentValue)}</span>
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        Pay <strong>{formatCurrency(downPaymentValue)}</strong> via{" "}
+                        Pay <strong>{formatCurrency(requiresFullPayment ? total : downPaymentValue)}</strong> via{" "}
                         <strong>{isOnline ? paymentMethod : "Cash at the shop"}</strong>, then inform staff to verify. Your order will be queued for printing once verified.
                       </p>
                     </>
                   ) : (
                     <>
                       <p className="text-gray-700">
-                        Your print request has been successfully received by our admin/staff team.
+                        {isOnline
+                          ? "Your print request has been successfully received by our admin/staff team."
+                          : <>Your order has been submitted and is <strong>awaiting payment confirmation at the shop</strong>.</>}
                       </p>
                       <p className="text-sm text-gray-600">
-                        You can track your order status from the <strong>My Orders</strong> page or proceed to payment verification if required.
+                        {isOnline
+                          ? "You can track your order status from the My Orders page or proceed to payment verification if required."
+                          : <>Please visit the shop and pay <strong>{formatCurrency(total)}</strong> in cash before the payment deadline to confirm this order. The staff will verify your payment and your order will be added to the print queue.</>}
                       </p>
                     </>
                   );
@@ -3044,14 +3382,32 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           onOpenChange={setShowPlaceOrderConfirm}
           onConfirm={() => { handleSubmit(); setShowPlaceOrderConfirm(false); }}
           title={isOnline ? "Go to Payment Verification?" : "Place this order?"}
-          description={
-            isOnline
-              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number. Your order is NOT placed in the system until you submit your reference.`
-              : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(calculateTotal())} via ${paymentMethod === "" ? "your selected method" : paymentMethod}. This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`
-          }
+          description={(() => {
+            const total = calculateTotal();
+            const paymentNote =
+              requiresFullPayment
+                ? ` Full payment of ${formatCurrency(total)} is required before printing (no 50% option).`
+                : requiresDownPayment
+                  ? ` A 50% down payment of ${formatCurrency(total * 0.5)} is required before printing.`
+                  : isOnline
+                    ? ` Full payment of ${formatCurrency(total)} is required before printing.`
+                    : ` You selected Cash on Pickup — you must pay ${formatCurrency(total)} in cash at the shop before your order can be printed.`;
+
+            return isOnline
+              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number.${paymentNote} Your order is NOT placed in the system until you submit your reference.`
+              : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod === "" ? "your selected method" : paymentMethod}.${paymentNote} This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`;
+          })()}
           confirmLabel={isOnline ? "Go to Payment Verification" : "Place Order"}
           cancelLabel="Go Back"
           destructive={false}
+        />
+      )}
+
+      {!isWalkin && (
+        <LegalPolicyDialog
+          open={showLegalPolicy}
+          onOpenChange={setShowLegalPolicy}
+          initialTab={legalPolicyTab}
         />
       )}
 

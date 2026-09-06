@@ -23,6 +23,18 @@ export type PricingValues = {
   sizeA3: number; // per-page surcharge for A3
   duplexSavings: number; // per-page savings for double-sided printing
   downPaymentThreshold: number; // order total at/above which a down payment is required
+  // PLACEHOLDER — value NOT yet confirmed by the client (named both ₱100 and ₱150).
+  // Order totals at/above this amount require FULL payment (no 50% option) before
+  // printing, since a printed-but-unclaimed high-value order is hard to recover.
+  fullPaymentThreshold: number;
+  // PLACEHOLDER — PAID-PAYMENT DEADLINES NOT YET CONFIRMED BY THE CLIENT.
+  // Awaiting-payment orders are auto-cancelled as expired if payment is not
+  // confirmed within these windows. Cash-on-pickup orders must be paid at the
+  // shop; online orders must be submitted + verified. Admin-editable under
+  // "Order Rules" (hours, 0 = no auto-expiry). Deadline basis is hours (not
+  // store hours) pending client decision.
+  cashPickupPaymentHours: number; // how long a customer has to pay cash at the shop
+  onlinePaymentVerificationHours: number; // how long an online payment has to be submitted + verified
 };
 
 // Current system behavior (formerly hardcoded) is the default.
@@ -34,6 +46,10 @@ const DEFAULT_PRICING: PricingValues = {
   sizeA3: 1.5,
   duplexSavings: 0.5,
   downPaymentThreshold: 50,
+  fullPaymentThreshold: 100, // client named both ₱100 and ₱150; using ₱100 (admin-editable)
+  // Placeholder deadline windows (hours) — pending client confirmation.
+  cashPickupPaymentHours: 48,
+  onlinePaymentVerificationHours: 24,
 };
 
 // ============================================================
@@ -219,6 +235,30 @@ export const PRICING_ITEMS: PricingItemSpec[] = [
     description: 'Order totals at or above this amount require a down payment.',
     category: 'Order Rules',
     unit: '₱',
+    editable: true,
+  },
+  {
+    id: 'fullPaymentThreshold',
+    label: 'Full Payment Threshold',
+    description: 'Order totals at or above this amount require FULL payment upfront — the 50% down payment option is removed.',
+    category: 'Order Rules',
+    unit: '₱',
+    editable: true,
+  },
+  {
+    id: 'cashPickupPaymentHours',
+    label: 'Cash on Pickup Payment Window',
+    description: 'How long a customer has to pay in cash at the shop before the order is auto-cancelled (hours, 0 = never expires). PLACEHOLDER — pending client confirmation.',
+    category: 'Order Rules',
+    unit: 'hrs',
+    editable: true,
+  },
+  {
+    id: 'onlinePaymentVerificationHours',
+    label: 'Online Payment Verification Window',
+    description: 'How long an online payment must be submitted + verified before the order is auto-cancelled (hours, 0 = never expires). PLACEHOLDER — pending client confirmation.',
+    category: 'Order Rules',
+    unit: 'hrs',
     editable: true,
   },
 ];

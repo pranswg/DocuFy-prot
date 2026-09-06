@@ -7,11 +7,9 @@
 
 export type OrderStatusKey =
   | "all"
-  | "received"
   | "inQueue"
   | "printing"
   | "completed"
-  | "onHold"
   | "released"
   | "canceled"
   | "awaitingPayment";
@@ -37,16 +35,6 @@ export const ORDER_STATUS_STYLES: Record<OrderStatusKey, OrderStatusStyle> = {
     icon: "text-[#3B82F6]",
     label: "text-[#2563EB]",
     badge: "bg-[#EAF3FF] text-[#2563EB] border-[#3B82F6]/40",
-  },
-  received: {
-    bg: "bg-[#F1F3F5]",
-    accent: "border-[#6B7280]",
-    hover: "hover:border-[#6B7280]",
-    hoverBg: "hover:bg-[#F1F3F5]",
-    chip: "bg-[#6B7280]/10",
-    icon: "text-[#6B7280]",
-    label: "text-[#374151]",
-    badge: "bg-[#F1F3F5] text-[#374151] border-[#6B7280]/40",
   },
   inQueue: {
     bg: "bg-[#FFF5D6]",
@@ -77,16 +65,6 @@ export const ORDER_STATUS_STYLES: Record<OrderStatusKey, OrderStatusStyle> = {
     icon: "text-[#55A630]",
     label: "text-[#3B7A1E]",
     badge: "bg-[#E8F7D8] text-[#3B7A1E] border-[#55A630]/40",
-  },
-  onHold: {
-    bg: "bg-[#FFF0E6]",
-    accent: "border-[#F97316]",
-    hover: "hover:border-[#F97316]",
-    hoverBg: "hover:bg-[#FFF0E6]",
-    chip: "bg-[#F97316]/10",
-    icon: "text-[#F97316]",
-    label: "text-[#C2410C]",
-    badge: "bg-[#FFF0E6] text-[#C2410C] border-[#F97316]/40",
   },
   released: {
     bg: "bg-[#E0F7F5]",
@@ -124,15 +102,16 @@ export const ORDER_STATUS_STYLES: Record<OrderStatusKey, OrderStatusStyle> = {
 export const STATUS_DISPLAY_TO_KEY: Record<string, OrderStatusKey> = {
   "All Orders": "all",
   All: "all",
-  Received: "received",
   "In Queue": "inQueue",
   Printing: "printing",
   Completed: "completed",
-  "On Hold": "onHold",
   Released: "released",
   Canceled: "canceled",
   "Awaiting Payment": "awaitingPayment",
   "Awaiting Verification": "awaitingPayment",
+  // Legacy statuses folded into the new workflow
+  Received: "all",
+  "On Hold": "all",
 };
 
 export function getOrderStatusStyle(status?: string): OrderStatusStyle {
