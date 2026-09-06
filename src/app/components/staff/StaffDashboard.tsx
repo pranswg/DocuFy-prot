@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { ordersStore } from "../../utils/ordersStore";
 import type { OrderType } from "../../utils/ordersStore";
@@ -216,7 +217,7 @@ export default function StaffDashboard() {
 
   return (
     <Layout menuItems={menuItems} title="Staff Dashboard">
-      <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      <div className="space-y-5 max-w-7xl mx-auto pb-8">
 
         {/* Welcome */}
         <div>
@@ -264,32 +265,16 @@ export default function StaffDashboard() {
               bg: "bg-emerald-50",
             },
           ].map((kpi) => (
-            <Card
+            <SummaryCard
               key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              icon={kpi.icon}
+              iconBg={kpi.bg}
+              iconColor={kpi.color}
+              subtitle={kpi.desc}
               onClick={() => navigate("/staff/queue")}
-              className="p-4 sm:p-5 cursor-pointer border border-gray-100 bg-white hover:border-gray-200 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center flex-shrink-0`}
-                  >
-                    <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600">
-                      {kpi.label}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 leading-none mt-1">
-                      {kpi.value}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <p className="text-[11px] text-gray-500 font-medium mt-2">
-                {kpi.desc}
-              </p>
-            </Card>
+            />
           ))}
         </div>
 

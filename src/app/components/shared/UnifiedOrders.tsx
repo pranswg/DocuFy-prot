@@ -34,6 +34,7 @@ import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
 import { formatPHDate, formatPHTime, toPHT, nowPHT, subscribeInternetTime } from "../../utils/pht";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -828,28 +829,20 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           ] as const).map(([key, label, description, Icon, count]) => {
             const s = ORDER_STATUS_STYLES[key];
             return (
-              <div
+              <SummaryCard
                 key={key}
+                label={label}
+                value={count}
+                icon={Icon}
+                iconBg={s.chip}
+                iconColor={s.icon}
+                labelColor={s.label}
+                active={statusFilter === key}
+                activeBorder={s.accent}
+                activeBg={s.bg}
+                subtitle={description}
                 onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
-                className={`flex flex-col p-2.5 rounded-xl border-2 bg-white shadow-sm transition-all duration-200 hover:shadow-md ${s.hover} ${s.hoverBg} ${
-                  statusFilter === key ? `${s.bg} ${s.accent} shadow-md` : "border-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${s.chip}`}>
-                    <Icon className={`w-4 h-4 ${s.icon}`} />
-                  </div>
-                  <p className={`text-xs font-semibold leading-tight ${s.label}`}>
-                    {label}
-                  </p>
-                </div>
-                <p className="mt-2 pl-10 text-lg font-bold leading-none text-[#1c1f26]">
-                  {count}
-                </p>
-                <p className={`hidden sm:block mt-1 pl-10 text-[11px] font-medium truncate ${s.icon} opacity-80`}>
-                  {description}
-                </p>
-              </div>
+              />
             );
           })}
         </div>

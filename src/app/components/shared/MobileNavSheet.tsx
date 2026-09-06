@@ -184,7 +184,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           onClick={() => toggleModule(module)}
           aria-current={isActive ? "page" : undefined}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white w-full px-4 py-3 gap-3.5 rounded-xl ${
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 w-full px-4 py-3 gap-3.5 rounded-xl ${
             isActive
               ? "bg-white text-[#1D73EC] shadow-lg"
               : "text-blue-100 hover:bg-white/10 hover:text-white"
@@ -211,7 +211,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
         </button>
         {hasChildren && isExpanded && (
           <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/80">
+            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
               {module.label}
             </div>
             {module.children!.map((childItem) => {
@@ -226,7 +226,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   type="button"
                   onClick={() => navigateAndClose(childItem.path)}
                   aria-current={isChildActive ? "page" : undefined}
-                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
                     isChildActive
                       ? "bg-white text-[#1D73EC] shadow-sm"
                       : "text-blue-100 hover:bg-white/10 hover:text-white"
@@ -301,13 +301,13 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           </div>
 
           <div className="my-2 px-3">
-            <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+            <div className="h-[2px] bg-white/40 w-full mb-4" />
             <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close navigation"
-                className="flex items-center rounded-xl transition-all duration-200 w-full px-3 py-2.5 gap-3 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="flex items-center rounded-xl transition-all duration-200 w-full px-3 py-2.5 gap-3 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40"
               >
                 <div className="flex-shrink-0">
                   <ChevronLeft className="w-5 h-5" />
@@ -315,7 +315,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                 <span className="text-sm font-medium">Collapse</span>
               </button>
             </div>
-            <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
+            <div className="h-[2px] bg-white/40 w-full mt-4" />
           </div>
 
           <nav
@@ -349,18 +349,18 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           </nav>
 
           <div className="relative mt-auto w-full px-3 pb-5">
-            <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+            <div className="h-[2px] bg-white/40 w-full mb-4" />
             <button
               type="button"
               onClick={() => setIsProfileOpen((isOpen) => !isOpen)}
               aria-label="Open account menu"
               aria-expanded={isProfileOpen}
               aria-haspopup="menu"
-              className={`flex items-center gap-3 rounded-xl transition-all w-full px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                isProfileOpen ? "bg-white/15" : "hover:bg-white/10"
+              className={`flex items-center gap-3 rounded-xl transition-all w-full px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
+                isProfileOpen ? "bg-white/10" : "hover:bg-white/10"
               }`}
             >
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#1D73EC] font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
+              <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
                 {profileImage ? (
                   <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
@@ -368,7 +368,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                 )}
               </div>
               <div className="min-w-0 flex-1 text-left">
-                <p className="text-xs font-bold text-white leading-none truncate">
+                <p className="text-xs font-semibold text-white leading-none truncate">
                   {user?.email?.split("@")[0]}
                 </p>
                 <p className="text-[10px] text-blue-100 capitalize leading-none mt-1">

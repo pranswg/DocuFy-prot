@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -179,42 +180,10 @@ export default function PaymentMethodsManagement() {
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center">
-                <QrCode className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Total Methods</p>
-                <p className="text-2xl font-bold text-[#10316B]">{methods.length}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Active for Customers</p>
-                <p className="text-2xl font-bold text-[#10316B]">{activeCount}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center">
-                <Ban className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Inactive</p>
-                <p className="text-2xl font-bold text-[#10316B]">
-                  {methods.length - activeCount}
-                </p>
-              </div>
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <SummaryCard icon={QrCode} label="Total Methods" value={methods.length} iconBg="bg-[#F2F7FF]" iconColor="text-[#1D73EC]" />
+          <SummaryCard icon={UserCheck} label="Active for Customers" value={activeCount} iconBg="bg-green-50" iconColor="text-green-600" />
+          <SummaryCard icon={Ban} label="Inactive" value={methods.length - activeCount} iconBg="bg-gray-100" iconColor="text-gray-500" />
         </div>
 
         {/* Method Cards */}

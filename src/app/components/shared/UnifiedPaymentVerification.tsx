@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -286,50 +287,37 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           <SummaryCard
             label="All Transactions"
             value={payments.length}
-            icon={<CreditCard />}
-            isActive={statusFilter === "all"}
+            icon={CreditCard}
+            active={statusFilter === "all"}
             onClick={() => setStatusFilter("all")}
-            type="blue"
           />
           <SummaryCard
             label="Pending"
             value={stats.pending}
-            icon={<Clock />}
-            isActive={statusFilter === "pending"}
+            icon={Clock}
+            active={statusFilter === "pending"}
             onClick={() => setStatusFilter("pending")}
-            type="blue"
           />
           <SummaryCard
             label="Verified"
             value={stats.verified}
-            icon={<CheckCircle />}
-            isActive={statusFilter === "verified"}
+            icon={CheckCircle}
+            active={statusFilter === "verified"}
             onClick={() => setStatusFilter("verified")}
-            type="blue"
           />
           <SummaryCard
             label="Rejected"
             value={stats.rejected}
-            icon={<XCircle />}
-            isActive={statusFilter === "rejected"}
+            icon={XCircle}
+            active={statusFilter === "rejected"}
             onClick={() => setStatusFilter("rejected")}
-            type="blue"
           />
-          <Card className="p-5 border-2 border-gray-100 bg-[#1D73EC] text-white shadow-none">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/20 rounded-lg">
-                <CreditCard className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-white/80 font-medium mb-0.5">
-                  Total Verified
-                </p>
-                <p className="text-2xl font-bold">
-                  ?{stats.totalAmount.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </Card>
+          <SummaryCard
+            highlight
+            label="Total Verified"
+            value={`?${stats.totalAmount.toLocaleString()}`}
+            icon={CreditCard}
+          />
         </div>
 
         {/* Payments Table */}
@@ -832,45 +820,6 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 }
 
 // --- Helper Components ---
-
-function SummaryCard({
-  label,
-  value,
-  icon,
-  isActive,
-  onClick,
-}: any) {
-  return (
-    <Card
-      className={`p-5 cursor-pointer transition-all border-2 shadow-none ${
-        isActive
-          ? "border-[#1D73EC] bg-[#F2F7FF]"
-          : "border-gray-100 hover:border-[#1D73EC]/30 bg-white"
-      }`}
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`p-2.5 rounded-lg ${
-            isActive
-              ? "bg-[#1D73EC] text-white"
-              : "bg-[#F2F7FF] text-[#1D73EC]"
-          }`}
-        >
-          {React.cloneElement(icon, { size: 20 })}
-        </div>
-        <div>
-          <p className="text-xs text-gray-400 font-semibold mb-0.5">
-            {label}
-          </p>
-          <p className="text-2xl font-bold text-[#10316B]">
-            {value}
-          </p>
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 function StatusBadge({
   status,

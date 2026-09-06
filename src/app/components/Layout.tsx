@@ -374,7 +374,7 @@ export default function Layout({
           onMouseLeave={() => setSidebarTooltip(null)}
           aria-current={isActive ? "page" : undefined}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
             showLabels ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
           } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
         >
@@ -396,7 +396,7 @@ export default function Layout({
 
         {hasChildren && isExpanded && showLabels && (
           <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/80">
+            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
               {module.label}
             </div>
             <div className="flex flex-col items-stretch">
@@ -414,7 +414,7 @@ export default function Layout({
                     onMouseEnter={(e) => showSidebarTooltip(child.label, e)}
                     onMouseLeave={() => setSidebarTooltip(null)}
                     aria-current={isChildActive ? "page" : undefined}
-                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
                       isChildActive
                         ? "bg-white text-[#1D73EC] shadow-sm"
                         : "text-blue-100 hover:bg-white/10 hover:text-white"
@@ -640,7 +640,7 @@ export default function Layout({
       </div>
 
       <div className="my-2 px-3">
-        <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+        <div className="h-[2px] bg-white/40 w-full mb-4" />
         <div className="flex justify-center">
           <button
             type="button"
@@ -659,7 +659,7 @@ export default function Layout({
               isMobile || isSidebarExpanded
                 ? "w-full px-3 py-2.5 gap-3"
                 : "w-10 h-10 justify-center"
-            } text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`}
+            } text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40`}
           >
             <div className="flex-shrink-0">
               {isMobile || isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -667,7 +667,7 @@ export default function Layout({
             {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium">Collapse</span>}
           </button>
         </div>
-        <div className="h-[2px] bg-white/40 w-full mt-4 shadow-sm" />
+        <div className="h-[2px] bg-white/40 w-full mt-4" />
       </div>
 
       <nav
@@ -708,7 +708,7 @@ export default function Layout({
       </nav>
 
       <div className="relative mt-auto w-full px-3 pb-5">
-        <div className="h-[2px] bg-white/40 w-full mb-4 shadow-sm" />
+        <div className="h-[2px] bg-white/40 w-full mb-4" />
         <button
           type="button"
           onClick={() => {
@@ -727,11 +727,11 @@ export default function Layout({
           aria-label="Open account menu"
           aria-expanded={isProfileOpen}
           aria-haspopup="menu"
-          className={`flex items-center gap-3 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+          className={`flex items-center gap-3 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
             isMobile || isSidebarExpanded ? "w-full px-3 py-2.5" : "mx-auto h-11 w-11 justify-center"
-          } ${isProfileOpen ? "bg-white/15" : "hover:bg-white/10"}`}
+          } ${isProfileOpen ? "bg-white/10" : "hover:bg-white/10"}`}
         >
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#1D73EC] font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
+          <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
             {profileImage ? (
               <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -740,7 +740,7 @@ export default function Layout({
           </div>
           {(isMobile || isSidebarExpanded) && (
             <div className="min-w-0 flex-1 text-left">
-              <p className="text-xs font-bold text-white leading-none truncate">
+              <p className="text-xs font-semibold text-white leading-none truncate">
                 {user?.email?.split("@")[0]}
               </p>
               <p className="text-[10px] text-blue-100 capitalize leading-none mt-1">
@@ -807,7 +807,7 @@ export default function Layout({
   );
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] flex font-poppins overflow-hidden">
+    <div className="min-h-screen bg-[#f6f7f9] flex font-poppins overflow-hidden">
       {!isMobile && (
         <aside
           aria-label="Primary navigation"
@@ -821,7 +821,7 @@ export default function Layout({
 
       {/* ─── MAIN CONTENT ─── */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="min-h-16 bg-white border-b border-gray-200 px-3 sm:px-6 lg:px-8 py-2 flex items-center justify-between z-40 flex-shrink-0 shadow-sm">
+        <header className="min-h-16 bg-white border-b border-slate-200/80 px-4 sm:px-5 lg:px-6 py-2 flex items-center justify-between z-40 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {isMobile ? (
               <button
@@ -1020,8 +1020,8 @@ export default function Layout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f0f4f8]">
-          <div className="p-3 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f6f7f9]">
+          <div className="p-4 sm:p-5 lg:p-6 max-w-[1440px] mx-auto w-full">
             {children}
           </div>
         </main>
@@ -1060,31 +1060,6 @@ export default function Layout({
 
         .custom-scrollbar::-webkit-scrollbar-thumb:active {
           background: rgba(0,0,0,0.3);
-          background-clip: padding-box;
-        }
-
-        /* Sidebar-specific scrollbar - White theme for blue background */
-        aside .custom-scrollbar {
-          scrollbar-color: rgba(255,255,255,0.25) transparent;
-        }
-
-        aside .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.05);
-        }
-
-        aside .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.25);
-          border: 2px solid transparent;
-          background-clip: padding-box;
-        }
-
-        aside .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.35);
-          background-clip: padding-box;
-        }
-
-        aside .custom-scrollbar::-webkit-scrollbar-thumb:active {
-          background: rgba(255,255,255,0.45);
           background-clip: padding-box;
         }
       `}</style>

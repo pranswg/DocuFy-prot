@@ -19,7 +19,6 @@ import {
   Eye,
   ShoppingCart,
   BarChart3,
-  PieChart as PieChartIcon,
   DollarSign,
   Truck,
   Clock,
@@ -30,6 +29,7 @@ import {
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import {
   LineChart,
   Line,
@@ -42,9 +42,6 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 import { dataStore, Order } from "../../utils/dataStore";
 import { adminMenuItems } from "../../utils/adminMenuItems";
@@ -206,8 +203,6 @@ function deriveService(order: Order): string {
   if (order.addons && order.addons.length > 0) return "School Supplies";
   return "Others";
 }
-
-const PIECE_COLORS = ["#2F6FD6", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE"];
 
 // ─── types for metrics ────────────────────────────────────────────────────────
 interface DashboardMetrics {
@@ -375,40 +370,15 @@ function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }):
 }
 
 // ─── sub-components ───────────────────────────────────────────────────────────
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  trend,
-  trendLabel,
-  iconBg,
-  iconColor,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  trend: number;
-  trendLabel: string;
-  iconBg: string;
-  iconColor: string;
-}) {
+function TrendText({ trend, label }: { trend: number; label: string }) {
   const isUp = trend >= 0;
   return (
-    <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl flex items-center gap-3">
-      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
-        <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${iconColor}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] sm:text-xs font-semibold sm:font-medium text-gray-500 truncate uppercase sm:normal-case tracking-wide sm:tracking-normal">{label}</p>
-        <p className="text-lg font-bold text-gray-900 leading-tight">{value}</p>
-        <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
-          <span className={`text-[10px] sm:text-xs font-semibold ${isUp ? "text-green-600" : "text-red-500"}`}>
-            {isUp ? "↗" : "↘"} {Math.abs(trend).toFixed(1)}%
-          </span>
-          <span className="hidden sm:inline text-[11px] text-slate-400">{trendLabel}</span>
-        </div>
-      </div>
-    </Card>
+    <>
+      <span className={`text-xs font-semibold ${isUp ? "text-green-600" : "text-red-500"}`}>
+        {isUp ? "↗" : "↘"} {Math.abs(trend).toFixed(1)}%
+      </span>
+      <span className="truncate">{label}</span>
+    </>
   );
 }
 
@@ -429,9 +399,9 @@ function SectionCard({
 }) {
   return (
     <Card className={`bg-white shadow-sm border border-slate-100 ${className}`}>
-      <div className="flex items-center justify-between px-6 pt-5 pb-3">
+      <div className="flex items-center justify-between px-5 pt-4 pb-2.5">
         <div>
-          <h3 className="text-base font-bold text-slate-800">{title}</h3>
+          <h3 className="text-base font-semibold text-slate-800">{title}</h3>
           {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
         {action && actionLabel && (
@@ -440,7 +410,7 @@ function SectionCard({
           </button>
         )}
       </div>
-      <div className="px-6 pb-5">{children}</div>
+      <div className="px-5 pb-4">{children}</div>
     </Card>
   );
 }
@@ -464,7 +434,7 @@ function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) 
 }
 
 // ─── Inventory Snapshot ───────────────────────────────────────────────────────
-function InventorySnapshot({ items, navigate }: { items: InventoryItem[]; navigate: ReturnType<typeof useNavigate> }) {
+function InventorySnapshot({ items, navigate, className = "" }: { items: InventoryItem[]; navigate: ReturnType<typeof useNavigate>; className?: string }) {
   const activeItems = items.filter((i) => !i.archived);
   const lowStockItems = activeItems.filter((i) => inventoryStore.getInventoryStatus(i) === "low");
   const outOfStockItems = activeItems.filter((i) => inventoryStore.getInventoryStatus(i) === "out");
@@ -476,6 +446,7 @@ function InventorySnapshot({ items, navigate }: { items: InventoryItem[]; naviga
       subtitle="Quick visibility into stock levels"
       action={() => navigate("/admin/inventory")}
       actionLabel="View Inventory"
+      className={className}
     >
       <div className="grid grid-cols-3 gap-2 text-center sm:gap-3">
         <div className="p-2.5 bg-gray-50 rounded-lg">
@@ -525,20 +496,13 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
   const {
     totalSales, totalOrders, walkInCount, activeCustomers,
     prevTotalSales, prevTotalOrders, prevWalkInCount, prevActiveCustomers,
-    salesTrend, serviceStats, paperStats, recentOrders,
+    salesTrend, recentOrders,
   } = metrics;
 
   const salesTrendPct = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : 0;
   const ordersTrendPct = prevTotalOrders > 0 ? ((totalOrders - prevTotalOrders) / prevTotalOrders) * 100 : 0;
   const walkInTrendPct = prevWalkInCount > 0 ? ((walkInCount - prevWalkInCount) / prevWalkInCount) * 100 : 0;
   const customerTrendPct = prevActiveCustomers > 0 ? ((activeCustomers - prevActiveCustomers) / prevActiveCustomers) * 100 : 0;
-
-  const paperTotal = paperStats.reduce((s, p) => s + p.count, 0);
-  const donutData = paperStats.slice(0, 5).map((p) => ({
-    name: p.name,
-    value: p.count,
-    pct: paperTotal > 0 ? ((p.count / paperTotal) * 100).toFixed(1) : "0",
-  }));
 
   const [showAllRecent, setShowAllRecent] = useState(false);
   const recentVisible = showAllRecent ? recentOrders : recentOrders.slice(0, 4);
@@ -547,22 +511,42 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
   const salesDiff = totalSales - prevTotalSales;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard icon={DollarSign} label="Total Sales" value={fmtShort(totalSales)} trend={salesTrendPct} trendLabel="vs previous period" iconBg="bg-blue-50" iconColor="text-[#2F6FD6]" />
-        <StatCard icon={Package} label="Total Orders" value={totalOrders.toLocaleString()} trend={ordersTrendPct} trendLabel="vs previous period" iconBg="bg-green-50" iconColor="text-green-600" />
-        <StatCard icon={ShoppingCart} label="Walk-in Transactions" value={walkInCount.toLocaleString()} trend={walkInTrendPct} trendLabel="vs previous period" iconBg="bg-purple-50" iconColor="text-purple-600" />
-        <StatCard icon={Users} label="Active Customers" value={activeCustomers.toLocaleString()} trend={customerTrendPct} trendLabel="vs previous period" iconBg="bg-orange-50" iconColor="text-orange-500" />
+        <SummaryCard
+          icon={DollarSign}
+          label="Total Sales"
+          value={fmtShort(totalSales)}
+          subtitle={<TrendText trend={salesTrendPct} label="vs previous period" />}
+        />
+        <SummaryCard
+          icon={Package}
+          label="Total Orders"
+          value={totalOrders.toLocaleString()}
+          subtitle={<TrendText trend={ordersTrendPct} label="vs previous period" />}
+        />
+        <SummaryCard
+          icon={ShoppingCart}
+          label="Walk-in Transactions"
+          value={walkInCount.toLocaleString()}
+          subtitle={<TrendText trend={walkInTrendPct} label="vs previous period" />}
+        />
+        <SummaryCard
+          icon={Users}
+          label="Active Customers"
+          value={activeCustomers.toLocaleString()}
+          subtitle={<TrendText trend={customerTrendPct} label="vs previous period" />}
+        />
       </div>
 
       {/* Sales Trend + Sales Comparison */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
         <SectionCard title="Sales Trend" subtitle="Monthly revenue overview" className="lg:col-span-2">
           {salesTrend.length === 0 ? (
             <EmptyState icon={TrendingUp} message="No sales data yet" />
           ) : (
-            <div className="h-48 lg:h-[280px]">
+            <div className="h-48 lg:h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={salesTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
@@ -574,8 +558,8 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
                   <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-                  <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2.5} fill="url(#salesGradient)" dot={{ r: 4, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={false} />
+                  <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
+                  <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2} fill="url(#salesGradient)" dot={{ r: 3.5, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -615,62 +599,9 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
         </SectionCard>
       </div>
 
-      {/* Best Selling + Top Paper Sizes + Recent Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <SectionCard title="Best Selling Services" subtitle="Ranked by revenue">
-          {serviceStats.filter((s) => s.revenue > 0).length === 0 ? (
-            <EmptyState icon={BarChart3} message="No service data yet" />
-          ) : (
-            <div className="space-y-3">
-              {serviceStats.filter((s) => s.revenue > 0).slice(0, 5).map((svc, i) => (
-                <div key={svc.name} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-[#2F6FD6]">{i + 1}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{svc.name}</p>
-                    <p className="text-xs text-slate-400">{svc.count.toLocaleString()} orders</p>
-                  </div>
-                  <p className="text-sm font-bold text-slate-900 shrink-0">{fmt(svc.revenue)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Top Used Paper Sizes" subtitle="Distribution by order count">
-          {paperStats.length === 0 ? (
-            <EmptyState icon={PieChartIcon} message="No paper data yet" />
-          ) : (
-            <div className="flex flex-col items-center">
-              <div className="relative" style={{ width: 180, height: 180 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={donutData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value" isAnimationActive={false}>
-                      {donutData.map((_, idx) => (
-                        <Cell key={idx} fill={PIECE_COLORS[idx % PIECE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-[10px] font-medium text-slate-400 uppercase">Total</p>
-                  <p className="text-xl font-bold text-slate-800">{paperTotal.toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="w-full mt-3 space-y-1.5">
-                {donutData.map((p, idx) => (
-                  <div key={p.name} className="flex items-center gap-2 text-xs">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PIECE_COLORS[idx % PIECE_COLORS.length] }} />
-                    <span className="text-slate-600 flex-1">{p.name}</span>
-                    <span className="font-semibold text-slate-800">{p.value.toLocaleString()}</span>
-                    <span className="text-slate-400 w-10 text-right">{p.pct}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </SectionCard>
+      {/* Inventory Snapshot + Recent Transactions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        <InventorySnapshot items={items} navigate={navigate} className="lg:col-span-2" />
 
         <SectionCard title="Recent Transactions" action={() => navigate("/admin/orders")} actionLabel="View All">
           {recentOrders.length === 0 ? (
@@ -682,11 +613,11 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
                   const isPaid = o.status !== "Awaiting Payment" && o.status !== "Canceled";
                   const isWalkIn = o.orderSource === "walkin";
                   return (
-                    <div key={o.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg bg-slate-50/80">
+                    <div key={o.id} className="flex items-center gap-3 py-2 px-2 rounded-lg bg-slate-50/80">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-800">{o.id}</span>
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isWalkIn ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-[#2F6FD6]"}`}>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isWalkIn ? "bg-slate-100 text-slate-600" : "bg-blue-50 text-[#2F6FD6]"}`}>
                             {isWalkIn ? "Walk-in" : "Print Order"}
                           </span>
                         </div>
@@ -714,9 +645,6 @@ function OverviewTab({ metrics, navigate, items }: { metrics: DashboardMetrics; 
           )}
         </SectionCard>
       </div>
-
-      {/* Inventory Snapshot */}
-      <InventorySnapshot items={items} navigate={navigate} />
     </div>
   );
 }
@@ -729,36 +657,40 @@ function SalesTab({ metrics }: { metrics: DashboardMetrics }) {
   const chartData = salesView === "daily" ? dailySales : salesView === "weekly" ? weeklySales : monthlySales;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Summary row */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Revenue</p>
-          <p className="text-base font-bold text-gray-900 mt-1">{fmt(totalSales)}</p>
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Total Revenue</p>
+          <p className="text-xl sm:text-2xl font-semibold text-slate-900 mt-1.5 leading-tight">{fmt(totalSales)}</p>
         </Card>
-        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Highest Sales</p>
-          <p className="text-base font-bold mt-1">
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Highest Sales</p>
+          <p className="text-sm font-semibold text-slate-900 mt-1.5 truncate">
             {highestMonth ? (
-              <span className="inline-block bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-xs font-semibold">{highestMonth.name}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold">{highestMonth.name}</span>
+                <span className="text-lg sm:text-xl font-semibold text-slate-900">{fmt(highestMonth.sales)}</span>
+              </span>
             ) : "—"}
           </p>
-          {highestMonth && <p className="text-xs font-semibold text-slate-900 mt-1">{fmt(highestMonth.sales)}</p>}
         </Card>
-        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Lowest Sales</p>
-          <p className="text-base font-bold mt-1">
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Lowest Sales</p>
+          <p className="text-sm font-semibold text-slate-900 mt-1.5 truncate">
             {lowestMonth ? (
-              <span className="inline-block bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-xs font-semibold">{lowestMonth.name}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">{lowestMonth.name}</span>
+                <span className="text-lg sm:text-xl font-semibold text-slate-900">{fmt(lowestMonth.sales)}</span>
+              </span>
             ) : "—"}
           </p>
-          {lowestMonth && <p className="text-xs font-semibold text-slate-900 mt-1">{fmt(lowestMonth.sales)}</p>}
         </Card>
-        <Card className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Sales Periods</p>
-          <p className="text-base font-bold text-gray-900 mt-1">
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Sales Periods</p>
+          <p className="text-xl sm:text-2xl font-semibold text-slate-900 mt-1.5 leading-tight">
             {monthlySales.length}{" "}
-            <span className="text-xs font-medium text-gray-500">months with data</span>
+            <span className="text-xs font-medium text-slate-500">months with data</span>
           </p>
         </Card>
       </div>
@@ -782,7 +714,7 @@ function SalesTab({ metrics }: { metrics: DashboardMetrics }) {
         {chartData.length === 0 ? (
           <EmptyState icon={TrendingUp} message="No sales data for this period" />
         ) : (
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad2" x1="0" y1="0" x2="0" y2="1">
@@ -793,8 +725,8 @@ function SalesTab({ metrics }: { metrics: DashboardMetrics }) {
               <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-              <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
-              <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2.5} fill="url(#salesGrad2)" dot={{ r: 4, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={false} />
+              <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
+              <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2} fill="url(#salesGrad2)" dot={{ r: 3.5, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -810,23 +742,23 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
   const topService = activeServices.length > 0 ? activeServices[0] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Summary row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Most-Used Service</p>
-          <p className="text-xs font-semibold text-gray-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
-          {topService && <span className="inline-block mt-1 text-[10px] font-semibold text-[#2F6FD6] bg-blue-50 px-1.5 py-0.5 rounded-full">{topService.count.toLocaleString()} orders</span>}
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Most-Used Service</p>
+          <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
+          {topService && <span className="inline-block mt-2 text-[10px] font-semibold text-[#2F6FD6] bg-blue-50 px-2 py-0.5 rounded-full">{topService.count.toLocaleString()} orders</span>}
         </Card>
-        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Best-Selling Revenue</p>
-          <p className="text-xs font-semibold text-gray-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
-          {topService && <span className="inline-block mt-1 text-[10px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">{fmt(topService.revenue)}</span>}
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
+          <p className="text-xs font-medium text-slate-500">Best-Selling Revenue</p>
+          <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
+          {topService && <span className="inline-block mt-2 text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">{fmt(topService.revenue)}</span>}
         </Card>
-        <Card className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl col-span-2 justify-self-center w-full max-w-[calc(50%-0.375rem)] sm:col-span-1 sm:max-w-none flex flex-col items-center text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Orders</p>
-          <p className="text-xs font-semibold text-gray-900 mt-1.5">{totalOrders.toLocaleString()}</p>
-          <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">all services</span>
+        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl col-span-2 justify-self-center w-full max-w-[calc(50%-0.375rem)] sm:col-span-1 sm:max-w-none flex flex-col items-center text-center">
+          <p className="text-xs font-medium text-slate-500">Total Orders</p>
+          <p className="text-xl sm:text-2xl font-semibold text-slate-900 mt-1.5 leading-tight">{totalOrders.toLocaleString()}</p>
+          <span className="inline-block mt-2 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">all services</span>
         </Card>
       </div>
 
@@ -839,10 +771,10 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left py-2 px-2.5 font-semibold text-slate-500">Service</th>
-                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500">Orders</th>
-                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500">Revenue</th>
-                  <th className="text-right py-2 px-2.5 font-semibold text-slate-500 hidden sm:table-cell">% of Total</th>
+                  <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Service</th>
+                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Orders</th>
+                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Revenue</th>
+                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 hidden sm:table-cell">% of Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -850,8 +782,8 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
                   const totalRev = activeServices.reduce((s, x) => s + x.revenue, 0);
                   const pct = totalRev > 0 ? (svc.revenue / totalRev) * 100 : 0;
                   return (
-                    <tr key={svc.name} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="py-2 px-2.5 font-medium text-slate-800">
+                    <tr key={svc.name} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-3 font-medium text-slate-800">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center text-[10px] font-bold text-[#2F6FD6] shrink-0">{i + 1}</span>
                           <span className="min-w-0">
@@ -862,9 +794,9 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
                           </span>
                         </div>
                       </td>
-                      <td className="py-2 px-2.5 text-right text-slate-600">{svc.count.toLocaleString()}</td>
-                      <td className="py-2 px-2.5 text-right font-semibold text-slate-900">{fmt(svc.revenue)}</td>
-                      <td className="py-2 px-2.5 text-right text-slate-500 hidden sm:table-cell">{pct.toFixed(1)}%</td>
+                      <td className="py-2.5 px-3 text-right text-slate-600">{svc.count.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{fmt(svc.revenue)}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-500 hidden sm:table-cell">{pct.toFixed(1)}%</td>
                     </tr>
                   );
                 })}
@@ -877,13 +809,13 @@ function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
       {/* Service chart */}
       {activeServices.length > 0 && (
         <SectionCard title="Revenue by Service" subtitle="Visual comparison">
-          <div className="h-44 lg:h-[300px]">
+          <div className="h-44 lg:h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={activeServices} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-                <Tooltip formatter={(v: number) => [fmt(v), "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                <Tooltip formatter={(v: number) => [fmt(v), "Revenue"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
                 <Bar dataKey="revenue" fill="#2F6FD6" radius={[6, 6, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
@@ -919,17 +851,17 @@ export default function AdminDashboard() {
 
   return (
     <Layout menuItems={adminMenuItems} title="Admin Dashboard">
-      <div className="space-y-6 pb-10">
+      <div className="space-y-5 pb-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
             <p className="text-sm text-slate-500 mt-1">Welcome back, admin! Here's what's happening with Docufy today.</p>
           </div>
           <div className="relative">
             <button
               onClick={() => setDateDropdownOpen(!dateDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200/70 rounded-xl text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
             >
               <Calendar className="w-4 h-4 text-[#2F6FD6]" />
               <span>{selectedRangeLabel}</span>
@@ -974,7 +906,7 @@ export default function AdminDashboard() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === tab ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === tab ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
               >
                 {tab}
               </button>

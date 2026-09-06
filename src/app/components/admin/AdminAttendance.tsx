@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -573,14 +574,15 @@ export default function AdminAttendancePage() {
           </TabsList>
 
           {/* KPI cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mt-6">
             {[
               {
                 id: "kpi-total",
                 label: "Total Staff",
                 val: kpis.total,
                 icon: Users,
-                iconCls: "text-[#2F6FD6] group-hover:text-white",
+                iconBg: "bg-blue-50",
+                iconCls: "text-[#2F6FD6]",
                 desc: `${kpis.live} on clock now`,
               },
               {
@@ -588,7 +590,8 @@ export default function AdminAttendancePage() {
                 label: "Present",
                 val: kpis.present,
                 icon: UserCheck,
-                iconCls: "text-green-600 group-hover:text-white",
+                iconBg: "bg-green-50",
+                iconCls: "text-green-600",
                 desc: `${kpis.onTime} on time · ${kpis.late} late`,
               },
               {
@@ -596,7 +599,8 @@ export default function AdminAttendancePage() {
                 label: "Non-Present",
                 val: kpis.absent + kpis.noClock,
                 icon: UserX,
-                iconCls: "text-red-600 group-hover:text-white",
+                iconBg: "bg-red-50",
+                iconCls: "text-red-600",
                 desc: `${kpis.absent} absent · ${kpis.noClock} no clock-in`,
               },
               {
@@ -604,21 +608,20 @@ export default function AdminAttendancePage() {
                 label: "Away (On Leave)",
                 val: kpis.away,
                 icon: PlaneTakeoff,
-                iconCls: "text-amber-600 group-hover:text-white",
+                iconBg: "bg-amber-50",
+                iconCls: "text-amber-600",
                 desc: `${kpis.away} staff on approved leave`,
               },
             ].map(kpi => (
-              <Card
+              <SummaryCard
                 key={kpi.id}
-                className="border border-slate-100 bg-white p-5 shadow-sm transition-all group hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md"
-              >
-                <div className="flex justify-between items-start">
-                  <p className="text-base font-bold text-slate-700 group-hover:text-white">{kpi.label}</p>
-                  <kpi.icon className={`h-5 w-5 opacity-60 transition-all group-hover:scale-110 group-hover:opacity-100 ${kpi.iconCls}`} />
-                </div>
-                <p className="text-3xl font-bold text-slate-900 group-hover:text-white mt-2 tabular-nums">{kpi.val}</p>
-                <p className="text-[11px] text-slate-400 group-hover:text-blue-100 font-medium uppercase mt-1">{kpi.desc}</p>
-              </Card>
+                label={kpi.label}
+                value={kpi.val}
+                icon={kpi.icon}
+                iconBg={kpi.iconBg}
+                iconColor={kpi.iconCls}
+                subtitle={kpi.desc}
+              />
             ))}
           </div>
 

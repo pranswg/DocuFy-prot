@@ -231,7 +231,7 @@ export default function CustomerDashboard() {
 
   return (
     <Layout menuItems={menuItems} title="Dashboard" headerSearch={searchField}>
-      <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-10 max-w-7xl mx-auto">
+      <div className="space-y-4 sm:space-y-5 pb-6 sm:pb-8 max-w-7xl mx-auto">
 
         {/* Welcome */}
         <div>

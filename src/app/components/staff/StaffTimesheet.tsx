@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
@@ -295,7 +296,7 @@ export default function StaffTimesheet() {
         </Card>
 
         {/* ── Personal Metrics — Today vs This Week ───────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {[
             {
               id: "mt-tot",
@@ -318,23 +319,21 @@ export default function StaffTimesheet() {
               today: fmtCompact(todayOvertimeMs),
               week: fmtCompact(weekOvertimeMs),
             },
-          ].map(({ id, label, icon: Icon, today, week }) => (
-            <Card key={id} className="p-5 border border-slate-100 bg-white shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  {label}
-                </p>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F2F7FF]">
-                  <Icon className="h-5 w-5 text-[#1D73EC]" />
-                </span>
-              </div>
-              <p className="mt-3 text-3xl font-bold text-slate-900 tabular-nums">{today}</p>
-              <p className="mt-1 text-xs text-slate-400 font-medium">Today</p>
-              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-500 font-medium">This week</span>
-                <span className="text-sm font-bold text-slate-800 tabular-nums">{week}</span>
-              </div>
-            </Card>
+          ].map(({ id, label, icon, today, week }) => (
+            <SummaryCard
+              key={id}
+              label={label}
+              value={today}
+              icon={icon}
+              iconBg="bg-[#F2F7FF]"
+              iconColor="text-[#1D73EC]"
+              subtitle={
+                <>
+                  Today · This week:{" "}
+                  <span className="font-semibold text-slate-600">{week}</span>
+                </>
+              }
+            />
           ))}
         </div>
 

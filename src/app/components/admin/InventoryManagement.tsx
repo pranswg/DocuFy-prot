@@ -31,6 +31,7 @@ import {
 } from "../../utils/inventoryStore";
 import { formatNumber } from "../../utils/formatNumber";
 import { Card } from "../ui/card";
+import { SummaryCard } from "../ui/summary-card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -369,52 +370,12 @@ function InventoryReports() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]"><Boxes className="h-4 w-4" /></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Items</p>
-              <p className="text-xl font-bold text-slate-900">{activeItems.length}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600"><AlertTriangle className="h-4 w-4" /></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Low Stock</p>
-              <p className="text-xl font-bold text-amber-600">{lowStockItems.length}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 text-red-600"><PackageMinus className="h-4 w-4" /></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Out of Stock</p>
-              <p className="text-xl font-bold text-red-600">{outOfStockItems.length}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-600"><ArrowDownToLine className="h-4 w-4" /></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Stock In</p>
-              <p className="text-xl font-bold text-green-600">{fmtQty(totalStockIn)}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-white border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]"><ArrowUpFromLine className="h-4 w-4" /></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Stock Out</p>
-              <p className="text-xl font-bold text-[#2F6FD6]">{fmtQty(totalStockOut)}</p>
-            </div>
-          </div>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <SummaryCard icon={Boxes} label="Total Items" value={activeItems.length} iconBg="bg-blue-100" iconColor="text-[#2F6FD6]" />
+        <SummaryCard icon={AlertTriangle} label="Low Stock" value={lowStockItems.length} iconBg="bg-amber-100" iconColor="text-amber-600" valueColor="text-amber-600" />
+        <SummaryCard icon={PackageMinus} label="Out of Stock" value={outOfStockItems.length} iconBg="bg-red-100" iconColor="text-red-600" valueColor="text-red-600" />
+        <SummaryCard icon={ArrowDownToLine} label="Stock In" value={fmtQty(totalStockIn)} iconBg="bg-green-100" iconColor="text-green-600" valueColor="text-green-600" />
+        <SummaryCard icon={ArrowUpFromLine} label="Stock Out" value={fmtQty(totalStockOut)} iconBg="bg-blue-100" iconColor="text-[#2F6FD6]" valueColor="text-[#2F6FD6]" />
       </div>
 
       {/* Most Used Materials + Stock Movement */}
@@ -926,37 +887,9 @@ export default function InventoryManagement({
         </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-5 bg-white border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-[#2F6FD6]">
-                <Boxes className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  Items
-                </p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {inventoryStore.getActiveItems().length}
-                </p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-5 bg-white border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                <Inbox className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  Low Stock
-                </p>
-                <p className="text-2xl font-bold text-red-600">
-                  {lowStockCount}
-                </p>
-              </div>
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <SummaryCard icon={Boxes} label="Items" value={inventoryStore.getActiveItems().length} iconBg="bg-blue-100" iconColor="text-[#2F6FD6]" />
+          <SummaryCard icon={Inbox} label="Low Stock" value={lowStockCount} iconBg="bg-green-100" iconColor="text-green-600" valueColor="text-red-600" />
         </div>
 
         {/* Toolbar */}
