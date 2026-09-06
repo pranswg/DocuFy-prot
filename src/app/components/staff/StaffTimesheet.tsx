@@ -232,7 +232,7 @@ export default function StaffTimesheet() {
           </div>
 
           <div className="flex flex-col items-center px-6 pt-6 pb-8 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
               {isOnClock
                 ? "Session Timer"
                 : curDone
@@ -346,7 +346,7 @@ export default function StaffTimesheet() {
                 <History className="h-5 w-5 text-[#1D73EC]" />
                 Personal Time Logs
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {logs.length} day{logs.length === 1 ? "" : "s"} recorded
               </p>
             </div>
@@ -437,7 +437,7 @@ export default function StaffTimesheet() {
                   ) : (
                     <tr>
                       <td colSpan={8}>
-                        <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+                        <div className="flex flex-col items-center justify-center py-14 text-gray-500">
                           <History className="w-10 h-10 mb-3 opacity-40" />
                           <p className="text-sm font-medium">No clock entries yet</p>
                           <p className="text-xs mt-1">Use the Time In button above to start your first shift.</p>
@@ -472,7 +472,7 @@ export default function StaffTimesheet() {
 
           {/* Footnote */}
           <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-            <p className="text-xs text-gray-400 font-medium">
+            <p className="text-xs text-gray-500 font-medium">
               Timesheet is stored on this device (demo). Standard shift: {STANDARD_DAILY_HOURS}h/day · {STANDARD_WEEKLY_HOURS}h/week. Break = gap between Morning and Afternoon sessions.
             </p>
           </div>

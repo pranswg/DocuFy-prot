@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { ImageWithFallback } from "./shared/ImageWithFallback";
@@ -227,7 +227,7 @@ export default function LoginPage() {
                   <div className="w-full border-t border-gray-100"></div>
                 </div>
                 <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-white px-2 text-gray-400">
+                  <span className="bg-white px-2 text-gray-500">
                     Or continue with email
                   </span>
                 </div>
@@ -381,7 +381,7 @@ export default function LoginPage() {
                     onClick={() =>
                       setShowPassword(!showPassword)
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                   >
                     {showPassword ? (
                       <EyeOff size={16} />

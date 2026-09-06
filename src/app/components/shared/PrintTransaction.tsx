@@ -1465,7 +1465,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             )}
 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-8 text-center hover:border-[#2F6FD6] transition-colors">
-              <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+              <Upload className="w-10 h-10 text-gray-500 mx-auto mb-3" />
               <p className="text-gray-700 mb-2 font-medium">
                 {files.length === 0
                   ? isWalkin
@@ -2078,7 +2078,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
             {availableAddons.length === 0 ? (
               <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-                <Package className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+                <Package className="mx-auto mb-2 h-8 w-8 text-gray-500" />
                 <p className="text-sm font-medium text-gray-700">
                   No add-ons are currently available.
                 </p>
@@ -2606,10 +2606,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       <RadioGroupItem value={method.name} id={`pm-${method.id}`} disabled={onlineDisabled} />
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${onlineDisabled ? "bg-gray-100" : "bg-blue-100"}`}>
-          <Smartphone className={`w-5 h-5 ${onlineDisabled ? "text-gray-400" : "text-[#2F6FD6]"}`} />
+          <Smartphone className={`w-5 h-5 ${onlineDisabled ? "text-gray-500" : "text-[#2F6FD6]"}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <Label htmlFor={`pm-${method.id}`} className={`font-semibold cursor-pointer ${onlineDisabled ? "text-gray-400" : "text-gray-900"}`}>
+          <Label htmlFor={`pm-${method.id}`} className={`font-semibold cursor-pointer ${onlineDisabled ? "text-gray-500" : "text-gray-900"}`}>
             {method.name}
           </Label>
           <p className="text-xs text-gray-500">
@@ -2664,7 +2664,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             <Banknote className="w-5 h-5 text-blue-600" />
                           </div>
                           <div>
-                            <Label htmlFor="cash" className={`font-semibold cursor-pointer ${cashDisabled ? "text-gray-400" : "text-gray-900"}`}>
+                            <Label htmlFor="cash" className={`font-semibold cursor-pointer ${cashDisabled ? "text-gray-500" : "text-gray-900"}`}>
                               Cash on Pickup
                             </Label>
                             {cashDisabled ? (

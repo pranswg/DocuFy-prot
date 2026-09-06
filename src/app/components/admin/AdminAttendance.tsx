@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Users,
   UserCheck,
@@ -403,7 +403,7 @@ export default function AdminAttendancePage() {
             <Clock className="h-5 w-5 text-[#2F6FD6]" />
             {isRange ? "Attendance Log" : "Daily Attendance Log"}
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             {isRange ? fmtLongDay(dateFrom) + " → " + fmtLongDay(dateTo) : fmtLongDay(dateFrom)}
             {" · "}
             {filteredRows.length} of {baseRows.length} staff shown
@@ -454,7 +454,7 @@ export default function AdminAttendancePage() {
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold text-sm text-[#1c1f26] whitespace-nowrap">{row.member.name}</p>
-                        <p className="text-xs text-gray-400 truncate max-w-[180px]">{row.member.email}</p>
+                        <p className="text-xs text-gray-500 truncate max-w-[180px]">{row.member.email}</p>
                       </div>
                     </div>
                   </td>
@@ -526,7 +526,7 @@ export default function AdminAttendancePage() {
             ) : (
               <tr>
                 <td colSpan={isRange ? 9 : 8}>
-                  <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+                  <div className="flex flex-col items-center justify-center py-14 text-gray-500">
                     <Users className="w-10 h-10 mb-3 opacity-40" />
                     <p className="text-sm font-medium">No staff match these filters</p>
                     <p className="text-xs mt-1">Try changing the date range, search keyword, or status filter.</p>
@@ -539,7 +539,7 @@ export default function AdminAttendancePage() {
       </div>
 
       <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-        <p className="text-xs text-gray-400 font-medium">
+        <p className="text-xs text-gray-500 font-medium">
           Session model: Morning + Afternoon shifts. Standard day {STANDARD_DAILY_HOURS}h —
           On Time cutoff is 8:30 AM and totals beyond {STANDARD_DAILY_HOURS}h count as Overtime.
           Records persist locally on this device (demo).
@@ -631,7 +631,7 @@ export default function AdminAttendancePage() {
               <div className="flex-1 min-w-[200px]">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
                 <div className="relative mt-1.5">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <Input
                     placeholder="Search by staff name or email..."
                     value={searchQuery}
@@ -643,7 +643,7 @@ export default function AdminAttendancePage() {
               <div className="w-full lg:w-40">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
                 <div className="relative mt-1.5">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   <Input
                     type="date"
                     value={dateFrom}
@@ -656,7 +656,7 @@ export default function AdminAttendancePage() {
               <div className="w-full lg:w-40">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
                 <div className="relative mt-1.5">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   <Input
                     type="date"
                     value={dateTo}
@@ -737,7 +737,7 @@ export default function AdminAttendancePage() {
                   onChange={e => setAdjValue(e.target.value)}
                 />
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500">
                 Saving will overwrite the {adjSession === "morning" ? "Morning" : "Afternoon"} session's{" "}
                 {adjust?.field === "timeIn" ? "clock-in" : "clock-out"} timestamp for this staff member.
               </p>

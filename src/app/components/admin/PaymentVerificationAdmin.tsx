@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   LayoutDashboard,
@@ -198,7 +198,7 @@ export default function PaymentVerification() {
           </div>
 
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <Input
               placeholder="Search payments..."
               value={searchQuery}
@@ -401,7 +401,7 @@ export default function PaymentVerification() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                     Verification Status
                   </p>
                   <StatusBadge
@@ -411,7 +411,7 @@ export default function PaymentVerification() {
                 </div>
 
                 <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Order ID
                   </p>
                   <p className="font-semibold text-[#1c1f26]">
@@ -420,7 +420,7 @@ export default function PaymentVerification() {
                 </div>
 
                 <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Payment Method
                   </p>
                   <p className="font-semibold text-[#1D73EC]">
@@ -429,7 +429,7 @@ export default function PaymentVerification() {
                 </div>
 
                 <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Amount to Verify
                   </p>
                   <p className="text-2xl font-bold text-[#1D73EC]">
@@ -467,7 +467,7 @@ export default function PaymentVerification() {
 
               {selectedPayment.status === "pending" && (
                 <div className="pt-4 border-t border-[#F2F7FF]">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                     Verification Action
                   </p>
                   <div className="flex gap-3">
@@ -620,7 +620,7 @@ function SummaryCard({
           {React.cloneElement(icon, { size: 20 })}
         </div>
         <div>
-          <p className="text-xs text-gray-400 font-semibold mb-0.5">
+          <p className="text-xs text-gray-500 font-semibold mb-0.5">
             {label}
           </p>
           <p className="text-2xl font-bold text-[#10316B]">

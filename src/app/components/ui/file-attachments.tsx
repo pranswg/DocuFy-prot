@@ -102,7 +102,7 @@ function FileIcon({
     case "text":
       return <FileText className={`${cls} text-gray-500`} />;
     default:
-      return <File className={`${cls} text-gray-400`} />;
+      return <File className={`${cls} text-gray-500`} />;
   }
 }
 
@@ -228,11 +228,11 @@ export function FileAttachments({
                 >
                   {ext || file.type}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   {file.size}
                 </span>
                 {file.uploadedAt && (
-                  <span className="text-xs text-gray-400 hidden sm:inline">
+                  <span className="text-xs text-gray-500 hidden sm:inline">
                     {formatUploadDate(file.uploadedAt)}
                   </span>
                 )}
@@ -246,7 +246,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handleView(file)}
                   title={`View ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
@@ -256,7 +256,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handlePrint(file)}
                   title={`Print ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Printer className="w-3.5 h-3.5" />
                 </button>
@@ -266,7 +266,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handleDownload(file)}
                   title={`Download ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>

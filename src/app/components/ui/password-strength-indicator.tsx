@@ -121,7 +121,7 @@ export function PasswordStrengthIndicator({
                     ? "bg-green-100 text-green-600"
                     : password.length > 0
                       ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-400"
+                      : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {result.passed ? (

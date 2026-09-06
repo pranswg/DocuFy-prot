@@ -3,8 +3,8 @@ import {
   LogOut,
   User,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
+  PanelLeft,
   LayoutDashboard,
   FileText,
   Package,
@@ -31,7 +31,6 @@ import {
   flattenSections,
   childPathMatches,
   type NavModule,
-  type NavSection,
 } from "../../utils/navigationConfig";
 import {
   snapshotExpandedParents,
@@ -120,21 +119,17 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
     }
   }, [isMobile, open, setOpen]);
 
-  const navSections: NavSection[] | null =
-    user?.role === "admin"
-      ? adminSections
-      : user?.role === "staff"
-        ? staffSections
-        : null;
-
   const customerNavigation: NavModule[] = customerMenuItems.map((item) => ({
     label: item.label,
     path: item.path,
     icon: item.icon,
   }));
-  const allModules: NavModule[] = navSections
-    ? flattenSections(navSections)
-    : customerNavigation;
+  const allModules: NavModule[] =
+    user?.role === "admin"
+      ? flattenSections(adminSections)
+      : user?.role === "staff"
+        ? flattenSections(staffSections)
+        : customerNavigation;
   const activeModule = findActiveModule(allModules, pathname, search);
 
   // Always keep the parent of the current route expanded so navigation state
@@ -187,13 +182,13 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 w-full px-4 py-3 gap-3.5 rounded-xl ${
             isActive
               ? "bg-white text-[#1D73EC] shadow-lg"
-              : "text-blue-100 hover:bg-white/10 hover:text-white"
+              : "text-white/90 hover:bg-white/10 hover:text-white"
           }`}
         >
           <div className="relative flex-shrink-0 flex items-center justify-center">
             {module.icon}
           </div>
-          <span className="text-sm font-medium whitespace-nowrap truncate">
+          <span className="text-sm font-semibold whitespace-nowrap truncate">
             {module.label}
           </span>
           {hasChildren && (
@@ -211,9 +206,6 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
         </button>
         {hasChildren && isExpanded && (
           <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
-              {module.label}
-            </div>
             {module.children!.map((childItem) => {
               const isChildActive = childPathMatches(
                 childItem,
@@ -226,10 +218,10 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   type="button"
                   onClick={() => navigateAndClose(childItem.path)}
                   aria-current={isChildActive ? "page" : undefined}
-                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
+                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
                     isChildActive
                       ? "bg-white text-[#1D73EC] shadow-sm"
-                      : "text-blue-100 hover:bg-white/10 hover:text-white"
+                      : "text-white/90 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <span className="truncate">{childItem.label}</span>
@@ -290,32 +282,32 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
         </SheetHeader>
 
         <div className="flex h-full w-full flex-col">
-          <div className="pt-5 pb-3 w-full" aria-hidden="true">
-            <div className="flex items-center justify-center">
-              <img
-                src={logoImage}
-                alt=""
-                className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
-              />
-            </div>
-          </div>
+          <div className="pt-5 pb-3 w-full">
+            <div className="flex items-center justify-between px-4 gap-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoImage}
+                  alt=""
+                  className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
+                />
+                <span className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
+                  Docufy
+                </span>
+              </div>
 
-          <div className="my-2 px-3">
-            <div className="h-[2px] bg-white/40 w-full mb-4" />
-            <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close navigation"
-                className="flex items-center rounded-xl transition-all duration-200 w-full px-3 py-2.5 gap-3 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40"
+                className="flex items-center justify-center rounded-lg w-8 h-8 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-colors duration-200"
               >
-                <div className="flex-shrink-0">
-                  <ChevronLeft className="w-5 h-5" />
-                </div>
-                <span className="text-sm font-medium">Collapse</span>
+                <PanelLeft className="w-[18px] h-[18px] flex-shrink-0" />
               </button>
             </div>
-            <div className="h-[2px] bg-white/40 w-full mt-4" />
+          </div>
+
+          <div className="px-3 mb-2">
+            <div className="h-[2px] bg-white/40 w-full" />
           </div>
 
           <nav
@@ -326,26 +318,9 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
             aria-label="Primary navigation"
             className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
           >
-            {navSections ? (
-            <div className="flex flex-col items-stretch w-full">
-              {navSections.map((section) => (
-                <div key={section.key} className="flex flex-col w-full">
-                  <div className="w-full px-3 pt-2 pb-0.5">
-                    <div className="w-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
-                      {section.label}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-stretch w-full">
-                    {section.items.map(renderModuleItem)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
             <div className="flex flex-col items-stretch w-full">
               {allModules.map(renderModuleItem)}
             </div>
-          )}
           </nav>
 
           <div className="relative mt-auto w-full px-3 pb-5">

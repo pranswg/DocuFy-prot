@@ -32,7 +32,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
-import { formatPHDate, formatPHTime, toPHT, nowPHT, subscribeInternetTime } from "../../utils/pht";
+import { formatPHDate, formatPHTime, toPHT } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
@@ -220,20 +220,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   });
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-
-  // Live clock + date (Internet GMT+8 / Philippines time) for the Orders header
-  const [now, setNow] = useState(() => nowPHT());
-  useEffect(() => {
-    const tick = () => setNow(nowPHT());
-    const id = setInterval(tick, 1000);
-    const unsubscribe = subscribeInternetTime(tick);
-    return () => {
-      clearInterval(id);
-      unsubscribe();
-    };
-  }, []);
-  const headerTime = formatPHTime(now, { includeSeconds: true });
-  const headerDate = formatPHDate(now, "full");
 
   // Read ?orderId=... so a notification click can deep-open a specific order
   const [searchParams] = useSearchParams();
@@ -809,25 +795,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         <div className="flex flex-col space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
-          <div className="flex items-center gap-4">
-            <div>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Monitor and manage all print jobs
-              </p>
-              <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-600">
-                <Clock className="w-4 h-4 text-[#2F6FD6]" />
-                <span className="font-semibold tabular-nums">
-                  {headerTime}
-                </span>
-                <span className="text-gray-400">�</span>
-                <span className="text-gray-500">{headerDate}</span>
-              </div>
-            </div>
-          </div>
-
           <div className="flex items-center gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <Input
                 placeholder="Search for anything"
                 value={searchQuery}
@@ -875,7 +845,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">
-                    Priority
+                    #
                   </th>
                   <th
                     className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
@@ -884,7 +854,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     <div className="flex items-center gap-1">
                       <div className="flex flex-col leading-tight">
                         Customer
-                        <span className="text-[10px] font-medium text-gray-400 normal-case tracking-normal">
+                        <span className="text-[10px] font-medium text-gray-500 normal-case tracking-normal">
                           Order ID
                         </span>
                       </div>
@@ -989,7 +959,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     <p className="font-semibold text-sm text-[#1c1f26]">
                                       {order.customer}
                                     </p>
-                                    <p className="text-xs text-gray-400 mt-0.5">
+                                    <p className="text-xs text-gray-500 mt-0.5">
                                       {order.id}
                                     </p>
                                     {order.notes && (
@@ -1056,7 +1026,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 {Object.keys(groupedOrders).length === 0 && (
                   <tr>
                     <td colSpan={8}>
-                      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                      <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                         <Search className="w-12 h-12 mb-3" />
                         <p className="text-sm font-medium">
                           No orders found
@@ -1644,7 +1614,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   );
                 })}
               </div>
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs text-gray-500">
                 These items will be deducted from inventory.
               </p>
             </div>

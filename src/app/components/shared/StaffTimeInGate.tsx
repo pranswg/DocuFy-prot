@@ -142,7 +142,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
 
             {/* Locked actions */}
             <div className="mt-5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500">
                 Locked until you time in
               </p>
               <ul className="space-y-2">
