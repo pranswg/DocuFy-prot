@@ -39,7 +39,7 @@ import {
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { applicationsStore } from "../../utils/applicationsStore";
 import { jobsStore } from "../../utils/jobsStore";
-import { useIsMobile } from "../ui/use-mobile";
+
 
 const menuItems = [
   {
@@ -68,7 +68,6 @@ export default function JobApplyForm() {
   const navigate = useNavigate();
   const { jobId } = useParams();
   const jobTitle = jobsStore.getJobById(jobId || "")?.title || "Open Position";
-  const isMobile = useIsMobile();
 
   const [showSuccessDialog, setShowSuccessDialog] =
     useState(false);
@@ -667,17 +666,9 @@ export default function JobApplyForm() {
                 <button
                   type="button"
                   onClick={() => setShowTerms(true)}
-                  className={`w-full mb-4 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold ${
-                    isMobile
-                      ? "bg-[#1D73EC] text-white shadow-sm"
-                      : "bg-white border-2 border-[#1D73EC] text-[#1D73EC] transition-all hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md hover:border-[#2F6FD6]"
-                  }`}
+                  className="w-full mb-4 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
                 >
-                  <Eye
-                    className={`w-5 h-5 ${
-                      isMobile ? "" : "transition-colors group-hover:text-white"
-                    }`}
-                  />
+                  <Eye className="w-5 h-5" />
                   View Terms and Conditions
                 </button>
 

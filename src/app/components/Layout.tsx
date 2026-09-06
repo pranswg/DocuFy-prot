@@ -128,6 +128,13 @@ export default function Layout({
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
     () => snapshotExpandedParents(),
   );
+  // Submenus expanded by a click during THIS Layout instance. Layout remounts on
+  // every navigation, so persisting this here (empty by default) means
+  // already-expanded parents don't replay their fade-in animation when the
+  // sidebar re-renders after navigating — only genuinely fresh expands animate.
+  const [animatedModules, setAnimatedModules] = useState<Set<string>>(
+    () => new Set(),
+  );
   // Collapsed-sidebar tooltip: a single viewport-positioned label that follows
   // the hovered item. Fixed to the icon's real coordinates so the name always
   // sits right next to it (a plain `fixed left-[80px]` div with no vertical
@@ -155,6 +162,22 @@ export default function Layout({
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const topProfileRef = useRef<HTMLDivElement>(null);
+
+  // Close the header profile dropdown when clicking outside of it.
+  useEffect(() => {
+    if (!isTopProfileOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        topProfileRef.current &&
+        !topProfileRef.current.contains(event.target as Node)
+      ) {
+        setIsTopProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isTopProfileOpen]);
 
   // Live header clock — real internet GMT+8 (Philippines time), visible to
   // every user/role on every page through the shared Layout header.
@@ -272,7 +295,25 @@ export default function Layout({
     return letters || "U";
   };
 
-  const profileImage = user?.profileImage;
+  const getStoredProfileImage = (): string | undefined => {
+    if (!user?.role) return undefined;
+    try {
+      const key = `${user.role}_profile_image`;
+      return localStorage.getItem(key) || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Profile pages write the photo both to AuthContext (user.profileImage) and to a
+  // role-scoped localStorage key; fall back to the stored key so the sidebar always
+  // reflects whatever photo the user has, even if the session never got it.
+  const [storedProfileImage, setStoredProfileImage] = useState<string | undefined>(getStoredProfileImage);
+  useEffect(() => {
+    setStoredProfileImage(getStoredProfileImage());
+  }, [user?.role, user?.email]);
+
+  const profileImage = user?.profileImage || storedProfileImage;
   const profileInitial = getInitials(user?.name || user?.email || "User");
 
   const displayTitle =
@@ -348,6 +389,7 @@ export default function Layout({
         persistExpandedParents(next);
         return next;
       });
+      setAnimatedModules((prev) => new Set(prev).add(module.path));
       return;
     }
     setExpandedModules((prev) => {
@@ -355,6 +397,12 @@ export default function Layout({
       if (next.has(module.path)) next.delete(module.path);
       else next.add(module.path);
       persistExpandedParents(next);
+      return next;
+    });
+    setAnimatedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(module.path)) next.delete(module.path);
+      else next.add(module.path);
       return next;
     });
   };
@@ -395,7 +443,7 @@ export default function Layout({
         </button>
 
         {hasChildren && isExpanded && showLabels && (
-          <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className={`flex flex-col items-stretch w-full ${animatedModules.has(module.path) ? "animate-in fade-in slide-in-from-top-1 duration-150" : ""}`}>
             <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
               {module.label}
             </div>
@@ -731,7 +779,7 @@ export default function Layout({
             isMobile || isSidebarExpanded ? "w-full px-3 py-2.5" : "mx-auto h-11 w-11 justify-center"
           } ${isProfileOpen ? "bg-white/10" : "hover:bg-white/10"}`}
         >
-          <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
+          <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
             {profileImage ? (
               <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -985,7 +1033,7 @@ export default function Layout({
             />
 
             {!isMobile && (
-              <div className="relative">
+              <div className="relative" ref={topProfileRef}>
                 <button
                   type="button"
                   onClick={() => {

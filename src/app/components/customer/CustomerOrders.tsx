@@ -117,7 +117,7 @@ export default function CustomerOrders() {
         {/* ── Filters Card ───────────────────────────────────── */}
         <Card className="p-4 sm:p-6 bg-white shadow-sm">
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               {/* Status */}
               <div className="hidden space-y-2 w-full sm:block sm:w-48">
                 <Label
@@ -175,8 +175,8 @@ export default function CustomerOrders() {
                 )}
               </div>
 
-              {/* Expanded Filters (smooth drawer on mobile) */}
-              <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out sm:contents ${showMoreFilters ? "grid-rows-[1fr]" : "grid-rows-[0fr] -my-2"}`}>
+              {/* Expanded Filters (smooth drawer on mobile, inline row on desktop) */}
+              <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out sm:flex sm:flex-1 sm:flex-row sm:items-end sm:gap-4 sm:min-w-0 sm:w-auto ${showMoreFilters ? "grid-rows-[1fr]" : "grid-rows-[0fr] -my-2 sm:my-0"}`}>
                 <div className="min-h-0 overflow-hidden sm:contents">
                   <div className="flex flex-col gap-4 sm:contents">
                     {/* Date From */}
@@ -239,9 +239,8 @@ export default function CustomerOrders() {
                     {/* Clear */}
                     <div className="flex items-end">
                       <Button
-                        variant="outline"
                         onClick={clearFilters}
-                        className="whitespace-nowrap"
+                        className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white whitespace-nowrap"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Clear
