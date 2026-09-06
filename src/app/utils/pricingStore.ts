@@ -145,10 +145,10 @@ export const PAPER_SIZE_LABELS: Record<PaperSizeKey, string> = {
 };
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
-  document: "Document Printing (Standard Paper)",
+  document: "Plain Paper Printing (Standard Paper)",
   vellum: "Vellum Paper (Image Only)",
   sticker: "Sticker Paper (A4)",
-  photo: "Photo Printing",
+  photo: "Photo Paper Printing",
 };
 
 export const PHOTO_SIZE_LABELS: Record<PhotoSizeKey, string> = {

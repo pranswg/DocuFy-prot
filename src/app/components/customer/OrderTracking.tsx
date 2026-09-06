@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   ChevronDown,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -23,7 +24,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
-import { getOrderStatusStyle, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { getOrderStatusStyle, getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
 import { formatPHTime, formatPHDate, formatPHDateTime } from "../../utils/pht";
 import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
 import {
@@ -114,6 +115,7 @@ export default function OrderTracking() {
 
   const currentOrderStatus = orderData?.status || "Awaiting Payment";
   const statusStyle = getOrderStatusStyle(currentOrderStatus);
+  const currentOrderLabel = getCustomerStatusLabel(orderData);
   const holdReason = orderData?.holdReason;
   const canCancelOrder = ["In Queue", "Awaiting Payment"].includes(currentOrderStatus);
 
@@ -178,14 +180,39 @@ export default function OrderTracking() {
   const getFileOption = (file: any, key: string, fallback: any) =>
     file?.[key] ?? orderData?.[key as keyof typeof orderData] ?? fallback;
 
+  const formatPaperSize = (val: any): string => {
+    if (!val || val === "N/A") return "N/A";
+    if (val === "a4") return "A4";
+    if (val === "a3") return "A3";
+    if (val === "a5") return "A5";
+    if (val === "letter") return "Letter";
+    if (val === "legal") return "Legal";
+    if (val === "short") return "Short";
+    if (val === "long") return "Long";
+    if (val === "folio") return "Folio";
+    return String(val).charAt(0).toUpperCase() + String(val).slice(1);
+  };
+
   return (
     <Layout
       menuItems={menuItems}
       title="Order Tracking"
       showBackButton
       backButtonPath="/customer/orders"
+      hideMobileBackButton
     >
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-4">
+        {/* Mobile back button (under the header) */}
+        <button
+          type="button"
+          onClick={() => navigate("/customer/orders")}
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+
         {/* Header */}
         <div>
           <h1 className="text-3xl font-semibold text-gray-900">
@@ -196,7 +223,7 @@ export default function OrderTracking() {
           </p>
         </div>
 
-        {/* Awaiting Payment Alert */}
+{/* Current Status Banner (payment details merged in) */}
         {isAwaitingPayment && (
           <Card className="p-6 bg-white border-2 border-amber-300 shadow-lg">
             <div className="flex items-start gap-4">
@@ -205,30 +232,41 @@ export default function OrderTracking() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
-                  Awaiting Payment{orderData?.cancellationReason === "Payment Deadline Expired" ? " — Cancelled (Expired)" : ""}
+                  {orderData?.cancellationReason === "Payment Deadline Expired"
+                    ? "Awaiting Payment — Cancelled (Expired)"
+                    : "Awaiting Payment"}
                   <Badge className="bg-amber-100 text-amber-800">
                     Payment Pending
                   </Badge>
                 </h3>
                 <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                  <strong>Details:</strong> {holdReason || (orderData?.paymentMethod === "Cash" ? "Pay in cash at the shop to confirm this order." : "Your online payment is pending verification.")}
+                  <strong>Details:</strong>{" "}
+                  {holdReason ||
+                    (orderData?.paymentMethod === "Cash"
+                      ? "Pay in cash at the shop to confirm this order."
+                      : "Your online payment is pending verification.")}
                 </p>
-                {orderData?.paymentMethod === "Cash" && orderData?.paymentDeadline && (
-                  <div className="bg-white rounded-lg p-3 border border-amber-200 mb-3">
-                    <p className="text-xs text-gray-700">
-                      <strong className="text-amber-900">Payment deadline: </strong>
-                      <span className="font-mono text-sm text-amber-900">
-                        {formatPHDateTime(orderData.paymentDeadline)}
-                      </span>
-                      <span className="ml-2 inline-block"><PaymentDeadlineCountdown deadline={orderData.paymentDeadline} /></span>
-                    </p>
-                  </div>
-                )}
+                {orderData?.paymentMethod === "Cash" &&
+                  orderData?.paymentDeadline && (
+                    <div className="bg-white rounded-lg p-3 border border-amber-200 mb-3">
+                      <p className="text-xs text-gray-700">
+                        <strong className="text-amber-900">
+                          Payment deadline:
+                        </strong>{" "}
+                        <span className="font-mono text-sm text-amber-900">
+                          {formatPHDateTime(orderData.paymentDeadline)}
+                        </span>
+                        <span className="ml-2 inline-block">
+                          <PaymentDeadlineCountdown
+                            deadline={orderData.paymentDeadline}
+                          />
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 <div className="bg-white rounded-lg p-3 border border-amber-200">
                   <p className="text-xs text-gray-700">
-                    <strong className="text-amber-900">
-                      What to do:
-                    </strong>{" "}
+                    <strong className="text-amber-900">What to do:</strong>{" "}
                     {orderData?.paymentMethod === "Cash"
                       ? "Visit the shop and pay this amount before the deadline. The staff will confirm your payment and your order will be added to the print queue automatically."
                       : "Once Admin or Staff verifies your payment, your order will be added to the print queue automatically. You can track its progress here."}
@@ -241,45 +279,54 @@ export default function OrderTracking() {
 
         {/* Current Status Banner */}
         <Card className={`p-5 bg-white shadow-sm border-l-4 ${statusStyle.accent}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center`}>
-                {currentOrderStatus === "Printing" && (
-                  <Printer className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-                {currentOrderStatus === "In Queue" && (
-                  <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-                {currentOrderStatus === "Completed" && (
-                  <CheckCircle className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-                {currentOrderStatus === "Released" && (
-                  <PackageIcon className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-                {currentOrderStatus === "Canceled" && (
-                  <X className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-                {currentOrderStatus === "Awaiting Payment" && (
-                  <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Current Status
-                </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center flex-shrink-0`}>
+              {currentOrderStatus === "Printing" && (
+                <Printer className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+              {currentOrderStatus === "In Queue" && (
+                <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+              {currentOrderStatus === "Completed" && (
+                <CheckCircle className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+              {currentOrderStatus === "Released" && (
+                <PackageIcon className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+              {currentOrderStatus === "Canceled" && (
+                <X className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+              {currentOrderStatus === "Awaiting Payment" && (
+                <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 font-medium">
+                Current Status
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-bold text-gray-900 text-lg">
-                  {currentOrderStatus}
+                  {currentOrderLabel}
                 </p>
+                <Badge className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}>
+                  {currentOrderLabel}
+                </Badge>
               </div>
             </div>
-            <Badge className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}>
-              {currentOrderStatus}
-            </Badge>
           </div>
+
+          {/* Awaiting payment details */}
+          {isAwaitingPayment && holdReason && (
+            <div className="mt-0 pt-1 border-t border-amber-200">
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <strong>Details:</strong> {holdReason}
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* Order Summary */}
-        <Card className="p-4 sm:p-6 bg-white shadow-sm">
+        <Card className="p-4 sm:p-6 bg-white shadow-sm gap-0">
           <button
             type="button"
             onClick={() => setShowOrderDetails((isOpen) => !isOpen)}
@@ -289,7 +336,7 @@ export default function OrderTracking() {
             <span className="text-xl font-semibold text-gray-900">Order Details</span>
             <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-200 ${showOrderDetails ? "rotate-180" : ""}`} />
           </button>
-          <h2 className="mb-6 hidden text-xl font-semibold text-gray-900 sm:block">
+          <h2 className="mb-2 hidden text-xl font-semibold text-gray-900 sm:block">
             Order Details
           </h2>
           <div className={`${showOrderDetails ? "block" : "hidden"} sm:block`}>
@@ -311,7 +358,7 @@ export default function OrderTracking() {
                   <Badge
                     className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}
                   >
-                    {currentOrderStatus}
+                    {currentOrderLabel}
                   </Badge>
                 </div>
               </div>
@@ -347,7 +394,7 @@ export default function OrderTracking() {
                   <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-gray-600">Paper Size</Label>
-                <p className="text-sm font-medium text-gray-900">{getFileOption(file, "paperSize", "N/A")}</p>
+                <p className="text-sm font-medium text-gray-900">{formatPaperSize(getFileOption(file, "paperSize", "N/A"))}</p>
               </div>
               <div>
                 <Label className="text-xs text-gray-600">Number of Copies</Label>
@@ -504,8 +551,8 @@ export default function OrderTracking() {
         </Card>
 
         {/* Payment Method and Status */}
-        <Card className="p-6 bg-white shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <Card className="p-6 bg-white shadow-sm gap-0">
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">
             Payment Method and Status
           </h2>
 

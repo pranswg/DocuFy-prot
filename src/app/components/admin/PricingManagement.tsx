@@ -64,10 +64,10 @@ const SERVICE_ICON: Record<ServiceType, React.ReactNode> = {
 // Short labels for the service tabs so all four fit on one row with even
 // spacing (full descriptions are shown in each section's content header).
 const SERVICE_TAB_LABELS: Record<ServiceType, string> = {
-  document: "Document",
+  document: "Plain Paper",
   vellum: "Vellum",
   sticker: "Sticker",
-  photo: "Photo",
+  photo: "Photo Paper",
 };
 
 const CATEGORY_ICON: Record<PricingCategory, React.ReactNode> = {
@@ -351,7 +351,7 @@ export default function PricingManagement() {
                   <Layers className="w-4 h-4 text-[#2F6FD6]" />
                 </span>
                 <h3 className="font-bold text-gray-900">
-                  Document Printing (Standard Paper)
+                  Plain Paper Printing (Standard Paper)
                 </h3>
               </div>
               <p className="text-sm text-gray-500 mb-4 ml-10">
@@ -437,7 +437,7 @@ export default function PricingManagement() {
                   <Camera className="w-4 h-4 text-[#2F6FD6]" />
                 </span>
                 <h3 className="font-bold text-gray-900">
-                  Photo Printing (Matte or Glossy)
+                  Photo Paper Printing (Matte or Glossy)
                 </h3>
               </div>
               <p className="text-sm text-gray-500 mb-4 ml-10">
@@ -716,7 +716,7 @@ export default function PricingManagement() {
           }}
           onConfirm={confirmReset}
           title="Reset Pricing to Defaults?"
-          description="This restores all prices across every service (Document, Vellum, Sticker, Photo) and the legacy per-page rates to their original values. This applies everywhere immediately and cannot be undone."
+          description="This restores all prices across every service (Plain Paper, Vellum, Sticker, Photo Paper) and the legacy per-page rates to their original values. This applies everywhere immediately and cannot be undone."
           confirmLabel="Reset Pricing"
           cancelLabel="Cancel"
           destructive

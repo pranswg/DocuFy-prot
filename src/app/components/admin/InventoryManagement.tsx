@@ -1022,7 +1022,7 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Stock In"
-                            className="text-gray-600 hover:bg-gray-100"
+                            className="border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white hover:border-green-700"
                             onClick={() => openStock("in", item)}
                           >
                             <PackagePlus className="h-4 w-4" />
@@ -1032,7 +1032,7 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Stock Out"
-                            className="border-red-200 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500"
+                            className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500"
                             onClick={() => openStock("out", item)}
                           >
                             <PackageMinus className="h-4 w-4" />
@@ -1042,17 +1042,17 @@ export default function InventoryManagement({
                             variant="outline"
                             size="sm"
                             title="Edit"
-                            className="text-gray-600 hover:bg-gray-100"
+                            className="border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:border-[#2F6FD6]"
                             onClick={() => openEdit(item)}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             title={item.archived ? "Restore" : "Archive"}
-                            className="text-gray-500 hover:bg-gray-100"
+                            className="border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:border-[#2F6FD6]"
                             onClick={() => { setArchiveTarget(item); setConfirmType(item.archived ? "restore" : "archive"); }}
                           >
                             {item.archived ? (

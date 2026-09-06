@@ -645,9 +645,10 @@ export default function Staff() {
                           variant="ghost"
                           size="icon"
                           title="Edit staff"
+                          className="group"
                           onClick={() => openEdit(member)}
                         >
-                          <Edit2 className="w-4 h-4 text-[#2F6FD6]" />
+                          <Edit2 className="w-4 h-4 text-[#2F6FD6] group-hover:text-white" />
                         </Button>
                         {member.status === "Active" ? (
                           <Button

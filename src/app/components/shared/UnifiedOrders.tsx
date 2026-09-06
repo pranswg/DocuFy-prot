@@ -281,7 +281,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
-          total: `?${((!isNaN(order.costBreakdown?.total as number) ? Number(order.costBreakdown?.total ?? 0) : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
+          total: `₱${((!isNaN(order.costBreakdown?.total as number) ? Number(order.costBreakdown?.total ?? 0) : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
           paymentMethod: order.paymentMethod || (order.orderSource === 'walkin' ? 'Cash' : 'GCash'),
           paymentVerified: order.paymentVerified || false,
@@ -572,7 +572,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
-          total: `?${((!isNaN(updatedSelectedOrder.costBreakdown?.total as number) ? Number(updatedSelectedOrder.costBreakdown?.total ?? 0) : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
+          total: `₱${((!isNaN(updatedSelectedOrder.costBreakdown?.total as number) ? Number(updatedSelectedOrder.costBreakdown?.total ?? 0) : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
           paymentMethod: updatedSelectedOrder.paymentMethod || (updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash'),
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
@@ -1037,7 +1037,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs hover:bg-[#1D73EC] hover:text-white hover:border-[#1D73EC] transition-colors"
+                                  className="text-xs border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-medium transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenDetails(order);
@@ -1156,8 +1156,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         }`}
                       >
                         {selectedOrder.orderSource === "online"
-                          ? "?? Online"
-                          : "?? Walk-in"}
+                          ? "Online"
+                          : "Walk-in"}
                       </Badge>
                     </div>
                   </div>
@@ -1173,6 +1173,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           files={selectedOrder.attachedFiles}
                           orderId={selectedOrder.id}
                           showDownload={true}
+                          showView={true}
+                          showPrint={true}
                         />
                       </div>
                     )}
@@ -1237,8 +1239,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         }`}
                       >
                         {selectedOrder.paymentVerified
-                          ? "? Verified"
-                          : "? Not Verified"}
+                          ? "Verified"
+                          : "Not Verified"}
                       </Badge>
                     </div>
                   </div>
@@ -1284,7 +1286,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       <Button
                         variant="outline"
                         onClick={() => navigate(`${userRole === "admin" ? "/admin" : "/staff"}/payment-verification?orderId=${encodeURIComponent(selectedOrder.id)}`)}
-                        className="border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white"
+                        className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-medium"
                       >
                         <CreditCard className="mr-2 h-4 w-4" />
                         Verify Payment
@@ -1345,8 +1347,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
-                          {invoiceData.paymentStatus === 'verified' ? '? Verified' :
-                           invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '? Pending'}
+                          {invoiceData.paymentStatus === 'verified' ? 'Verified' :
+                           invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : 'Pending'}
                         </Badge>
                       </div>
                     </div>
@@ -1361,14 +1363,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                             Printing ({invoiceData.totalPages} pages � {invoiceData.copies} copies)
                           </span>
                           <span className="font-medium text-gray-900">
-                            ?{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
+                            ₱{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
                           </span>
                         </div>
                         {invoiceData.addons.length > 0 && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Add-ons</span>
                             <span className="font-medium text-gray-900">
-                              ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
+                              ₱{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1381,7 +1383,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       variant="outline"
                       size="sm"
                       onClick={() => setShowInvoicePreview(true)}
-                      className="flex-1 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#F2F7FF]"
+                      className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
                     >
                       <FileText className="w-4 h-4 mr-2" />
                       View Invoice
@@ -1389,7 +1391,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     <Button
                       size="sm"
                       onClick={handleDownloadInvoice}
-                      className="flex-1 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+                      className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
                     >
                       <Package className="w-4 h-4 mr-2" />
                       Download
@@ -1839,8 +1841,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                             : "bg-yellow-100 text-yellow-700"
                       }
                     >
-                      {invoiceData.paymentStatus === 'verified' ? '? Verified' :
-                       invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : '? Pending'}
+                      {invoiceData.paymentStatus === 'verified' ? 'Verified' :
+                       invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : 'Pending'}
                     </Badge>
                   </div>
                   <div className="flex justify-between py-2 border-b">
@@ -1924,7 +1926,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                             {addon.name} � {addon.quantity}:
                           </span>
                           <span className="text-gray-900">
-                            ?{addon.subtotal.toFixed(2)}
+                            ₱{addon.subtotal.toFixed(2)}
                           </span>
                         </div>
                       ))}
@@ -1933,7 +1935,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons Subtotal:
                         </span>
                         <span className="font-bold text-gray-900">
-                            ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
+                            ₱{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1951,7 +1953,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         Printing Cost ({invoiceData.totalPages} pages � {invoiceData.copies} copies):
                       </span>
                       <span className="text-gray-900">
-                        ?{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
+                        ₱{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
                       </span>
                     </div>
                     {invoiceData.addons.length > 0 && (
@@ -1960,7 +1962,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                           Add-ons:
                         </span>
                         <span className="text-gray-900">
-                          ?{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
+                          ₱{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
                         </span>
                       </div>
                     )}

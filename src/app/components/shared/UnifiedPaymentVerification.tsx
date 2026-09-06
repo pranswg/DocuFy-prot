@@ -411,7 +411,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           <SummaryCard
             highlight
             label="Total Verified"
-            value={`?${stats.totalAmount.toLocaleString()}`}
+            value={`₱${stats.totalAmount.toLocaleString()}`}
             icon={CreditCard}
           />
         </div>
@@ -568,7 +568,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className="text-sm font-semibold text-[#1c1f26]">
-                        ?{payment.amount.toLocaleString()}
+                        ₱{payment.amount.toLocaleString()}
                       </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -578,7 +578,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs hover:bg-[#1D73EC] hover:text-white transition-colors h-8 border-[#1D73EC] text-[#1D73EC]"
+                        className="text-xs border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-colors h-8"
                       >
                         <Eye className="w-3 h-3 mr-1" /> View
                       </Button>
@@ -794,7 +794,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                           onClick={() =>
                             setShowProofImage(true)
                           }
-                           className="text-[#1D73EC] border-2 border-[#1D73EC]/30 hover:bg-[#1D73EC] hover:text-white h-7 transition-all"
+className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white h-7 transition-all"
                         >
                           <Eye className="w-3.5 h-3.5 mr-1" />{" "}
                           View Proof
@@ -808,10 +808,13 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                 )}
               </div>
 
-              {selectedPayment.status === "pending" && (
+{(selectedPayment.status === "pending" ||
+                selectedPayment.status === "rejected") && (
                 <div className="pt-4 border-t border-[#F2F7FF]">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                    Verification Action
+                    {selectedPayment.status === "rejected"
+                      ? "Payment came in late? Re-verify it"
+                      : "Verification Action"}
                   </p>
                   <div className="flex gap-3">
                     <Button
@@ -819,19 +822,23 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       onClick={() => setPendingVerifyAction("verified")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve Payment
+                      {selectedPayment.status === "rejected"
+                        ? "Verify Payment"
+                        : "Approve Payment"}
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
-                      onClick={() => {
-                        setShowDialog(false);
-                        setShowRejectDialog(true);
-                      }}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject Payment
-                    </Button>
+                    {selectedPayment.status === "pending" && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                        onClick={() => {
+                          setShowDialog(false);
+                          setShowRejectDialog(true);
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Reject Payment
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -938,7 +945,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               Cancel
             </Button>
             <Button
-              className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white font-bold"
+              className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-bold"
               onClick={() => {
                 if (!rejectionReason.trim())
                   return toast.error("Please provide a reason");
@@ -975,7 +982,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             <Button
               variant="outline"
               onClick={() => setShowProofImage(false)}
-               className="font-semibold border-2 border-[#1D73EC] text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
+className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
             >
               Close Preview
             </Button>
@@ -994,7 +1001,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             setPendingVerifyAction(null);
           }}
           title="Approve Payment?"
-          description={`Verify the ${selectedPayment.method} payment of ?${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
+          description={`Verify the ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
           confirmLabel="Approve Payment"
           cancelLabel="Go Back"
           destructive={false}
@@ -1011,7 +1018,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             setPendingVerifyAction(null);
           }}
           title="Reject Payment?"
-          description={`The ${selectedPayment.method} payment of ?${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
+          description={`The ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
             rejectionReason.trim() ? ` (${rejectionReason.trim()})` : ""
           }. The customer will be notified. This cannot be undone.`}
           confirmLabel="Reject Payment"

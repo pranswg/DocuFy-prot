@@ -19,6 +19,7 @@ import {
   ExternalLink,
   CheckCircle,
   Eye,
+  ArrowLeft,
 } from 'lucide-react';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -133,8 +134,19 @@ export default function JobBoard() {
     applications.find((a) => a.jobId === jobId);
 
   return (
-    <Layout menuItems={menuItems} title="Job Board" showBackButton>
+    <Layout menuItems={menuItems} title="Job Board" showBackButton hideMobileBackButton>
       <div className="space-y-4 max-w-5xl mx-auto">
+
+        {/* Mobile back button (under the header) */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
 
         {/* Page Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">

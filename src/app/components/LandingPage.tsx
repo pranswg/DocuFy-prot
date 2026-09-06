@@ -220,7 +220,7 @@ export default function LandingPage() {
       id: "document",
       icon: <Printer className="h-5 w-5 text-[#1D73EC]" />,
       iconBox: "bg-[#F2F7FF]",
-      title: "Standard Document Printing",
+      title: "Standard Plain Paper Printing",
       iconColor: "text-[#1D73EC]",
       toggle: true,
       cta: "Order Now",
@@ -408,14 +408,14 @@ export default function LandingPage() {
           </div>
 
           <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300 [&>*]:will-change-transform">
-            {/* Card 1: Standard Document Printing (B&W / Color toggle) */}
+            {/* Card 1: Standard Plain Paper Printing (B&W / Color toggle) */}
             <Card data-service-card onClick={() => goToService(0)} onTouchStart={() => setActiveService(0)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
               <div className="flex items-center gap-2.5 mb-2.5">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
                   <Printer className="h-4 w-4 text-[#1D73EC]" />
                 </div>
                 <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
-                  Standard Document Printing
+                  Standard Plain Paper Printing
                 </h4>
               </div>
 

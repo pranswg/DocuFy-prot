@@ -9,7 +9,6 @@ import {
   Clock,
   CheckCircle,
   ChevronRight,
-  Search,
   AlertTriangle,
   Megaphone,
   CircleDot,
@@ -39,7 +38,7 @@ import {
   AnnouncementDetailsModal,
   type AnnouncementDetailData,
 } from "../shared/AnnouncementDetailsModal";
-import { getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
 
 const menuItems = [
   {
@@ -134,10 +133,10 @@ export default function CustomerDashboard() {
     dataStore.getOrderStats(user?.email || ""),
   );
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<AnnouncementDetailData | null>(null);
   const [showShopPhotos, setShowShopPhotos] = useState(false);
+  const [shopLocationOpen, setShopLocationOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(
     shopPhotosStore.getPhotos(),
@@ -193,38 +192,14 @@ export default function CustomerDashboard() {
   }, [customerOrders]);
 
   const recentOrders = useMemo(() => {
-    const filtered = customerOrders.filter((o) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        o.id.toLowerCase().includes(q) ||
-        (o.printType || "").toLowerCase().includes(q) ||
-        (o.paperSize || "").toLowerCase().includes(q) ||
-        (o.fileName || "").toLowerCase().includes(q) ||
-        o.status.toLowerCase().includes(q)
-      );
-    });
-    return filtered.slice(0, 5);
-  }, [customerOrders, searchQuery]);
+    return customerOrders.slice(0, 5);
+  }, [customerOrders]);
 
   const inProgressCount = stats.inProgress;
   const readyCount = stats.completed;
 
-  const searchField = (
-    <div className="relative w-full">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search orders, services, or files..."
-        className="w-full h-10 pl-10 pr-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC] transition-all placeholder:text-gray-400"
-      />
-    </div>
-  );
-
   return (
-    <Layout menuItems={menuItems} title="Dashboard" headerSearch={searchField}>
+    <Layout menuItems={menuItems} title="Dashboard">
       <div className="space-y-4 sm:space-y-5 pb-6 sm:pb-8 max-w-7xl mx-auto">
 
         {/* Welcome */}
@@ -356,8 +331,8 @@ export default function CustomerDashboard() {
 
           {/* Current Order */}
           <div className="lg:col-span-2">
-            <Card className="border border-gray-100 bg-white h-full flex flex-col">
-              <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+            <Card className="border border-gray-200 bg-white h-full flex flex-col gap-0">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-300">
                 <h2 className="text-base sm:text-lg font-bold text-gray-900">
                   Current Order
                 </h2>
@@ -372,9 +347,9 @@ export default function CustomerDashboard() {
                           {currentOrder.id}
                         </span>
                         <Badge
-                          className={`${getStatusBadgeClasses(currentOrder.status)} font-medium text-xs`}
+                          className={`${getStatusBadgeClasses(getCustomerStatusLabel(currentOrder))} font-medium text-xs`}
                         >
-                          {currentOrder.status}
+                          {getCustomerStatusLabel(currentOrder)}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
@@ -485,8 +460,8 @@ export default function CustomerDashboard() {
 
           {/* Recent Orders */}
           <div className="lg:col-span-1">
-            <Card className="border border-gray-100 bg-white h-full flex flex-col">
-              <div className="px-4 sm:px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <Card className="border border-gray-200 bg-white h-full flex flex-col gap-0">
+              <div className="px-4 sm:px-5 py-4 border-b border-gray-300 flex items-center justify-between">
                 <h2 className="text-base sm:text-lg font-bold text-gray-900">
                   Recent Orders
                 </h2>
@@ -526,7 +501,7 @@ export default function CustomerDashboard() {
                           }
                           className={`w-full text-left px-4 sm:px-5 py-3.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3 ${
                             idx < recentOrders.length - 1
-                              ? "border-b border-gray-50"
+                              ? "border-b border-gray-200"
                               : ""
                           }`}
                         >
@@ -536,9 +511,9 @@ export default function CustomerDashboard() {
                                 {order.id}
                               </span>
                               <Badge
-                                className={`${getStatusBadgeClasses(order.status)} font-medium text-[10px]`}
+                                className={`${getStatusBadgeClasses(getCustomerStatusLabel(order))} font-medium text-[10px]`}
                               >
-                                {order.status}
+                                {getCustomerStatusLabel(order)}
                               </Badge>
                             </div>
                             <p className="text-xs text-gray-600 mt-0.5 truncate">
@@ -572,7 +547,7 @@ export default function CustomerDashboard() {
                           }
                           className={`w-full text-left px-4 py-3.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3 ${
                             idx < recentOrders.length - 1
-                              ? "border-b border-gray-50"
+                              ? "border-b border-gray-200"
                               : ""
                           }`}
                         >
@@ -582,9 +557,9 @@ export default function CustomerDashboard() {
                                 {order.id}
                               </span>
                               <Badge
-                                className={`${getStatusBadgeClasses(order.status)} font-medium text-[10px]`}
+                                className={`${getStatusBadgeClasses(getCustomerStatusLabel(order))} font-medium text-[10px]`}
                               >
-                                {order.status}
+                                {getCustomerStatusLabel(order)}
                               </Badge>
                             </div>
                             <p className="text-xs text-gray-600 mt-0.5">
@@ -632,40 +607,15 @@ export default function CustomerDashboard() {
                     <strong>Sunday:</strong> Closed
                   </p>
                 </div>
-                {shopPhotos.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-white/20">
-                    <button
-                      type="button"
-                      onClick={() => setShowShopPhotos(!showShopPhotos)}
-                      className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/80 transition-colors"
-                    >
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-200 ${
-                          showShopPhotos ? "rotate-180" : ""
-                        }`}
-                      />
-                      {showShopPhotos ? "Hide Shop Photos" : "View Shop Photos"}
-                    </button>
-                    {showShopPhotos && (
-                      <div className="grid grid-cols-3 gap-2 mt-3">
-                        {shopPhotos.map((photo) => (
-                          <button
-                            key={photo.id}
-                            type="button"
-                            onClick={() => setLightboxPhoto(photo.dataUrl)}
-                            className="cursor-pointer"
-                          >
-                            <img
-                              src={photo.dataUrl}
-                              alt="Shop location"
-                              className="w-full h-20 object-cover rounded-lg border border-white/20 hover:ring-2 hover:ring-white/60 transition-all"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShopLocationOpen(true)}
+                  className="mt-4 inline-flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold bg-white text-[#1D73EC] hover:bg-white/90 transition-all active:scale-[0.97]"
+                >
+                  <MapPin className="w-4 h-4" />
+                  View Shop Location
+                </button>
               </div>
             </div>
           </Card>
@@ -705,6 +655,65 @@ export default function CustomerDashboard() {
         }}
         announcement={selectedAnnouncement}
       />
+
+      {/* Shop Location Dialog */}
+      <Dialog open={shopLocationOpen} onOpenChange={setShopLocationOpen}>
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#2F6FD6]" /> Shop Location
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Palawan State University - Main Campus, Puerto Princesa City,
+            Palawan
+          </p>
+          <div className="overflow-hidden rounded-xl border-2 border-blue-100">
+            <iframe
+              title="Docufy Printing Services - Shop Location"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
+              className="w-full h-72 border-0"
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          {shopPhotos.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowShopPhotos(!showShopPhotos)}
+                className="flex items-center gap-2 text-sm font-medium text-[#2F6FD6] hover:text-[#1e5bb8] transition-colors"
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    showShopPhotos ? "rotate-180" : ""
+                  }`}
+                />
+                {showShopPhotos ? "Hide Shop Photos" : "View Shop Photos"}
+              </button>
+              {showShopPhotos && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {shopPhotos.map((photo) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setLightboxPhoto(photo.dataUrl)}
+                      className="cursor-pointer"
+                    >
+                      <img
+                        src={photo.dataUrl}
+                        alt="Shop location"
+                        className="w-full h-24 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-[#2F6FD6] transition-all"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {lightboxPhoto && (
         <Dialog open onOpenChange={() => setLightboxPhoto(null)}>

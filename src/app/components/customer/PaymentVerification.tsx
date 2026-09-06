@@ -423,8 +423,9 @@ export default function PaymentVerification() {
       title="Payment Verification"
       showBackButton
       backButtonPath="/customer/new-request"
+      hideMobileBackButton
     >
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-3xl mx-auto space-y-4">
         {/* Back to previous step (returns to the resumed print request) */}
         <div>
           <Button

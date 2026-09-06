@@ -1693,12 +1693,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           )}
                           <span className={`text-sm font-medium ${fileData.printType === pt ? "text-white" : "text-gray-900"} group-hover:text-white`}>
                             {pt === "document"
-                              ? "Document"
+                              ? "Plain Paper"
                               : pt === "vellum"
                                 ? "Vellum"
                                 : pt === "sticker"
                                   ? "Sticker"
-                                  : "Photo"}
+                                  : "Photo Paper"}
                           </span>
                         </Button>
                       ))}
@@ -1832,12 +1832,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 </SelectContent>
                               </Select>
                             </div>
-                            <Label className="text-sm font-medium">Number of Copies</Label>
-                            <NumberStepper
-                              min={1}
-                              value={fileData.copies}
-                              onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
-                            />
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Number of Copies</Label>
+                              <NumberStepper
+                                min={1}
+                                value={fileData.copies}
+                                onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
+                              />
+                            </div>
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Page Range</Label>
                               <Select
@@ -1921,7 +1923,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 setBreakdownFileId(fileData.id);
                                 setShowColorPricing(true);
                               }}
-                              className="w-full text-[#2F6FD6] font-semibold hover:text-white"
+                              className="w-full text-gray-600 font-semibold border-gray-300 hover:text-white hover:border-[#2F6FD6]"
                             >
                               <Info className="mr-2 h-4 w-4" />
                               See Colored Pricing Breakdown
@@ -2249,12 +2251,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       <p className="text-xs font-medium text-[#2F6FD6] mb-3">
                         Print Type:{" "}
                         {fileData.printType === "photo"
-                          ? "Photo"
+                          ? "Photo Paper"
                           : fileData.printType === "vellum"
                             ? "Vellum"
                             : fileData.printType === "sticker"
                               ? "Sticker"
-                              : "Document"}
+                              : "Plain Paper"}
                       </p>
                       {fileData.printType === "photo" ? (
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -2390,12 +2392,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <p className="text-xs font-medium text-[#2F6FD6] mb-3">
                       Print Type:{" "}
                       {fileData.printType === "photo"
-                        ? "Photo"
+                        ? "Photo Paper"
                         : fileData.printType === "vellum"
                           ? "Vellum"
                           : fileData.printType === "sticker"
                             ? "Sticker"
-                            : "Document"}
+                            : "Plain Paper"}
                     </p>
                     {fileData.printType === "photo" ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -3102,7 +3104,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   );
 
   return (
-    <Layout menuItems={menuItems} title={title} showBackButton>
+    <Layout menuItems={menuItems} title={title} showBackButton hideMobileBackButton>
       {isWalkin ? <StaffTimeInGate>{content}</StaffTimeInGate> : content}
 
       {/* Colored Pricing Breakdown Modal */}
@@ -3137,12 +3139,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               });
             const typeLabel =
               bFile.printType === "photo"
-                ? "Photo"
+                ? "Photo Paper"
                 : bFile.printType === "vellum"
                   ? "Vellum"
                   : bFile.printType === "sticker"
                     ? "Sticker"
-                    : "Document";
+                    : "Plain Paper";
 
             if (bFile.printType === "photo") {
               const size = pricingStore.getMatrix().photo[bFile.photoSize];
@@ -3151,7 +3153,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   <div className="rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
                     <div className="flex justify-between gap-4">
                       <span className="font-medium text-gray-900">Print type</span>
-                      <span className="font-medium text-[#2F6FD6]">Photo</span>
+                      <span className="font-medium text-[#2F6FD6]">Photo Paper</span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-gray-600">Photo size</span>
