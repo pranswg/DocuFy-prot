@@ -236,8 +236,19 @@ export default function CustomerProfile() {
   };
 
   return (
-    <Layout menuItems={menuItems} title="Profile Settings" showBackButton backButtonPath="/customer/dashboard">
+    <Layout menuItems={menuItems} title="Profile Settings" showBackButton backButtonPath="/customer/dashboard" hideMobileBackButton>
       <div className="max-w-3xl mx-auto space-y-8">
+        {/* Mobile back button (under the header) */}
+        <button
+          type="button"
+          onClick={() => navigate("/customer/dashboard")}
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+
         {/* Header */}
         <div>
           <h1 className="text-3xl font-semibold text-gray-900">Profile</h1>

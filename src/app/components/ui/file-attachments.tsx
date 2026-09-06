@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   FileText,
   Download,
@@ -6,6 +6,8 @@ import {
   FileSpreadsheet,
   Presentation,
   File,
+  Eye,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
@@ -22,6 +24,8 @@ interface FileAttachmentsProps {
   files: AttachedFile[];
   orderId: string;
   showDownload?: boolean; // defaults to false — hides download on customer-facing views
+  showView?: boolean; // show a "View" button that opens the file in a new tab (native viewer)
+  showPrint?: boolean; // show a "Print" button that opens the Ctrl+P dialog directly
 }
 
 function getFileExtension(name: string): string {
@@ -135,7 +139,10 @@ export function FileAttachments({
   files,
   orderId,
   showDownload = false,
+  showView = false,
+  showPrint = false,
 }: FileAttachmentsProps) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   if (!files || files.length === 0) return null;
 
   const handleDownload = (file: AttachedFile) => {
@@ -152,8 +159,50 @@ export function FileAttachments({
     toast.success(`Downloading ${file.name}…`);
   };
 
+  // Open the document in a new tab using the browser's native PDF viewer (no download).
+  const handleView = (file: AttachedFile) => {
+    if (!file.url) {
+      toast.info("No document available to view in this session.");
+      return;
+    }
+    const win = window.open(file.url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = file.url;
+      a.target = "_blank";
+      a.rel = "noopener,noreferrer";
+      a.click();
+    }
+  };
+
+  // Open the Ctrl+P print dialog directly on the document without showing anything in the app.
+  const handlePrint = (file: AttachedFile) => {
+    if (!file.url) {
+      toast.info("No document available to print in this session.");
+      return;
+    }
+    const iframe = iframeRef.current;
+    if (iframe) {
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.print();
+        } catch {
+          toast.error("Your browser blocked printing this document.");
+        }
+      };
+      iframe.src = file.url;
+    }
+  };
+
   return (
     <div className="space-y-2">
+      {/* Hidden iframe that loads the document in the background so we can trigger print without a visible tab. */}
+      <iframe
+        ref={iframeRef}
+        title="print-frame"
+        className="hidden"
+        aria-hidden="true"
+      />
       {files.map((file, index) => {
         const badgeCls = FileBadgeColor(file);
         const ext = getFileExtension(file.name).toUpperCase();
@@ -192,6 +241,26 @@ export function FileAttachments({
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* View icon button — opens the document in a new tab */}
+              {showView && (
+                <button
+                  onClick={() => handleView(file)}
+                  title={`View ${file.name}`}
+                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {/* Print icon button — opens the Ctrl+P dialog directly */}
+              {showPrint && (
+                <button
+                  onClick={() => handlePrint(file)}
+                  title={`Print ${file.name}`}
+                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                </button>
+              )}
               {/* Download icon button — only shown when showDownload is true */}
               {showDownload && (
                 <button

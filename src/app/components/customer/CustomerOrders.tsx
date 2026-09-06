@@ -19,7 +19,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { dataStore, type Order } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
-import { getStatusBadgeClasses } from "../../utils/orderStatusPalette";
+import { getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
 
 const menuItems = [
@@ -347,9 +347,9 @@ export default function CustomerOrders() {
                       </td>
                       <td className="py-4 px-4">
                         <Badge
-                          className={`${getStatusColor(order.status)} font-medium`}
+                          className={`${getStatusColor(getCustomerStatusLabel(order))} font-medium`}
                         >
-                          {order.status}
+                          {getCustomerStatusLabel(order)}
                         </Badge>
                       </td>
                       <td className="hidden sm:table-cell py-4 px-4 text-sm text-gray-600">
