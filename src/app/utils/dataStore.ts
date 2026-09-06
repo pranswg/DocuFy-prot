@@ -27,9 +27,22 @@ export interface Order {
   customerId: string;
   customerName: string;
   customerEmail: string;
-  status: 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment';
+  status:
+    | 'Awaiting Payment'
+    | 'In Queue'
+    | 'Printing'
+    | 'Completed'
+    | 'Released'
+    | 'Canceled';
   holdReason?: string;
   cancellationReason?: string;
+  // Payment confirmation/verification deadline (ISO). Cash-on-pickup orders
+  // must be paid at the shop, online orders must be submitted + verified,
+  // before this time or the order is auto-cancelled as expired.
+  paymentDeadline?: string;
+  // Amount the customer reports having paid (online submissions) — used for
+  // Full/Partial Payment + Remaining Balance displays in verification.
+  paymentAmountPaid?: number;
   total: string;
   date: string;
   paperType?: string;
@@ -65,6 +78,10 @@ export interface Order {
   downPaymentRequired?: boolean;
   downPaymentAmount?: number;
   downPaymentVerified?: boolean;
+  // Full payment fields (high-value orders ≥ fullPaymentThreshold — no 50% option)
+  fullPaymentRequired?: boolean;
+  fullPaymentAmount?: number;
+  fullPaymentVerified?: boolean;
   expectedPaperUsage?: { size: string; sheets: number }[];
   paperDeductedOnCreate?: boolean;
   paperConfirmed?: boolean;
@@ -108,6 +125,8 @@ const initialOrders: Order[] = [
     paymentMethod: 'GCash',
     paymentVerified: false,
     paymentReferenceNumber: 'GCS-2026-000123',
+    // Demo online payment awaiting staff verification
+    paymentDeadline: '2026-09-30T23:59:00+08:00',
     fileName: 'research-report.pdf',
     pages: 5,
     colorMode: 'colored',
@@ -135,10 +154,9 @@ const initialOrders: Order[] = [
     customerId: 'cust-john',
     customerName: 'John Dela Cruz',
     customerEmail: 'john.delacruz@example.com',
-    status: 'Received',
+    status: 'In Queue',
     total: '₱120.00',
     date: '2026-09-02T08:30:00+08:00',
-    paperType: 'Bond Paper',
     paperSize: 'A4',
     printType: 'Colored',
     copies: 2,
@@ -148,7 +166,7 @@ const initialOrders: Order[] = [
     pages: 6,
     colorMode: 'colored',
     pageRange: 'all',
-    notes: 'Just received, pending review.',
+    notes: 'Walk-in order paid at the shop, queued and ready for printing.',
     attachedFiles: [
       {
         name: 'thesis-chapter-1.pdf',
@@ -281,7 +299,7 @@ const initialOrders: Order[] = [
     customerId: 'cust-karlo',
     customerName: 'Karlo Garcia',
     customerEmail: 'karlo.garcia@example.com',
-    status: 'On Hold',
+    status: 'Awaiting Payment',
     total: '₱60.00',
     date: '2026-09-02T13:00:00+08:00',
     paperType: 'Bond Paper',
@@ -289,12 +307,14 @@ const initialOrders: Order[] = [
     printType: 'Colored',
     copies: 1,
     paymentMethod: 'Cash',
-    paymentVerified: true,
+    paymentVerified: false,
     fileName: 'poster-design.pdf',
     pages: 2,
     colorMode: 'colored',
     pageRange: 'all',
-    holdReason: 'Waiting for customer payment.',
+    // Cash-on-pickup awaiting in-shop payment confirmation (demo pending row)
+    paymentDeadline: '2026-09-30T23:59:00+08:00',
+    notes: 'Awaiting in-shop cash payment confirmation before printing.',
     addons: [
       { name: 'Sketch Pad', quantity: 1, price: 25 },
       { name: 'Ballpen', quantity: 1, price: 12 },
@@ -472,37 +492,36 @@ class DataStore {
       ? this.getOrdersByCustomer(customerEmail)
       : this.orders;
 
-    const received  = orders.filter(o => o.status === 'Received').length;
+    const awaitingPayment = orders.filter(o => o.status === 'Awaiting Payment').length;
     const inQueue   = orders.filter(o => o.status === 'In Queue').length;
     const printing  = orders.filter(o => o.status === 'Printing').length;
     const completed = orders.filter(o => o.status === 'Completed').length;
     const released  = orders.filter(o => o.status === 'Released').length;
-    const onHold    = orders.filter(o => o.status === 'On Hold').length;
+    const canceled  = orders.filter(o => o.status === 'Canceled').length;
 
-    // "In Progress" = all orders actively being handled (received + queued + printing)
-    const inProgress = received + inQueue + printing;
+    // "In Progress" = orders actively being printed (queued + printing)
+    const inProgress = inQueue + printing;
     // "All Completed" = done + picked up
     const allCompleted = completed + released;
-    // "Active" = all orders not yet finished/picked up (includes onHold)
-    const allActive = inProgress + onHold;
+    // "Active" = not yet finished or picked up (includes awaiting payment)
+    const allActive = inQueue + printing + awaitingPayment;
     // "Finished" = completed + released (alias)
     const allFinished = allCompleted;
-    // Total = onHold + inProgress + allCompleted (no canceled) — always matches sum of status cards
-    const total = onHold + inProgress + allCompleted;
+    // Total = awaitingPayment + inProgress + allCompleted (no canceled) — matches sum of status cards
+    const total = awaitingPayment + inProgress + allCompleted;
 
     return {
-      total,        // = onHold + inProgress + allCompleted (consistent with dashboard cards)
-      received,
+      total,          // = awaitingPayment + inProgress + allCompleted (consistent with dashboard cards)
+      awaitingPayment,
       inQueue,
       printing,
       completed,
       released,
-      onHold,
-      inProgress,   // received + inQueue + printing
-      allCompleted, // completed + released
-      // Legacy aliases kept for backward compatibility
-      allActive,    // inProgress + onHold
-      allFinished,  // completed + released
+      canceled,
+      inProgress,     // inQueue + printing
+      allCompleted,   // completed + released
+      allActive,      // inQueue + printing + awaitingPayment
+      allFinished,    // completed + released
     };
   }
 

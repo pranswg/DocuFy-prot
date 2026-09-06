@@ -9,12 +9,17 @@ type OrderType = {
   pages: number;
   type: string;
   notes: string;
-  status: 'received' | 'inQueue' | 'printing' | 'completed' | 'released' | 'canceled' | 'onHold' | 'awaitingPayment';
+  status: 'inQueue' | 'printing' | 'completed' | 'released' | 'canceled' | 'awaitingPayment';
   time: string;
   paperSize: string;
   copies: number;
   submittedAt: Date;
   holdReason?: string;
+  cancellationReason?: string;
+  // Payment confirmation/verification deadline for awaiting-payment orders.
+  paymentDeadline?: Date;
+  // Amount the customer reports having paid (online submissions).
+  paymentAmountPaid?: number;
   attachedFiles?: { name: string; size: string; type: string }[];
   paymentVerified?: boolean;
   paymentReferenceNumber?: string;
@@ -42,6 +47,10 @@ type OrderType = {
   downPaymentRequired?: boolean;
   downPaymentAmount?: number;
   downPaymentVerified?: boolean;
+  // Full payment fields (high-value orders ≥ fullPaymentThreshold — no 50% option)
+  fullPaymentRequired?: boolean;
+  fullPaymentAmount?: number;
+  fullPaymentVerified?: boolean;
   // Paper usage confirmation fields
   expectedPaperUsage?: { size: string; sheets: number }[];
   paperDeductedOnCreate?: boolean;
@@ -137,9 +146,18 @@ class OrdersStore {
       dataStore.updateOrder(id, {
         status: this.convertStatus(updatedOrder.status),
         holdReason: updatedOrder.holdReason,
+        cancellationReason: updatedOrder.cancellationReason,
+        paymentDeadline: updatedOrder.paymentDeadline?.toISOString(),
+        paymentAmountPaid: updatedOrder.paymentAmountPaid,
+        paymentVerified: updatedOrder.paymentVerified,
+        paymentReferenceNumber: updatedOrder.paymentReferenceNumber,
+        paymentProofUrl: updatedOrder.paymentProofUrl,
         downPaymentVerified: updatedOrder.downPaymentVerified,
         downPaymentRequired: updatedOrder.downPaymentRequired,
         downPaymentAmount: updatedOrder.downPaymentAmount,
+        fullPaymentVerified: updatedOrder.fullPaymentVerified,
+        fullPaymentRequired: updatedOrder.fullPaymentRequired,
+        fullPaymentAmount: updatedOrder.fullPaymentAmount,
         expectedPaperUsage: updatedOrder.expectedPaperUsage,
         paperDeductedOnCreate: updatedOrder.paperDeductedOnCreate,
         paperConfirmed: updatedOrder.paperConfirmed,
@@ -186,6 +204,12 @@ class OrdersStore {
       customerEmail: order.customerEmail || `${order.customer.toLowerCase().replace(/\s+/g, '.')}@example.com`,
       status: this.convertStatus(order.status),
       holdReason: order.holdReason,
+      cancellationReason: order.cancellationReason,
+      paymentDeadline: order.paymentDeadline?.toISOString(),
+      paymentAmountPaid: order.paymentAmountPaid,
+      paymentVerified: order.paymentVerified,
+      paymentReferenceNumber: order.paymentReferenceNumber,
+      paymentProofUrl: order.paymentProofUrl,
       total: `₱${(order.pages * order.copies * (order.type === 'Colored' ? 5 : 1)).toFixed(2)}`,
       date: toPHTKey(order.submittedAt),
       paperSize: order.paperSize,
@@ -211,6 +235,9 @@ class OrdersStore {
       downPaymentRequired: order.downPaymentRequired,
       downPaymentAmount: order.downPaymentAmount,
       downPaymentVerified: order.downPaymentVerified,
+      fullPaymentRequired: order.fullPaymentRequired,
+      fullPaymentAmount: order.fullPaymentAmount,
+      fullPaymentVerified: order.fullPaymentVerified,
       expectedPaperUsage: order.expectedPaperUsage,
       paperDeductedOnCreate: order.paperDeductedOnCreate,
       paperConfirmed: order.paperConfirmed,
@@ -235,6 +262,9 @@ class OrdersStore {
       copies: order.copies || 1,
       submittedAt: new Date(order.date),
       holdReason: order.holdReason,
+      cancellationReason: order.cancellationReason,
+      paymentDeadline: order.paymentDeadline ? new Date(order.paymentDeadline) : undefined,
+      paymentAmountPaid: order.paymentAmountPaid,
       attachedFiles: order.attachedFiles || (order.fileName ? [{ name: order.fileName, size: '0 MB', type: 'PDF' }] : []),
       paymentVerified: order.paymentVerified || false,
       paymentReferenceNumber: order.paymentReferenceNumber,
@@ -255,6 +285,9 @@ class OrdersStore {
       downPaymentRequired: order.downPaymentRequired,
       downPaymentAmount: order.downPaymentAmount,
       downPaymentVerified: order.downPaymentVerified,
+      fullPaymentRequired: order.fullPaymentRequired,
+      fullPaymentAmount: order.fullPaymentAmount,
+      fullPaymentVerified: order.fullPaymentVerified,
       expectedPaperUsage: order.expectedPaperUsage,
       paperDeductedOnCreate: order.paperDeductedOnCreate,
       paperConfirmed: order.paperConfirmed,
@@ -265,15 +298,13 @@ class OrdersStore {
     };
   }
 
-  private convertStatus(status: OrderType['status']): 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment' {
-    const statusMap: Record<OrderType['status'], 'Received' | 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'On Hold' | 'Canceled' | 'Awaiting Payment'> = {
-      'received': 'Received',
+  private convertStatus(status: OrderType['status']): 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'Canceled' | 'Awaiting Payment' {
+    const statusMap: Record<OrderType['status'], 'In Queue' | 'Printing' | 'Completed' | 'Released' | 'Canceled' | 'Awaiting Payment'> = {
       'inQueue': 'In Queue',
       'printing': 'Printing',
       'completed': 'Completed',
       'released': 'Released',
       'canceled': 'Canceled',
-      'onHold': 'On Hold',
       'awaitingPayment': 'Awaiting Payment',
     };
     return statusMap[status];
@@ -281,16 +312,17 @@ class OrdersStore {
 
   private convertStatusReverse(status: string): OrderType['status'] {
     const statusMap: Record<string, OrderType['status']> = {
-      'Received': 'received',
       'In Queue': 'inQueue',
       'Printing': 'printing',
       'Completed': 'completed',
       'Released': 'released',
       'Canceled': 'canceled',
-      'On Hold': 'onHold',
       'Awaiting Payment': 'awaitingPayment',
+      // Legacy statuses folded into the new workflow
+      'Received': 'inQueue',
+      'On Hold': 'inQueue',
     };
-    return statusMap[status] || 'received';
+    return statusMap[status] || 'awaitingPayment';
   }
 }
 

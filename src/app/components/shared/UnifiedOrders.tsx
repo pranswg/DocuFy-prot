@@ -62,6 +62,8 @@ import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../uti
 import { pricingStore } from "../../utils/pricingStore";
 import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
 import { inventoryStore } from "../../utils/inventoryStore";
+import { PriorityBadge, StartHereTag } from "../ui/priority-badge";
+import OrderPaymentSummary from "./OrderPaymentSummary";
 
 // Fallback estimate when an order has no stored cost breakdown, using the
 // shared centralized pricing so admin/staff estimates stay in lockstep.
@@ -82,13 +84,11 @@ type OrderType = {
   type: string;
   notes: string;
   status:
-    | "received"
     | "inQueue"
     | "printing"
     | "completed"
     | "released"
     | "canceled"
-    | "onHold"
     | "awaitingPayment";
   time: string;
   paperSize: string;
@@ -122,6 +122,13 @@ type OrderType = {
     addonsCost: number;
     total: number;
   };
+  downPaymentRequired?: boolean;
+  downPaymentAmount?: number;
+  downPaymentVerified?: boolean;
+  // Full payment fields (high-value orders ≥ fullPaymentThreshold — no 50% option)
+  fullPaymentRequired?: boolean;
+  fullPaymentAmount?: number;
+  fullPaymentVerified?: boolean;
   expectedPaperUsage?: { size: string; sheets: number }[];
   paperDeductedOnCreate?: boolean;
   paperConfirmed?: boolean;
@@ -196,13 +203,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     wastedSheets: number;
   }>({ noErrors: false, reason: "", wastedSheets: 0 });
   const [pendingStatus, setPendingStatus] = useState<
-    | "received"
     | "inQueue"
     | "printing"
     | "completed"
     | "released"
     | "canceled"
-    | "onHold"
     | null
   >(null);
   const [statusFormData, setStatusFormData] = useState({
@@ -278,7 +283,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           status: order.status === 'completed' ? 'Completed' : order.status === 'released' ? 'Released' : order.status,
           total: `?${((!isNaN(order.costBreakdown?.total as number) ? Number(order.costBreakdown?.total ?? 0) : fallbackPrintTotal(order.pages, order.copies, order.type))).toFixed(2)}`,
           printType: order.type,
-          paymentMethod: order.orderSource === 'walkin' ? 'Cash' : 'GCash',
+          paymentMethod: order.paymentMethod || (order.orderSource === 'walkin' ? 'Cash' : 'GCash'),
           paymentVerified: order.paymentVerified || false,
           colorMode: order.colorMode || (order.type === 'Colored' ? 'colored' : 'bw'),
         });
@@ -325,50 +330,35 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
   const handleUpdateStatus = (
     newStatus:
-      | "received"
       | "inQueue"
       | "printing"
       | "completed"
       | "released"
-      | "canceled"
-      | "onHold",
+      | "canceled",
+    order: OrderType | null = selectedOrder,
   ) => {
-    if (!selectedOrder) return;
+    if (!order) return;
 
     // PAYMENT VERIFICATION LOGIC - System-wide restriction
-    // Orders with unverified payment can only move to: Received, On Hold, or Canceled
-    // Once in "In Queue" to "Released", payment MUST be verified
-    const hasUnverifiedPayment = selectedOrder.paymentReferenceNumber && !selectedOrder.paymentVerified;
-
-    // Check if trying to move to a status that requires payment verification
-    const progressStatuses = ["inQueue", "printing", "completed", "released"];
-    const isMovingToProgress = progressStatuses.includes(newStatus);
-
-    if (hasUnverifiedPayment && isMovingToProgress) {
-      setErrorMessage(
-        "Payment verification is pending. This order can only be set to 'Received', 'On Hold', or 'Canceled' until payment is verified by Admin or Staff.",
-      );
-      return;
-    }
-
-    // Additional check: if order is already in progress statuses, payment must be verified
-    const currentIsInProgress = progressStatuses.includes(selectedOrder.status);
-    if (currentIsInProgress && !selectedOrder.paymentVerified) {
-      // This shouldn't happen, but if it does, restrict further progress
-      if (isMovingToProgress && newStatus !== selectedOrder.status) {
+    // Orders awaiting payment can only leave that state through the system:
+    // verifying the payment auto-sets "In Queue", and the expiry engine
+    // auto-cancels overdue orders. Staff should never manually push an
+    // unverified awaiting-payment order into the queue, so the only manual
+    // action available here is cancelling it.
+    if (order.status === "awaitingPayment" && !order.paymentVerified) {
+      if (newStatus !== "canceled") {
         setErrorMessage(
-          "Payment must be verified before changing status. Please verify payment in the Payment Verification page.",
+          "This order is still awaiting payment. Verify the payment in Payment Verification - the order will enter the queue automatically once confirmed.",
         );
         return;
       }
     }
 
-    // Validation check before showing form (skip for completed->released and canceled/onHold)
+    // Validation check before showing form (skip for canceled and completed->released)
     if (
       newStatus !== "canceled" &&
-      newStatus !== "onHold" &&
       !(
-        selectedOrder.status === "completed" &&
+        order.status === "completed" &&
         newStatus === "released"
       )
     ) {
@@ -377,7 +367,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           a.submittedAt.getTime() - b.submittedAt.getTime(),
       );
       const currentOrderIndex = sortedOrders.findIndex(
-        (o) => o.id === selectedOrder.id,
+        (o) => o.id === order.id,
       );
       const earlierOrders = sortedOrders.slice(
         0,
@@ -385,20 +375,18 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       );
 
       const statusHierarchy: Record<string, number> = {
-        received: 1,
-        inQueue: 2,
-        printing: 3,
-        completed: 4,
-        released: 5,
+        inQueue: 1,
+        printing: 2,
+        completed: 3,
+        released: 4,
         canceled: 0,
-        onHold: 0,
       };
 
       const newStatusLevel = statusHierarchy[newStatus];
 
       for (const earlierOrder of earlierOrders) {
-        // SKIP ON HOLD ORDERS - They should be bypassed in queue validation
-        if (earlierOrder.status === "canceled" || earlierOrder.status === "onHold") continue;
+        // SKIP CANCELED ORDERS - They should be bypassed in queue validation
+        if (earlierOrder.status === "canceled") continue;
 
         const earlierStatusLevel =
           statusHierarchy[earlierOrder.status];
@@ -411,7 +399,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           const currentOrderPosition = currentOrderIndex + 1;
 
           setErrorMessage(
-            `Cannot update to "${newStatus === "inQueue" ? "In Queue" : newStatus}". Order #${currentOrderPosition} (${selectedOrder.customer}) cannot skip ahead of Order #${earlierOrderPosition} (${earlierOrder.customer}) who is still in "${earlierOrder.status === "inQueue" ? "In Queue" : earlierOrder.status}" status. Please process orders in sequence.`,
+            `Cannot update to "${newStatus === "inQueue" ? "In Queue" : newStatus}". Order #${currentOrderPosition} (${order.customer}) cannot skip ahead of Order #${earlierOrderPosition} (${earlierOrder.customer}) who is still in "${earlierOrder.status === "inQueue" ? "In Queue" : earlierOrder.status}" status. Please process orders in sequence.`,
           );
           return;
         }
@@ -427,9 +415,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       estimatedTime: currentTime,
       completionTime: currentDateTime,
       releaseRecipient:
-        newStatus === "released" ? selectedOrder.customer : "",
+        newStatus === "released" ? order.customer : "",
       releaseIdNumber:
-        newStatus === "released" ? selectedOrder.id : "",
+        newStatus === "released" ? order.id : "",
       cancellationReason: "",
       holdReason: "",
     });
@@ -438,6 +426,24 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     setPendingStatus(newStatus);
     setShowStatusForm(true);
     setErrorMessage("");
+  };
+
+  // "Start Here" action: immediately opens the status form to move the next
+  // order to Printing. After confirmation the order leaves received/inQueue,
+  // so nextToProcessId advances and the tag moves to the next order (or
+  // disappears when none are left to process).
+  const handleStartFromHere = (order: OrderType) => {
+    if (order.status === "awaitingPayment" && !order.paymentVerified) {
+      setErrorMessage(
+        "Payment verification is pending for this order - verify it in Payment Verification first; it will enter the queue automatically once confirmed.",
+      );
+      toast.error(
+        "Payment verification is pending for this order - verify it in Payment Verification first.",
+      );
+      return;
+    }
+    setSelectedOrder(order);
+    handleUpdateStatus("printing", order);
   };
 
   // Paper display helper: map an order's paper-size label back to an internal code
@@ -526,17 +532,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       extraOrder = { ...paperData };
     }
 
-    // Update the status with form data (including hold reason if applicable)
+    // Update the status with form data (including cancellation reason if applicable)
     const updatedOrders = orders.map((o) =>
       o.id === selectedOrder.id
         ? {
             ...o,
             ...extraOrder,
             status: pendingStatus,
-            holdReason:
-              pendingStatus === "onHold"
-                ? statusFormData.holdReason
-                : o.holdReason,
+            cancellationReason:
+              pendingStatus === "canceled"
+                ? statusFormData.cancellationReason
+                : o.cancellationReason,
             statusUpdatedAt: new Date(), // Update timestamp
           }
         : o,
@@ -547,10 +553,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       ...selectedOrder,
       ...extraOrder,
       status: pendingStatus,
-      holdReason:
-        pendingStatus === "onHold"
-          ? statusFormData.holdReason
-          : selectedOrder.holdReason,
+      cancellationReason:
+        pendingStatus === "canceled"
+          ? statusFormData.cancellationReason
+          : selectedOrder.cancellationReason,
       statusUpdatedAt: new Date(),
     };
 
@@ -568,7 +574,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           status: pendingStatus === 'completed' ? 'Completed' : 'Released',
           total: `?${((!isNaN(updatedSelectedOrder.costBreakdown?.total as number) ? Number(updatedSelectedOrder.costBreakdown?.total ?? 0) : fallbackPrintTotal(updatedSelectedOrder.pages, updatedSelectedOrder.copies, updatedSelectedOrder.type))).toFixed(2)}`,
           printType: updatedSelectedOrder.type,
-          paymentMethod: updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash',
+          paymentMethod: updatedSelectedOrder.paymentMethod || (updatedSelectedOrder.orderSource === 'walkin' ? 'Cash' : 'GCash'),
           paymentVerified: updatedSelectedOrder.paymentVerified || false,
           colorMode: updatedSelectedOrder.colorMode || (updatedSelectedOrder.type === 'Colored' ? 'colored' : 'bw'),
         });
@@ -580,12 +586,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
     // Send notification to customer about status update
     const statusMessages: Record<string, string> = {
-      received: 'Your order has been received and is awaiting processing.',
       inQueue: 'Your order is now in the print queue.',
       printing: 'Your order is currently being printed.',
       completed: 'Your order has been completed and is ready for pickup.',
       released: 'Your order has been released.',
-      onHold: `Your order has been placed on hold. Reason: ${statusFormData.holdReason || 'Please contact staff for details.'}`,
       canceled: `Your order has been canceled. Reason: ${statusFormData.cancellationReason || 'Please contact staff for details.'}`,
     };
 
@@ -646,9 +650,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   };
 
   // QUEUE-VISIBLE ORDERS: orders still awaiting payment verification are excluded
-  // from the Orders/queue list until staff/admin verifies them (they then enter as Received).
-  // Completed, Released, and Canceled are also excluded from the default view �
-  // they only appear when their specific status filter is selected.
+  // from the Orders/queue list until staff/admin verifies them (they then enter
+  // the queue automatically as "In Queue"). Completed, Released, and Canceled
+  // are also excluded from the default view - they only appear when their
+  // specific status filter is selected.
   const queueOrders = useMemo(
     () =>
       orders.filter(
@@ -661,6 +666,29 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     [orders],
   );
 
+  // PROCESSING SEQUENCE: queue orders ranked oldest-submitted first (FIFO) -
+  // the sequence numbers staff see (1, 2, 3...) are processing priority, not
+  // order IDs or row indexes. Next to process = the earliest in-queue order
+  // still waiting to reach the printer.
+  const processingOrder = useMemo(
+    () =>
+      [...queueOrders].sort(
+        (a, b) => a.submittedAt.getTime() - b.submittedAt.getTime(),
+      ),
+    [queueOrders],
+  );
+  const priorityById = useMemo(() => {
+    const map = new Map<string, number>();
+    processingOrder.forEach((o, i) => map.set(o.id, i + 1));
+    return map;
+  }, [processingOrder]);
+  const nextToProcessId = useMemo(() => {
+    const waiting = processingOrder.find(
+      (o) => o.status === "inQueue",
+    );
+    return waiting?.id;
+  }, [processingOrder]);
+
   const filteredOrders = useMemo(() => {
     // When a specific status filter is selected, show from the full orders list
     // (so completed/released/canceled appear when their filter is chosen).
@@ -668,14 +696,13 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     const base = statusFilter !== "all" ? orders : queueOrders;
     let filtered = [...base];
 
-    // SYSTEM-WIDE SORTING: Sort by most recent status update (newest first)
-    // This ensures orders with recent updates appear at the top
-    filtered = filtered.sort((a, b) => {
-      const aTime = a.statusUpdatedAt?.getTime() || a.submittedAt.getTime();
-      const bTime = b.statusUpdatedAt?.getTime() || b.submittedAt.getTime();
-      // Sort descending (newest first) - 8:02 AM appears above 8:00 AM
-      return bTime - aTime;
-    });
+    // PROCESSING ORDER (default): sort by submission time oldest-first (FIFO),
+    // matching the status-update validation order in handleUpdateStatus. This
+    // keeps the earliest/morning orders at the top of the queue so staff know
+    // which job to process next, instead of only seeing the newest updates.
+    filtered = filtered.sort(
+      (a, b) => a.submittedAt.getTime() - b.submittedAt.getTime(),
+    );
 
     // Filter by search query
     if (searchQuery) {
@@ -750,10 +777,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         .length,
       canceled: orders.filter((o) => o.status === "canceled")
         .length,
-      received: orders.filter((o) => o.status === "received")
-        .length,
-      onHold: orders.filter((o) => o.status === "onHold")
-        .length,
     };
   }, [orders]);
 
@@ -819,11 +842,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
           {([
             ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
-            ["received", "Received", "Orders received", FileText, stats.received],
             ["inQueue", "In Queue", "Waiting to be printed", Clock, stats.inQueue],
             ["printing", "Printing", "Currently printing", Printer, stats.printing],
             ["completed", "Completed", "Successfully completed", CheckCircle, stats.completed],
-            ["onHold", "On Hold", "Temporarily on hold", AlertCircle, stats.onHold],
             ["released", "Released", "Ready for pickup", CheckCircle, stats.released],
             ["canceled", "Canceled", "Canceled orders", XCircle, stats.canceled],
           ] as const).map(([key, label, description, Icon, count]) => {
@@ -853,8 +874,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">
-                    #
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">
+                    Priority
                   </th>
                   <th
                     className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
@@ -935,8 +956,30 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                               }
                             >
                               <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="w-8 h-8 rounded-full bg-[#1D73EC] text-white flex items-center justify-center font-bold text-sm">
-                                  {periodStartIndex + index + 1}
+                                <div className="flex flex-col items-center">
+                                  {(() => {
+                                    const priority = priorityById.get(order.id);
+                                    const isNextToProcess =
+                                      statusFilter === "all" &&
+                                      order.id === nextToProcessId;
+                                    return (
+                                      <>
+                                        <PriorityBadge
+                                          number={
+                                            priority ??
+                                            periodStartIndex + index + 1
+                                          }
+                                          active={isNextToProcess}
+                                        />
+{isNextToProcess && (
+  <StartHereTag
+    label="Start Here"
+    onClick={() => handleStartFromHere(order)}
+  />
+)}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
@@ -971,8 +1014,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 >
                                   {order.status === "inQueue"
                                     ? "In Queue"
-                                    : order.status === "onHold"
-                                      ? "On Hold"
+                                    : order.status === "awaitingPayment"
+                                      ? "Awaiting Payment"
                                       : order.status}
                                 </Badge>
                               </td>
@@ -1136,6 +1179,23 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 </div>
               </div>
 
+              {/* Payment Summary Section */}
+              <div className="space-y-4">
+                <div className="border-b border-gray-200 pb-2">
+                  <h3 className="text-sm font-bold text-[#10316B] uppercase tracking-wider">
+                    Payment Summary
+                  </h3>
+                </div>
+                <OrderPaymentSummary
+                  order={selectedOrder}
+                  fallbackTotal={fallbackPrintTotal(
+                    selectedOrder.pages,
+                    selectedOrder.copies,
+                    selectedOrder.type,
+                  )}
+                />
+              </div>
+
               {/* Additional Information Section */}
               <div className="space-y-4">
                 <div className="border-b border-gray-200 pb-2">
@@ -1157,8 +1217,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       >
                         {selectedOrder.status === "inQueue"
                           ? "In Queue"
-                          : selectedOrder.status === "onHold"
-                            ? "On Hold"
+                          : selectedOrder.status === "awaitingPayment"
+                            ? "Awaiting Payment"
                             : selectedOrder.status}
                       </Badge>
                     </div>
@@ -1352,131 +1412,89 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </Alert>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "received"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "received"
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "hover:bg-blue-50 hover:border-blue-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("received")
-                    }
-                  >
-                    Received
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "inQueue"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "inQueue"
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("inQueue")
-                    }
-                  >
-                    In Queue
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "printing"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "printing"
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("printing")
-                    }
-                  >
-                    Printing
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "completed"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "completed"
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "hover:bg-white hover:text-slate-700 border-2 border-blue-200 hover:border-blue-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("completed")
-                    }
-                  >
-                    Completed
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "onHold"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "onHold"
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "hover:bg-blue-50 hover:border-blue-300"
-                    }
-                    onClick={() => handleUpdateStatus("onHold")}
-                  >
-                    On Hold
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "released"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "released"
-                        ? "bg-gray-600 text-white hover:bg-gray-700"
-                        : "hover:bg-gray-50 hover:border-gray-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("released")
-                    }
-                  >
-                    Released
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selectedOrder.status === "canceled"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      selectedOrder.status === "canceled"
-                        ? "bg-red-600 text-white border-2 border-red-600 hover:bg-red-700"
-                        : "hover:bg-red-50 border-2 border-blue-200 hover:border-red-300"
-                    }
-                    onClick={() =>
-                      handleUpdateStatus("canceled")
-                    }
-                  >
-                    Cancel
-                  </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedOrder.status === "inQueue" && (
+                    <>
+                      <Button
+                        size="sm"
+                        className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                        onClick={() =>
+                          handleUpdateStatus("printing")
+                        }
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        Start Printing
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="hover:bg-red-50 border-2 border-blue-200 hover:border-red-300"
+                        onClick={() =>
+                          handleUpdateStatus("canceled")
+                        }
+                      >
+                        Cancel Order
+                      </Button>
+                    </>
+                  )}
+
+                  {selectedOrder.status === "printing" && (
+                    <Button
+                      size="sm"
+                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                      onClick={() =>
+                        handleUpdateStatus("completed")
+                      }
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark as Completed
+                    </Button>
+                  )}
+
+                  {selectedOrder.status === "completed" && (
+                    <Button
+                      size="sm"
+                      className="bg-gray-700 text-white hover:bg-gray-800"
+                      onClick={() =>
+                        handleUpdateStatus("released")
+                      }
+                    >
+                      Release Order
+                    </Button>
+                  )}
+
+                  {selectedOrder.status === "awaitingPayment" &&
+                    !selectedOrder.paymentVerified && (
+                      <>
+                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          Awaiting payment - this order enters the queue
+                          automatically once payment is verified.
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="hover:bg-red-50 border-2 border-blue-200 hover:border-red-300"
+                          onClick={() =>
+                            handleUpdateStatus("canceled")
+                          }
+                        >
+                          Cancel Order
+                        </Button>
+                      </>
+                    )}
+
+                  {(selectedOrder.status === "released" ||
+                    selectedOrder.status === "canceled" ||
+                    (selectedOrder.status === "awaitingPayment" &&
+                      selectedOrder.paymentVerified)) && (
+                    <p className="text-sm text-gray-500 italic">
+                      {selectedOrder.status === "released"
+                        ? "Order released - no further actions available."
+                        : selectedOrder.status === "canceled"
+                          ? "Order canceled - no further actions available."
+                          : "Payment verified - order is entering the queue automatically."}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1501,12 +1519,15 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-[#10316B]">
-              Update Status to{" "}
               {pendingStatus === "inQueue"
-                ? "In Queue"
-                : pendingStatus === "onHold"
-                  ? "On Hold"
-                  : pendingStatus}
+                ? "Move Order to In Queue"
+                : pendingStatus === "completed"
+                  ? "Mark Order as Completed"
+                  : pendingStatus === "canceled"
+                    ? "Cancel Order"
+                    : `Update Status to ${String(pendingStatus)
+                        .charAt(0)
+                        .toUpperCase()}${String(pendingStatus).slice(1)}`}
             </DialogTitle>
             <DialogDescription>
               Fill in the required information for this status
@@ -1515,109 +1536,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Status Form Content */}
-            {pendingStatus === "onHold" && (
-              <div className="space-y-4">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-900">
-                    Put this order on hold with a reason for the
-                    customer.
-                  </AlertDescription>
-                </Alert>
-                <div className="space-y-2">
-                  <Label htmlFor="holdReason">
-                    Hold Reason *
-                  </Label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() =>
-                        setStatusFormData((prev) => ({
-                          ...prev,
-                          holdReason: "Waiting for customer payment",
-                        }))
-                      }
-                    >
-                      Waiting for payment
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() =>
-                        setStatusFormData((prev) => ({
-                          ...prev,
-                          holdReason: "Out of stock - awaiting supplies",
-                        }))
-                      }
-                    >
-                      Out of stock
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() =>
-                        setStatusFormData((prev) => ({
-                          ...prev,
-                          holdReason: "Customer requested delay",
-                        }))
-                      }
-                    >
-                      Customer delay
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() =>
-                        setStatusFormData((prev) => ({
-                          ...prev,
-                          holdReason: "Technical issue - equipment malfunction",
-                        }))
-                      }
-                    >
-                      Technical issue
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() =>
-                        setStatusFormData((prev) => ({
-                          ...prev,
-                          holdReason: "Awaiting customer approval",
-                        }))
-                      }
-                    >
-                      Awaiting approval
-                    </Button>
-                  </div>
-                  <Textarea
-                    id="holdReason"
-                    placeholder="Enter the reason for hold..."
-                    value={statusFormData.holdReason}
-                    onChange={(e) =>
-                      setStatusFormData((prev) => ({
-                        ...prev,
-                        holdReason: e.target.value,
-                      }))
-                    }
-                    rows={3}
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
             {pendingStatus === "canceled" && (
               <div className="space-y-4">
                 <Alert variant="destructive">
@@ -1663,17 +1581,13 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   : setShowStatusConfirm(true)
               }
               className={
-                pendingStatus === "onHold"
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : pendingStatus === "canceled"
-                    ? "bg-red-600 text-white hover:bg-red-700"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
+                pendingStatus === "canceled"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
               }
               disabled={
-                (pendingStatus === "canceled" &&
-                  !statusFormData.cancellationReason) ||
-                (pendingStatus === "onHold" &&
-                  !statusFormData.holdReason)
+                pendingStatus === "canceled" &&
+                !statusFormData.cancellationReason
               }
             >
               Confirm Update
@@ -1809,13 +1723,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               ? "Cancel Order?"
               : pendingStatus === "released"
                 ? "Release Order?"
-                : pendingStatus === "onHold"
-                  ? "Place Order On Hold?"
-                  : `Mark Order as ${
-                      pendingStatus === "inQueue"
-                        ? "In Queue"
-                        : pendingStatus.charAt(0).toUpperCase() + pendingStatus.slice(1)
-                    }?`
+                : pendingStatus === "completed"
+                  ? "Mark Order as Completed?"
+                  : pendingStatus === "inQueue"
+                    ? "Move Order to In Queue?"
+                    : `Mark Order as ${
+                        pendingStatus?.charAt(0).toUpperCase() +
+                        pendingStatus?.slice(1)
+                      }?`
           }
           description={
             pendingStatus === "canceled"
@@ -1824,15 +1739,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     ? ` with reason "${statusFormData.cancellationReason}"`
                     : ""
                 }. This action cannot be undone and the customer will be notified.`
-              : pendingStatus === "onHold"
-                ? `Place order ${selectedOrder.id} On Hold${
-                    statusFormData.holdReason
-                      ? ` with reason "${statusFormData.holdReason}"`
-                      : ""
-                  }? The customer will be notified.`
-                : pendingStatus === "released"
-                  ? `Release order ${selectedOrder.id}? This confirms the customer has picked up the order and generates the invoice.`
-                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : pendingStatus.charAt(0).toUpperCase() + pendingStatus.slice(1)}" and notify the customer?`
+              : pendingStatus === "released"
+                ? `Release order ${selectedOrder.id}? This confirms the customer has picked up the order and generates the invoice.`
+                : pendingStatus === "completed"
+                  ? `Mark order ${selectedOrder.id} as Completed? An error-usage check will be recorded first, then the customer will be notified.`
+                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : pendingStatus?.charAt(0).toUpperCase() + pendingStatus?.slice(1)}" and notify the customer?`
           }
           confirmLabel={
             pendingStatus === "canceled"

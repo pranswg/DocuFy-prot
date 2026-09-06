@@ -76,10 +76,6 @@ const getStatusBadgeClass = (status: OrderType["status"]) => {
       return "bg-[#F0EAFE] text-[#6D28D9] border-[#7C3AED]/40";
     case "inQueue":
       return "bg-[#FFF5D6] text-[#92400E] border-[#F59E0B]/40";
-    case "received":
-      return "bg-[#F1F3F5] text-[#374151] border-[#6B7280]/40";
-    case "onHold":
-      return "bg-[#FFF0E6] text-[#C2410C] border-[#F97316]/40";
     case "released":
       return "bg-[#E0F7F5] text-[#0F766E] border-[#159A9C]/40";
     case "canceled":
@@ -91,7 +87,7 @@ const getStatusBadgeClass = (status: OrderType["status"]) => {
 
 const getStatusLabel = (status: OrderType["status"]) => {
   if (status === "inQueue") return "In Queue";
-  if (status === "onHold") return "On Hold";
+  if (status === "awaitingPayment") return "Awaiting Payment";
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
@@ -133,22 +129,22 @@ export default function StaffDashboard() {
   }, []);
 
   const stats = useMemo(() => {
-    const received = allOrders.filter((o) => o.status === "received").length;
     const inQueue = allOrders.filter((o) => o.status === "inQueue").length;
     const printing = allOrders.filter((o) => o.status === "printing").length;
     const completed = allOrders.filter((o) => o.status === "completed").length;
     const released = allOrders.filter((o) => o.status === "released").length;
-    const onHold = allOrders.filter((o) => o.status === "onHold").length;
-    const inProgress = received + inQueue + printing;
-    const total = onHold + inProgress + completed + released;
+    const canceled = allOrders.filter((o) => o.status === "canceled").length;
+    const awaitingPayment = allOrders.filter((o) => o.status === "awaitingPayment").length;
+    const inProgress = inQueue + printing;
+    const total = inProgress + completed + released;
     return {
       total,
-      received,
+      awaitingPayment,
       inQueue,
       printing,
       completed,
       released,
-      onHold,
+      canceled,
       inProgress,
     };
   }, [allOrders]);
@@ -157,8 +153,7 @@ export default function StaffDashboard() {
     return [...allOrders]
       .filter(
         (o) =>
-          o.status === "onHold" ||
-          (o.status === "awaitingPayment" && !o.paymentVerified),
+          o.status === "awaitingPayment" && !o.paymentVerified,
       )
       .sort(
         (a, b) =>
@@ -172,10 +167,8 @@ export default function StaffDashboard() {
     return [...allOrders]
       .filter(
         (o) =>
-          o.status === "received" ||
           o.status === "inQueue" ||
-          o.status === "printing" ||
-          o.status === "onHold",
+          o.status === "printing",
       )
       .sort(
         (a, b) =>
@@ -241,9 +234,9 @@ export default function StaffDashboard() {
               bg: "bg-blue-50",
             },
             {
-              label: "On Hold",
-              value: stats.onHold,
-              desc: "Needs action",
+              label: "Awaiting Payment",
+              value: stats.awaitingPayment,
+              desc: "Pending verification",
               icon: AlertCircle,
               color: "text-orange-600",
               bg: "bg-orange-50",

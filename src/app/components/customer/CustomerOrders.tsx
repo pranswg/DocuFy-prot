@@ -134,11 +134,9 @@ export default function CustomerOrders() {
                 >
                   <option value="All">All Status</option>
                   <option value="In Queue">🟡 In Queue</option>
-                  <option value="Received">🟣 Received</option>
                   <option value="Printing">🔵 Printing</option>
                   <option value="Completed">🟢 Completed</option>
                   <option value="Released">⚪ Released</option>
-                  <option value="On Hold">🟠 On Hold</option>
                   <option value="Awaiting Payment">⏳ Awaiting Payment</option>
                   <option value="Canceled">🔴 Canceled</option>
                 </select>
@@ -158,7 +156,7 @@ export default function CustomerOrders() {
                 </button>
                 {showStatusMenu && (
                   <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-                    {["All", "In Queue", "Received", "Printing", "Completed", "Released", "On Hold", "Awaiting Payment", "Canceled"].map((status) => (
+                    {["All", "In Queue", "Printing", "Completed", "Released", "Awaiting Payment", "Canceled"].map((status) => (
                       <button
                         key={status}
                         type="button"

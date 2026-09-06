@@ -65,19 +65,17 @@ const menuItems = [
 ];
 
 const STATUS_STEPS = [
-  { key: "Received", label: "Submitted" },
-  { key: "Verified", label: "Payment Verified" },
+  { key: "In Queue", label: "In Queue" },
   { key: "Printing", label: "Printing" },
   { key: "Completed", label: "Ready for Pickup" },
+  { key: "Released", label: "Picked Up" },
 ];
 
 function getProgressIndex(status: string): number {
   if (status === "Awaiting Payment") return -1;
-  if (status === "Received") return 0;
-  if (status === "In Queue") return 1;
-  if (status === "On Hold") return 0;
-  if (status === "Printing") return 2;
-  if (status === "Completed") return 3;
+  if (status === "In Queue") return 0;
+  if (status === "Printing") return 1;
+  if (status === "Completed") return 2;
   if (status === "Released") return 3;
   if (status === "Canceled") return -1;
   return -1;
@@ -85,12 +83,8 @@ function getProgressIndex(status: string): number {
 
 function getStatusMessage(status: string): string {
   switch (status) {
-    case "Received":
-      return "Your order has been received and is awaiting review.";
     case "In Queue":
       return "Your order is in the queue and will be printed soon.";
-    case "On Hold":
-      return "Your order is currently on hold. Please check the details.";
     case "Printing":
       return "Your order is currently being printed. We'll notify you once it's ready for pickup.";
     case "Completed":
@@ -98,7 +92,7 @@ function getStatusMessage(status: string): string {
     case "Released":
       return "Your order has been picked up. Thank you!";
     case "Awaiting Payment":
-      return "Your order is awaiting payment verification.";
+      return "Your order is awaiting payment confirmation.";
     case "Canceled":
       return "This order has been canceled.";
     default:
@@ -213,7 +207,7 @@ export default function CustomerDashboard() {
     return filtered.slice(0, 5);
   }, [customerOrders, searchQuery]);
 
-  const inProgressCount = stats.inProgress + stats.onHold;
+  const inProgressCount = stats.inProgress;
   const readyCount = stats.completed;
 
   const searchField = (

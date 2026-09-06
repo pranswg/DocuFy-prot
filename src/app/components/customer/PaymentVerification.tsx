@@ -36,11 +36,15 @@ import {
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore, type Order as DataStoreOrder } from "../../utils/dataStore";
 import { notificationStore } from "../../utils/notificationStore";
+import { formatCurrency } from "../../utils/formatNumber";
+import { formatPHDateTime } from "../../utils/pht";
+import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
 import {
   paymentMethodsStore,
   type PaymentMethodType,
 } from "../../utils/paymentMethodsStore";
 import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
+import { CashOnPickupAcknowledgement } from "../shared/CashOnPickupAcknowledgement";
 import Tesseract from "tesseract.js";
 
 const PENDING_ORDER_KEY = "docufy_pending_online_order";
@@ -178,6 +182,7 @@ export default function PaymentVerification() {
     setShowPaymentMethodSelector,
   ] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [amountPaid, setAmountPaid] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
   const [showImagePreview, setShowImagePreview] =
@@ -188,6 +193,30 @@ export default function PaymentVerification() {
   const [isScanning, setIsScanning] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [cashAcknowledged, setCashAcknowledged] = useState(false);
+  // Live view of the actual order (payment deadline, amounts, required payment).
+  const [order, setOrder] = useState<DataStoreOrder | null>(null);
+
+  useEffect(() => {
+    if (!orderId) return;
+    const load = () => setOrder(dataStore.getOrderById(orderId!) || null);
+    load();
+    const unsubscribe = dataStore.subscribe(load);
+    return unsubscribe;
+  }, [orderId]);
+
+  // Preset the "amount paid" field to the amount actually required (full
+  // amount for full-payment orders, the down-payment amount otherwise).
+  useEffect(() => {
+    if (!order || amountPaid) return;
+    const total = parseFloat((order.total || "₱0").replace("₱", "").replace(",", ""));
+    const required = order.fullPaymentRequired
+      ? (order.fullPaymentAmount ?? total)
+      : order.downPaymentRequired
+        ? (order.downPaymentAmount ?? total * 0.5)
+        : total;
+    setAmountPaid(required.toFixed(2));
+  }, [order]);
 
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
   const selectedMethod = isOnline
@@ -328,6 +357,12 @@ export default function PaymentVerification() {
         return;
       }
 
+      const paid = parseFloat(amountPaid);
+      if (isNaN(paid) || paid <= 0) {
+        toast.error("Please enter the amount you paid.");
+        return;
+      }
+
       // The order only enters the system NOW (on Submit Reference). For online
       // payments the order is withheld earlier; we materialize it here from the
       // held payload so backing out never leaves a phantom order in the queue.
@@ -340,6 +375,7 @@ export default function PaymentVerification() {
           paymentReferenceNumber: referenceNumber,
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
+          paymentAmountPaid: paid,
         } as DataStoreOrder);
         clearPendingFlow(orderId!);
       } else if (existingOrder) {
@@ -347,6 +383,7 @@ export default function PaymentVerification() {
           paymentReferenceNumber: referenceNumber,
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
+          paymentAmountPaid: paid,
         });
       }
 
@@ -638,36 +675,71 @@ export default function PaymentVerification() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2">
-                    Payment on Pickup
+                    Pay at the Shop before Printing
                   </h3>
                   <p className="text-sm text-gray-700 mb-3">
-                    You have selected to pay in cash when you
-                    collect your order. Please ensure you have
-                    the exact amount ready.
+                    Your order will only be printed once you pay in cash at the
+                    shop. Please bring the amount below and have the staff
+                    confirm your payment.
                   </p>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <p className="text-gray-700">
-                        No advance payment required
+                        Amount to pay:{" "}
+                        <strong>
+                          {order?.downPaymentRequired
+                            ? formatCurrency(order.downPaymentAmount || 0)
+                            : order?.total || formatCurrency(0)}
+                        </strong>
+                        {order?.downPaymentRequired && (
+                          <span className="text-gray-500">
+                            {" "}
+                            (50% down payment —{" "}
+                            {formatCurrency(
+                              parseFloat(
+                                (order.total || "₱0")
+                                  .replace("₱", "")
+                                  .replace(",", ""),
+                              ) - (order.downPaymentAmount || 0),
+                            )}{" "}
+                            balance on pickup)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <p className="text-gray-700">
-                        Pay the full amount when collecting your
-                        order
+                        Payment deadline:{" "}
+                        <span className="font-mono font-semibold">
+                          {order?.paymentDeadline
+                            ? formatPHDateTime(order.paymentDeadline)
+                            : "to be announced"}
+                        </span>{" "}
+                        {order?.paymentDeadline && (
+                          <PaymentDeadlineCountdown
+                            deadline={order.paymentDeadline}
+                          />
+                        )}
                       </p>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <p className="text-gray-700">
-                        Please bring exact change if possible
+                        Unpaid orders are auto-cancelled once the deadline
+                        passes.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+            <div className="mt-4">
+              <CashOnPickupAcknowledgement
+                checked={cashAcknowledged}
+                onChange={setCashAcknowledged}
+              />
             </div>
           </Card>
         )}
@@ -692,6 +764,35 @@ export default function PaymentVerification() {
               }}
               className="space-y-6"
             >
+              <div className="space-y-2">
+                <Label htmlFor="amount-paid">
+                  Amount Paid *
+                </Label>
+                <Input
+                  id="amount-paid"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                {order?.downPaymentRequired && (
+                  <p className="text-sm text-gray-500">
+                    You're required to pay a 50% down payment of{" "}
+                    {formatCurrency(order.downPaymentAmount || 0)}. The remaining
+                    balance of{" "}
+                    {formatCurrency(
+                      parseFloat(
+                        (order.total || "₱0").replace("₱", "").replace(",", ""),
+                      ) - (order.downPaymentAmount || 0),
+                    )}{" "}
+                    will be due on pickup.
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="reference">
                   Reference Number *
@@ -834,9 +935,14 @@ export default function PaymentVerification() {
           </Card>
         )}
 
-        {/* Confirm Button for Cash Payment */}
+        {/* Cash on Pickup — no online confirmation; order is confirmed at the shop */}
         {paymentMethod === "cash" && (
           <Card className="p-6 bg-white shadow-sm">
+            <p className="text-sm text-gray-700 mb-1">
+              You've chosen <strong>Cash on Pickup</strong>. There is nothing to
+              submit online — your order is only confirmed when you pay in cash
+              at the shop.
+            </p>
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -844,30 +950,13 @@ export default function PaymentVerification() {
                 onClick={() => navigate("/customer/dashboard")}
                 className="flex-1"
               >
-                Cancel
+                Dashboard
               </Button>
               <Button
-                onClick={() => {
-                  const pendingOrder = readPendingOrder();
-                  if (pendingOrder && pendingOrder.id === orderId) {
-                    const base = pendingOrder as unknown as DataStoreOrder;
-                    dataStore.addOrder({
-                      ...base,
-                      status: "Received",
-                      paymentMethod: "Cash",
-                      holdReason: undefined,
-                      paymentReferenceNumber: undefined,
-                      paymentVerified: true,
-                      paymentProofUrl: undefined,
-                    });
-                    clearPendingFlow(orderId!);
-                    toast.success("Order confirmed. Pay when you collect.");
-                  }
-                  navigate(`/customer/track/${orderId}`);
-                }}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => navigate(`/customer/track/${orderId}`)}
+                className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
               >
-                Confirm Order
+                Track Order
               </Button>
             </div>
           </Card>
@@ -927,7 +1016,9 @@ export default function PaymentVerification() {
               Print Request Received!
             </DialogTitle>
             <DialogDescription className="text-center pt-2">
-              Your payment details have been submitted successfully. Please wait for staff verification before your order begins processing.
+              {paymentMethod === "cash"
+                ? "Your order has been placed. Pay in cash at the shop before the payment deadline to confirm it."
+                : "Your payment details have been submitted successfully. Please wait for staff verification before your order begins processing."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-6">
@@ -957,8 +1048,8 @@ export default function PaymentVerification() {
           title="Submit Payment for Verification?"
           description={
             paymentMethod === "cash"
-              ? "Confirm your Cash on Pickup order? Your order is ready to be processed."
-              : `Submit reference ${referenceNumber.trim() || "number"}${imagePreviewUrl ? " and payment proof" : ""} for ${selectedMethod?.name || "online"} payment for order ${orderId}? Once submitted, your payment will be queued for admin/staff verification and the order will not print until approved.`
+              ? "Your Cash on Pickup order cannot be confirmed online — visit the shop to pay in cash before the payment deadline. The staff will confirm your payment and queue your order."
+              : `Submit a payment of ₱${amountPaid || "0.00"} with reference ${referenceNumber.trim() || "number"}${imagePreviewUrl ? " and payment proof" : ""} for ${selectedMethod?.name || "online"} payment for order ${orderId}? Once submitted, your payment will be queued for admin/staff verification and the order will not print until approved.`
           }
           confirmLabel={paymentMethod === "cash" ? "Confirm Order" : "Submit Reference"}
           cancelLabel="Go Back"

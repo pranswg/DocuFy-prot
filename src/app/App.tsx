@@ -38,6 +38,8 @@ import MobileNavSheet from './components/shared/MobileNavSheet';
 // Stock / Out of Stock alerts to the Notifications system on any inventory
 // change (Stock In/Out, order deductions, item edits).
 import './utils/inventoryAlerts';
+// Auto-cancels awaited-payment orders whose payment deadline has passed.
+import './utils/paymentExpiry';
 
 // Simple error boundary component
 function ErrorBoundary() {

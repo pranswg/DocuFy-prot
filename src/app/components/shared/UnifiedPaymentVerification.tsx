@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import {
   CreditCard,
@@ -11,6 +11,8 @@ import {
   Banknote,
   ChevronUp,
   ChevronDown,
+  Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -32,11 +34,13 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
-import { formatPHTime, formatPHDate } from "../../utils/pht";
+import { formatPHTime, formatPHDate, formatPHDateTime } from "../../utils/pht";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
 import PaymentMethodQRPanel from "./PaymentMethodQR";
+import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
+import { PriorityBadge, StartHereTag } from "../ui/priority-badge";
 
 // --- Types ---
 
@@ -51,7 +55,28 @@ type PaymentType = {
   time: string;
   reference?: string;
   proofImageUrl?: string;
+  // Payment-kind-aware fields (see generatePaymentsFromOrders):
+  //  - cash        → Cash on Pickup: paid at the shop, Amount to Pay + Deadline
+  //  - online      → Online payment (full amount, incl. high-value orders)
+  //  - online-down → Online down payment (Total / Paid / Remaining Balance)
+  kind: "cash" | "online" | "online-down";
+  totalAmount: number;
+  amountPaid: number;
+  remainingBalance: number;
+  deadline?: string;
+  fullPaymentRequired?: boolean;
+  downPaymentRequired?: boolean;
 };
+
+function parseOrderTotal(order: {
+  total?: string;
+  fullPaymentRequired?: boolean;
+  fullPaymentAmount?: number;
+  downPaymentRequired?: boolean;
+  downPaymentAmount?: number;
+}): number {
+  return parseFloat((order.total || '₱0').replace('₱', '').replace(',', ''));
+}
 
 const SAMPLE_PROOF_IMAGE =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UGF5bWVudCBQcm9vZiBTY3JlZW5zaG90PC90ZXh0Pjwvc3ZnPg==";
@@ -65,7 +90,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
   return orders
     .map((order, index) => {
       const orderDate = order.statusUpdatedAt ? new Date(order.statusUpdatedAt) : new Date(order.date);
-      const totalAmount = parseFloat(order.total.replace('?', '').replace(',', ''));
+      const totalAmount = parseOrderTotal(order);
 
       // Determine status based on paymentVerified field (SINGLE SOURCE OF TRUTH)
       // A payment only shows "Verified" once staff/admin actually approves it.
@@ -85,6 +110,28 @@ function generatePaymentsFromOrders(): PaymentType[] {
           ? "Cash"
           : "GCash";
 
+      // Payment-kind-aware display: which amount column means what.
+      const isCashOnPickup = paymentMethod === "Cash";
+      const kind: PaymentType["kind"] = isCashOnPickup
+        ? "cash"
+        : order.downPaymentRequired
+          ? "online-down"
+          : "online";
+
+      // For online payments the customer reports the amount they paid; for
+      // down payments that's the down-payment amount, for full payments the
+      // full amount (falling back to the required amount when not recorded).
+      const amountPaid = isCashOnPickup
+        ? 0
+        : order.paymentAmountPaid !== undefined
+          ? order.paymentAmountPaid
+          : order.fullPaymentRequired
+            ? (order.fullPaymentAmount ?? totalAmount)
+            : order.downPaymentRequired
+              ? (order.downPaymentAmount ?? totalAmount * 0.5)
+              : totalAmount;
+      const remainingBalance = Math.max(0, totalAmount - amountPaid);
+
       return {
         id: `PAY-${order.id.split('-')[1]}`,
         orderId: order.id,
@@ -94,8 +141,15 @@ function generatePaymentsFromOrders(): PaymentType[] {
         status: paymentStatus,
         submittedAt: orderDate,
         time: formatPHTime(orderDate).toLowerCase(),
-        reference: order.paymentReferenceNumber || (paymentMethod === 'Cash' ? 'Cash on Pickup' : ''),
+        reference: order.paymentReferenceNumber || (isCashOnPickup ? 'Cash on Pickup' : ''),
         proofImageUrl: order.paymentProofUrl || SAMPLE_PROOF_IMAGE,
+        kind,
+        totalAmount,
+        amountPaid,
+        remainingBalance,
+        deadline: order.paymentDeadline,
+        fullPaymentRequired: order.fullPaymentRequired,
+        downPaymentRequired: order.downPaymentRequired,
       };
     })
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
@@ -165,12 +219,20 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     if (selectedPayment) {
       // SYSTEM-WIDE SYNC: Update the actual order in dataStore
       // This ensures Order List and Payment Verification are connected
+      const orderRecords = dataStore.getOrders();
+      const targetOrder = orderRecords.find(
+        (o) => o.id === selectedPayment.orderId,
+      );
       dataStore.updateOrder(selectedPayment.orderId, {
         paymentVerified: status === "verified",
         downPaymentVerified: status === "verified",
+        fullPaymentVerified:
+          status === "verified" && !!targetOrder?.fullPaymentRequired,
         paymentReferenceNumber: selectedPayment.reference,
-        // Auto-update order status to "Received" when payment is verified so the order enters the queue
-        ...(status === "verified" ? { status: "Received" as const } : {}),
+        paymentDeadline: undefined,
+        // Auto-update order status to "In Queue" when payment is verified so
+        // the order enters the queue automatically (staff never add it).
+        ...(status === "verified" ? { status: "In Queue" as const } : {}),
       });
 
       setPayments((prev) =>
@@ -223,7 +285,23 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       );
     })
     .sort((a, b) => {
-      if (!sortColumn) return 0;
+      if (!sortColumn) {
+        // DEFAULT (verification order): pending items first, oldest first (FIFO)
+        // so the next payment to verify sits at the top; verified/rejected follow
+        // newest-first for convenience.
+        const rank: Record<PaymentType["status"], number> = {
+          pending: 0,
+          verified: 1,
+          rejected: 2,
+        };
+        const aRank = rank[a.status];
+        const bRank = rank[b.status];
+        if (aRank !== bRank) return aRank - bRank;
+        if (a.status === "pending" && b.status === "pending") {
+          return a.submittedAt.getTime() - b.submittedAt.getTime();
+        }
+        return b.submittedAt.getTime() - a.submittedAt.getTime();
+      }
 
       let aVal: any = a[sortColumn as keyof PaymentType];
       let bVal: any = b[sortColumn as keyof PaymentType];
@@ -243,6 +321,24 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
+
+  // VERIFICATION SEQUENCE: pending payments ranked oldest-first (FIFO). The
+  // numbers staff see (1, 2, 3...) are the order in which payments should be
+  // verified — the first pending record is always "next to verify".
+  const pendingSequenceById = useMemo(() => {
+    const map = new Map<string, number>();
+    const pending = payments
+      .filter((p) => p.status === "pending")
+      .sort((a, b) => a.submittedAt.getTime() - b.submittedAt.getTime());
+    pending.forEach((p, i) => map.set(p.id, i + 1));
+    return map;
+  }, [payments]);
+  const nextToVerifyId = useMemo(() => {
+    const pending = payments
+      .filter((p) => p.status === "pending")
+      .sort((a, b) => a.submittedAt.getTime() - b.submittedAt.getTime());
+    return pending[0]?.id;
+  }, [payments]);
 
   const stats = {
     pending: payments.filter((p) => p.status === "pending")
@@ -326,8 +422,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             <table className="w-full text-left">
               <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10">
                 <tr>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider w-12">
-                    #
+                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider w-14">
+                    Priority
                   </th>
                   <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     <div className="flex flex-col leading-tight">
@@ -402,8 +498,29 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     onClick={() => handleOpenDetails(payment)}
                   >
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="w-8 h-8 rounded-full bg-[#1D73EC] text-white flex items-center justify-center font-bold text-sm">
-                        {index + 1}
+                      <div className="flex flex-col items-center">
+                        {payment.status === "pending" ? (
+                          <>
+                            <PriorityBadge
+                              number={
+                                pendingSequenceById.get(payment.id) ??
+                                index + 1
+                              }
+                              active={payment.id === nextToVerifyId}
+                            />
+                            {payment.id === nextToVerifyId && (
+                              <StartHereTag label="Next to Verify" />
+                            )}
+                          </>
+                        ) : payment.status === "verified" ? (
+                          <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                            <Check className="w-4 h-4" />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                            <X className="w-4 h-4" />
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -535,13 +652,102 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   </p>
                 </div>
 
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                    Amount to Verify
-                  </p>
-                  <p className="text-2xl font-bold text-[#1D73EC]">
-                    ?{selectedPayment.amount.toLocaleString()}
-                  </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 col-span-2">
+                  {selectedPayment.kind === "cash" ? (
+                    <>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Amount to Pay
+                        </p>
+                        <p className="text-2xl font-bold text-[#1D73EC]">
+                          ₱
+                          {selectedPayment.amountPaid > 0
+                            ? selectedPayment.amountPaid.toLocaleString()
+                            : selectedPayment.totalAmount.toLocaleString()}
+                        </p>
+                        {selectedPayment.downPaymentRequired && (
+                          <p className="text-[11px] text-amber-600 font-medium mt-1">
+                            50% down payment (cash at shop)
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Payment Deadline
+                        </p>
+                        <p className="text-sm font-bold text-[#1c1f26]">
+                          {selectedPayment.deadline
+                            ? formatPHDateTime(selectedPayment.deadline)
+                            : "No deadline set"}
+                        </p>
+                        {selectedPayment.deadline && (
+                          <PaymentDeadlineCountdown
+                            deadline={selectedPayment.deadline}
+                            className="mt-1"
+                          />
+                        )}
+                      </div>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2 sm:col-span-1">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Confirmation Status
+                        </p>
+                        <p className="text-sm font-semibold text-amber-600">
+                          Awaiting Payment at Shop
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Confirm only once the customer has paid in cash
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Order Total
+                        </p>
+                        <p className="text-2xl font-bold text-[#1D73EC]">
+                          ₱{selectedPayment.totalAmount.toLocaleString()}
+                        </p>
+                        {selectedPayment.fullPaymentRequired && (
+                          <p className="text-[11px] text-amber-600 font-medium mt-1">
+                            Full payment required (100% upfront)
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Amount Paid
+                        </p>
+                        <p className="text-xl font-bold text-[#1c1f26]">
+                          ₱{selectedPayment.amountPaid.toLocaleString()}
+                        </p>
+                        {selectedPayment.downPaymentRequired && (
+                          <p className="text-[11px] text-amber-600 font-medium mt-1">
+                            50% down payment
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Remaining Balance
+                        </p>
+                        <p
+                          className={`text-xl font-bold ${
+                            selectedPayment.remainingBalance > 0
+                              ? "text-amber-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          ₱{selectedPayment.remainingBalance.toLocaleString()}
+                        </p>
+                        {selectedPayment.remainingBalance > 0 && (
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Balance due on pickup
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Corresponding Payment Method QR / details for online payments */}
