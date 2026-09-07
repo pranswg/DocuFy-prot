@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   LayoutDashboard,
@@ -461,7 +461,7 @@ export default function JobBoardManagement() {
                 {/* Metadata stats bar */}
                 <div className="flex items-center gap-4 text-xs text-gray-500 py-2 border-t border-gray-100 mt-3">
                   <div className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+                    <Clock className="w-3.5 h-3.5 text-gray-500" />
                     <strong className="font-medium text-gray-600">Duration:</strong> {job.duration}
                   </div>
                   <div>
@@ -553,7 +553,7 @@ export default function JobBoardManagement() {
                         <p className="text-sm text-gray-500">
                           {applicant.phone}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-gray-500 mt-1">
                           Applied: {applicant.dateTimeApplied || applicant.dateApplied}
                         </p>
                       </div>
@@ -602,9 +602,9 @@ export default function JobBoardManagement() {
               </div>
             ) : (
               <div className="w-full p-8 text-center bg-gray-50/50 border border-dashed border-gray-200 rounded-xl mt-4">
-                <Inbox className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <Inbox className="w-10 h-10 text-gray-500 mx-auto mb-3" />
                 <p className="text-sm font-medium text-gray-500">No applications received yet.</p>
-                <p className="text-xs text-gray-400 mt-1">Applications will appear here once students apply.</p>
+                <p className="text-xs text-gray-500 mt-1">Applications will appear here once students apply.</p>
               </div>
             )}
           </div>

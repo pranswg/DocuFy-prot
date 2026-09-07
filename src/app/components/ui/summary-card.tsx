@@ -25,7 +25,7 @@ export function SummaryCard({
   icon: Icon,
   iconBg = "bg-blue-50",
   iconColor = "text-[#2F6FD6]",
-  labelColor = "text-slate-500",
+  labelColor = "text-slate-600",
   valueColor = "text-slate-900",
   subtitle,
   active = false,
@@ -54,7 +54,7 @@ export function SummaryCard({
 
   const chip = highlight ? "bg-white/20" : iconBg;
   const iconCls = highlight ? "text-white" : iconColor;
-  const labelCls = highlight ? "text-white/80" : labelColor;
+  const labelCls = highlight ? "text-white/90" : labelColor;
   const valueCls = highlight ? "text-white" : valueColor;
 
   return (
@@ -76,7 +76,7 @@ export function SummaryCard({
           {value}
         </p>
         {subtitle !== undefined && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
             {subtitle}
           </div>
         )}

@@ -1,4 +1,4 @@
-﻿import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -289,7 +289,7 @@ export default function SignUpPage() {
                       onClick={() =>
                         setShowPassword(!showPassword)
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                     >
                       {showPassword ? (
                         <EyeOff size={16} />
@@ -330,7 +330,7 @@ export default function SignUpPage() {
                           !showConfirmPassword,
                         )
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                     >
                       {showConfirmPassword ? (
                         <EyeOff size={16} />
@@ -394,7 +394,7 @@ export default function SignUpPage() {
               <div className="w-full border-t border-gray-100"></div>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase">
-              <span className="bg-white px-2 text-gray-400">
+              <span className="bg-white px-2 text-gray-500">
                 Or continue with
               </span>
             </div>

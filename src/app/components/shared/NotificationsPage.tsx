@@ -537,7 +537,7 @@ export default function NotificationsPage() {
                 />
               )}
               {item.kind === "announcement" && (
-                <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
                   {item.typeLabel}
                 </span>
               )}
@@ -552,7 +552,7 @@ export default function NotificationsPage() {
             {item.message}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-gray-500">
               {formatPHTime(item.timestamp)}
             </span>
             {item.action && (
@@ -667,7 +667,7 @@ export default function NotificationsPage() {
             <p className="text-sm font-semibold text-gray-700">
               No notifications yet
             </p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               Announcements and order updates will appear here.
             </p>
           </div>
@@ -676,7 +676,7 @@ export default function NotificationsPage() {
             <p className="text-sm font-semibold text-gray-700">
               {FILTER_EMPTY_TEXT[filter]}
             </p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               Adjust your filter to see more notifications.
             </p>
           </div>
@@ -686,7 +686,7 @@ export default function NotificationsPage() {
               <Fragment key={group.id}>
                 <div className="px-4 sm:px-5 pt-4 pb-2.5 border-b border-gray-100">
                   <span className="flex items-center gap-3">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       {group.label}
                     </span>
                     <span className="flex-1 h-px bg-gray-100" />
@@ -782,7 +782,7 @@ export default function NotificationsPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500">
                 {priority === "regular" &&
                   "Normal system notification — appears in the unified notifications list."}
                 {priority === "important" &&

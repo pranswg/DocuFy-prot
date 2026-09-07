@@ -52,7 +52,7 @@ export default function PaymentMethodQRPanel({
 
         {/* Account / Payment Details */}
         <div className="flex-1 space-y-3 text-sm min-w-0">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             {method.name} Payment Details
           </p>
           <div className="flex items-start gap-2.5">

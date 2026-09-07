@@ -4,6 +4,7 @@ import {
   Bell,
   LogOut,
   Menu,
+  PanelLeft,
   User,
   ChevronDown,
   Printer,
@@ -56,7 +57,6 @@ import {
   flattenSections,
   childPathMatches,
   type NavModule,
-  type NavSection,
 } from "../utils/navigationConfig";
 import {
   snapshotExpandedParents,
@@ -330,25 +330,18 @@ export default function Layout({
     navigate(path);
   };
 
-  // Sectioned navigation model: admin/staff use the shared section config
-  // (items grouped into collapsible sections; a section item may carry inline
-  // sub-menu children); customers keep the flat menu.
-  const navSections: NavSection[] | null =
-    user?.role === "admin"
-      ? adminSections
-      : user?.role === "staff"
-        ? staffSections
-        : null;
-
   const customerModules: NavModule[] = menuItems.map((item) => ({
       label: item.label,
       path: item.path,
       icon: item.icon,
     }));
 
-  const allModules: NavModule[] = navSections
-    ? flattenSections(navSections)
-    : customerModules;
+  const allModules: NavModule[] =
+    user?.role === "admin"
+      ? flattenSections(adminSections)
+      : user?.role === "staff"
+        ? flattenSections(staffSections)
+        : customerModules;
 
   const activeModule = findActiveModule(
     allModules,
@@ -424,12 +417,12 @@ export default function Layout({
           aria-expanded={hasChildren ? isExpanded : undefined}
           className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
             showLabels ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
-          } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-blue-100 hover:bg-white/10 hover:text-white"}`}
+          } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-white/90 hover:bg-white/10 hover:text-white"}`}
         >
           <div className="relative flex-shrink-0 flex items-center justify-center">
             {module.icon}
           </div>
-          {showLabels && <span className="text-sm font-medium whitespace-nowrap truncate">{module.label}</span>}
+          {showLabels && <span className="text-sm font-semibold whitespace-nowrap truncate">{module.label}</span>}
           {hasChildren && showLabels && (
             <span className="ml-auto flex-shrink-0 flex items-center justify-center">
               {isExpanded ? (
@@ -444,9 +437,6 @@ export default function Layout({
 
         {hasChildren && isExpanded && showLabels && (
           <div className={`flex flex-col items-stretch w-full ${animatedModules.has(module.path) ? "animate-in fade-in slide-in-from-top-1 duration-150" : ""}`}>
-            <div className="px-4 pl-[52px] pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
-              {module.label}
-            </div>
             <div className="flex flex-col items-stretch">
               {module.children!.map((child) => {
                 const isChildActive = childPathMatches(
@@ -462,10 +452,10 @@ export default function Layout({
                     onMouseEnter={(e) => showSidebarTooltip(child.label, e)}
                     onMouseLeave={() => setSidebarTooltip(null)}
                     aria-current={isChildActive ? "page" : undefined}
-                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
+                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
                       isChildActive
                         ? "bg-white text-[#1D73EC] shadow-sm"
-                        : "text-blue-100 hover:bg-white/10 hover:text-white"
+                        : "text-white/90 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     <span className="truncate">{child.label}</span>
@@ -677,45 +667,56 @@ export default function Layout({
 
   const navigation = (
     <>
-      <div className="pt-5 pb-3 w-full" aria-hidden="true">
-        <div className="flex items-center justify-center">
-          <img
-            src={logoImage}
-            alt=""
-            className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
-          />
-        </div>
-      </div>
-
-      <div className="my-2 px-3">
-        <div className="h-[2px] bg-white/40 w-full mb-4" />
-        <div className="flex justify-center">
+      <div className="pt-5 pb-3 w-full">
+        <div className={showLabels ? "flex items-center justify-between px-4 gap-4" : "flex items-center justify-center"}>
           <button
             type="button"
             onClick={() => {
-              if (isMobile) {
-                setIsNavigationOpen(false);
-              } else {
-                setIsSidebarExpanded(!isSidebarExpanded);
+              if (!isMobile && !isSidebarExpanded) {
+                setIsSidebarExpanded(true);
               }
             }}
-            onMouseEnter={(e) => showSidebarTooltip("Expand navigation", e)}
+            onMouseEnter={(e) => {
+              if (!showLabels) showSidebarTooltip("Expand navigation", e);
+            }}
             onMouseLeave={() => setSidebarTooltip(null)}
-            aria-label={isMobile ? "Close navigation" : isSidebarExpanded ? "Collapse navigation" : "Expand navigation"}
-            aria-expanded={isMobile ? isNavigationOpen : isSidebarExpanded}
-            className={`flex items-center rounded-xl transition-all duration-200 group relative ${
-              isMobile || isSidebarExpanded
-                ? "w-full px-3 py-2.5 gap-3"
-                : "w-10 h-10 justify-center"
-            } text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40`}
+            aria-label="Docufy"
+            className="group flex items-center gap-3 rounded-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
-            <div className="flex-shrink-0">
-              {isMobile || isSidebarExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
-            {(isMobile || isSidebarExpanded) && <span className="text-sm font-medium">Collapse</span>}
+            <img
+              src={logoImage}
+              alt=""
+              className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
+            />
+            {showLabels && (
+              <span className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
+                Docufy
+              </span>
+            )}
           </button>
+
+          {showLabels && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isMobile) {
+                  setIsNavigationOpen(false);
+                } else {
+                  setIsSidebarExpanded(!isSidebarExpanded);
+                }
+              }}
+              aria-label={isMobile ? "Close navigation" : "Collapse navigation"}
+              aria-expanded={isMobile ? isNavigationOpen : isSidebarExpanded}
+              className="flex items-center justify-center rounded-lg w-8 h-8 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-colors duration-200"
+            >
+              <PanelLeft className="w-[18px] h-[18px] flex-shrink-0" />
+            </button>
+          )}
         </div>
-        <div className="h-[2px] bg-white/40 w-full mt-4" />
+      </div>
+
+      <div className="px-3 mb-2">
+        <div className="h-[2px] bg-white/40 w-full" />
       </div>
 
       <nav
@@ -727,30 +728,13 @@ export default function Layout({
         aria-label="Primary navigation"
         className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
       >
-        {navSections ? (
-          showLabels ? (
-            <div className="flex flex-col items-stretch w-full">
-              {navSections.map((section) => (
-                <div key={section.key} className="flex flex-col w-full">
-                  <div className="w-full px-3 pt-2 pb-0.5">
-                    <div className="w-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-100/70">
-                      {section.label}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-stretch w-full">
-                    {section.items.map(renderModuleItem)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center w-full space-y-2">
-              {allModules.map(renderModuleItem)}
-            </div>
-          )
-        ) : (
+        {showLabels ? (
           <div className="flex flex-col items-stretch w-full">
-            {customerModules.map(renderModuleItem)}
+            {allModules.map(renderModuleItem)}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center w-full space-y-2">
+            {allModules.map(renderModuleItem)}
           </div>
         )}
       </nav>
@@ -988,7 +972,7 @@ export default function Layout({
                                 <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-relaxed">
                                   {item.message}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-1.5">
+                                <p className="text-xs text-gray-500 mt-1.5">
                                   {formatTimeAgo(item.timestamp)}
                                 </p>
                               </div>

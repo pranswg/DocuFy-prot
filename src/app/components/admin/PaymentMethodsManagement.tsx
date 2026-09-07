@@ -191,7 +191,7 @@ export default function PaymentMethodsManagement() {
           <Card className="p-16 text-center">
             <QrCode className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-600 font-medium">No payment methods yet</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               Add your first online payment method to make it available to customers.
             </p>
           </Card>
@@ -392,9 +392,9 @@ export default function PaymentMethodsManagement() {
               ) : (
                 <label className="cursor-pointer block">
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#2F6FD6] transition-colors">
-                    <Image className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <Image className="w-8 h-8 text-gray-500 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-700">Upload QR Code</p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Image files only (PNG, JPG, WebP, SVG, GIF) · under 3 MB
                     </p>
                   </div>

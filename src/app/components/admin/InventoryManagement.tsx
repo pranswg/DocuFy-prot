@@ -167,7 +167,7 @@ function ReportSection({ title, subtitle, children }: { title: string; subtitle?
     <Card className="p-6 bg-white border border-slate-100 shadow-sm">
       <div className="mb-4">
         <h3 className="text-base font-bold text-slate-800">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       {children}
     </Card>
@@ -313,7 +313,7 @@ function InventoryReports() {
             >
               <Calendar className="w-4 h-4 text-[#2F6FD6]" />
               <span>{REPORT_RANGES.find((r) => r.id === rangeId)?.label}</span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
             {dropdownOpen && (
               <>
@@ -331,11 +331,11 @@ function InventoryReports() {
                   {rangeId === "custom" && (
                     <div className="px-4 py-3 border-t border-slate-100 space-y-2">
                       <div>
-                        <label className="text-[10px] font-medium text-slate-400 uppercase">From</label>
+                        <label className="text-[10px] font-medium text-slate-500 uppercase">From</label>
                         <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-medium text-slate-400 uppercase">To</label>
+                        <label className="text-[10px] font-medium text-slate-500 uppercase">To</label>
                         <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
                       </div>
                       <button onClick={() => setDropdownOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
@@ -382,7 +382,7 @@ function InventoryReports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ReportSection title="Most Used Materials" subtitle="Consumption during the selected period">
           {usageMap.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-slate-400">
+            <div className="flex flex-col items-center py-10 text-slate-500">
               <TrendingUp className="w-8 h-8 mb-2 text-slate-300" />
               <p className="text-sm font-medium text-slate-500">No material usage recorded for this period.</p>
             </div>
@@ -398,7 +398,7 @@ function InventoryReports() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 truncate">{u.name}</p>
-                      <p className="text-xs text-slate-400">{fmtQty(u.qty)} {item?.unit || "units"}</p>
+                      <p className="text-xs text-slate-500">{fmtQty(u.qty)} {item?.unit || "units"}</p>
                     </div>
                     <p className="text-sm font-bold text-slate-900 shrink-0">{pct.toFixed(0)}%</p>
                   </div>
@@ -410,7 +410,7 @@ function InventoryReports() {
 
         <ReportSection title="Stock Movement" subtitle="Stock In vs Stock Out over time">
           {movementChart.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-slate-400">
+            <div className="flex flex-col items-center py-10 text-slate-500">
               <BarChart3 className="w-8 h-8 mb-2 text-slate-300" />
               <p className="text-sm font-medium text-slate-500">No stock movement data for this period.</p>
             </div>
@@ -469,7 +469,7 @@ function InventoryReports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ReportSection title="Stock-In History" subtitle="Items added during the selected period">
           {scopedIn.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">No stock-in records for this period.</p>
+            <p className="py-8 text-center text-sm text-slate-500">No stock-in records for this period.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -498,7 +498,7 @@ function InventoryReports() {
 
         <ReportSection title="Stock-Out History" subtitle="Items removed/consumed during the selected period">
           {scopedOut.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">No stock-out records for this period.</p>
+            <p className="py-8 text-center text-sm text-slate-500">No stock-out records for this period.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -529,7 +529,7 @@ function InventoryReports() {
       {/* Current Inventory Report */}
       <ReportSection title="Current Inventory Report" subtitle="Reflects the same data as the Inventory Overview table">
         {currentReportItems.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-400">No inventory items match the current filters.</p>
+          <p className="py-8 text-center text-sm text-slate-500">No inventory items match the current filters.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -794,13 +794,13 @@ export default function InventoryManagement({
           <div className="flex gap-0 -mb-px">
             <button
               onClick={() => setView("overview")}
-              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "overview" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "overview" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-500 hover:text-slate-600"}`}
             >
               Inventory Overview
             </button>
             <button
               onClick={() => setView("reports")}
-              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "reports" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+              className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${view === "reports" ? "border-[#2F6FD6] text-[#2F6FD6]" : "border-transparent text-slate-500 hover:text-slate-600"}`}
             >
               Reports
             </button>
@@ -855,7 +855,7 @@ export default function InventoryManagement({
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                   Papers Left
                 </p>
                 <div className="flex items-baseline gap-2">
@@ -874,7 +874,7 @@ export default function InventoryManagement({
                   key={item.id}
                   className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
                 >
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">
                     {item.name}
                   </p>
                   <p className="text-sm font-bold text-slate-800">
@@ -895,7 +895,7 @@ export default function InventoryManagement({
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -977,7 +977,7 @@ export default function InventoryManagement({
                           {item.name}
                         </p>
                         {item.brand && (
-                          <p className="text-xs text-slate-400">{item.brand}</p>
+                          <p className="text-xs text-slate-500">{item.brand}</p>
                         )}
                       </td>
                       <td className="px-5 py-3">
@@ -995,7 +995,7 @@ export default function InventoryManagement({
                                 0,
                               )}
                             </span>
-                            <span className="ml-1 text-xs text-slate-400">
+                            <span className="ml-1 text-xs text-slate-500">
                               pcs ({formatNumber(item.currentStock, 2)}{" "}
                               {item.unit}s)
                             </span>

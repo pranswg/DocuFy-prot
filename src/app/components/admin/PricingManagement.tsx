@@ -511,7 +511,7 @@ export default function PricingManagement() {
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-8 h-8 rounded-lg bg-[#F2F7FF] flex items-center justify-center shrink-0">
-              <Tag className="w-4 h-4 text-gray-400" />
+              <Tag className="w-4 h-4 text-gray-500" />
             </span>
             <h3 className="font-bold text-gray-900">Legacy Per-Page Rates</h3>
           </div>
@@ -652,7 +652,7 @@ export default function PricingManagement() {
             <div className="space-y-2">
               <Label htmlFor="legacy-pricing-value">Price</Label>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-gray-400">₱</span>
+                <span className="text-lg font-semibold text-gray-500">₱</span>
                 <Input
                   id="legacy-pricing-value"
                   type="number"

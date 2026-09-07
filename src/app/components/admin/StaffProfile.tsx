@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   LayoutDashboard,
@@ -523,7 +523,7 @@ export default function JobBoardManagement() {
                         <p className="text-sm text-gray-500">
                           {applicant.phone}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-gray-500 mt-1">
                           Applied: {applicant.dateTimeApplied || applicant.dateApplied}
                         </p>
                       </div>

@@ -9,10 +9,9 @@ import {
   Eye,
   Smartphone,
   Banknote,
-  ChevronUp,
-  ChevronDown,
   Check,
   X,
+  ListOrdered,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -34,13 +33,13 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
-import { formatPHTime, formatPHDate, formatPHDateTime } from "../../utils/pht";
+import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
 import PaymentMethodQRPanel from "./PaymentMethodQR";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
-import { PriorityBadge, StartHereTag } from "../ui/priority-badge";
+import { StartHereTag } from "../ui/priority-badge";
 
 // --- Types ---
 
@@ -66,6 +65,9 @@ type PaymentType = {
   deadline?: string;
   fullPaymentRequired?: boolean;
   downPaymentRequired?: boolean;
+  canceled?: boolean;
+  expired?: boolean;
+  cancellationReason?: string;
 };
 
 function parseOrderTotal(order: {
@@ -102,6 +104,8 @@ function generatePaymentsFromOrders(): PaymentType[] {
       } else if (order.status === 'Canceled') {
         paymentStatus = "rejected";
       }
+      const canceled = order.status === 'Canceled';
+      const expired = canceled && /deadline|expired?/i.test(order.cancellationReason || '');
 
       // Determine payment method from order (display name stored on the order)
       const paymentMethod = order.paymentMethod
@@ -133,7 +137,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
       const remainingBalance = Math.max(0, totalAmount - amountPaid);
 
       return {
-        id: `PAY-${order.id.split('-')[1]}`,
+        id: order.id,
         orderId: order.id,
         customer: order.customerName,
         amount: totalAmount,
@@ -150,6 +154,9 @@ function generatePaymentsFromOrders(): PaymentType[] {
         deadline: order.paymentDeadline,
         fullPaymentRequired: order.fullPaymentRequired,
         downPaymentRequired: order.downPaymentRequired,
+        canceled,
+        expired,
+        cancellationReason: order.cancellationReason,
       };
     })
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
@@ -169,8 +176,13 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentType | null>(null);
   const [showDialog, setShowDialog] = useState(false);
-  const [statusFilter, setStatusFilter] =
-    useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "pending" | "verified" | "rejected" | "cancelled" | "expired"
+  >("pending");
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "cash" | "online" | "online-down"
+  >("all");
+  const [methodFilter, setMethodFilter] = useState<"all" | string>("all");
   const [showRejectDialog, setShowRejectDialog] =
     useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -178,8 +190,6 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   const [pendingVerifyAction, setPendingVerifyAction] = useState<
     "verified" | "rejected" | null
   >(null);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Load payments from dataStore
   useEffect(() => {
@@ -257,69 +267,53 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     setShowDialog(true);
   };
 
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
-  };
-
-  const handleStatusFilterCycle = () => {
-    const statuses = ["all", "pending", "verified", "rejected"];
-    const currentIndex = statuses.indexOf(statusFilter);
-    const nextIndex = (currentIndex + 1) % statuses.length;
-    setStatusFilter(statuses[nextIndex]);
-  };
-
   const filteredPayments = payments
     .filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter)
-        return false;
       const query = searchQuery.toLowerCase();
-      return (
-        p.id.toLowerCase().includes(query) ||
-        p.customer.toLowerCase().includes(query) ||
-        p.reference?.toLowerCase().includes(query)
-      );
+      if (
+        query &&
+        !p.id.toLowerCase().includes(query) &&
+        !p.customer.toLowerCase().includes(query) &&
+        !p.reference?.toLowerCase().includes(query)
+      )
+        return false;
+      if (statusFilter === "pending" && p.status !== "pending")
+        return false;
+      if (statusFilter === "verified" && p.status !== "verified")
+        return false;
+      if (statusFilter === "rejected" && !(p.status === "rejected" && !p.canceled))
+        return false;
+      if (
+        statusFilter === "cancelled" &&
+        !(p.status === "rejected" && p.canceled && !p.expired)
+      )
+        return false;
+      if (statusFilter === "expired" && !(p.status === "rejected" && p.expired))
+        return false;
+      if (typeFilter === "cash" && p.kind !== "cash") return false;
+      if (typeFilter === "online" && p.kind !== "online") return false;
+      if (typeFilter === "online-down" && p.kind !== "online-down")
+        return false;
+      if (methodFilter !== "all" && p.method !== methodFilter)
+        return false;
+      return true;
     })
     .sort((a, b) => {
-      if (!sortColumn) {
-        // DEFAULT (verification order): pending items first, oldest first (FIFO)
-        // so the next payment to verify sits at the top; verified/rejected follow
-        // newest-first for convenience.
-        const rank: Record<PaymentType["status"], number> = {
-          pending: 0,
-          verified: 1,
-          rejected: 2,
-        };
-        const aRank = rank[a.status];
-        const bRank = rank[b.status];
-        if (aRank !== bRank) return aRank - bRank;
-        if (a.status === "pending" && b.status === "pending") {
-          return a.submittedAt.getTime() - b.submittedAt.getTime();
-        }
-        return b.submittedAt.getTime() - a.submittedAt.getTime();
+      // AUTOMATIC FIFO (verification order): pending items first, oldest
+      // first, so the next payment to verify always sits at the top;
+      // verified/rejected follow newest-first for convenience.
+      const rank: Record<PaymentType["status"], number> = {
+        pending: 0,
+        verified: 1,
+        rejected: 2,
+      };
+      const aRank = rank[a.status];
+      const bRank = rank[b.status];
+      if (aRank !== bRank) return aRank - bRank;
+      if (a.status === "pending" && b.status === "pending") {
+        return a.submittedAt.getTime() - b.submittedAt.getTime();
       }
-
-      let aVal: any = a[sortColumn as keyof PaymentType];
-      let bVal: any = b[sortColumn as keyof PaymentType];
-
-      if (sortColumn === "submittedAt") {
-        aVal = a.submittedAt.getTime();
-        bVal = b.submittedAt.getTime();
-      } else if (sortColumn === "time") {
-        aVal = a.submittedAt.getTime();
-        bVal = b.submittedAt.getTime();
-      } else if (typeof aVal === "string") {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-
-      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
-      return 0;
+      return b.submittedAt.getTime() - a.submittedAt.getTime();
     });
 
   // VERIFICATION SEQUENCE: pending payments ranked oldest-first (FIFO). The
@@ -340,251 +334,314 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     return pending[0]?.id;
   }, [payments]);
 
+  // Distinct payment methods present in the list (for the Method filter)
+  const methodsInList = useMemo(
+    () => Array.from(new Set(payments.map((p) => p.method))).sort(),
+    [payments],
+  );
+
   const stats = {
     pending: payments.filter((p) => p.status === "pending")
       .length,
-    verified: payments.filter((p) => p.status === "verified")
-      .length,
-    rejected: payments.filter((p) => p.status === "rejected")
-      .length,
-    totalAmount: payments
-      .filter((p) => p.status === "verified")
+    verifiedToday: payments.filter(
+      (p) =>
+        p.status === "verified" &&
+        toPHTKey(p.submittedAt) === todayPHTKey(),
+    ).length,
+    inQueue: dataStore.getOrders().filter(
+      (o) => o.status === "In Queue",
+    ).length,
+    canceled: dataStore.getOrders().filter(
+      (o) => o.status === "Canceled",
+    ).length,
+    totalVerifiedToday: payments
+      .filter(
+        (p) =>
+          p.status === "verified" &&
+          toPHTKey(p.submittedAt) === todayPHTKey(),
+      )
       .reduce((sum, p) => sum + p.amount, 0),
   };
 
   return (
     <Layout menuItems={menuItems} title="Payment Verification" showBackButton>
       <StaffTimeInGate>
-        <div className="flex flex-col h-full max-w-[1800px] mx-auto font-poppins">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
+        <div className="flex flex-col h-full max-w-[1600px] mx-auto">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 shrink-0">
           <div>
-            <h1 className="text-2xl font-bold text-[#1c1f26]">
+            <h1 className="text-xl font-bold text-[#1c1f26]">
               Payment Verification
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-[13px] text-gray-500 mt-0.5">
               Review and verify customer payments
             </p>
           </div>
 
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <Input
               placeholder="Search payments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 focus-visible:ring-[#1D73EC] rounded-lg h-10 text-sm font-medium"
+              className="pl-10 bg-white border-gray-200 shadow-sm rounded-lg h-9 text-sm"
             />
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-4 shrink-0">
           <SummaryCard
-            label="All Transactions"
-            value={payments.length}
-            icon={CreditCard}
-            active={statusFilter === "all"}
-            onClick={() => setStatusFilter("all")}
-          />
-          <SummaryCard
-            label="Pending"
+            label="Pending Verification"
             value={stats.pending}
             icon={Clock}
             active={statusFilter === "pending"}
-            onClick={() => setStatusFilter("pending")}
+            onClick={() =>
+              setStatusFilter((f) => (f === "pending" ? "all" : "pending"))
+            }
           />
           <SummaryCard
-            label="Verified"
-            value={stats.verified}
+            label="Verified Today"
+            value={stats.verifiedToday}
             icon={CheckCircle}
-            active={statusFilter === "verified"}
-            onClick={() => setStatusFilter("verified")}
+            iconBg="bg-green-50"
+            iconColor="text-green-600"
           />
           <SummaryCard
-            label="Rejected"
-            value={stats.rejected}
+            label="In Queue"
+            value={stats.inQueue}
+            icon={ListOrdered}
+          />
+          <SummaryCard
+            label="Cancelled / Expired"
+            value={stats.canceled}
             icon={XCircle}
-            active={statusFilter === "rejected"}
-            onClick={() => setStatusFilter("rejected")}
+            iconBg="bg-red-50"
+            iconColor="text-red-500"
           />
           <SummaryCard
             highlight
-            label="Total Verified"
-            value={`₱${stats.totalAmount.toLocaleString()}`}
-            icon={CreditCard}
+            label="Total Verified Today"
+            value={`₱${stats.totalVerifiedToday.toLocaleString()}`}
+            icon={Banknote}
           />
         </div>
 
+        {/* Payment Filter / Toolbar */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target
+                  .value as "all" | "pending" | "verified" | "rejected" | "cancelled" | "expired",
+              )
+            }
+            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
+          >
+            <option value="pending">Status · Pending</option>
+            <option value="all">Status · All</option>
+            <option value="verified">Status · Verified</option>
+            <option value="rejected">Status · Rejected</option>
+            <option value="cancelled">Status · Cancelled</option>
+            <option value="expired">Status · Expired</option>
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              setTypeFilter(
+                e.target.value as "all" | "cash" | "online" | "online-down",
+              )
+            }
+            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
+          >
+            <option value="all">Type · All</option>
+            <option value="cash">Type · Cash on Pickup</option>
+            <option value="online">Type · Full Payment</option>
+            <option value="online-down">Type · Down Payment</option>
+          </select>
+
+          <select
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
+          >
+            <option value="all">Method · All</option>
+            {methodsInList.map((m) => (
+              <option key={m} value={m}>
+                Method · {m}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Payments Table */}
-        <Card className="flex-1 border-none shadow-sm overflow-hidden flex flex-col">
+        <Card className="flex-1 border border-gray-200/80 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04)] overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10">
                 <tr>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider w-14">
-                    Priority
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider w-24">
+                    #
                   </th>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
-                    <div className="flex flex-col leading-tight">
-                      Customer
-                      <span className="text-[10px] font-medium text-gray-400 normal-case tracking-normal">
-                        Order ID
-                      </span>
-                    </div>
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    Customer
                   </th>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
-                    Payment ID
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    Payment Type
                   </th>
-                  <th
-                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
-                    onClick={() => handleSort("submittedAt")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Date
-                      {sortColumn === "submittedAt" && (
-                        sortDirection === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                      )}
-                    </div>
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    Payment Method
                   </th>
-                  <th
-                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
-                    onClick={() => handleSort("time")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Time
-                      {sortColumn === "time" && (
-                        sortDirection === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Amount
                   </th>
-                  <th
-                    className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
-                    onClick={handleStatusFilterCycle}
-                  >
-                    <div className="flex items-center gap-1">
-                      Status
-                      {statusFilter !== "all" && (
-                        <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-full ml-1">
-                          {statusFilter}
-                        </span>
-                      )}
-                    </div>
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    Payment Status
                   </th>
-                  <th className="px-4 py-4 text-xs font-semibold text-[#10316B] uppercase tracking-wider text-right">
+                  <th className="px-4 py-3 text-xs font-semibold text-[#10316B] uppercase tracking-wider text-right">
                     Action
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-[#F2F7FF]">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {filteredPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center">
+                    <td colSpan={7} className="py-16 text-center">
                       <CreditCard className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
                       <p className="text-sm font-semibold text-gray-500">No payments to verify</p>
-                      <p className="mt-1 text-xs text-gray-400">Payment records will appear here when customers place orders.</p>
+                      <p className="mt-1 text-xs text-gray-500">Payment records will appear here when customers place orders.</p>
                     </td>
                   </tr>
-                ) : filteredPayments.map((payment, index) => (
+                ) : filteredPayments.map((payment, index) => {
+                  const isNext =
+                    payment.status === "pending" &&
+                    payment.id === nextToVerifyId;
+                  const priority = pendingSequenceById.get(payment.id);
+                  return (
                   <tr
                     key={payment.id}
-                    className="hover:bg-[#F2F7FF]/50 transition-colors cursor-pointer group"
+                    className="hover:bg-[#F2F7FF]/60 transition-colors cursor-pointer group"
                     onClick={() => handleOpenDetails(payment)}
                   >
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex flex-col items-center">
+                    <td className="px-4 py-3 whitespace-nowrap align-top">
+                      <div className="flex flex-col items-center gap-1">
                         {payment.status === "pending" ? (
                           <>
-                            <PriorityBadge
-                              number={
-                                pendingSequenceById.get(payment.id) ??
-                                index + 1
-                              }
-                              active={payment.id === nextToVerifyId}
-                            />
-                            {payment.id === nextToVerifyId && (
+                            <span
+                              className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-xs font-bold shrink-0 ${
+                                isNext
+                                  ? "bg-[#1D73EC] text-white shadow-[0_0_0_3px_rgba(29,115,236,0.15)]"
+                                  : "bg-[#F2F7FF] text-[#10316B] border border-[#1D73EC]/10"
+                              }`}
+                            >
+                              {priority ?? index + 1}
+                            </span>
+                            {isNext && (
                               <StartHereTag label="Next to Verify" />
                             )}
                           </>
                         ) : payment.status === "verified" ? (
-                          <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                            <Check className="w-4 h-4" />
-                          </div>
+                          <span className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-green-50 text-green-600 shrink-0">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-                            <X className="w-4 h-4" />
-                          </div>
+                          <span className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-red-50 text-red-500 shrink-0">
+                            <X className="w-3.5 h-3.5" />
+                          </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
                         <Avatar name={payment.customer} />
-                        <div>
+                        <div className="leading-tight">
                           <p className="text-sm font-semibold text-[#1c1f26]">
                             {payment.customer}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-xs text-gray-500 mt-0.5">
                             {payment.orderId}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {formatPHDate(payment.submittedAt, "short")} · {payment.time}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-[#10316B]">
-                        {payment.id}
-                      </span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <PaymentTypePill kind={payment.kind} />
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatPHDate(payment.submittedAt, "short")}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {payment.time}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <Badge
-                        variant="outline"
-                        className="text-xs font-medium border-[#1D73EC]/20 bg-[#F2F7FF] py-1 text-[#1D73EC]"
-                      >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700">
                         {payment.method !== "Cash" ? (
-                          <Smartphone
-                            size={12}
-                            className="mr-1 inline"
-                          />
+                          <Smartphone className="w-3.5 h-3.5 text-[#1D73EC]" />
                         ) : (
-                          <Banknote
-                            size={12}
-                            className="mr-1 inline"
-                          />
+                          <Banknote className="w-3.5 h-3.5 text-gray-500" />
                         )}
                         {payment.method}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="text-sm font-semibold text-[#1c1f26]">
-                        ₱{payment.amount.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <StatusBadge status={payment.status} />
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {payment.kind === "cash" ? (
+                        <div className="leading-tight">
+                          <p className="text-sm font-bold text-[#1c1f26]">
+                            ₱{payment.totalAmount.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Amount to pay at shop
+                          </p>
+                          {payment.deadline && (
+                            <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
+                              Due {formatPHDateTime(payment.deadline)}
+                            </p>
+                          )}
+                        </div>
+                      ) : payment.kind === "online-down" ? (
+                        <div className="leading-tight">
+                          <p className="text-sm font-bold text-[#1c1f26]">
+                            ₱{payment.totalAmount.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Paid ₱{payment.amountPaid.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
+                            Balance ₱{payment.remainingBalance.toLocaleString()}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="leading-tight">
+                          <p className="text-sm font-bold text-[#1c1f26]">
+                            ₱{payment.totalAmount.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Paid ₱{payment.amountPaid.toLocaleString()}
+                            <span className="text-green-600 font-semibold">
+                              {" "}· Fully paid
+                            </span>
+                          </p>
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-right">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <StatusBadge
+                        status={payment.status}
+                        canceled={payment.canceled}
+                        expired={payment.expired}
+                      />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-colors h-8"
+                        className="h-8 px-3 text-xs text-gray-600 border-gray-200 hover:border-[#1D73EC]/30 hover:text-[#1D73EC] transition-colors"
                       >
-                        <Eye className="w-3 h-3 mr-1" /> View
+                        <Eye className="w-3.5 h-3.5 mr-1" /> View
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -618,14 +675,14 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     {selectedPayment.customer}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Payment submitted at {selectedPayment.time}
+                    Submitted {formatPHDate(selectedPayment.submittedAt, "short")} · {selectedPayment.time}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                     Verification Status
                   </p>
                   <StatusBadge
@@ -634,29 +691,38 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   />
                 </div>
 
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                    Order ID
-                  </p>
-                  <p className="font-semibold text-[#1c1f26]">
-                    {selectedPayment.orderId}
-                  </p>
-                </div>
+                <div className="grid grid-cols-3 gap-4 col-span-2">
+                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Order ID
+                    </p>
+                    <p className="font-semibold text-[#1c1f26]">
+                      {selectedPayment.orderId}
+                    </p>
+                  </div>
 
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                    Payment Method
-                  </p>
-                  <p className="font-semibold text-[#1D73EC]">
-                    {selectedPayment.method}
-                  </p>
+                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Payment Type
+                    </p>
+                    <PaymentTypePill kind={selectedPayment.kind} />
+                  </div>
+
+                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Payment Method
+                    </p>
+                    <p className="font-semibold text-[#1D73EC]">
+                      {selectedPayment.method}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 col-span-2">
                   {selectedPayment.kind === "cash" ? (
                     <>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Amount to Pay
                         </p>
                         <p className="text-2xl font-bold text-[#1D73EC]">
@@ -672,7 +738,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         )}
                       </div>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Payment Deadline
                         </p>
                         <p className="text-sm font-bold text-[#1c1f26]">
@@ -688,7 +754,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         )}
                       </div>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2 sm:col-span-1">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Confirmation Status
                         </p>
                         <p className="text-sm font-semibold text-amber-600">
@@ -702,7 +768,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                   ) : (
                     <>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Order Total
                         </p>
                         <p className="text-2xl font-bold text-[#1D73EC]">
@@ -715,7 +781,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         )}
                       </div>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Amount Paid
                         </p>
                         <p className="text-xl font-bold text-[#1c1f26]">
@@ -728,7 +794,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         )}
                       </div>
                       <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Remaining Balance
                         </p>
                         <p
@@ -811,7 +877,7 @@ className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:
 {(selectedPayment.status === "pending" ||
                 selectedPayment.status === "rejected") && (
                 <div className="pt-4 border-t border-[#F2F7FF]">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                     {selectedPayment.status === "rejected"
                       ? "Payment came in late? Re-verify it"
                       : "Verification Action"}
@@ -822,9 +888,7 @@ className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:
                       onClick={() => setPendingVerifyAction("verified")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      {selectedPayment.status === "rejected"
-                        ? "Verify Payment"
-                        : "Approve Payment"}
+                      Verify Payment
                     </Button>
                     {selectedPayment.status === "pending" && (
                       <Button
@@ -1036,23 +1100,72 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
 
 function StatusBadge({
   status,
+  canceled,
+  expired,
   className,
 }: {
   status: string;
+  canceled?: boolean;
+  expired?: boolean;
   className?: string;
 }) {
-  const styles: any = {
-    verified: "bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20",
-    pending: "bg-white text-[#10316B] border-gray-200",
-    rejected:
-      "bg-white text-[#10316B] border-gray-10 opacity-60",
-  };
+  const label =
+    status === "verified"
+      ? "Verified"
+      : status === "pending"
+        ? "Pending"
+        : expired
+          ? "Expired"
+          : canceled
+            ? "Cancelled"
+            : "Rejected";
+  const styles =
+    status === "verified"
+      ? "bg-green-50 text-green-700 border-green-200"
+      : status === "pending"
+        ? "bg-amber-50 text-amber-700 border-amber-200"
+        : "bg-red-50 text-red-600 border-red-200";
   return (
     <Badge
       variant="outline"
-      className={`text-xs font-semibold capitalize py-1 ${styles[status]} ${className}`}
+      className={`text-[11px] font-semibold py-0.5 px-2 rounded-full border ${styles} ${className}`}
     >
-      {status}
+      {label}
+    </Badge>
+  );
+}
+
+function PaymentTypePill({
+  kind,
+}: {
+  kind: PaymentType["kind"];
+}) {
+  const config =
+    kind === "cash"
+      ? {
+          label: "Cash on Pickup",
+          cls: "bg-blue-50 text-[#1D73EC] border-blue-200",
+          icon: Banknote,
+        }
+      : kind === "online-down"
+        ? {
+            label: "Down Payment",
+            cls: "bg-amber-50 text-amber-700 border-amber-200",
+            icon: Smartphone,
+          }
+        : {
+            label: "Full Payment",
+            cls: "bg-green-50 text-green-700 border-green-200",
+            icon: Smartphone,
+          };
+  const Icon = config.icon;
+  return (
+    <Badge
+      variant="outline"
+      className={`text-[11px] font-medium py-0.5 px-2 rounded-full border inline-flex items-center gap-1 ${config.cls}`}
+    >
+      <Icon className="w-3 h-3" />
+      {config.label}
     </Badge>
   );
 }
