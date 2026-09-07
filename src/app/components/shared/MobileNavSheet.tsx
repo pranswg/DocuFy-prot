@@ -179,10 +179,12 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           onClick={() => toggleModule(module)}
           aria-current={isActive ? "page" : undefined}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 w-full px-4 py-3 gap-3.5 rounded-xl ${
-            isActive
-              ? "bg-white text-[#1D73EC] shadow-lg"
-              : "text-white/90 hover:bg-white/10 hover:text-white"
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 w-full px-4 py-3 gap-3.5 ${
+            isActive && hasChildren
+              ? "rounded-lg bg-[#F2F7FF] text-[#1D73EC] shadow-[0_2px_8px_rgba(16,49,107,0.16)] ring-1 ring-inset ring-[#DCE8FB]"
+              : isActive
+                ? "rounded-xl bg-white text-[#1D73EC] shadow-lg"
+                : "rounded-xl text-white/90 hover:bg-white/10 hover:text-white"
           }`}
         >
           <div className="relative flex-shrink-0 flex items-center justify-center">
@@ -205,7 +207,11 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           )}
         </button>
         {hasChildren && isExpanded && (
-          <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="relative flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+            <span
+              aria-hidden="true"
+              className="absolute left-[36px] top-2 bottom-2 w-[2px] rounded-full bg-white/20 pointer-events-none"
+            />
             {module.children!.map((childItem) => {
               const isChildActive = childPathMatches(
                 childItem,
@@ -218,15 +224,18 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                   type="button"
                   onClick={() => navigateAndClose(childItem.path)}
                   aria-current={isChildActive ? "page" : undefined}
-                  className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
+                  className={`relative flex items-center w-full px-4 pl-[52px] py-2.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
                     isChildActive
-                      ? "bg-white text-[#1D73EC] shadow-sm"
-                      : "text-white/90 hover:bg-white/10 hover:text-white"
+                      ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)]"
+                      : "text-white/80 font-medium hover:bg-white/10 hover:text-white"
                   }`}
                 >
+                  {isChildActive && (
+                    <span className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[6px] h-4 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.35)]" />
+                  )}
                   <span className="truncate">{childItem.label}</span>
                   {isChildActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC] flex-shrink-0" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.25)] flex-shrink-0" />
                   )}
                 </button>
               );

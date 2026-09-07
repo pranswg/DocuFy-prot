@@ -257,20 +257,24 @@ export default function PricingManagement() {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-            <th className="py-2 pr-4 font-medium">Color Option</th>
+          <tr className="text-left text-xs text-gray-600 border-b border-gray-300 bg-gray-50">
+            <th className="py-2.5 pl-4 pr-6 font-semibold uppercase tracking-wider min-w-[10rem]">
+              Color Option
+            </th>
             {PAPER_SIZES.map((s) => (
-              <th key={s} className="py-2 px-4 font-medium text-right">
+              <th key={s} className="py-2.5 px-4 font-semibold text-right">
                 {PAPER_SIZE_LABELS[s]}
               </th>
             ))}
-            <th className="py-2 pl-4 w-24" />
+            <th className="py-2.5 pl-4 w-24" />
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.key} className="border-b border-gray-100 last:border-0">
-              <td className="py-3 pr-4 font-medium text-gray-900">{row.label}</td>
+            <tr key={row.key} className="border-b border-gray-200 last:border-0">
+              <td className="py-3 pl-4 pr-6 font-medium text-gray-900 whitespace-nowrap">
+                {row.label}
+              </td>
               {PAPER_SIZES.map((size) => {
                 const target = makeTarget(row.key, size);
                 return (
@@ -363,7 +367,7 @@ export default function PricingManagement() {
                   <h4 className="text-sm font-semibold text-[#2F6FD6] mb-2">
                     {CONTENT_TYPE_LABELS[ct]}
                   </h4>
-                  <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="rounded-xl border border-gray-300 shadow-sm overflow-hidden">
                     <ColorSizeTable
                       rows={COLOR_TIERS.map((tier) => ({
                         key: tier,
@@ -392,7 +396,7 @@ export default function PricingManagement() {
                 Per-page price by color option and paper size. Vellum is always
                 image-only printing.
               </p>
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className="rounded-xl border border-gray-300 shadow-sm overflow-hidden">
                 <ColorSizeTable
                   rows={COLOR_TIERS.map((tier) => ({
                     key: tier,
@@ -443,20 +447,22 @@ export default function PricingManagement() {
               <p className="text-sm text-gray-500 mb-4 ml-10">
                 Per-piece price and minimum order quantity for each photo size.
               </p>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
-                      <th className="py-2 pr-4 font-medium">Photo Size</th>
-                      <th className="py-2 px-4 font-medium text-right">Price / each</th>
-                      <th className="py-2 px-4 font-medium text-right">Minimum Order</th>
-                      <th className="py-2 pl-4 w-24" />
+                    <tr className="text-left text-xs text-gray-600 border-b border-gray-300 bg-gray-50">
+                      <th className="py-2.5 pl-4 pr-6 font-semibold uppercase tracking-wider min-w-[10rem]">
+                        Photo Size
+                      </th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Price / each</th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Minimum Order</th>
+                      <th className="py-2.5 pl-4 w-24" />
                     </tr>
                   </thead>
                   <tbody>
                     {PHOTO_SIZES.map((size) => (
-                      <tr key={size} className="border-b border-gray-100 last:border-0">
-                        <td className="py-3 pr-4 font-medium text-gray-900">
+                      <tr key={size} className="border-b border-gray-200 last:border-0">
+                        <td className="py-3 pl-4 pr-6 font-medium text-gray-900">
                           {PHOTO_SIZE_LABELS[size]}
                         </td>
                         <td className="py-3 px-4 text-right">

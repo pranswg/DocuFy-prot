@@ -15,6 +15,8 @@ import {
   LayoutTemplate,
   Sparkles,
   X,
+  CloudUpload,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -44,6 +46,7 @@ export default function LandingPage() {
   const [showAboutMore, setShowAboutMore] = useState(false);
   const [showShopPhotos, setShowShopPhotos] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState("home");
 
   useEffect(() => {
     const load = () => setPricing(pricingStore.getPricing());
@@ -60,22 +63,17 @@ export default function LandingPage() {
 
   // Load landing page content from localStorage or use defaults
   const getContent = () => {
-    const saved = localStorage.getItem("landing_content");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // Fall through to defaults
-      }
-    }
-    return {
+    const defaults = {
       heroTitle: "Print, Track, Succeed",
       heroSubtitle: "Your Printing Companion",
       heroDescription:
         "Upload, print, and track your documents with ease. Professional printing services designed for students and faculty.",
-      feature1: "Upload documents instantly",
-      feature2: "Real-time order tracking",
-      feature3: "Secure payment verification",
+      feature1: "Upload documents",
+      feature1Sub: "instantly",
+      feature2: "Real-time",
+      feature2Sub: "order tracking",
+      feature3: "Secure payment",
+      feature3Sub: "verification.",
       bindingPrice: "20",
       hoursMonFri: "8:00 AM - 6:00 PM",
       hoursSat: "9:00 AM - 4:00 PM",
@@ -88,6 +86,31 @@ export default function LandingPage() {
       aboutBody:
         "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
     };
+    const saved = localStorage.getItem("landing_content");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const merged = { ...defaults, ...parsed };
+        // Legacy (pre-subtitle) saved content stored the FULL phrase in
+        // feature1/2/3, e.g. "Upload documents instantly". Migrate it by
+        // stripping the subtitle out of the title so words are not doubled.
+        if (typeof parsed.feature1Sub !== "string") {
+          for (const n of [1, 2, 3] as const) {
+            const sub = defaults[`feature${n}Sub`];
+            const match = sub.replace(/\.$/, "");
+            const title = String(merged[`feature${n}`]);
+            merged[`feature${n}`] = title.includes(match)
+              ? title.replace(match, "").trim()
+              : title;
+            merged[`feature${n}Sub`] = sub;
+          }
+        }
+        return merged;
+      } catch {
+        // Fall through to defaults
+      }
+    }
+    return defaults;
   };
 
   const content = getContent();
@@ -97,35 +120,25 @@ export default function LandingPage() {
     const el = servicesCarouselRef.current;
     if (!el) return;
 
+    const isMobileLayout = () => window.innerWidth < 768;
+    const resetCards = () => {
+      el.querySelectorAll<HTMLElement>("[data-service-card]").forEach(
+        (card) => {
+          card.style.transform = "";
+          card.style.zIndex = "";
+          card.style.opacity = "";
+        }
+      );
+    };
+
     const update = () => {
-      if (window.innerWidth < 768) {
-        const cards = Array.from(
-          el.querySelectorAll<HTMLElement>("[data-service-card]")
-        );
-        cards.forEach((card) => {
-          const cardRect = card.getBoundingClientRect();
-          const elRect = el.getBoundingClientRect();
-          const cardCenter = cardRect.left + cardRect.width / 2;
-          const center = elRect.left + elRect.width / 2;
-          const distance = Math.abs(cardCenter - center) / cardRect.width;
-
-          const scale = Math.max(1 - distance * 0.28, 0.75);
-          const opacity = Math.max(1 - distance * 1.1, 0.35);
-          card.style.transform = `scale(${scale})`;
-          card.style.opacity = opacity.toFixed(2);
-          card.style.zIndex = String(Math.round((1 - distance) * 10));
-        });
-      } else {
-        el.querySelectorAll<HTMLElement>("[data-service-card]").forEach(
-          (card) => {
-            card.style.transform = "";
-            card.style.zIndex = "";
-            card.style.opacity = "";
-          }
-        );
+      if (!isMobileLayout()) {
+        resetCards();
+        return;
       }
-
-      const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
+      const cards = Array.from(
+        el.querySelectorAll<HTMLElement>("[data-service-card]")
+      );
       if (!cards.length) return;
       const elRect = el.getBoundingClientRect();
       const center = elRect.left + elRect.width / 2;
@@ -134,6 +147,14 @@ export default function LandingPage() {
       cards.forEach((card, i) => {
         const cardRect = card.getBoundingClientRect();
         const cardCenter = cardRect.left + cardRect.width / 2;
+        const distance = Math.abs(cardCenter - center) / cardRect.width;
+
+        const scale = Math.max(1 - distance * 0.28, 0.75);
+        const opacity = Math.max(1 - distance * 1.1, 0.35);
+        card.style.transform = `scale(${scale})`;
+        card.style.opacity = opacity.toFixed(2);
+        card.style.zIndex = String(Math.round((1 - distance) * 10));
+
         const dist = Math.abs(cardCenter - center);
         if (dist < closestDist) {
           closestDist = dist;
@@ -144,12 +165,23 @@ export default function LandingPage() {
     };
 
     update();
+
+    let resizeTimer: number | undefined;
+    const onResize = () => {
+      // Revert any inline transforms immediately so zoom/resize never
+      // leaves the cards stuck in a scaled state, then recompute once.
+      resetCards();
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(update, 150);
+    };
+
     el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+    window.addEventListener("resize", onResize);
 
     return () => {
       el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("resize", onResize);
+      window.clearTimeout(resizeTimer);
     };
   }, []);
 
@@ -202,6 +234,26 @@ export default function LandingPage() {
     }
   };
 
+  // Scroll-spy: highlight the header nav item for the section currently in view.
+  useEffect(() => {
+    const sectionIds = ["home", "services", "shop-info", "about"];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-30% 0px -60% 0px" },
+    );
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const goToService = (index: number) => {
     const el = servicesCarouselRef.current;
     if (!el) return;
@@ -214,6 +266,13 @@ export default function LandingPage() {
     const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
     el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
   };
+
+  const navItems = [
+    { id: "home", label: "Home" },
+    { id: "services", label: "Services & Pricing" },
+    { id: "shop-info", label: "Shop Info" },
+    { id: "about", label: "About Us" },
+  ];
 
   const services = [
     {
@@ -246,11 +305,11 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F2F7FF] relative overflow-hidden">
+    <div className="min-h-screen bg-[#F2F7FF] relative overflow-x-clip">
       {/* Decorative Background Elements */}
-      <div className="fixed top-0 left-0 w-96 h-96 bg-[#1D73EC] rounded-full opacity-5 blur-3xl -translate-x-48 -translate-y-48 pointer-events-none" />
-      <div className="fixed bottom-0 right-0 w-96 h-96 bg-[#10316B] rounded-full opacity-5 blur-3xl translate-x-48 translate-y-48 pointer-events-none" />
-      <div className="fixed top-1/3 left-1/3 w-64 h-64 bg-[#1D73EC] rounded-full opacity-5 blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-0 w-96 h-96 bg-[#1D73EC] rounded-full opacity-5 blur-3xl -translate-x-48 -translate-y-48 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#10316B] rounded-full opacity-5 blur-3xl translate-x-48 translate-y-48 pointer-events-none" />
+      <div className="absolute top-1/3 left-1/3 w-64 h-64 bg-[#1D73EC] rounded-full opacity-5 blur-3xl pointer-events-none" />
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 border-b border-gray-200 bg-white backdrop-blur-md z-50 shadow-sm">
@@ -273,36 +332,38 @@ export default function LandingPage() {
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-8">
             <nav className="hidden md:flex items-center gap-6">
-              <button
-                onClick={() => scrollToSection("home")}
-                className="text-[#1c1f26] hover:text-[#1D73EC] transition-colors font-medium"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => scrollToSection("services")}
-                className="text-[#1c1f26] hover:text-[#1D73EC] transition-colors font-medium"
-              >
-                Services & Pricing
-              </button>
-              <button
-                onClick={() => scrollToSection("shop-info")}
-                className="text-[#1c1f26] hover:text-[#1D73EC] transition-colors font-medium"
-              >
-                Shop Info
-              </button>
-              <button
-                onClick={() => scrollToSection("about")}
-                className="text-[#1c1f26] hover:text-[#1D73EC] transition-colors font-medium"
-              >
-                About Us
-              </button>
+              {navItems.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveSection(item.id);
+                      scrollToSection(item.id);
+                    }}
+                    className={`group relative pb-1 font-medium transition-colors duration-200 ${
+                      isActive
+                        ? "text-[#1D73EC]"
+                        : "text-[#1c1f26] hover:text-[#1D73EC]"
+                    }`}
+                  >
+                    {item.label}
+                    <span
+                      className={`absolute bottom-0 left-0 right-0 h-[2.5px] rounded-full bg-[#1D73EC] transition-transform duration-300 ease-out ${
+                        isActive
+                          ? "scale-x-100"
+                          : "scale-x-0 group-hover:scale-x-100"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
             </nav>
 
             <Button
               variant="outline"
               onClick={() => navigate("/login")}
-              className="h-9 border-[#1D73EC] px-3 text-xs text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white sm:h-10 sm:px-4 sm:text-sm"
+              className="h-9 rounded-lg border-[1.5px] border-[#1D73EC] bg-white px-3 text-xs font-medium text-[#1D73EC] transition-colors duration-200 hover:translate-y-0 hover:border-[#1D73EC] hover:bg-[#1D73EC]/5 hover:text-[#1D73EC] hover:shadow-none active:translate-y-0 active:border-[#1D73EC]/70 active:bg-[#1D73EC]/10 sm:h-10 sm:px-4 sm:text-sm"
             >
               Log In
             </Button>
@@ -315,7 +376,10 @@ export default function LandingPage() {
         id="home"
         className="bg-white w-full pt-24 sm:pt-32 pb-10 sm:pb-20 relative z-10"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="pointer-events-none absolute -top-32 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#1D73EC]/[0.07] blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 -left-48 h-96 w-96 rounded-full bg-[#2F6FD6]/[0.06] blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[#F2F7FF]" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12 items-center">
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#1D73EC]/20 text-[#1D73EC] rounded-full text-sm font-medium mb-6">
@@ -335,27 +399,56 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button
                   size="lg"
-                  className="bg-[#1D73EC] text-white hover:bg-[#10316B] transition-all active:scale-95 shadow-md shadow-[#1D73EC]/25"
+                  className="bg-[#1D73EC] text-white hover:bg-[#0f66d9] rounded-lg transition-all duration-200 active:scale-[0.98] active:shadow-sm shadow-md shadow-[#1D73EC]/30 hover:shadow-lg hover:shadow-[#1D73EC]/35 group"
                   onClick={() => navigate("/signup")}
                 >
-                  Get Started{" "}
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  Get Started
+                  <ArrowRight className="ml-2.5 w-5 h-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Button>
               </div>
 
               {/* Features List */}
-              <div className="mt-10 space-y-3">
+              <div className="mt-6 flex min-w-0 items-center gap-x-4 sm:gap-x-8">
                 {[
-                  content.feature1,
-                  content.feature2,
-                  content.feature3,
+                  {
+                    title: content.feature1,
+                    sub: content.feature1Sub,
+                    icon: <CloudUpload />,
+                  },
+                  {
+                    title: content.feature2,
+                    sub: content.feature2Sub,
+                    icon: <Clock />,
+                  },
+                  {
+                    title: content.feature3,
+                    sub: content.feature3Sub,
+                    icon: <ShieldCheck />,
+                  },
                 ].map((feature, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 text-[#1c1f26]"
-                  >
-                    <CheckCircle2 className="w-5 h-5 text-[#1D73EC]" />
-                    <span>{feature}</span>
+                  <div key={index} className="flex min-w-0 flex-1 items-center">
+                    <div className="flex min-w-0 flex-col items-start gap-1 text-left text-[#1c1f26]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-blue-300 bg-[#F2F7FF] sm:h-9 sm:w-9">
+                        {React.cloneElement(feature.icon, {
+                          className:
+                            "w-[16px] h-[16px] text-[#1D73EC] stroke-2 sm:w-[18px] sm:h-[18px]",
+                        })}
+                      </div>
+                      <span className="flex flex-col leading-tight">
+                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                          {feature.title}
+                        </span>
+                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                          {feature.sub}
+                        </span>
+                      </span>
+                    </div>
+                    {index < 2 && (
+                      <span
+                        aria-hidden
+                        className="mx-2 h-12 w-px shrink-0 bg-blue-200 sm:mx-3 sm:h-14"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -407,7 +500,7 @@ export default function LandingPage() {
             </button>
           </div>
 
-          <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300 [&>*]:will-change-transform">
+          <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300">
             {/* Card 1: Standard Plain Paper Printing (B&W / Color toggle) */}
             <Card data-service-card onClick={() => goToService(0)} onTouchStart={() => setActiveService(0)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
               <div className="flex items-center gap-2.5 mb-2.5">
@@ -542,7 +635,9 @@ export default function LandingPage() {
         id="shop-info"
         className="bg-white w-full py-12 sm:py-16 relative z-10"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full bg-[#1D73EC]/[0.05] blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 -left-32 h-72 w-72 rounded-full bg-[#2F6FD6]/[0.05] blur-3xl" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
             <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
               Shop Info
@@ -627,7 +722,9 @@ export default function LandingPage() {
         id="jobs"
         className="bg-white w-full py-12 sm:py-16 relative z-10"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-96 -translate-x-1/2 rounded-full bg-[#1D73EC]/[0.05] blur-3xl" />
+        <div className="pointer-events-none absolute -right-32 top-1/3 h-72 w-72 rounded-full bg-[#2F6FD6]/[0.04] blur-3xl" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
               <span className="w-2 h-2 bg-white border-2 border-blue-200 rounded-full animate-pulse"></span>
