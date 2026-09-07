@@ -767,6 +767,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const requiresDownPayment = isDownTier;
   const requiresFullPayment = isFullTier;
   const downPaymentValue = checkoutTotal * 0.5;
+  // Low-value Cash on Pickup orders (under the down-payment threshold) skip the
+  // upfront payment hold entirely: they are auto-queued at checkout and the cash
+  // is collected at the shop when the order is picked up.
+  const isLowValueCash = !isOnline && flowTier === "none";
 
   // Cash on Pickup is unavailable ONLY for full-payment tier orders
   // (≥ fullPaymentThreshold → online only). Down-payment tier orders keep
@@ -927,12 +931,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
     // Payment confirmation/verification deadline from the admin-editable order
     // rules (hours; 0 = no auto-expiry). Cash = pay at the shop, online =
-    // submit reference + staff verification. Pending client confirmation.
+    // submit reference + staff verification. Low-value cash orders get no
+    // deadline because they are already in the queue. Pending client confirmation.
     const deadlineHours = isOnline
       ? pricing.onlinePaymentVerificationHours
       : pricing.cashPickupPaymentHours;
     const paymentDeadline =
-      deadlineHours > 0
+      !isLowValueCash && deadlineHours > 0
         ? new Date(Date.now() + deadlineHours * 3_600_000).toISOString()
         : undefined;
 
@@ -941,18 +946,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
-      // Every customer order first passes payment confirmation/verification
-      // (staff confirm cash at the shop, or verify an online submission)
-      // before it can enter the print queue.
-      status: "Awaiting Payment" as const,
+      // Low-value Cash on Pickup orders are auto-queued at checkout (the shop
+      // prints them first and collects the cash on pickup); every other customer
+      // order first passes payment confirmation/verification (staff confirm cash
+      // at the shop, or verify an online submission) before the print queue.
+      status: isLowValueCash ? ("In Queue" as const) : ("Awaiting Payment" as const),
       paymentDeadline,
-      holdReason: isOnline
-        ? requiresFullPayment
-          ? `${methodLabel} full payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the full payment is verified.`
-          : requiresDownPayment
-            ? `${methodLabel} down payment of ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}) is pending verification. Your order will be queued once the down payment is verified.`
-            : `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
-        : `Cash on Pickup: pay ₱${Math.round(total)}${requiresFullPayment ? " (full payment)" : requiresDownPayment ? ` (down payment of ₱${Math.round(downPaymentAmount)} — 50% of the total)` : ""} at the shop before your payment deadline to confirm this order.`,
+      holdReason: isLowValueCash
+        ? `Cash on Pickup: pay ₱${Math.round(total)} at the shop when picking up this order. This order is already in the print queue.`
+        : isOnline
+          ? requiresFullPayment
+            ? `${methodLabel} full payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the full payment is verified.`
+            : requiresDownPayment
+              ? `${methodLabel} down payment of ₱${Math.round(downPaymentAmount)} (50% of total ₱${Math.round(total)}) is pending verification. Your order will be queued once the down payment is verified.`
+              : `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
+          : `Cash on Pickup: pay ₱${Math.round(total)}${requiresFullPayment ? " (full payment)" : requiresDownPayment ? ` (down payment of ₱${Math.round(downPaymentAmount)} — 50% of the total)` : ""} at the shop before your payment deadline to confirm this order.`,
       total: `₱${Math.round(total)}`,
       date: todayPHTKey(),
       paperSize:
@@ -1104,16 +1112,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
     dataStore.addOrder(newOrder);
 
-    const notifTitle = requiresFullPayment
-      ? "New Order — Full Payment Required"
-      : requiresDownPayment
-        ? "New Order — Down Payment Required"
-        : "New Order — Awaiting Cash Payment";
-    const notifMsg = requiresFullPayment
-      ? `New order #${orderId} from ${user?.email || "customer"} is awaiting FULL payment verification — ₱${Math.round(total)} (100% of total) required before the order can be printed.`
-      : requiresDownPayment
-        ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
-        : `New order #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total — Cash on Pickup, awaiting payment of ₱${Math.round(total)} at the shop.`;
+    const notifTitle = isLowValueCash
+      ? "New Order — In Queue (Cash on Pickup)"
+      : requiresFullPayment
+        ? "New Order — Full Payment Required"
+        : requiresDownPayment
+          ? "New Order — Down Payment Required"
+          : "New Order — Awaiting Cash Payment";
+    const notifMsg = isLowValueCash
+      ? `New order #${orderId} from ${user?.email || "customer"} is already IN THE PRINT QUEUE — ₱${Math.round(total)} (Cash on Pickup) to be collected at the shop on pickup.`
+      : requiresFullPayment
+        ? `New order #${orderId} from ${user?.email || "customer"} is awaiting FULL payment verification — ₱${Math.round(total)} (100% of total) required before the order can be printed.`
+        : requiresDownPayment
+          ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
+          : `New order #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total — Cash on Pickup, awaiting payment of ₱${Math.round(total)} at the shop.`;
 
     notificationStore.addNotification("order", notifTitle, notifMsg, {
       clickable: true,
@@ -3127,7 +3139,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   ? "Order Submitted — Full Payment Required"
                   : requiresDownPayment
                     ? "Order Submitted — Down Payment Required"
-                    : "Order Submitted — Awaiting Payment"}
+                    : isLowValueCash
+                      ? "Order Submitted — In Queue"
+                      : "Order Submitted — Awaiting Payment"}
               </DialogTitle>
               <DialogDescription className="text-center space-y-4 pt-4">
                 {(() => {
@@ -3169,12 +3183,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       <p className="text-gray-700">
                         {isOnline
                           ? "Your print request has been successfully received by our admin/staff team."
-                          : <>Your order has been submitted and is <strong>awaiting payment confirmation at the shop</strong>.</>}
+                          : isLowValueCash
+                            ? <>Your order has been submitted and is already <strong>in the print queue</strong>.</>
+                            : <>Your order has been submitted and is <strong>awaiting payment confirmation at the shop</strong>.</>}
                       </p>
                       <p className="text-sm text-gray-600">
                         {isOnline
                           ? "You can track your order status from the My Orders page or proceed to payment verification if required."
-                          : <>Please visit the shop and pay <strong>{formatCurrency(total)}</strong> in cash before the payment deadline to confirm this order. The staff will verify your payment and your order will be added to the print queue.</>}
+                          : isLowValueCash
+                            ? <>Pay <strong>{formatCurrency(total)}</strong> in cash at the shop when you pick up this order.</>
+                            : <>Please visit the shop and pay <strong>{formatCurrency(total)}</strong> in cash before the payment deadline to confirm this order. The staff will verify your payment and your order will be added to the print queue.</>}
                       </p>
                     </>
                   );

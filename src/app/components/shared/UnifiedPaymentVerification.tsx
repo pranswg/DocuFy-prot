@@ -12,6 +12,7 @@ import {
   Check,
   X,
   ListOrdered,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -33,11 +34,11 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
+import { pricingStore } from "../../utils/pricingStore";
 import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
-import PaymentMethodQRPanel from "./PaymentMethodQR";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
 import { StartHereTag } from "../ui/priority-badge";
 
@@ -68,6 +69,10 @@ type PaymentType = {
   canceled?: boolean;
   expired?: boolean;
   cancellationReason?: string;
+  // Low-value Cash on Pickup order (total under the down-payment threshold):
+  // auto-queued at checkout, so it shows as "Pending Payment · In Queue" with
+  // no reference number / proof of payment to review.
+  isLowValueCash?: boolean;
 };
 
 function parseOrderTotal(order: {
@@ -136,6 +141,12 @@ function generatePaymentsFromOrders(): PaymentType[] {
               : totalAmount;
       const remainingBalance = Math.max(0, totalAmount - amountPaid);
 
+      // Low-value Cash on Pickup order (below the down-payment threshold) —
+      // these are auto-queued at checkout with the cash collected on pickup.
+      const isLowValueCash =
+        isCashOnPickup &&
+        totalAmount < pricingStore.getPricing().downPaymentThreshold;
+
       return {
         id: order.id,
         orderId: order.id,
@@ -157,6 +168,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
         canceled,
         expired,
         cancellationReason: order.cancellationReason,
+        isLowValueCash,
       };
     })
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
@@ -628,6 +640,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         status={payment.status}
                         canceled={payment.canceled}
                         expired={payment.expired}
+                        lowValueCash={payment.isLowValueCash}
                       />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
@@ -650,263 +663,229 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
       {/* Payment Details Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto border-none">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B] font-poppins flex items-center justify-between pr-6">
-              <span>Payment Details</span>
-              <Badge
-                variant="outline"
-                className="text-xs bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20 font-mono"
-              >
-                {selectedPayment?.id}
-              </Badge>
-            </DialogTitle>
-            <DialogDescription className="text-gray-500">
-              Review and verify payment information
-            </DialogDescription>
+<DialogContent className="sm:max-w-2xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
+          <DialogHeader className="px-5 pt-4 pr-10 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
+            <div>
+              <DialogTitle className="text-lg font-semibold text-[#1c1f26]">
+                Payment Details
+              </DialogTitle>
+              <DialogDescription className="text-gray-500">
+                Review and verify payment information
+              </DialogDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-xs bg-gray-100 text-gray-700 border-gray-200 font-mono"
+            >
+              {selectedPayment?.orderId}
+            </Badge>
           </DialogHeader>
 
           {selectedPayment && (
-            <div className="py-4 space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-[#F2F7FF] rounded-xl border border-[#1D73EC]/10">
-                <Avatar name={selectedPayment.customer} />
-                <div className="flex-1">
-                  <p className="font-bold text-[#1c1f26] text-lg">
-                    {selectedPayment.customer}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Submitted {formatPHDate(selectedPayment.submittedAt, "short")} · {selectedPayment.time}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Verification Status
-                  </p>
+            <>
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Customer */}
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <Avatar name={selectedPayment.customer} />
+                  <div className="flex-1 min-w-[180px]">
+                    <p className="font-bold text-[#1c1f26] text-base">
+                      {selectedPayment.customer}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Submitted {formatPHDate(selectedPayment.submittedAt, "short")} ·{" "}
+                      {formatPHTime(selectedPayment.submittedAt)}
+                    </p>
+                  </div>
                   <StatusBadge
                     status={selectedPayment.status}
+                    lowValueCash={selectedPayment.isLowValueCash}
                     className="text-sm"
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 col-span-2">
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Order ID
-                    </p>
-                    <p className="font-semibold text-[#1c1f26]">
-                      {selectedPayment.orderId}
+                {/* Payment Summary */}
+                <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50">
+                    <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                      Payment Summary
                     </p>
                   </div>
-
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Payment Type
-                    </p>
-                    <PaymentTypePill kind={selectedPayment.kind} />
-                  </div>
-
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Payment Method
-                    </p>
-                    <p className="font-semibold text-[#1D73EC]">
-                      {selectedPayment.method}
-                    </p>
+                  <div className="grid grid-cols-2 gap-px bg-gray-100">
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Order ID
+                      </p>
+                      <p className="font-semibold text-[#1c1f26] font-mono text-sm">
+                        {selectedPayment.orderId}
+                      </p>
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Payment Type
+                      </p>
+                      <PaymentTypePill kind={selectedPayment.kind} />
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Payment Method
+                      </p>
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedPayment.method}
+                      </p>
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Order Total
+                      </p>
+                      <p className="text-base font-semibold text-[#1c1f26]">
+                        ₱{selectedPayment.totalAmount.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 col-span-2">
-                  {selectedPayment.kind === "cash" ? (
-                    <>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Amount to Pay
-                        </p>
-                        <p className="text-2xl font-bold text-[#1D73EC]">
-                          ₱
-                          {selectedPayment.amountPaid > 0
-                            ? selectedPayment.amountPaid.toLocaleString()
-                            : selectedPayment.totalAmount.toLocaleString()}
-                        </p>
-                        {selectedPayment.downPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            50% down payment (cash at shop)
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Payment Deadline
-                        </p>
-                        <p className="text-sm font-bold text-[#1c1f26]">
-                          {selectedPayment.deadline
-                            ? formatPHDateTime(selectedPayment.deadline)
-                            : "No deadline set"}
-                        </p>
-                        {selectedPayment.deadline && (
-                          <PaymentDeadlineCountdown
-                            deadline={selectedPayment.deadline}
-                            className="mt-1"
-                          />
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2 sm:col-span-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Confirmation Status
-                        </p>
-                        <p className="text-sm font-semibold text-amber-600">
-                          Awaiting Payment at Shop
-                        </p>
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          Confirm only once the customer has paid in cash
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Order Total
-                        </p>
-                        <p className="text-2xl font-bold text-[#1D73EC]">
-                          ₱{selectedPayment.totalAmount.toLocaleString()}
-                        </p>
-                        {selectedPayment.fullPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            Full payment required (100% upfront)
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Amount Paid
-                        </p>
-                        <p className="text-xl font-bold text-[#1c1f26]">
-                          ₱{selectedPayment.amountPaid.toLocaleString()}
-                        </p>
-                        {selectedPayment.downPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            50% down payment
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Remaining Balance
-                        </p>
-                        <p
-                          className={`text-xl font-bold ${
-                            selectedPayment.remainingBalance > 0
-                              ? "text-amber-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          ₱{selectedPayment.remainingBalance.toLocaleString()}
-                        </p>
-                        {selectedPayment.remainingBalance > 0 && (
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Balance due on pickup
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                {/* Verification Status */}
+                <div
+                  className={`flex flex-wrap items-center gap-3 p-3 rounded-lg border ${
+                    selectedPayment.status === "verified"
+                      ? "bg-green-50 border-green-200"
+                      : selectedPayment.status === "rejected"
+                        ? "bg-red-50 border-red-200"
+                        : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> Verification Status
+                    </p>
+                    <p className="text-sm font-medium text-gray-700 mt-0.5">
+                      Payment submitted:{" "}
+                      {formatPHDate(selectedPayment.submittedAt, "short")} ·{" "}
+                      {formatPHTime(selectedPayment.submittedAt)}
+                    </p>
+                  </div>
+                  <StatusBadge
+                    status={selectedPayment.status}
+                    canceled={selectedPayment.canceled}
+                    expired={selectedPayment.expired}
+                    lowValueCash={selectedPayment.isLowValueCash}
+                  />
                 </div>
 
-                {/* Corresponding Payment Method QR / details for online payments */}
-                {selectedPayment.method !== "Cash" && (
-                  <div className="col-span-2">
-                    {(() => {
-                      const methodDetails = paymentMethodsStore.findByName(
-                        selectedPayment.method,
-                      );
-                      return methodDetails ? (
-                        <PaymentMethodQRPanel method={methodDetails} />
-                      ) : (
-                        <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl text-sm">
-                          <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider mb-1">
-                            Payment Instructions
-                          </p>
-                          <p className="text-gray-600">
-                            No QR code is set for this payment
-                            method. Verify the payment using the
-                            customer's reference number and proof
-                            of payment below.
+                {/* Payment Information (online methods only) */}
+                {selectedPayment.method !== "Cash" &&
+                  (() => {
+                    const methodDetails =
+                      paymentMethodsStore.findByName(selectedPayment.method);
+                    return (
+                      <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50">
+                          <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                            Payment Information
                           </p>
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-gray-100">
+                          <div className="bg-white p-4 flex flex-col items-center justify-center gap-3">
+                            {methodDetails?.qrCode ? (
+                              <img
+                                src={methodDetails.qrCode}
+                                alt={`${selectedPayment.method} QR code`}
+                                className="w-36 h-36 rounded-lg border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-36 h-36 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                                <QrCode className="w-10 h-10 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-white divide-y divide-gray-100">
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Account Name
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {methodDetails?.accountName || "—"}
+                              </p>
+                            </div>
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Payment Number
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {methodDetails?.accountNumber || "—"}
+                              </p>
+                            </div>
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Payment Method
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {selectedPayment.method}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                {selectedPayment.reference && (
-                  <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider flex items-center gap-1.5">
-                        {selectedPayment.method !== "Cash" ? (
-                          <Smartphone className="w-4 h-4" />
-                        ) : (
-                          <Banknote className="w-4 h-4" />
-                        )}{" "}
-                        {selectedPayment.method} Reference Number
-                      </p>
-                      {selectedPayment.proofImageUrl && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setShowProofImage(true)
-                          }
-className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white h-7 transition-all"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" />{" "}
-                          View Proof
-                        </Button>
-                      )}
+                {/* Reference Number */}
+                {selectedPayment.reference &&
+                  !selectedPayment.isLowValueCash && (
+                    <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                          {selectedPayment.method} Reference Number
+                        </p>
+                        {selectedPayment.proofImageUrl && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowProofImage(true)}
+                            className="h-7 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            View Proof
+                          </Button>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 bg-white">
+                        <p className="text-sm font-mono font-semibold text-[#10316B]">
+                          {selectedPayment.reference}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm font-mono font-semibold text-[#10316B]">
-                      {selectedPayment.reference}
-                    </p>
-                  </div>
-                )}
+                  )}
               </div>
 
-{(selectedPayment.status === "pending" ||
+              {/* Sticky action footer */}
+              {(selectedPayment.status === "pending" ||
                 selectedPayment.status === "rejected") && (
-                <div className="pt-4 border-t border-[#F2F7FF]">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    {selectedPayment.status === "rejected"
-                      ? "Payment came in late? Re-verify it"
-                      : "Verification Action"}
-                  </p>
-                  <div className="flex gap-3">
+                <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
+                  <Button
+                    data-primary-action
+                    className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0.5 hover:shadow-md transition-all"
+                    onClick={() => setPendingVerifyAction("verified")}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Verify Payment
+                  </Button>
+                  {selectedPayment.status === "pending" && (
                     <Button
-                       className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-all"
-                      onClick={() => setPendingVerifyAction("verified")}
+                      variant="outline"
+                      className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                      onClick={() => {
+                        setShowDialog(false);
+                        setShowRejectDialog(true);
+                      }}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Verify Payment
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Reject Payment
                     </Button>
-                    {selectedPayment.status === "pending" && (
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
-                        onClick={() => {
-                          setShowDialog(false);
-                          setShowRejectDialog(true);
-                        }}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Reject Payment
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1064,9 +1043,9 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
             setShowDialog(false);
             setPendingVerifyAction(null);
           }}
-          title="Approve Payment?"
-          description={`Verify the ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
-          confirmLabel="Approve Payment"
+          title="Verify Payment?"
+          description="Confirm that this payment has been reviewed and approved."
+          confirmLabel="Verify Payment"
           cancelLabel="Go Back"
           destructive={false}
         />
@@ -1082,11 +1061,11 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
             setPendingVerifyAction(null);
           }}
           title="Reject Payment?"
-          description={`The ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
+          description={`Confirm that this payment should be rejected${
             rejectionReason.trim() ? ` (${rejectionReason.trim()})` : ""
-          }. The customer will be notified. This cannot be undone.`}
+          }.`}
           confirmLabel="Reject Payment"
-          cancelLabel="Keep Payment"
+          cancelLabel="Go Back"
           destructive
           requirePhrase
         />
@@ -1103,17 +1082,22 @@ function StatusBadge({
   canceled,
   expired,
   className,
+  lowValueCash,
 }: {
   status: string;
   canceled?: boolean;
   expired?: boolean;
   className?: string;
+  lowValueCash?: boolean;
 }) {
+  const isPending = status === "pending";
   const label =
     status === "verified"
       ? "Verified"
-      : status === "pending"
-        ? "Pending"
+      : isPending
+        ? lowValueCash
+          ? "Pending Payment"
+          : "Pending"
         : expired
           ? "Expired"
           : canceled
@@ -1122,16 +1106,26 @@ function StatusBadge({
   const styles =
     status === "verified"
       ? "bg-green-50 text-green-700 border-green-200"
-      : status === "pending"
+      : isPending
         ? "bg-amber-50 text-amber-700 border-amber-200"
         : "bg-red-50 text-red-600 border-red-200";
   return (
-    <Badge
-      variant="outline"
-      className={`text-[11px] font-semibold py-0.5 px-2 rounded-full border ${styles} ${className}`}
-    >
-      {label}
-    </Badge>
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        variant="outline"
+        className={`text-[11px] font-semibold py-0.5 px-2 rounded-full border ${styles} ${className}`}
+      >
+        {label}
+      </Badge>
+      {isPending && lowValueCash && (
+        <Badge
+          variant="outline"
+          className="text-[10px] font-semibold py-0.5 px-1.5 rounded-full border bg-blue-50 text-[#1D73EC] border-blue-200"
+        >
+          In Queue
+        </Badge>
+      )}
+    </span>
   );
 }
 
@@ -1179,7 +1173,7 @@ const Avatar = ({ name }: { name: string }) => {
     .slice(0, 2);
 
   return (
-    <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm bg-[#F2F7FF] text-[#1D73EC] border border-[#1D73EC]/10">
+    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[#F2F7FF] text-[#1D73EC] border border-[#1D73EC]/10">
       {initials}
     </div>
   );

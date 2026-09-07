@@ -340,57 +340,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       }
     }
 
-    // Validation check before showing form (skip for canceled and completed->released)
-    if (
-      newStatus !== "canceled" &&
-      !(
-        order.status === "completed" &&
-        newStatus === "released"
-      )
-    ) {
-      const sortedOrders = [...queueOrders].sort(
-        (a, b) =>
-          a.submittedAt.getTime() - b.submittedAt.getTime(),
-      );
-      const currentOrderIndex = sortedOrders.findIndex(
-        (o) => o.id === order.id,
-      );
-      const earlierOrders = sortedOrders.slice(
-        0,
-        currentOrderIndex,
-      );
-
-      const statusHierarchy: Record<string, number> = {
-        inQueue: 1,
-        printing: 2,
-        completed: 3,
-        released: 4,
-        canceled: 0,
-      };
-
-      const newStatusLevel = statusHierarchy[newStatus];
-
-      for (const earlierOrder of earlierOrders) {
-        // SKIP CANCELED ORDERS - They should be bypassed in queue validation
-        if (earlierOrder.status === "canceled") continue;
-
-        const earlierStatusLevel =
-          statusHierarchy[earlierOrder.status];
-
-        if (earlierStatusLevel < newStatusLevel) {
-          const earlierOrderPosition =
-            sortedOrders.findIndex(
-              (o) => o.id === earlierOrder.id,
-            ) + 1;
-          const currentOrderPosition = currentOrderIndex + 1;
-
-          setErrorMessage(
-            `Cannot update to "${newStatus === "inQueue" ? "In Queue" : newStatus}". Order #${currentOrderPosition} (${order.customer}) cannot skip ahead of Order #${earlierOrderPosition} (${earlierOrder.customer}) who is still in "${earlierOrder.status === "inQueue" ? "In Queue" : earlierOrder.status}" status. Please process orders in sequence.`,
-          );
-          return;
-        }
-      }
-    }
+    // INDEPENDENT STATUS FLOW: every order advances on its own
+    // (In Queue → Printing → Completed → Released). With multiple printers,
+    // shorter jobs can finish and be completed/released while other orders are
+    // still printing, so there is NO cross-order sequence lock here.
 
     // Auto-populate date/time fields with current date and time
     const now = new Date();
@@ -674,6 +627,15 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     );
     return waiting?.id;
   }, [processingOrder]);
+  // Active printing job: the earliest order still on the printer. It also gets a
+  // (non-clickable) "Start Here" tag so staff see where the printer currently is,
+  // next to the clickable tag on the next in-queue order.
+  const printingNowId = useMemo(() => {
+    const printing = processingOrder.find(
+      (o) => o.status === "printing",
+    );
+    return printing?.id;
+  }, [processingOrder]);
 
   const filteredOrders = useMemo(() => {
     // When a specific status filter is selected, show from the full orders list
@@ -932,6 +894,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     const isNextToProcess =
                                       statusFilter === "all" &&
                                       order.id === nextToProcessId;
+                                    const isCurrentlyPrinting =
+                                      statusFilter === "all" &&
+                                      order.status === "printing" &&
+                                      order.id === printingNowId;
                                     return (
                                       <>
                                         <PriorityBadge
@@ -941,12 +907,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                           }
                                           active={isNextToProcess}
                                         />
-{isNextToProcess && (
+{isCurrentlyPrinting ? (
+  <StartHereTag label="Start Here" />
+) : isNextToProcess ? (
   <StartHereTag
     label="Start Here"
     onClick={() => handleStartFromHere(order)}
   />
-)}
+) : null}
                                       </>
                                     );
                                   })()}
@@ -1045,48 +1013,67 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       </div>
 
       {/* Order Details Dialog - Continues in next part due to length */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B] font-poppins flex items-center justify-between">
-              Order Details
-              <Badge
-                variant="outline"
-                className="text-xs bg-gray-50 font-mono"
-              >
-                {selectedOrder?.id}
-              </Badge>
-            </DialogTitle>
-            <DialogDescription>
-              Manage and update print job information
-            </DialogDescription>
+<Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="sm:max-w-6xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-4 pr-8 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
+            <div>
+              <DialogTitle className="text-lg font-semibold text-[#1c1f26]">
+                Order Details
+              </DialogTitle>
+              <DialogDescription>
+                Manage and update print job information
+              </DialogDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-xs bg-gray-100 text-gray-700 font-mono border-gray-200"
+            >
+              {selectedOrder?.id}
+            </Badge>
           </DialogHeader>
 
           {selectedOrder && (
-            <div className="py-4 space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                <Avatar name={selectedOrder.customer} />
-                <div className="flex-1">
-                  <p className="font-bold text-[#1c1f26] text-lg">
-                    {selectedOrder.customer}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Order placed at {formatPHTime(selectedOrder.createdAt || selectedOrder.submittedAt)}
-                  </p>
+            <>
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Customer */}
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <Avatar name={selectedOrder.customer} />
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="font-bold text-[#1c1f26] text-base">
+                      {selectedOrder.customer}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Order placed at{" "}
+                      {formatPHTime(selectedOrder.createdAt || selectedOrder.submittedAt)}{" "}
+                      ·{" "}
+                      {formatPHDate(selectedOrder.createdAt || selectedOrder.submittedAt)}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-medium ${
+                      selectedOrder.orderSource === "online"
+                        ? "bg-white border-2 border-blue-200 text-blue-700"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
+                    }`}
+                  >
+                    {selectedOrder.orderSource === "online"
+                      ? "Online"
+                      : "Walk-in"}
+                  </Badge>
                 </div>
-              </div>
 
-              {/* Print Job Details Section */}
-              <div className="space-y-4">
-                <div className="border-b border-gray-200 pb-2">
-                  <h3 className="text-sm font-bold text-[#10316B] uppercase tracking-wider">
-                    Print Job Details
-                  </h3>
-                </div>
+                {/* Print Job Details Section */}
+                <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#2F6FD6]" />
+                    <h3 className="text-sm font-bold text-[#1c1f26] uppercase tracking-wider">
+                      Print Job Details
+                    </h3>
+                  </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-2 gap-px bg-gray-100">
-                    <div className="bg-white p-4">
+                    <div className="bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Paper Size
                       </p>
@@ -1095,16 +1082,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       </p>
                     </div>
 
-                    <div className="bg-white p-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                        Number of Copies
-                      </p>
-                      <p className="font-semibold text-[#1c1f26]">
-                        {selectedOrder.copies}
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-4">
+                    <div className="bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Total Pages
                       </p>
@@ -1113,30 +1091,32 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       </p>
                     </div>
 
-                    <div className="bg-white p-4">
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Number of Copies
+                      </p>
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedOrder.copies}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Order Source
                       </p>
-                      <Badge
-                        variant="outline"
-                        className={`text-sm font-medium ${
-                          selectedOrder.orderSource === "online"
-                            ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                            : "bg-blue-50 text-blue-700 border-blue-200"
-                        }`}
-                      >
+                      <p className="font-semibold text-[#1c1f26]">
                         {selectedOrder.orderSource === "online"
                           ? "Online"
                           : "Walk-in"}
-                      </Badge>
+                      </p>
                     </div>
                   </div>
 
                   {/* Attached Files */}
                   {selectedOrder.attachedFiles &&
                     selectedOrder.attachedFiles.length > 0 && (
-                      <div className="bg-white p-4 border-t border-gray-100">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                      <div className="bg-white p-3 border-t border-gray-100">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                           Attached Files
                         </p>
                         <FileAttachments
@@ -1148,38 +1128,50 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         />
                       </div>
                     )}
-                </div>
-              </div>
 
-              {/* Payment Summary Section */}
-              <div className="space-y-4">
-                <div className="border-b border-gray-200 pb-2">
-                  <h3 className="text-sm font-bold text-[#10316B] uppercase tracking-wider">
-                    Payment Summary
-                  </h3>
-                </div>
-                <OrderPaymentSummary
-                  order={selectedOrder}
-                  fallbackTotal={fallbackPrintTotal(
-                    selectedOrder.pages,
-                    selectedOrder.copies,
-                    selectedOrder.type,
+                  {/* Special Instructions */}
+                  {selectedOrder.notes && (
+                    <div className="bg-blue-50 p-3 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> Special Instructions
+                      </p>
+                      <p className="text-sm text-blue-900 leading-relaxed">
+                        {selectedOrder.notes}
+                      </p>
+                    </div>
                   )}
-                />
-              </div>
-
-              {/* Additional Information Section */}
-              <div className="space-y-4">
-                <div className="border-b border-gray-200 pb-2">
-                  <h3 className="text-sm font-bold text-[#10316B] uppercase tracking-wider">
-                    Additional Information
-                  </h3>
                 </div>
 
+                {/* Payment Summary Section */}
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#2F6FD6]" />
+                    <h3 className="text-sm font-bold text-[#1c1f26] uppercase tracking-wider">
+                      Payment Summary
+                    </h3>
+                  </div>
+                  <OrderPaymentSummary
+                    order={selectedOrder}
+                    fallbackTotal={fallbackPrintTotal(
+                      selectedOrder.pages,
+                      selectedOrder.copies,
+                      selectedOrder.type,
+                    )}
+                  />
+                </div>
+
+                {/* Additional Information Section */}
+                <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-[#2F6FD6]" />
+                    <h3 className="text-sm font-bold text-[#1c1f26] uppercase tracking-wider">
+                      Additional Information
+                    </h3>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-px bg-gray-100">
                     {/* Status */}
-                    <div className="bg-white p-4">
+                    <div className="bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                         Status
                       </p>
@@ -1196,7 +1188,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     </div>
 
                     {/* Payment Status */}
-                    <div className="bg-white p-4">
+                    <div className="bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                         Payment Status
                       </p>
@@ -1204,8 +1196,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         variant="outline"
                         className={`text-sm font-medium ${
                           selectedOrder.paymentVerified
-                            ? "bg-white border-2 border-blue-200 text-blue-700 border-blue-200"
-                            : "bg-white border-2 border-blue-200 text-yellow-700 border-blue-200"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}
                       >
                         {selectedOrder.paymentVerified
@@ -1217,8 +1209,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
                   {/* Hold Reason */}
                   {selectedOrder.holdReason && (
-                    <div className="bg-blue-50 p-4 border-t border-gray-100">
-                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <div className="bg-blue-50 p-3 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                         <AlertCircle className="w-4 h-4" /> Hold Reason
                       </p>
                       <p className="text-sm text-blue-900 leading-relaxed">
@@ -1228,8 +1220,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   )}
 
                   {selectedOrder.cancellationReason && (
-                    <div className="bg-red-50 p-4 border-t border-gray-100">
-                      <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <div className="bg-red-50 p-3 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                         <AlertCircle className="w-4 h-4" /> Cancellation Reason
                       </p>
                       <p className="text-sm text-red-900 leading-relaxed">
@@ -1238,21 +1230,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     </div>
                   )}
 
-                  {/* Special Instructions */}
-                  {selectedOrder.notes && (
-                    <div className="bg-blue-50 p-4 border-t border-gray-100">
-                      <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <FileText className="w-4 h-4" /> Special Instructions
-                      </p>
-                      <p className="text-sm text-blue-900 leading-relaxed">
-                        {selectedOrder.notes}
-                      </p>
-                    </div>
-                  )}
-
                   {/* Verify Payment */}
                   {!selectedOrder.paymentVerified && (
-                    <div className="bg-white p-4 border-t border-gray-100">
+                    <div className="bg-white p-3 border-t border-gray-100">
                       <Button
                         variant="outline"
                         onClick={() => navigate(`${userRole === "admin" ? "/admin" : "/staff"}/payment-verification?orderId=${encodeURIComponent(selectedOrder.id)}`)}
@@ -1264,146 +1244,175 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Invoice Section - Only show when order is Completed or Released */}
-              {(selectedOrder.status === 'completed' || selectedOrder.status === 'released') && invoiceData && (
-                <div className="space-y-4 pt-6 border-t border-gray-200">
-                  <div className="border-b border-gray-200 pb-2">
-                    <h3 className="text-sm font-bold text-[#10316B] uppercase tracking-wider flex items-center justify-between">
-                      <span>Invoice</span>
-                      <Badge className="bg-blue-100 text-blue-700 font-mono text-xs">
-                        {invoiceData.invoiceNumber}
-                      </Badge>
-                    </h3>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Invoice Date
-                        </p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {invoiceData.date}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Total Amount
-                        </p>
-                        <p className="text-lg font-bold text-[#2F6FD6]">
-                          {invoiceData.totalAmount}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Payment Method
-                        </p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {invoiceData.paymentMethod}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Payment Status
-                        </p>
-                        <Badge
-                          className={`text-xs font-medium ${
-                            invoiceData.paymentStatus === 'verified'
-                              ? "bg-blue-100 text-blue-700"
-                              : invoiceData.paymentStatus === 'cash'
-                                ? "bg-gray-100 text-gray-700"
-                                : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {invoiceData.paymentStatus === 'verified' ? 'Verified' :
-                           invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : 'Pending'}
+                {/* Invoice Section - Only show when order is Completed or Released */}
+                {(selectedOrder.status === 'completed' || selectedOrder.status === 'released') && invoiceData && (
+                  <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#2F6FD6]" />
+                      <h3 className="text-sm font-bold text-[#1c1f26] uppercase tracking-wider flex items-center gap-2">
+                        Invoice
+                        <Badge className="bg-blue-100 text-blue-700 font-mono text-xs">
+                          {invoiceData.invoiceNumber}
                         </Badge>
-                      </div>
+                      </h3>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        Cost Breakdown
-                      </p>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">
-                            Printing ({invoiceData.totalPages} pages � {invoiceData.copies} copies)
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            ₱{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
-                          </span>
+                    <div className="p-3">
+                      <div className="grid grid-cols-2 gap-px bg-gray-100 mb-3">
+                        <div className="bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Invoice Date
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {invoiceData.date}
+                          </p>
                         </div>
-                        {invoiceData.addons.length > 0 && (
+                        <div className="bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Total Amount
+                          </p>
+                          <p className="text-lg font-bold text-[#2F6FD6]">
+                            {invoiceData.totalAmount}
+                          </p>
+                        </div>
+                        <div className="bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Payment Method
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {invoiceData.paymentMethod}
+                          </p>
+                        </div>
+                        <div className="bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Payment Status
+                          </p>
+                          <Badge
+                            className={`text-xs font-medium ${
+                              invoiceData.paymentStatus === 'verified'
+                                ? "bg-blue-100 text-blue-700"
+                                : invoiceData.paymentStatus === 'cash'
+                                  ? "bg-gray-100 text-gray-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            {invoiceData.paymentStatus === 'verified' ? 'Verified' :
+                             invoiceData.paymentStatus === 'cash' ? 'Cash on Pickup' : 'Pending'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-200">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                          Cost Breakdown
+                        </p>
+                        <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Add-ons</span>
+                            <span className="text-gray-600">
+                              Printing ({invoiceData.totalPages} pages × {invoiceData.copies} copies)
+                            </span>
                             <span className="font-medium text-gray-900">
-                              ₱{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
+                              ₱{(isNaN(invoiceData.costBreakdown.printingCost) ? 0 : invoiceData.costBreakdown.printingCost).toFixed(2)}
                             </span>
                           </div>
-                        )}
+                          {invoiceData.addons.length > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Add-ons</span>
+                              <span className="font-medium text-gray-900">
+                                ₱{(isNaN(invoiceData.costBreakdown.addonsCost) ? 0 : invoiceData.costBreakdown.addonsCost).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowInvoicePreview(true)}
+                          className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Invoice
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownloadInvoice}
+                          className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Invoice
+                        </Button>
                       </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowInvoicePreview(true)}
-                      className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      View Invoice
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleDownloadInvoice}
-                      className="flex-1 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium"
-                    >
-                      <Package className="w-4 h-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              )}
+                {/* Contextual workflow notes */}
+                {selectedOrder.status === "awaitingPayment" &&
+                  !selectedOrder.paymentVerified && (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      Awaiting payment - this order enters the queue
+                      automatically once payment is verified.
+                    </p>
+                  )}
 
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Update Status
-                </p>
+                {selectedOrder.status === "completed" &&
+                  (() => {
+                    const cashPickupUnpaid =
+                      selectedOrder.paymentMethod === "Cash" &&
+                      !selectedOrder.paymentVerified;
+                    return cashPickupUnpaid ? (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Cash on Pickup payment not verified yet — release
+                        becomes available once the payment is verified.
+                      </p>
+                    ) : null;
+                  })()}
+
+                {(selectedOrder.status === "released" ||
+                  selectedOrder.status === "canceled" ||
+                  (selectedOrder.status === "awaitingPayment" &&
+                    selectedOrder.paymentVerified)) && (
+                  <p className="text-sm text-gray-500 italic">
+                    {selectedOrder.status === "released"
+                      ? "Order released - no further actions available."
+                      : selectedOrder.status === "canceled"
+                        ? "Order canceled - no further actions available."
+                        : "Payment verified - order is entering the queue automatically."}
+                  </p>
+                )}
 
                 {errorMessage && (
-                  <Alert variant="destructive" className="mb-4">
+                  <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
                       {errorMessage}
                     </AlertDescription>
                   </Alert>
                 )}
+              </div>
 
+              {/* Sticky workflow footer */}
+                            <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {selectedOrder.status === "inQueue" && (
                     <>
                       <Button
-                        size="sm"
+                        data-primary-action
                         className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                        onClick={() =>
-                          handleUpdateStatus("printing")
-                        }
+                        onClick={() => handleUpdateStatus("printing")}
                       >
                         <Printer className="w-4 h-4 mr-2" />
                         Start Printing
                       </Button>
                       <Button
-                        size="sm"
                         variant="outline"
-                        className="hover:bg-red-50 border-2 border-blue-200 hover:border-red-300"
-                        onClick={() =>
-                          handleUpdateStatus("canceled")
-                        }
+                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600"
+                        onClick={() => handleUpdateStatus("canceled")}
                       >
                         Cancel Order
                       </Button>
@@ -1412,74 +1421,68 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
                   {selectedOrder.status === "printing" && (
                     <Button
-                      size="sm"
+                      data-primary-action
                       className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                      onClick={() =>
-                        handleUpdateStatus("completed")
-                      }
+                      onClick={() => handleUpdateStatus("completed")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Mark as Completed
                     </Button>
                   )}
 
-                  {selectedOrder.status === "completed" && (
-                    <Button
-                      size="sm"
-                      className="bg-gray-700 text-white hover:bg-gray-800"
-                      onClick={() =>
-                        handleUpdateStatus("released")
-                      }
-                    >
-                      Release Order
-                    </Button>
-                  )}
+                  {selectedOrder.status === "completed" &&
+                    (() => {
+                      // Cash on Pickup orders may only be released once the
+                      // cash payment has been verified by staff/admin (they can
+                      // be printed/completed while payment is still pending).
+                      const cashPickupUnpaid =
+                        selectedOrder.paymentMethod === "Cash" &&
+                        !selectedOrder.paymentVerified;
+                      return (
+                        <Button
+                          data-primary-action
+                          disabled={cashPickupUnpaid}
+                          className={
+                            cashPickupUnpaid
+                              ? "bg-[#2F6FD6] text-white opacity-50 cursor-not-allowed"
+                              : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                          }
+                          title={
+                            cashPickupUnpaid
+                              ? "Verify the Cash on Pickup payment before releasing this order."
+                              : undefined
+                          }
+                          onClick={() => handleUpdateStatus("released")}
+                        >
+                          <Package className="w-4 h-4 mr-2" />
+                          Release Order
+                        </Button>
+                      );
+                    })()}
 
                   {selectedOrder.status === "awaitingPayment" &&
                     !selectedOrder.paymentVerified && (
-                      <>
-                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                          Awaiting payment - this order enters the queue
-                          automatically once payment is verified.
-                        </p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="hover:bg-red-50 border-2 border-blue-200 hover:border-red-300"
-                          onClick={() =>
-                            handleUpdateStatus("canceled")
-                          }
-                        >
-                          Cancel Order
-                        </Button>
-                      </>
+                      <Button
+                        variant="outline"
+                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600"
+                        onClick={() => handleUpdateStatus("canceled")}
+                      >
+                        Cancel Order
+                      </Button>
                     )}
+                </div>
 
-                  {(selectedOrder.status === "released" ||
-                    selectedOrder.status === "canceled" ||
-                    (selectedOrder.status === "awaitingPayment" &&
-                      selectedOrder.paymentVerified)) && (
-                    <p className="text-sm text-gray-500 italic">
-                      {selectedOrder.status === "released"
-                        ? "Order released - no further actions available."
-                        : selectedOrder.status === "canceled"
-                          ? "Order canceled - no further actions available."
-                          : "Payment verified - order is entering the queue automatically."}
-                    </p>
-                  )}
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDialog(false)}
+                  >
+                    Close
+                  </Button>
                 </div>
               </div>
-            </div>
+            </>
           )}
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowDialog(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1690,7 +1693,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           open
           onOpenChange={setShowStatusConfirm}
           onConfirm={() => { confirmStatusUpdate(); setShowStatusConfirm(false); }}
-          title={
+title={
             pendingStatus === "canceled"
               ? "Cancel Order?"
               : pendingStatus === "released"
@@ -1699,31 +1702,39 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   ? "Mark Order as Completed?"
                   : pendingStatus === "inQueue"
                     ? "Move Order to In Queue?"
-                    : `Mark Order as ${
-                        pendingStatus?.charAt(0).toUpperCase() +
-                        pendingStatus?.slice(1)
-                      }?`
+                    : pendingStatus === "printing"
+                      ? "Start Printing Order?"
+                      : `Mark Order as ${
+                          String(pendingStatus).charAt(0).toUpperCase() +
+                          String(pendingStatus).slice(1)
+                        }?`
           }
-          description={
-            pendingStatus === "canceled"
-              ? `Cancel order ${selectedOrder.id}? This will change the order status to Cancelled${
-                  statusFormData.cancellationReason
-                    ? ` with reason "${statusFormData.cancellationReason}"`
-                    : ""
-                }. This action cannot be undone and the customer will be notified.`
-              : pendingStatus === "released"
-                ? `Release order ${selectedOrder.id}? This confirms the customer has picked up the order and generates the invoice.`
-                : pendingStatus === "completed"
-                  ? `Mark order ${selectedOrder.id} as Completed? An error-usage check will be recorded first, then the customer will be notified.`
-                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : pendingStatus?.charAt(0).toUpperCase() + pendingStatus?.slice(1)}" and notify the customer?`
-          }
-          confirmLabel={
-            pendingStatus === "canceled"
-              ? "Cancel Order"
-              : pendingStatus === "released"
-                ? "Release Order"
-                : "Confirm Update"
-          }
+        description={
+          pendingStatus === "canceled"
+            ? `Cancel order ${selectedOrder.id}? This will change the order status to Cancelled${
+                statusFormData.cancellationReason
+                  ? ` with reason "${statusFormData.cancellationReason}"`
+                  : ""
+              }. This action cannot be undone and the customer will be notified.`
+            : pendingStatus === "released"
+              ? "Confirm that the customer has received the completed print job."
+              : pendingStatus === "completed"
+                ? "Confirm that this print job has finished and is ready for release."
+                : pendingStatus === "printing"
+                  ? "Confirm that this order is ready to start printing."
+                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : String(pendingStatus).charAt(0).toUpperCase() + String(pendingStatus).slice(1)}" and notify the customer?`
+        }
+        confirmLabel={
+          pendingStatus === "canceled"
+            ? "Cancel Order"
+            : pendingStatus === "released"
+              ? "Release Order"
+              : pendingStatus === "completed"
+                ? "Mark as Completed"
+                : pendingStatus === "printing"
+                  ? "Start Printing"
+                  : "Confirm Update"
+        }
           cancelLabel="Go Back"
           destructive={pendingStatus === "canceled"}
           requirePhrase={pendingStatus === "canceled"}

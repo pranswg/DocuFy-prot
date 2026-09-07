@@ -246,7 +246,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handleView(file)}
                   title={`View ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
@@ -256,7 +256,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handlePrint(file)}
                   title={`Print ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Printer className="w-3.5 h-3.5" />
                 </button>
@@ -266,7 +266,7 @@ export function FileAttachments({
                 <button
                   onClick={() => handleDownload(file)}
                   title={`Download ${file.name}`}
-                  className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
