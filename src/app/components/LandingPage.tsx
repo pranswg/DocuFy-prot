@@ -24,6 +24,7 @@ import { Badge } from "./ui/badge";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingValues } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,10 @@ import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userInitials = user
+    ? (user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "U")
+    : "U";
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showShopMap, setShowShopMap] = useState(false);
@@ -360,13 +365,37 @@ export default function LandingPage() {
               })}
             </nav>
 
-            <Button
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="h-9 rounded-lg border-[1.5px] border-[#1D73EC] bg-white px-3 text-xs font-medium text-[#1D73EC] transition-colors duration-200 hover:translate-y-0 hover:border-[#1D73EC] hover:bg-[#1D73EC]/5 hover:text-[#1D73EC] hover:shadow-none active:translate-y-0 active:border-[#1D73EC]/70 active:bg-[#1D73EC]/10 sm:h-10 sm:px-4 sm:text-sm"
-            >
-              Log In
-            </Button>
+            {user ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/${user.role}/profile`)}
+                className="flex shrink-0 items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-all duration-200 hover:border-[#1D73EC]/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] sm:pr-4"
+              >
+                <span className="h-8 w-8 overflow-hidden rounded-full bg-[#1D73EC] text-white flex items-center justify-center text-xs font-bold sm:h-9 sm:w-9">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
+                  ) : (
+                    userInitials
+                  )}
+                </span>
+                <span className="text-left leading-tight">
+                  <span className="block max-w-[120px] truncate text-xs font-semibold text-[#1c1f26] sm:max-w-[160px] sm:text-sm">
+                    {user.name}
+                  </span>
+                  <span className="hidden text-[10px] font-medium capitalize text-gray-500 sm:block">
+                    {user.role} Account
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => navigate("/login")}
+                className="h-9 rounded-lg border-[1.5px] border-[#1D73EC] bg-white px-3 text-xs font-medium text-[#1D73EC] transition-colors duration-200 hover:translate-y-0 hover:border-[#1D73EC] hover:bg-[#1D73EC]/5 hover:text-[#1D73EC] hover:shadow-none active:translate-y-0 active:border-[#1D73EC]/70 active:bg-[#1D73EC]/10 sm:h-10 sm:px-4 sm:text-sm"
+              >
+                Log In
+              </Button>
+            )}
           </div>
         </div>
       </header>

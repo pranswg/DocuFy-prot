@@ -493,3 +493,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Photocopy manual price: whole-peso only (arrow keys step by 1), minimum ₱1 — still erasable and auto-defaults to ₱1 when left blank.
 - Photocopy orders are never session-locked: staff/admin can manually take a photocopy anytime (locking stays for regular printing orders).
 - Small mobile fixes: pages scroll to top on change and the header goes sticky with improved overflow handling.
+
+---
+
+## September 8, 2026 11:28 PM (PHT) - prans
+- Walk-in Photocopy steps simplified to 1 & 2, attendance simplified to a single daily shift with exceeded extra clock-ins, and landing header profile chip for logged-in users (one commit).
+- Implemented Photocopy walk-in flow as Steps 1 & 2 only: the walk-in Photocopy order now flows Photocopy Options (Step 1) straight to Review & Complete (Step 2) instead of jumping to the old step 4, so the step indicator reads 1-2 and the review/proceed bar renders on step 2; walk-in Printing and the customer flow still use Steps 1-4.
+- Simplified staff attendance to one Time In and one Time Out per day: dropped the Morning/Afternoon session split across the timesheet, the time-in lockout gate, and the admin Attendance & Staff Monitoring view, so one continuous shift covers both AM and PM (legacy records auto-migrate).
+- Implemented exceeded extra clock-ins: staff can still clock in after their day is complete - a confirmation prompt explains the day is already done and the new clock-in is logged with an amber 'Exceeded' badge in the staff Personal Time Logs, the timesheet status, and the admin attendance table (extra hours count toward total and overtime).
+- Landing page header shows the profile when logged in: the header swaps its Log In button for a compact profile chip (avatar, name, and role caption) that opens the user's profile page; visitors still see Log In.

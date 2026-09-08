@@ -1338,7 +1338,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const steps = isWalkin && customerType === "photocopy"
     ? [
         { number: 1, title: "Photocopy Options", icon: Copy },
-        { number: 4, title: "Review & Complete", icon: CheckCircle },
+        { number: 2, title: "Review & Complete", icon: CheckCircle },
       ]
     : isWalkin
     ? [
@@ -1686,7 +1686,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         )}
 
         {/* STEP 2 */}
-        {currentStep === 2 && (
+        {currentStep === 2 && !isPhotocopy && (
           <div className="space-y-5 sm:space-y-6">
             {/* Step title */}
             <div>
@@ -2333,11 +2333,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         )}
 
         {/* STEP 4 */}
-        {currentStep === 4 && (
+        {(currentStep === 4 || (isPhotocopy && currentStep === 2)) && (
           isWalkin ? (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                Step 4: Review & Complete Transaction
+                {isPhotocopy ? "Step 2: Review & Complete Transaction" : "Step 4: Review & Complete Transaction"}
               </h2>
 
               <Card className="p-5 bg-blue-50">
@@ -3101,7 +3101,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         )}
 
         {/* Navigation Buttons */}
-        {isWalkin && currentStep === 4 ? (
+        {isWalkin && (currentStep === 4 || (isPhotocopy && currentStep === 2)) ? (
           <div className="flex flex-col gap-2 mt-6 pt-4 border-t border-gray-100">
             {/* Top row: Back + Cancel Order */}
             <div className="grid grid-cols-2 gap-2">
@@ -3163,7 +3163,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
                   : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
                 onClick={() => {
-                  const nextStep = isPhotocopy ? 4 : currentStep + 1;
+                  const nextStep = currentStep + 1;
                   setCurrentStep(nextStep);
                   scrollPageToTop();
                 }}

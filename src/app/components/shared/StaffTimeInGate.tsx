@@ -10,15 +10,15 @@ import {
   ShoppingCart,
   Boxes,
   ArrowRight,
-  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
-import { attendanceStore, getCurrentPeriod, formatPHT } from "../../utils/attendanceStore";
+import { attendanceStore, formatPHT } from "../../utils/attendanceStore";
 import type { NextAction } from "../../utils/attendanceStore";
 import { internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 interface StaffTimeInGateProps {
   children: React.ReactNode;
@@ -39,18 +39,16 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
   const navigate = useNavigate();
 
   const [nextAction, setNextAction] = useState<NextAction>(() =>
-    user ? attendanceStore.getNextAction(user.email) : "morning-time-in",
+    user ? attendanceStore.getNextAction(user.email) : "time-in",
   );
   const [now, setNow] = useState(() => new Date(internetUtcMs()));
+  const [showExtraConfirm, setShowExtraConfirm] = useState(false);
 
   // Admin / customer flows are never locked out.
   const staffUser = user?.role === "staff" ? user : null;
 
-  // Currently "on the clock" only while one of the two sessions is active.
-  const locked =
-    !!staffUser &&
-    nextAction !== "morning-time-out" &&
-    nextAction !== "afternoon-time-out";
+  // Currently "on the clock" only while a session is active.
+  const locked = !!staffUser && nextAction !== "time-out";
 
   // Live clock (internet GMT+8) — tick only while a lockout panel is visible.
   useEffect(() => {
@@ -76,25 +74,28 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
     return <>{children}</>;
   }
 
-  const period = getCurrentPeriod() === "morning" ? "Morning" : "Afternoon";
   const phtNow = toPHT(now);
 
-  const handleTimeIn = () => {
+  const doTimeIn = () => {
     try {
-      if (nextAction === "complete") {
-        toast.info(
-          getCurrentPeriod() === "morning"
-            ? "Morning session is complete. Come back in the PM to clock in your Afternoon session."
-            : "All sessions are already recorded for today. Come back tomorrow!",
-        );
-        return;
-      }
       const userName = staffUser.name || staffUser.email.split("@")[0];
       attendanceStore.timeIn(staffUser.email, userName, "staff");
-      toast.success(`${period} Time In recorded at ${formatPHT(new Date(internetUtcMs()), true)}. Staff functions unlocked!`);
+      toast.success(
+        nextAction === "complete"
+          ? "Time In Again recorded — today is logged as exceeded."
+          : `Time In recorded at ${formatPHT(new Date(internetUtcMs()), true)}. Staff functions unlocked!`,
+      );
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);
     }
+  };
+
+  const handleTimeIn = () => {
+    if (nextAction === "complete") {
+      setShowExtraConfirm(true);
+      return;
+    }
+    doTimeIn();
   };
 
   return (
@@ -164,24 +165,21 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
             {/* Time-in button */}
             <Button
               onClick={handleTimeIn}
-              disabled={nextAction === "complete"}
               className={`mt-6 h-12 w-full text-sm font-bold transition-all ${
                 nextAction === "complete"
-                  ? "cursor-default bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
                   : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"
               }`}
             >
               {nextAction === "complete" ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  {period === "Morning"
-                    ? "Morning Complete — Back in PM"
-                    : "Attendance Complete for Today"}
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Time In Again (Extra)
                 </>
               ) : (
                 <>
                   <LogIn className="h-4 w-4 mr-2" />
-                  Time In — {period}
+                  Time In — Start Shift
                 </>
               )}
             </Button>
@@ -198,6 +196,22 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
           </Card>
         </div>
       </div>
+
+      {showExtraConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowExtraConfirm}
+          onConfirm={() => {
+            setShowExtraConfirm(false);
+            doTimeIn();
+          }}
+          title="Clock In Again?"
+          description="Your time in and time out are already done for today. Clock in again anyway? This will be recorded as exceeded time for today and will show up in your logs and the admin monitoring view."
+          confirmLabel="Yes, Clock In Again"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
     </>
   );
 }
