@@ -682,6 +682,37 @@ const initialOrders: Order[] = [
   },
 ];
 
+// ─── Cross-tab order sync ──────────────────────────────────────────────────
+// Orders live across every open tab (staff/admin/queue/dashboards) via a
+// localStorage snapshot used as the shared channel, synced through the browser
+// `storage` event. Writing any order first re-bases on the LATEST snapshot (so
+// tabs updating different orders can't silently revert each other), then saves
+// and notifies; every OTHER tab hears the storage event, reloads the snapshot,
+// and re-renders LIVE — no page refresh needed.
+// NOTE (Supabase later): replace this mirror with real shared state (a
+// Postgres table + Realtime broadcasts). This only emulates that behavior
+// locally so the multi-PC demo works in two tabs.
+const ORDERS_SYNC_KEY = 'docufy_orders_sync_v1';
+
+function readOrdersSnapshot(): Order[] | null {
+  try {
+    const raw = localStorage.getItem(ORDERS_SYNC_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Order[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeOrdersSnapshot(orders: Order[]) {
+  try {
+    localStorage.setItem(ORDERS_SYNC_KEY, JSON.stringify(orders));
+  } catch {
+    // quota / private-mode errors are non-fatal for the mock store
+  }
+}
+
 // In-memory store with event listeners
 class DataStore {
   private orders: Order[] = [...initialOrders];
@@ -690,6 +721,21 @@ class DataStore {
   constructor() {
     // Initialize order counter from existing orders
     this.initializeOrderCounter();
+
+    // Cross-tab sync: whenever another tab writes the shared snapshot, adopt
+    // it into memory and re-render every subscriber live (no refresh needed).
+    window.addEventListener('storage', (e) => {
+      if (e.key !== ORDERS_SYNC_KEY || e.newValue == null) return;
+      try {
+        const incoming = JSON.parse(e.newValue);
+        if (Array.isArray(incoming)) {
+          this.orders = incoming as Order[];
+          this.notify();
+        }
+      } catch {
+        // ignore malformed snapshots
+      }
+    });
   }
 
   subscribe(listener: () => void) {
@@ -715,6 +761,10 @@ class DataStore {
   }
 
   addOrder(order: Order) {
+    // Re-base on the latest shared snapshot so changes made in other tabs
+    // (that we haven't received yet) aren't clobbered by this write.
+    const base = readOrdersSnapshot();
+    const working = base ?? this.orders;
     // Automatically add timestamp when creating a new order
     const now = new Date().toISOString();
     const orderWithTimestamps = {
@@ -723,15 +773,19 @@ class DataStore {
       statusUpdatedAt: order.statusUpdatedAt || now,
       lastUpdatedAt: now
     };
-    this.orders.unshift(orderWithTimestamps);
+    const updated = [orderWithTimestamps, ...working];
+    this.orders = updated;
+    writeOrdersSnapshot(updated);
     this.notify();
   }
 
   updateOrder(id: string, updates: Partial<Order>) {
-    const index = this.orders.findIndex(order => order.id === id);
+    const base = readOrdersSnapshot();
+    const working = base ?? this.orders;
+    const index = working.findIndex(order => order.id === id);
     if (index !== -1) {
       const now = new Date().toISOString();
-      const previousStatus = this.orders[index].status;
+      const previousStatus = working[index].status;
 
       // Automatically update timestamps
       const timestampedUpdates = {
@@ -743,7 +797,11 @@ class DataStore {
           : {})
       };
 
-      this.orders[index] = { ...this.orders[index], ...timestampedUpdates };
+      const updated = working.map((order, i) =>
+        i === index ? { ...order, ...timestampedUpdates } : order
+      );
+      this.orders = updated;
+      writeOrdersSnapshot(updated);
       this.notify();
     }
   }
@@ -753,7 +811,11 @@ class DataStore {
   }
 
   deleteOrder(id: string) {
-    this.orders = this.orders.filter(order => order.id !== id);
+    const base = readOrdersSnapshot();
+    const working = base ?? this.orders;
+    const updated = working.filter(order => order.id !== id);
+    this.orders = updated;
+    writeOrdersSnapshot(updated);
     this.notify();
   }
 

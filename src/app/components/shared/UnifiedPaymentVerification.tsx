@@ -13,6 +13,9 @@ import {
   X,
   ListOrdered,
   QrCode,
+  Lock,
+  Unlock,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -39,6 +42,14 @@ import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } f
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
+import {
+  getLock,
+  claimLock,
+  releaseLock,
+  stillHoldsLock,
+  subscribeToLocks,
+} from "../../utils/orderLocks";
+import { useAuth } from "../../contexts/AuthContext";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
 import { StartHereTag } from "../ui/priority-badge";
 
@@ -203,6 +214,50 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     "verified" | "rejected" | null
   >(null);
 
+  const { user } = useAuth();
+  const myName = user?.name || "Staff";
+
+  // Session lock awareness: a badge tick that re-renders whenever lock state
+  // changes (in THIS tab or another — see orderLocks.ts). Used to show who is
+  // "viewing" an order and to disable Confirm while someone else holds the lock.
+  const [, setLocksTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setLocksTick((t) => t + 1);
+    const unsub = subscribeToLocks(bump);
+    const iv = setInterval(bump, 5000);
+    return () => {
+      unsub();
+      clearInterval(iv);
+    };
+  }, []);
+
+  // The current lock for the order being viewed (null if none / expired).
+  const selectedLock = selectedPayment ? getLock(selectedPayment.orderId) : null;
+  // Name of whoever holds it (could be a different tab / different user).
+  const lockHolder = selectedLock?.heldBy ?? null;
+  // Do WE hold it right now?
+  const iHoldLock = !!selectedLock && selectedLock.heldBy === myName;
+
+  // HEARTBEAT: while our details dialog is open on an actionable row, keep
+  // renewing OUR lock so it persists for as long as we keep viewing — it never
+  // vanishes mid-review. A dead tab stops beating and expires on its own.
+  useEffect(() => {
+    if (
+      !selectedPayment ||
+      !showDialog ||
+      !(selectedPayment.status === "pending" || selectedPayment.status === "rejected")
+    ) {
+      return;
+    }
+    const beat = () => {
+      if (stillHoldsLock(selectedPayment.orderId, myName)) {
+        claimLock(selectedPayment.orderId, myName);
+      }
+    };
+    const iv = setInterval(beat, 30000);
+    return () => clearInterval(iv);
+  }, [selectedPayment?.id, selectedPayment?.status, showDialog, myName]);
+
   // Load payments from dataStore
   useEffect(() => {
     const loadPayments = () => {
@@ -231,17 +286,53 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     if (payment) {
       setStatusFilter("all");
       setSelectedPayment(payment);
+      // Auto-claim when arriving via deep link (e.g. from a notification).
+      if (payment.status === "pending" || payment.status === "rejected") {
+        const existing = getLock(payment.orderId);
+        if (existing && existing.heldBy !== myName) {
+          toast.info(`${existing.heldBy} is viewing this order`);
+        } else {
+          claimLock(payment.orderId, myName);
+        }
+      }
       setShowDialog(true);
     }
-  }, [payments, searchParams]);
+  }, [payments, searchParams, myName]);
 
   const handleVerifyPayment = (
     status: "verified" | "rejected",
   ) => {
     if (selectedPayment) {
-      // SYSTEM-WIDE SYNC: Update the actual order in dataStore
-      // This ensures Order List and Payment Verification are connected
+      // ===== SESSION LOCK GUARD =====
+      // Re-check ownership at the FINAL confirm moment (a second tab might have
+      // claimed the order after we opened the modal). Only the lock holder may
+      // act. NOTE (Supabase later): this check must be a transactional
+      // conditional update (WHERE id = ? AND held_by = ?) on the shared table,
+      // not a client-side localStorage read.
+      if (!stillHoldsLock(selectedPayment.orderId, myName)) {
+        const other = getLock(selectedPayment.orderId);
+        toast.error(other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available", {
+          description: "Only the current reviewer can verify. Refresh to see the latest status.",
+        });
+        return;
+      }
+
+      // ===== CONFLICT GUARD (Option B) =====
+      // Defensive re-read: if someone already verified/rejected this order in
+      // another tab while we were looking, abort before writing.
       const orderRecords = dataStore.getOrders();
+      const latestOrder = orderRecords.find(
+        (o) => o.id === selectedPayment.orderId,
+      );
+      if (latestOrder && latestOrder.paymentVerified) {
+        toast.error("This payment has already been verified", {
+          description: "Refresh the page to see the latest status.",
+        });
+        releaseLock(selectedPayment.orderId, myName);
+        setShowDialog(false);
+        return;
+      }
+
       const targetOrder = orderRecords.find(
         (o) => o.id === selectedPayment.orderId,
       );
@@ -256,6 +347,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         // the order enters the queue automatically (staff never add it).
         ...(status === "verified" ? { status: "In Queue" as const } : {}),
       });
+
+      // The order is processed — release our hold so it's free for anyone.
+      releaseLock(selectedPayment.orderId, myName);
 
       setPayments((prev) =>
         prev.map((p) =>
@@ -276,6 +370,20 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
   const handleOpenDetails = (payment: PaymentType) => {
     setSelectedPayment(payment);
+    // Auto-claim the lock when opening the details (only for actionable rows).
+    // NOTE (Supabase later): this claim must be written to the shared
+    // session_locks table / broadcast over Realtime so OTHER machines see it,
+    // not just this tab's localStorage.
+    const existing = getLock(payment.orderId);
+    if (payment.status === "pending" || payment.status === "rejected") {
+      if (existing && existing.heldBy !== myName) {
+        toast.info(`${existing.heldBy} is viewing this order`, {
+          description: "You can review it, but only the current reviewer can verify.",
+        });
+      } else {
+        claimLock(payment.orderId, myName);
+      }
+    }
     setShowDialog(true);
   };
 
@@ -531,6 +639,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     payment.status === "pending" &&
                     payment.id === nextToVerifyId;
                   const priority = pendingSequenceById.get(payment.id);
+                  // Live lock for this row (recomputed on every locksTick).
+                  const rowLock = getLock(payment.orderId);
+                  const rowLockedByMe = !!rowLock && rowLock.heldBy === myName;
                   return (
                   <tr
                     key={payment.id}
@@ -578,6 +689,21 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                           <p className="text-[11px] text-gray-500 mt-0.5">
                             {formatPHDate(payment.submittedAt, "short")} · {payment.time}
                           </p>
+                          {rowLock && (
+                            <span
+                              title={
+                                rowLockedByMe
+                                  ? "You are reviewing this order"
+                                  : `${rowLock.heldBy} is reviewing this order`
+                              }
+                              className={`mt-1 inline-flex items-center gap-1 text-[10px] font-semibold ${
+                                rowLockedByMe ? "text-green-600" : "text-amber-600"
+                              }`}
+                            >
+                              <Eye className="w-3 h-3" />
+                              {rowLockedByMe ? "Reviewing (you)" : `${rowLock.heldBy} is viewing`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -662,7 +788,21 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       </div>
 
       {/* Payment Details Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Release OUR hold when this details modal closes (reviewer done,
+            // or closed via X / Reject flow). ONLY releases our own lock —
+            // a different reviewer holding it is left untouched. The lock then
+            // expires on its own if a tab dies without cleanup.
+            if (selectedPayment) releaseLock(selectedPayment.orderId, myName);
+            setShowDialog(false);
+          } else {
+            setShowDialog(true);
+          }
+        }}
+      >
 <DialogContent className="sm:max-w-2xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
           <DialogHeader className="px-5 pt-4 pr-10 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
             <div>
@@ -684,6 +824,51 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           {selectedPayment && (
             <>
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Session lock banner (demo: two tabs = two PCs) */}
+                {selectedPayment.status === "pending" || selectedPayment.status === "rejected" ? (
+                  iHoldLock ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                      <p className="text-sm font-semibold text-green-700 flex-1 min-w-[160px]">
+                        You are reviewing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-green-600">
+                        Only you can verify it right now
+                      </span>
+                    </div>
+                  ) : lockHolder ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50">
+                      <Eye className="w-4 h-4 text-amber-600" />
+                      <p className="text-sm font-semibold text-amber-800 flex-1 min-w-[160px]">
+                        {lockHolder} is reviewing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-amber-700">
+                        Verify is locked until they finish
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                      <Lock className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                        This order is available
+                      </p>
+                      <span className="text-[11px] font-medium text-gray-500">
+                        Claim it by opening the details
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                    <Unlock className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                      This order is already processed
+                    </p>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Read-only review
+                    </span>
+                  </div>
+                )}
+
                 {/* Customer */}
                 <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
                   <Avatar name={selectedPayment.customer} />
@@ -859,32 +1044,52 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               </div>
 
               {/* Sticky action footer */}
-              {(selectedPayment.status === "pending" ||
-                selectedPayment.status === "rejected") && (
-                <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
-                  <Button
-                    data-primary-action
-                    className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0.5 hover:shadow-md transition-all"
-                    onClick={() => setPendingVerifyAction("verified")}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Verify Payment
-                  </Button>
-                  {selectedPayment.status === "pending" && (
+              <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
+                {(selectedPayment.status === "pending" ||
+                  selectedPayment.status === "rejected") && (
+                  <>
                     <Button
-                      variant="outline"
-                      className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
-                      onClick={() => {
-                        setShowDialog(false);
-                        setShowRejectDialog(true);
-                      }}
+                      data-primary-action
+                      disabled={!iHoldLock}
+                      title={
+                        !iHoldLock && lockHolder
+                          ? `${lockHolder} is reviewing this order`
+                          : undefined
+                      }
+                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                      onClick={() => setPendingVerifyAction("verified")}
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject Payment
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Verify Payment
                     </Button>
+                    {selectedPayment.status === "pending" && (
+                      <Button
+                        variant="outline"
+                        disabled={!iHoldLock}
+                        title={
+                          !iHoldLock && lockHolder
+                            ? `${lockHolder} is reviewing this order`
+                            : undefined
+                        }
+                        className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all disabled:opacity-40 disabled:pointer-events-none"
+                        onClick={() => {
+                          setShowDialog(false);
+                          setShowRejectDialog(true);
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Reject Payment
+                      </Button>
+                    )}
+                  </>
+                )}
+                {selectedPayment.status !== "pending" &&
+                  selectedPayment.status !== "rejected" && (
+                    <p className="text-xs font-medium text-gray-400 ml-auto">
+                      Read-only — this order is already processed
+                    </p>
                   )}
-                </div>
-              )}
+              </div>
             </>
           )}
         </DialogContent>

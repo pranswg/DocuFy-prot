@@ -26,6 +26,9 @@ import {
   Settings,
   Download,
   Eye,
+  Lock,
+  Unlock,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -64,6 +67,14 @@ import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderSta
 import { inventoryStore } from "../../utils/inventoryStore";
 import { PriorityBadge, StartHereTag } from "../ui/priority-badge";
 import OrderPaymentSummary from "./OrderPaymentSummary";
+import {
+  getLock,
+  claimLock,
+  releaseLock,
+  stillHoldsLock,
+  subscribeToLocks,
+} from "../../utils/orderLocks";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Fallback estimate when an order has no stored cost breakdown, using the
 // shared centralized pricing so admin/staff estimates stay in lockstep.
@@ -221,6 +232,48 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
 
+  const { user } = useAuth();
+  const myName = user?.name || "Staff";
+
+  // Session lock awareness (demo: two tabs = two PCs). See orderLocks.ts.
+  const [, setLocksTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setLocksTick((t) => t + 1);
+    const unsub = subscribeToLocks(bump);
+    const iv = setInterval(bump, 5000);
+    return () => {
+      unsub();
+      clearInterval(iv);
+    };
+  }, []);
+
+  // Current lock for the viewed order, and whether WE hold it.
+  const selectedLock = selectedOrder ? getLock(selectedOrder.id) : null;
+  const lockHolder = selectedLock?.heldBy ?? null;
+  const iHoldLock = !!selectedLock && selectedLock.heldBy === myName;
+  // Orders in these statuses can be acted on, so they get a lock/claim.
+  const isActionableStatus = (status: string) =>
+    status === "inQueue" ||
+    status === "printing" ||
+    status === "completed" ||
+    status === "awaitingPayment";
+
+  // HEARTBEAT: while our order details dialog is open on an actionable row,
+  // keep renewing OUR lock so it persists for as long as we keep viewing —
+  // it never vanishes mid-review. A dead tab stops beating and expires.
+  useEffect(() => {
+    if (!selectedOrder || !showDialog || !isActionableStatus(selectedOrder.status)) {
+      return;
+    }
+    const beat = () => {
+      if (stillHoldsLock(selectedOrder.id, myName)) {
+        claimLock(selectedOrder.id, myName);
+      }
+    };
+    const iv = setInterval(beat, 30000);
+    return () => clearInterval(iv);
+  }, [selectedOrder?.id, selectedOrder?.status, showDialog, myName]);
+
   // Read ?orderId=... so a notification click can deep-open a specific order
   const [searchParams] = useSearchParams();
   const openedOrderIdRef = useRef<string | null>(null);
@@ -256,6 +309,20 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const handleOpenDetails = (order: OrderType) => {
     setSelectedOrder(order);
     setShowDialog(true);
+
+    // Claim the session lock for actionable orders (the modal opens as "ours").
+    // NOTE (Supabase later): write this claim to the shared session_locks
+    // table / broadcast over Realtime so OTHER machines see it too.
+    if (isActionableStatus(order.status)) {
+      const existing = getLock(order.id);
+      if (existing && existing.heldBy !== myName) {
+        toast.info(`${existing.heldBy} is viewing this order`, {
+          description: "You can review it, but only the current reviewer can act on it.",
+        });
+      } else {
+        claimLock(order.id, myName);
+      }
+    }
 
     // Generate invoice data if order is completed or released
     if (order.status === 'completed' || order.status === 'released') {
@@ -382,6 +449,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       return;
     }
     setSelectedOrder(order);
+    // Claim the lock for this order too (Start Here goes straight to the form).
+    const existing = getLock(order.id);
+    if (!existing || existing.heldBy === myName) {
+      claimLock(order.id, myName);
+    } else {
+      toast.error(`${existing.heldBy} is managing this order`, {
+        description: "Only the current reviewer can start it.",
+      });
+      return;
+    }
     handleUpdateStatus("printing", order);
   };
 
@@ -464,6 +541,23 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
   }) => {
     if (!selectedOrder || !pendingStatus) return;
+
+    // ===== SESSION LOCK GUARD =====
+    // Re-check ownership at the FINAL confirm moment — a second tab might have
+    // claimed the order after we opened the modal. Only the lock holder may act.
+    // NOTE (Supabase later): make this a transactional conditional update
+    // (WHERE id = ? AND held_by = ?) on the shared table, not a localStorage read.
+    if (!stillHoldsLock(selectedOrder.id, myName)) {
+      const other = getLock(selectedOrder.id);
+      setShowStatusForm(false);
+      setShowStatusConfirm(false);
+      setPendingStatus(null);
+      toast.error(
+        other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available",
+        { description: "Only the current reviewer can update it. Refresh to see the latest status." },
+      );
+      return;
+    }
 
     // Persist paper-usage confirmation fields onto the updated order when completing.
     let extraOrder: Record<string, unknown> = {};
@@ -561,6 +655,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     setShowStatusForm(false);
     setShowDialog(false); // Close Order Details dialog
     setPendingStatus(null);
+    releaseLock(selectedOrder.id, myName); // Order processed — free OUR lock
     setStatusFormData({
       estimatedTime: "",
       completionTime: "",
@@ -936,6 +1031,28 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                         Has notes
                                       </p>
                                     )}
+                                    {(() => {
+                                      const oLock = getLock(order.id);
+                                      if (!oLock) return null;
+                                      const oLockedByMe = oLock.heldBy === myName;
+                                      return (
+                                        <span
+                                          title={
+                                            oLockedByMe
+                                              ? "You are managing this order"
+                                              : `${oLock.heldBy} is managing this order`
+                                          }
+                                          className={`mt-1 inline-flex items-center gap-1 text-[10px] font-semibold ${
+                                            oLockedByMe ? "text-green-600" : "text-amber-600"
+                                          }`}
+                                        >
+                                          <Eye className="w-3 h-3" />
+                                          {oLockedByMe
+                                            ? "Managing (you)"
+                                            : `${oLock.heldBy} is managing`}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </td>
@@ -1013,7 +1130,19 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       </div>
 
       {/* Order Details Dialog - Continues in next part due to length */}
-<Dialog open={showDialog} onOpenChange={setShowDialog}>
+<Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Release OUR hold when the order details modal closes. Only frees
+            // OUR lock — another reviewer's hold is left untouched.
+            if (selectedOrder) releaseLock(selectedOrder.id, myName);
+            setShowDialog(false);
+          } else {
+            setShowDialog(true);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-6xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
           <DialogHeader className="px-5 pt-4 pr-8 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
             <div>
@@ -1035,6 +1164,51 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           {selectedOrder && (
             <>
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Session lock banner (demo: two tabs = two PCs) */}
+                {isActionableStatus(selectedOrder.status) ? (
+                  iHoldLock ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                      <p className="text-sm font-semibold text-green-700 flex-1 min-w-[160px]">
+                        You are managing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-green-600">
+                        Only you can update it right now
+                      </span>
+                    </div>
+                  ) : lockHolder ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50">
+                      <Eye className="w-4 h-4 text-amber-600" />
+                      <p className="text-sm font-semibold text-amber-800 flex-1 min-w-[160px]">
+                        {lockHolder} is managing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-amber-700">
+                        Actions are locked until they finish
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                      <Lock className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                        This order is available
+                      </p>
+                      <span className="text-[11px] font-medium text-gray-500">
+                        Opening the details claims it for you
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                    <Unlock className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                      This order is already finished
+                    </p>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Read-only review
+                    </span>
+                  </div>
+                )}
+
                 {/* Customer */}
                 <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
                   <Avatar name={selectedOrder.customer} />
@@ -1399,11 +1573,20 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               {/* Sticky workflow footer */}
                             <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
+                  {isActionableStatus(selectedOrder.status) &&
+                    !iHoldLock &&
+                    lockHolder && (
+                      <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 w-full">
+                        Locked — {lockHolder} is managing this order. Actions are disabled.
+                      </p>
+                    )}
                   {selectedOrder.status === "inQueue" && (
                     <>
                       <Button
                         data-primary-action
-                        className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                        disabled={!iHoldLock}
+                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("printing")}
                       >
                         <Printer className="w-4 h-4 mr-2" />
@@ -1411,7 +1594,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       </Button>
                       <Button
                         variant="outline"
-                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600"
+                        disabled={!iHoldLock}
+                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("canceled")}
                       >
                         Cancel Order
@@ -1422,7 +1607,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   {selectedOrder.status === "printing" && (
                     <Button
                       data-primary-action
-                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                      disabled={!iHoldLock}
+                      title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:opacity-40 disabled:pointer-events-none"
                       onClick={() => handleUpdateStatus("completed")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
@@ -1441,16 +1628,18 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       return (
                         <Button
                           data-primary-action
-                          disabled={cashPickupUnpaid}
+                          disabled={cashPickupUnpaid || !iHoldLock}
                           className={
-                            cashPickupUnpaid
+                            cashPickupUnpaid || !iHoldLock
                               ? "bg-[#2F6FD6] text-white opacity-50 cursor-not-allowed"
                               : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
                           }
                           title={
                             cashPickupUnpaid
                               ? "Verify the Cash on Pickup payment before releasing this order."
-                              : undefined
+                              : !iHoldLock && lockHolder
+                                ? `${lockHolder} is managing this order`
+                                : undefined
                           }
                           onClick={() => handleUpdateStatus("released")}
                         >
@@ -1464,7 +1653,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     !selectedOrder.paymentVerified && (
                       <Button
                         variant="outline"
-                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600"
+                        disabled={!iHoldLock}
+                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("canceled")}
                       >
                         Cancel Order
