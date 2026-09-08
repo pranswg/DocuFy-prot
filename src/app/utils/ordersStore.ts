@@ -6,6 +6,7 @@ type OrderType = {
   id: string;
   customer: string;
   customerEmail?: string;
+  customerType?: 'printing' | 'photocopy';
   pages: number;
   type: string;
   notes: string;
@@ -14,6 +15,8 @@ type OrderType = {
   paperSize: string;
   copies: number;
   submittedAt: Date;
+  // Optional manual staff-entered total (overrides automatic pricing, e.g. walk-in photocopy).
+  manualTotal?: number;
   holdReason?: string;
   cancellationReason?: string;
   // Payment confirmation/verification deadline for awaiting-payment orders.
@@ -202,6 +205,7 @@ class OrdersStore {
       customerId: order.customer,
       customerName: order.customer,
       customerEmail: order.customerEmail || `${order.customer.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+      customerType: order.customerType,
       status: this.convertStatus(order.status),
       holdReason: order.holdReason,
       cancellationReason: order.cancellationReason,
@@ -210,7 +214,8 @@ class OrdersStore {
       paymentVerified: order.paymentVerified,
       paymentReferenceNumber: order.paymentReferenceNumber,
       paymentProofUrl: order.paymentProofUrl,
-      total: `₱${(order.pages * order.copies * (order.type === 'Colored' ? 5 : 1)).toFixed(2)}`,
+      manualTotal: order.manualTotal,
+      total: order.manualTotal != null ? `₱${order.manualTotal.toFixed(2)}` : `₱${(order.pages * order.copies * (order.type === 'Colored' ? 5 : 1)).toFixed(2)}`,
       date: toPHTKey(order.submittedAt),
       paperSize: order.paperSize,
       printType: order.type === 'Colored' ? 'Colored' : 'Black & White',
@@ -271,6 +276,7 @@ class OrdersStore {
       paymentMethod: order.paymentMethod,
       orderSource: order.orderSource || (order.paymentMethod === 'Cash' ? 'walkin' : 'online'),
       customerEmail: order.customerEmail,
+      customerType: order.customerType,
       orientation: order.orientation as 'portrait' | 'landscape' | undefined,
       twoSided: order.twoSided as 'yes' | 'no' | undefined,
       pagesPerSheet: order.pagesPerSheet as '1' | '2' | '4' | undefined,
@@ -295,6 +301,7 @@ class OrdersStore {
       statusUpdatedAt: order.statusUpdatedAt ? new Date(order.statusUpdatedAt) : undefined,
       createdAt: order.createdAt ? new Date(order.createdAt) : undefined,
       lastUpdatedAt: order.lastUpdatedAt ? new Date(order.lastUpdatedAt) : undefined,
+      manualTotal: order.manualTotal,
     };
   }
 

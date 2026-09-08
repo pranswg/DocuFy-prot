@@ -17,6 +17,7 @@ import {
   Megaphone,
   AlertTriangle,
   AlertOctagon,
+  ArrowLeft,
   Plus,
   Trash2,
   CheckCheck,
@@ -596,8 +597,21 @@ export default function NotificationsPage() {
   };
 
   return (
-    <Layout menuItems={menuItems} title="Notifications">
+    <Layout
+      menuItems={menuItems}
+      title="Notifications"
+      hideMobileBackButton
+    >
       <div className="mx-auto max-w-3xl space-y-5 pb-10">
+        {/* Mobile Back — sits directly under the header, same spot a sidebar item would */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-3 w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl md:hidden transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-semibold">Back</span>
+        </button>
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div>
@@ -806,7 +820,7 @@ export default function NotificationsPage() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              className="h-11 w-full sm:w-auto"
+              className="h-11 w-full bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 sm:w-auto"
               onClick={() => setShowCreate(false)}
             >
               Cancel

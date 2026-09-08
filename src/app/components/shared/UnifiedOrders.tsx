@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Copy,
   ArrowLeft,
   ChevronDown,
   ChevronUp,
@@ -91,6 +92,7 @@ type OrderType = {
   id: string;
   customer: string;
   customerEmail?: string;
+  customerType?: 'printing' | 'photocopy';
   pages: number;
   type: string;
   notes: string;
@@ -248,9 +250,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   }, []);
 
   // Current lock for the viewed order, and whether WE hold it.
-  const selectedLock = selectedOrder ? getLock(selectedOrder.id) : null;
+  // Photocopy orders are NEVER session-locked: staff/admin may manually take
+  // a photocopy at any time, so we don't claim/display a lock for them.
+  const isPhotocopyOrder = (order: OrderType | null | undefined): boolean =>
+    !!order && (order.customerType === "photocopy" || order.type === "Photocopy");
+  const selectedLock = selectedOrder && !isPhotocopyOrder(selectedOrder) ? getLock(selectedOrder.id) : null;
   const lockHolder = selectedLock?.heldBy ?? null;
   const iHoldLock = !!selectedLock && selectedLock.heldBy === myName;
+  const canActOnOrder = iHoldLock || isPhotocopyOrder(selectedOrder);
   // Orders in these statuses can be acted on, so they get a lock/claim.
   const isActionableStatus = (status: string) =>
     status === "inQueue" ||
@@ -262,7 +269,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   // keep renewing OUR lock so it persists for as long as we keep viewing —
   // it never vanishes mid-review. A dead tab stops beating and expires.
   useEffect(() => {
-    if (!selectedOrder || !showDialog || !isActionableStatus(selectedOrder.status)) {
+    if (!selectedOrder || !showDialog || !isActionableStatus(selectedOrder.status) || isPhotocopyOrder(selectedOrder)) {
       return;
     }
     const beat = () => {
@@ -313,7 +320,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     // Claim the session lock for actionable orders (the modal opens as "ours").
     // NOTE (Supabase later): write this claim to the shared session_locks
     // table / broadcast over Realtime so OTHER machines see it too.
-    if (isActionableStatus(order.status)) {
+    if (isActionableStatus(order.status) && !isPhotocopyOrder(order)) {
       const existing = getLock(order.id);
       if (existing && existing.heldBy !== myName) {
         toast.info(`${existing.heldBy} is viewing this order`, {
@@ -449,15 +456,18 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       return;
     }
     setSelectedOrder(order);
-    // Claim the lock for this order too (Start Here goes straight to the form).
-    const existing = getLock(order.id);
-    if (!existing || existing.heldBy === myName) {
-      claimLock(order.id, myName);
-    } else {
-      toast.error(`${existing.heldBy} is managing this order`, {
-        description: "Only the current reviewer can start it.",
-      });
-      return;
+    // Claim the lock for this order too (Start Here goes straight to the form),
+    // unless it's a photocopy — photocopies are never locked.
+    if (!isPhotocopyOrder(order)) {
+      const existing = getLock(order.id);
+      if (!existing || existing.heldBy === myName) {
+        claimLock(order.id, myName);
+      } else {
+        toast.error(`${existing.heldBy} is managing this order`, {
+          description: "Only the current reviewer can start it.",
+        });
+        return;
+      }
     }
     handleUpdateStatus("printing", order);
   };
@@ -547,7 +557,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     // claimed the order after we opened the modal. Only the lock holder may act.
     // NOTE (Supabase later): make this a transactional conditional update
     // (WHERE id = ? AND held_by = ?) on the shared table, not a localStorage read.
-    if (!stillHoldsLock(selectedOrder.id, myName)) {
+    // Photocopy orders are never session-locked, so the final-reconfirm lock
+    // guard only applies to regular (printing) orders.
+    if (!isPhotocopyOrder(selectedOrder) && !stillHoldsLock(selectedOrder.id, myName)) {
       const other = getLock(selectedOrder.id);
       setShowStatusForm(false);
       setShowStatusConfirm(false);
@@ -1025,6 +1037,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     <p className="text-xs text-gray-500 mt-0.5">
                                       {order.id}
                                     </p>
+                                    {order.orderSource === "walkin" && order.customerType && (
+                                      <span className="inline-block mt-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 border border-blue-200">
+                                        {order.customerType === "printing" ? "Walk-in Printing" : "Photocopy"}
+                                      </span>
+                                    )}
                                     {order.notes && (
                                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                         <AlertCircle className="w-3 h-3 text-blue-500" />
@@ -1033,7 +1050,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     )}
                                     {(() => {
                                       const oLock = getLock(order.id);
-                                      if (!oLock) return null;
+                                      if (!oLock || isPhotocopyOrder(order)) return null;
                                       const oLockedByMe = oLock.heldBy === myName;
                                       return (
                                         <span
@@ -1165,7 +1182,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
             <>
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                 {/* Session lock banner (demo: two tabs = two PCs) */}
-                {isActionableStatus(selectedOrder.status) ? (
+                {isPhotocopyOrder(selectedOrder) ? (
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50">
+                    <Copy className="w-4 h-4 text-[#2F6FD6]" />
+                    <p className="text-sm font-semibold text-blue-800 flex-1 min-w-[160px]">
+                      Photocopy order — always available
+                    </p>
+                    <span className="text-[11px] font-medium text-blue-600">
+                      No lock required. Anyone can take it anytime.
+                    </span>
+                  </div>
+                ) : isActionableStatus(selectedOrder.status) ? (
                   iHoldLock ? (
                     <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
                       <UserCheck className="w-4 h-4 text-green-600" />
@@ -1584,8 +1611,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     <>
                       <Button
                         data-primary-action
-                        disabled={!iHoldLock}
-                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        disabled={!canActOnOrder}
+                        title={!canActOnOrder && lockHolder ? `${lockHolder} is managing this order` : undefined}
                         className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("printing")}
                       >
@@ -1594,8 +1621,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       </Button>
                       <Button
                         variant="outline"
-                        disabled={!iHoldLock}
-                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        disabled={!canActOnOrder}
+                        title={!canActOnOrder && lockHolder ? `${lockHolder} is managing this order` : undefined}
                         className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("canceled")}
                       >
@@ -1607,8 +1634,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   {selectedOrder.status === "printing" && (
                     <Button
                       data-primary-action
-                      disabled={!iHoldLock}
-                      title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                      disabled={!canActOnOrder}
+                      title={!canActOnOrder && lockHolder ? `${lockHolder} is managing this order` : undefined}
                       className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:opacity-40 disabled:pointer-events-none"
                       onClick={() => handleUpdateStatus("completed")}
                     >
@@ -1628,16 +1655,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                       return (
                         <Button
                           data-primary-action
-                          disabled={cashPickupUnpaid || !iHoldLock}
+                          disabled={cashPickupUnpaid || !canActOnOrder}
                           className={
-                            cashPickupUnpaid || !iHoldLock
+                            cashPickupUnpaid || !canActOnOrder
                               ? "bg-[#2F6FD6] text-white opacity-50 cursor-not-allowed"
                               : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
                           }
                           title={
                             cashPickupUnpaid
                               ? "Verify the Cash on Pickup payment before releasing this order."
-                              : !iHoldLock && lockHolder
+                              : !canActOnOrder && lockHolder
                                 ? `${lockHolder} is managing this order`
                                 : undefined
                           }
@@ -1653,8 +1680,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     !selectedOrder.paymentVerified && (
                       <Button
                         variant="outline"
-                        disabled={!iHoldLock}
-                        title={!iHoldLock && lockHolder ? `${lockHolder} is managing this order` : undefined}
+                        disabled={!canActOnOrder}
+                        title={!canActOnOrder && lockHolder ? `${lockHolder} is managing this order` : undefined}
                         className="hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => handleUpdateStatus("canceled")}
                       >

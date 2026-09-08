@@ -598,7 +598,7 @@ export default function PaymentVerification() {
         {/* Payment Method Display/Selector */}
         <Card className="p-6 bg-white shadow-sm">
           {!showPaymentMethodSelector ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-2">
                   Selected Payment Method
@@ -636,7 +636,7 @@ export default function PaymentVerification() {
                 onClick={() =>
                   setShowPaymentMethodSelector(true)
                 }
-                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors"
+                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors w-full sm:w-auto"
               >
                 Change Payment Method
               </Button>

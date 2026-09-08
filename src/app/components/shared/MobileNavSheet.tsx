@@ -283,6 +283,8 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
       <SheetContent
         side="left"
         showClose={false}
+        onPointerDownOutside={() => setOpen(false)}
+        onInteractOutside={() => setOpen(false)}
         className="w-[min(16rem,57vw)] bg-[#1D73EC] p-0 text-white"
       >
         <SheetHeader className="sr-only">

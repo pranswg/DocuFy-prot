@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation, useBlocker } from "react-router";
 import {
   LayoutDashboard,
   FileText,
@@ -22,13 +22,15 @@ import {
   ChevronDown,
   QrCode,
   Bell,
-  Camera,
-  Layers,
-  StickyNote,
   User,
   LayoutGrid,
   Clock,
   Boxes,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Copy,
+  Calculator,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -62,6 +64,7 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
 import { ordersStore } from "../../utils/ordersStore";
+import { PDFDocument } from "pdf-lib";
 import { inventoryStore } from "../../utils/inventoryStore";
 import { notificationStore } from "../../utils/notificationStore";
 import {
@@ -73,7 +76,6 @@ import {
   pricingStore,
   formatPrice,
   getPriceFromMatrix,
-  resolveColorTier,
   mapPaperSizeKey,
   CONTENT_TYPE_LABELS,
   PHOTO_SIZE_LABELS,
@@ -101,6 +103,21 @@ const ALLOWED_FILE_TYPES = {
   "text/plain": ".txt",
   "image/jpeg": ".jpg",
   "image/png": ".png",
+};
+
+const COLOR_MODE_OPTIONS = [
+  { value: "bw", label: "Black & White" },
+  { value: "colored", label: "Colored" },
+];
+
+const COLOR_MODE_LABELS: Record<string, string> = {
+  bw: "Black & White",
+  colored: "Colored",
+};
+
+const WALKIN_CUSTOMER_TYPE_LABELS: Record<"printing" | "photocopy", string> = {
+  printing: "Walk-in Printing",
+  photocopy: "Photocopy",
 };
 
 const staffMenuItems = [
@@ -190,7 +207,7 @@ const PRINT_DRAFT_KEY = "docufy_print_draft";
 const PENDING_ORDER_KEY = "docufy_pending_online_order";
 
 type PrintDraft = {
-  orderId: string;
+  orderId?: string;
   files: Array<{
     id: string;
     fileName: string;
@@ -217,6 +234,7 @@ type PrintDraft = {
   serviceType: ServiceType;
   paymentMethod: string;
   currentStep: number;
+  cashAcknowledged?: boolean;
 };
 
 function savePrintDraft(draft: PrintDraft) {
@@ -260,58 +278,141 @@ function clearPendingOrder() {
 function NumberStepper({
   value,
   min = 1,
+  max = 999,
   onCommit,
 }: {
   value: number;
   min?: number;
+  max?: number;
   onCommit: (n: number) => void;
 }) {
   const [draft, setDraft] = useState<string>(String(value));
+  const valueRef = useRef<number>(value);
+  const pressTimer = useRef<number | null>(null);
+  const repeatTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    valueRef.current = value;
     setDraft(String(value));
   }, [value]);
 
-  const commit = (n: number) => {
-    const safe = Math.max(min, n || min);
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+      if (repeatTimer.current !== null) window.clearInterval(repeatTimer.current);
+    };
+  }, []);
+
+  const apply = (next: number) => {
+    const safe = Math.min(max, Math.max(min, Math.round(next) || min));
+    valueRef.current = safe;
     setDraft(String(safe));
     onCommit(safe);
   };
 
+  const step = (dir: 1 | -1) => apply((valueRef.current || min) + dir);
+
+  const clearTimers = () => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+    if (repeatTimer.current !== null) {
+      window.clearInterval(repeatTimer.current);
+      repeatTimer.current = null;
+    }
+  };
+
+  // Tap = single step; hold the button to keep stepping after a short delay.
+  const press = (dir: 1 | -1) => {
+    pressTimer.current = window.setTimeout(() => {
+      repeatTimer.current = window.setInterval(() => step(dir), 120);
+    }, 420);
+  };
+
+  const commitDraft = () => {
+    const parsed = parseInt(draft, 10);
+    if (Number.isNaN(parsed) || parsed < min || parsed > max) apply(min);
+    else apply(parsed);
+  };
+
   return (
-    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit">
+    <div className="flex h-9 w-full items-center justify-between gap-1 rounded-md border border-input bg-input-background px-1.5 transition-[color,box-shadow] focus-within:border-[#2F6FD6] focus-within:ring-[3px] focus-within:ring-[#2F6FD6]/30">
       <button
         type="button"
         aria-label="Decrease"
-        onClick={() => commit((Number(draft) || min) - 1)}
-        disabled={Number(draft) <= min}
-        className="p-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        onClick={() => step(-1)}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          press(-1);
+        }}
+        onPointerUp={clearTimers}
+        onPointerLeave={clearTimers}
+        onPointerCancel={clearTimers}
+        disabled={valueRef.current <= min}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Minus className="w-4 h-4" />
+        <Minus className="h-4 w-4" />
       </button>
       <Input
         type="number"
         min={min}
+        max={max}
         inputMode="numeric"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          if (!draft || Number(draft) < min) commit(min);
-          else commit(Number(draft));
+        onBlur={commitDraft}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitDraft();
         }}
-        className="h-10 w-16 rounded-none border-0 text-center font-bold text-gray-900 focus-visible:ring-0 focus-visible:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="h-full w-12 shrink-0 flex-1 rounded-none border-0 bg-transparent p-0 text-center text-sm font-semibold text-gray-900 focus-visible:outline-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button
         type="button"
         aria-label="Increase"
-        onClick={() => commit((Number(draft) || min) + 1)}
-        className="p-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition-colors"
+        onClick={() => step(1)}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          press(1);
+        }}
+        onPointerUp={clearTimers}
+        onPointerLeave={clearTimers}
+        onPointerCancel={clearTimers}
+        disabled={valueRef.current >= max}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="h-4 w-4" />
       </button>
     </div>
   );
 }
+
+// Accurately count PPTX slides by scanning the ZIP local-file/central directory
+// headers for "ppt/slides/slideN.xml" entries (entry names are stored verbatim).
+const countPptxSlides = async (file: File): Promise<number> => {
+  try {
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    const text = new TextDecoder("latin1").decode(buffer);
+    const names = new Set<string>();
+    const scan = (signature: string, nameLenAt: number, nameAt: number) => {
+      let idx = text.indexOf(signature, 0);
+      while (idx !== -1) {
+        const nameLen =
+          text.charCodeAt(idx + nameLenAt) | (text.charCodeAt(idx + nameLenAt + 1) << 8);
+        const entryName = text.slice(idx + nameAt, idx + nameAt + nameLen);
+        if (entryName.startsWith("ppt/slides/slide") && entryName.endsWith(".xml")) {
+          names.add(entryName);
+        }
+        idx = text.indexOf(signature, idx + 1);
+      }
+    };
+    scan("PK\u0003\u0004", 26, 30);
+    scan("PK\u0001\u0002", 42, 46);
+    return names.size;
+  } catch {
+    return 0;
+  }
+};
 
 export default function PrintTransaction({ mode, userRole }: PrintTransactionProps) {
   const navigate = useNavigate();
@@ -325,6 +426,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [showColorPricing, setShowColorPricing] = useState(false);
   const [breakdownFileId, setBreakdownFileId] = useState<string | null>(null);
+  const [analysisFileId, setAnalysisFileId] = useState<string | null>(null);
+  const [analysisShowAll, setAnalysisShowAll] = useState(false);
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   const downPaymentThreshold = pricing.downPaymentThreshold;
   const fullPaymentThreshold = pricing.fullPaymentThreshold;
@@ -342,19 +445,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const load = () => setPricing(pricingStore.getPricing());
     return pricingStore.subscribe(load);
   }, []);
-  const [showAllAnalysis, setShowAllAnalysis] = useState<{
-    [fileId: string]: boolean;
-  }>({});
-  const [showDetectedPages, setShowDetectedPages] = useState<{
-    [fileId: string]: boolean;
-  }>({});
   const [files, setFiles] = useState<FileData[]>([]);
   const [serviceType, setServiceType] = useState<ServiceType>("document");
 
   // Walk-in customer info
-  const [customerType, setCustomerType] = useState("walkin");
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerType, setCustomerType] = useState<"printing" | "photocopy">("printing");
+  const isPhotocopy = isWalkin && customerType === "photocopy";
+  const photocopyPaperLabel = (code: string) =>
+    availablePaperSizes.find((s) => s.name === code)?.displayName || code.toUpperCase();
+
+  // Photocopy (walk-in only): basic options + manual staff pricing
+  const [photocopyPaperSize, setPhotocopyPaperSize] = useState("a4");
+  const [photocopyCopies, setPhotocopyCopies] = useState(1);
+  const [photocopyColorMode, setPhotocopyColorMode] = useState<"bw" | "colored">("bw");
+  const [photocopyManualPrice, setPhotocopyManualPrice] = useState("");
+  const photocopyPrice = photocopyManualPrice.trim() === "" ? 1 : Math.max(1, Math.round(Number(photocopyManualPrice) || 1));
 
   // Payment (customer only)
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -378,7 +483,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
-  const [expandedFileSettings, setExpandedFileSettings] = useState<Record<string, boolean>>({});
+  const [step2FileIndex, setStep2FileIndex] = useState(0);
   const [submittedOrderId, setSubmittedOrderId] = useState("");
   const [availablePaperSizes, setAvailablePaperSizes] = useState<
     Array<{
@@ -411,6 +516,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   }, []);
 
   useEffect(() => {
+    if (
+      availablePaperSizes.length > 0 &&
+      !availablePaperSizes.some((s) => s.name === photocopyPaperSize)
+    ) {
+      setPhotocopyPaperSize(availablePaperSizes[0].name);
+    }
+  }, [availablePaperSizes]);
+
+  useEffect(() => {
     const loadMethods = () =>
       setOnlineMethods(paymentMethodsStore.getPaymentMethods());
     loadMethods();
@@ -418,14 +532,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     return unsubscribe;
   }, []);
 
-  // Resume an in-progress online payment print request. If the customer backed
-  // out of payment verification (or left via the sidebar) before submitting
-  // their reference, restore the draft so they continue where they left off.
+  // Resume ONLY a SUBMITTED online payment order — the customer has already
+  // reached the payment verification page, so the draft (which carries an
+  // orderId) is restored so they can finish submitting their reference. Any
+  // mid-form backup (no orderId) is discarded: leaving the print request
+  // before reaching payment verification resets the form to zero.
   const [isResumed, setIsResumed] = useState(false);
   useEffect(() => {
     if (isWalkin) return;
     const draft = readPrintDraft();
     if (!draft) return;
+    if (!draft.orderId || !draft.paymentMethod) {
+      clearPrintDraft();
+      return;
+    }
     const restoredFiles: FileData[] = draft.files.map((f) => ({
       id: f.id,
       file: new File([], f.fileName),
@@ -455,20 +575,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setServiceType(draft.serviceType || "document");
     setPaymentMethod(draft.paymentMethod || "");
     if (draft.paymentMethod) {
-      setSubmittedOrderId(draft.orderId);
+      setSubmittedOrderId(draft.orderId || "");
     }
-    // Bring the customer straight to the payment review step.
-    setCurrentStep(4);
+    setCashAcknowledged(draft.cashAcknowledged || false);
+    // Bring the customer back to the payment step for the submitted order.
+    setCurrentStep(draft.currentStep || 4);
     setIsResumed(true);
 
-    // Resume at payment verification when the customer arrives here via the
-    // sidebar "Print Request" (or browser back). The in-page "Go Back" button
-    // in payment verification passes fromPaymentVerification:true so the order
-    // can instead be reviewed/edited on the previous step without jumping away.
-    if (
-      draft.paymentMethod &&
-      !location.state?.fromPaymentVerification
-    ) {
+    // The in-page "Go Back" button in payment verification passes
+    // fromPaymentVerification:true so the order can instead be reviewed/edited
+    // without jumping away.
+    if (!location.state?.fromPaymentVerification) {
       navigate(`/customer/payment/${draft.orderId}`, {
         replace: true,
         state: { paymentMethod: draft.paymentMethod, showSuccessAfter: true },
@@ -476,6 +593,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // While files are uploaded but the order has NOT reached payment verification
+  // yet, block navigating away so we can ask for confirmation. Confirming
+  // leaves and discards the request (mid-form progress is never backed up, so
+  // the form resets to zero on the next visit); cancelling keeps the customer
+  // on the page. Set once the order is submitted, so the jump to Payment
+  // Verification proceeds without a prompt.
+  const blocker = useBlocker(
+    !isWalkin && !submittedOrderId && files.length > 0,
+  );
 
   const selectedMethod = onlineMethods.find(
     (m) => m.name === paymentMethod,
@@ -486,19 +613,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const viewMethodQR = (name: string) => {
     setPaymentMethod(name);
     setShowQRModal(true);
-  };
-
-  const handleEmailChange = (email: string) => {
-    setCustomerEmail(email);
-    if (customerType === "registered" && email) {
-      const orders = dataStore.getOrders();
-      const customerOrder = orders.find((order) => order.customerEmail === email);
-      if (customerOrder) {
-        setCustomerName(customerOrder.customerName);
-      } else {
-        setCustomerName("");
-      }
-    }
   };
 
   const noteTemplates = [
@@ -513,29 +627,54 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
     if (fileExtension === "pdf") {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        const text = new TextDecoder("latin1").decode(uint8Array);
+        const pdf = await PDFDocument.load(await file.arrayBuffer(), {
+          ignoreEncryption: true,
+        });
+        const count = pdf.getPageCount();
+        if (count > 0) return count;
+      } catch {
+        // fall through to the byte-scan fallback
+      }
+      try {
+        const text = new TextDecoder("latin1").decode(await file.arrayBuffer());
         const pageMatches = text.match(/\/Type\s*\/Page[^s]/g);
         if (pageMatches && pageMatches.length > 0) {
           return pageMatches.length;
         }
-        return Math.max(1, Math.ceil(file.size / 102400));
-      } catch (error) {
-        console.error("Error reading PDF:", error);
-        return Math.max(1, Math.ceil(file.size / 102400));
+      } catch {
+        // ignore
       }
-    } else if (fileExtension === "doc" || fileExtension === "docx") {
-      return Math.max(1, Math.ceil(file.size / 51200));
-    } else if (fileExtension === "ppt" || fileExtension === "pptx") {
-      return Math.max(1, Math.ceil(file.size / 153600));
-    } else if (fileExtension === "xls" || fileExtension === "xlsx") {
-      return Math.max(1, Math.ceil(file.size / 50000));
-    } else if (fileExtension === "txt") {
-      return Math.max(1, Math.ceil(file.size / 3000));
-    } else if (fileExtension === "jpg" || fileExtension === "jpeg" || fileExtension === "png") {
-      return 1;
+      return Math.max(1, Math.ceil(file.size / 102400));
     }
+
+    if (fileExtension === "pptx") {
+      const slideCount = await countPptxSlides(file);
+      if (slideCount > 0) return slideCount;
+      return Math.max(1, Math.ceil(file.size / 153600));
+    }
+
+    if (fileExtension === "txt") {
+      try {
+        const content = await file.text();
+        const lines = content
+          .split(/\r\n|\r|\n/)
+          .filter((line) => line.trim().length > 0).length;
+        return Math.max(1, Math.ceil(lines / 40));
+      } catch {
+        return Math.max(1, Math.ceil(file.size / 3000));
+      }
+    }
+
+    if (fileExtension === "doc" || fileExtension === "docx") {
+      return Math.max(1, Math.ceil(file.size / 51200));
+    }
+    if (fileExtension === "ppt") {
+      return Math.max(1, Math.ceil(file.size / 153600));
+    }
+    if (fileExtension === "xls" || fileExtension === "xlsx") {
+      return Math.max(1, Math.ceil(file.size / 50000));
+    }
+
     return 1;
   };
 
@@ -637,10 +776,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               ? {
                   ...f,
                   colorAnalysis,
-                  colorMode:
-                    colorAnalysis.colorPages.length > 0
-                      ? "colored"
-                      : "bw",
                 }
               : f,
           ),
@@ -678,45 +813,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       return (size ? size.price : 0) * Math.max(1, fileData.photoQty);
     }
 
-    const {
-      pageCount,
-      copies,
-      colorMode,
-      paperSize,
-      contentType,
-      colorAnalysis,
-      pagesPerSheet,
-    } = fileData;
+    const { pageCount, copies, pagesPerSheet } = fileData;
     const validCopies = Math.max(1, copies);
 
-    let tierPct: number;
-    if (colorMode !== "colored") {
-      tierPct = 0;
-    } else if (colorAnalysis && colorAnalysis.colorPages.length > 0) {
-      const sum = colorAnalysis.colorPages.reduce(
-        (acc, p) => acc + (colorAnalysis.colorPercentages[p] ?? 0),
-        0,
-      );
-      tierPct = sum / colorAnalysis.colorPages.length;
-    } else {
-      tierPct = 100;
-    }
-    const colorTier = resolveColorTier(
-      colorMode === "colored" ? "colored" : "bw",
-      tierPct,
-    );
-
-    const sizeKey = mapPaperSizeKey(paperSize);
-    const matrix = pricingStore.getMatrix();
-    const perPage = getPriceFromMatrix(
-      matrix,
-      (fileData.printType as ServiceType) || serviceType,
-      {
-        contentType,
-        colorTier,
-        sizeKey,
-      },
-    );
+    const perPage = shadeRateFor(fileData);
 
     let baseTotal = perPage * pageCount * validCopies;
 
@@ -740,6 +840,32 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         sizeKey,
       });
     return { bw: rate("bw"), partial: rate("partial"), full: rate("full") };
+  };
+
+  const colorTierPctFor = (fileData: FileData) => {
+    if (fileData.colorMode === "bw") return 0;
+    const analysis = fileData.colorAnalysis;
+    if (analysis && analysis.colorPages.length > 0) {
+      const sum = analysis.colorPages.reduce(
+        (acc, p) => acc + (analysis.colorPercentages[p] ?? 0),
+        0,
+      );
+      const avg = sum / analysis.colorPages.length;
+      return avg <= 50 ? 50 : avg <= 75 ? 75 : 100;
+    }
+    return 100;
+  };
+
+  const midColorRate = (rates: { bw: number; partial: number; full: number }) =>
+    Math.round((rates.partial + rates.full) / 2);
+
+  const shadeRateFor = (fileData: FileData, pct?: number) => {
+    const rates = matrixRatesFor(fileData);
+    const tier = pct ?? colorTierPctFor(fileData);
+    if (tier <= 0) return rates.bw;
+    if (tier <= 50) return rates.partial;
+    if (tier <= 75) return midColorRate(rates);
+    return rates.full;
   };
 
   const calculateTotal = () => {
@@ -808,30 +934,70 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setServiceType("document");
     setPaymentMethod("");
     setCashAcknowledged(false);
-    setCustomerName("");
-    setCustomerEmail("");
-    setCustomerType("walkin");
+    setCustomerType("printing");
+    setPhotocopyPaperSize("a4");
+    setPhotocopyCopies(1);
+    setPhotocopyColorMode("bw");
+    setPhotocopyManualPrice("");
     setCurrentStep(1);
   };
 
   const handleProceedToQueue = () => {
-    const total = calculateTotal();
+    const now = new Date();
     const orderId = dataStore.getNextOrderId();
+
+    if (isPhotocopy) {
+      const manualPrice = photocopyPrice;
+      const paperLabel = photocopyPaperLabel(photocopyPaperSize);
+      const colorLabel = photocopyColorMode === "bw" ? "Black & White" : "Colored";
+      const newOrder = {
+        id: orderId,
+        customer: "Walk-in Customer",
+        customerType: "photocopy" as const,
+        pages: photocopyCopies,
+        type: "Photocopy",
+        notes: `Photocopy - ${photocopyCopies} ${photocopyCopies === 1 ? "copy" : "copies"} ${paperLabel} (${colorLabel})`,
+        status: "inQueue" as const,
+        time: formatPHTime(now),
+        paperSize: photocopyPaperSize,
+        copies: photocopyCopies,
+        submittedAt: now,
+        paymentVerified: true,
+        orderSource: "walkin" as const,
+        colorMode: photocopyColorMode,
+        manualTotal: manualPrice,
+        costBreakdown: { printingCost: manualPrice, addonsCost: 0, total: manualPrice },
+        expectedPaperUsage: [{ size: photocopyPaperSize, sheets: photocopyCopies }],
+        paperDeductedOnCreate: false,
+      };
+      ordersStore.addOrder(newOrder);
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">Photocopy sent to queue!</span>
+          <span className="text-sm">Order ID: {orderId}</span>
+          <span className="text-sm">Total: {formatCurrency(manualPrice)}</span>
+        </div>,
+        { duration: 5000 }
+      );
+      resetForm();
+      return;
+    }
+
+    const total = calculateTotal();
     const transactionId = orderId;
 
     if (!validatePhotoMinQty()) return;
 
-    const now = new Date();
-
     if (files.length > 0) {
       const totalPages = files.reduce((sum, f) => sum + f.pageCount * f.copies, 0);
-      const hasColor = files.some((f) => f.colorMode === "colored");
+      const hasColor = files.some((f) => f.colorMode !== "bw");
       const hasPhoto = files.some((f) => f.printType === "photo");
       const firstPhoto = files.find((f) => f.printType === "photo");
 
       const newOrder = {
         id: orderId,
-        customer: customerType === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer: "Walk-in Customer",
+        customerType,
         pages: totalPages > 0 ? totalPages : firstPhoto ? firstPhoto.photoQty : 0,
         type: hasPhoto ? "Photo" : hasColor ? "Colored" : "B&W",
         notes: hasPhoto
@@ -923,7 +1089,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       (sum, f) => sum + f.pageCount * f.copies,
       0,
     );
-    const hasColor = files.some((f) => f.colorMode === "colored");
+    const hasColor = files.some((f) => f.colorMode !== "bw");
 
     const requiresFullPayment = flowTier === "full";
     const requiresDownPayment = flowTier === "down";
@@ -1155,6 +1321,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
 
     setSubmittedOrderId(orderId);
+    clearPrintDraft();
     setShowSuccessModal(true);
   };
 
@@ -1168,7 +1335,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     toast.info("Walk-in transaction cancelled");
   };
 
-  const steps = isWalkin
+  const steps = isWalkin && customerType === "photocopy"
+    ? [
+        { number: 1, title: "Photocopy Options", icon: Copy },
+        { number: 4, title: "Review & Complete", icon: CheckCircle },
+      ]
+    : isWalkin
     ? [
         { number: 1, title: "Customer & Files", icon: Upload },
         { number: 2, title: "Print Options", icon: Settings },
@@ -1197,14 +1369,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const content = (
     <div className={isWalkin ? "max-w-4xl mx-auto space-y-8" : "max-w-4xl mx-auto space-y-2 sm:space-y-3"}>
       {!isWalkin && isResumed && submittedOrderId && (
-        <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3 min-w-0">
             <Clock className="w-5 h-5 text-[#2F6FD6] mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 text-sm">
                 Resuming your print request
               </p>
-              <p className="text-xs text-gray-600 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">
                 You left this request at Payment Verification before submitting your reference. Your order has not been finalized yet — continue where you left off.
               </p>
             </div>
@@ -1216,7 +1388,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 state: { paymentMethod, showSuccessAfter: true },
               })
             }
-            className="shrink-0 bg-white text-[#2F6FD6] border-2 border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all"
+            className="shrink-0 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all text-sm h-10 sm:h-11"
           >
             Go to Payment Verification
           </Button>
@@ -1304,83 +1476,82 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 {/* Customer Type Selection */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Customer Type</Label>
-                  <Select value={customerType} onValueChange={setCustomerType}>
+                  <Select value={customerType} onValueChange={(value) => setCustomerType(value as "printing" | "photocopy")}>
                     <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="walkin">Walk-in Customer (Anonymous)</SelectItem>
-                      <SelectItem value="registered">Registered Customer</SelectItem>
-                      <SelectItem value="new">New Customer</SelectItem>
+                      <SelectItem value="printing">Walk-in Printing</SelectItem>
+                      <SelectItem value="photocopy">Photocopy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Choose "Walk-in Printing" for print jobs and "Photocopy" for photocopies. This is recorded so the transaction history stays accurate.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {isPhotocopy ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-900">
+                    Photocopy transactions don't need an uploaded file. Set the paper size, number of copies, and color mode below — the price is entered manually on the next step.
+                  </p>
+                </div>
+
+                <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Paper Size</Label>
+                    <Select value={photocopyPaperSize} onValueChange={setPhotocopyPaperSize}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePaperSizes.length > 0 ? (
+                          availablePaperSizes.map((size) => (
+                            <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
+                              {size.displayName}
+                              {!size.inStock && " (Out of Stock)"}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="a4">A4</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Number of Copies</Label>
+                    <NumberStepper
+                      min={1}
+                      max={999}
+                      value={photocopyCopies}
+                      onCommit={(n) => setPhotocopyCopies(n)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Color Mode</Label>
+                  <Select value={photocopyColorMode} onValueChange={(value) => setPhotocopyColorMode(value as "bw" | "colored")}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bw">Black &amp; White</SelectItem>
+                      <SelectItem value="colored">Colored</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {(customerType === "registered" || customerType === "new") && (
-                  <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900">Customer Information</h3>
-                    <div className="space-y-3">
-                      {customerType === "registered" ? (
-                        <>
-                          <div className="space-y-2">
-                            <Label htmlFor="customerEmail" className="text-sm">
-                              Email Address *
-                            </Label>
-                            <Input
-                              id="customerEmail"
-                              type="email"
-                              placeholder="customer@email.com"
-                              value={customerEmail}
-                              onChange={(e) => handleEmailChange(e.target.value)}
-                              className="bg-white"
-                            />
-                          </div>
-                          {customerName && (
-                            <div className="space-y-2">
-                              <Label className="text-sm text-gray-600">
-                                Customer Name (Auto-filled)
-                              </Label>
-                              <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-medium text-gray-700">
-                                {customerName}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            <Label htmlFor="customerName" className="text-sm">
-                              Full Name
-                            </Label>
-                            <Input
-                              id="customerName"
-                              placeholder="Enter customer name"
-                              value={customerName}
-                              onChange={(e) => setCustomerName(e.target.value)}
-                              className="bg-white"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="customerEmail" className="text-sm">
-                              Email Address
-                            </Label>
-                            <Input
-                              id="customerEmail"
-                              type="email"
-                              placeholder="customer@email.com"
-                              value={customerEmail}
-                              onChange={(e) => setCustomerEmail(e.target.value)}
-                              className="bg-white"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
+                <p className="text-xs text-slate-500">
+                  Paper used ({photocopyCopies} {photocopyCopies === 1 ? "sheet" : "sheets"} of {photocopyPaperLabel(photocopyPaperSize)}) is tracked against inventory automatically.
+                </p>
+              </div>
+            ) : (
+              <>
             {fileError && (
               <div className="p-4 bg-white border-2 border-blue-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -1509,210 +1680,185 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 <p className="text-sm text-gray-600 mt-4">Processing file...</p>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
 
         {/* STEP 2 */}
         {currentStep === 2 && (
-          <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Step 2: Print Options for Each File
-            </h2>
+          <div className="space-y-5 sm:space-y-6">
+            {/* Step title */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#2F6FD6]">
+                Step 2 of 4
+              </p>
+              <h2 className="text-xl font-bold text-gray-900 mt-1">
+                Choose Print Options
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Set the printing details for each file.
+              </p>
+            </div>
 
-            {files.map((fileData, index) => (
-              <Card key={fileData.id} className="p-4 sm:p-6 bg-gray-50">
-                <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-300">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-[#2F6FD6] shrink-0" />
-                    <span className="truncate block">
-                      File {index + 1}: {fileData.fileName}
-                    </span>
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {fileData.pageCount} pages detected
-                  </p>
-                </div>
-
-                {fileData.colorAnalysis && (
-                  <div className="mb-3 sm:mb-2 p-3 sm:p-4 bg-white border-2 border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Document Analysis Results
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-black">Total Pages:</span>
-                        <span className="font-medium text-black">
-                          {fileData.colorAnalysis.totalPages}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-black">Color Pages:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-black">
-                            {fileData.colorAnalysis.colorPages.length > 0
-                              ? `${fileData.colorAnalysis.colorPages.length} pages`
-                              : "None"}
-                          </span>
-                          {fileData.colorAnalysis.colorPages.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setShowDetectedPages({
-                                  ...showDetectedPages,
-                                  [fileData.id]: !showDetectedPages[fileData.id],
-                                })
-                              }
-                              className="text-xs text-[#2F6FD6] hover:text-[#1e5bb8] font-medium underline"
-                            >
-                              {showDetectedPages[fileData.id] ? "Hide Pages" : "See Detected Pages"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {showDetectedPages[fileData.id] && fileData.colorAnalysis.colorPages.length > 0 && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
-                          <p className="text-xs text-blue-700 font-medium mb-1">
-                            Color Pages: {fileData.colorAnalysis.colorPages.join(", ")}
+            {files.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                <Upload className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+                <p className="text-sm text-gray-600">
+                  Please upload at least one file in Step 1 to
+                  configure print options.
+                </p>
+              </div>
+            ) : (
+              (() => {
+                const activeIndex = Math.min(step2FileIndex, files.length - 1);
+                const hasMultiple = files.length > 1;
+                return (
+                  <>
+                    {/* File navigation */}
+                    {hasMultiple && (
+                      <div className="flex items-center justify-between gap-2 sm:hidden">
+                        <button
+                          type="button"
+                          onClick={() => setStep2FileIndex(Math.max(0, activeIndex - 1))}
+                          disabled={activeIndex === 0}
+                          aria-label="Previous file"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <div className="min-w-0 flex-1 text-center">
+                          <p className="text-sm font-semibold text-gray-900">
+                            File {activeIndex + 1} of {files.length}
                           </p>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                        <span className="text-black">B&amp;W Pages:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-black">
-                            {fileData.colorAnalysis.bwPages.length} pages
-                          </span>
-                          {fileData.colorAnalysis.bwPages.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setShowDetectedPages({
-                                  ...showDetectedPages,
-                                  [fileData.id + "-bw"]: !showDetectedPages[fileData.id + "-bw"],
-                                })
-                              }
-                              className="text-xs text-[#2F6FD6] hover:text-[#1e5bb8] font-medium underline"
-                            >
-                              {showDetectedPages[fileData.id + "-bw"] ? "Hide Pages" : "See Detected Pages"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {showDetectedPages[fileData.id + "-bw"] && fileData.colorAnalysis.bwPages.length > 0 && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
-                          <p className="text-xs text-gray-700 font-medium mb-1">
-                            B&amp;W Pages: {fileData.colorAnalysis.bwPages.join(", ")}
-                          </p>
-                        </div>
-                      )}
-                      {fileData.colorAnalysis.colorPages.length > 0 && showDetectedPages[fileData.id] && (
-                        <div className="mt-3 pt-3 border-t border-blue-200">
-                          <p className="text-xs text-blue-700 font-medium mb-2">
-                            Color Intensity by Page:
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                            {(showAllAnalysis[fileData.id]
-                              ? fileData.colorAnalysis.colorPages
-                              : fileData.colorAnalysis.colorPages.slice(0, 6)
-                            ).map((page) => (
-                              <div key={page} className="flex justify-between">
-                                <span className="text-blue-700">Page {page}:</span>
-                                <span className="font-medium text-blue-900">
-                                  {fileData.colorAnalysis!.colorPercentages[page]}% color
-                                </span>
-                              </div>
+                          <div className="mt-1.5 flex items-center justify-center gap-1.5">
+                            {files.map((f, i) => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setStep2FileIndex(i)}
+                                aria-label={`Go to file ${i + 1}`}
+                                className={`h-1.5 rounded-full transition-all duration-200 ${
+                                  i === activeIndex ? "w-5 bg-[#2F6FD6]" : "w-1.5 bg-gray-300"
+                                }`}
+                              />
                             ))}
                           </div>
-                          {fileData.colorAnalysis.colorPages.length > 6 && (
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStep2FileIndex(Math.min(files.length - 1, activeIndex + 1))
+                          }
+                          disabled={activeIndex === files.length - 1}
+                          aria-label="Next file"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {files.map((fileData, index) => {
+                      const isActive = index === activeIndex;
+                      return (
+                        <div
+                          key={fileData.id}
+                          className={`${isActive ? "block" : "hidden sm:block"} space-y-5 sm:space-y-6`}
+                          aria-hidden={!isActive}
+                        >
+                          {/* File information */}
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                              <FileText className="h-5 w-5 text-[#2F6FD6]" />
+                            </div>
+                            <div className="min-w-0 flex-1 pt-0.5">
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {fileData.fileName}
+                              </p>
+                              <p className="mt-0.5 text-xs text-gray-500">
+                                {fileData.pageCount} pages detected
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Document Analysis (opens window) */}
+                          {fileData.colorAnalysis && (
                             <button
                               type="button"
-                              onClick={() =>
-                                setShowAllAnalysis({
-                                  ...showAllAnalysis,
-                                  [fileData.id]: !showAllAnalysis[fileData.id],
-                                })
-                              }
-                              className="text-xs text-[#2F6FD6] hover:text-[#1e5bb8] font-medium mt-2 underline"
+                              onClick={() => {
+                                setAnalysisFileId(fileData.id);
+                                setAnalysisShowAll(false);
+                              }}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
                             >
-                              {showAllAnalysis[fileData.id]
-                                ? "- Show Less"
-                                : `+ See More (${fileData.colorAnalysis.colorPages.length - 6} more pages)`}
+                              <AlertCircle className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
+                              Document Analysis
                             </button>
                           )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
 
-                {files.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setExpandedFileSettings((current) => ({
-                      ...current,
-                      [fileData.id]: !current[fileData.id],
-                    }))}
-                    aria-expanded={expandedFileSettings[fileData.id] || false}
-                    className="mb-3 flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#2F6FD6] sm:hidden"
-                  >
-                    {expandedFileSettings[fileData.id] ? "Hide Print Settings" : "See More Print Settings"}
-                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedFileSettings[fileData.id] ? "rotate-180" : ""}`} />
-                  </button>
-                )}
-
-                <div className={`${files.length > 1 && !expandedFileSettings[fileData.id] ? "hidden sm:block" : "block"} space-y-4 sm:space-y-6`}>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Print Type</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(["document", "vellum", "sticker", "photo"] as const).map((pt) => (
-                        <Button
-                          type="button"
-                          key={pt}
-                          variant="outline"
-                          onClick={() => {
-                            updateFileOption(
-                              fileData.id,
-                              "printType",
-                              fileData.printType === pt ? "" : pt,
-                            );
-                          }}
-                          className={`group min-h-12 h-12 px-3 text-base font-medium transition-all duration-150 active:scale-95 ${fileData.printType === pt ? "bg-[#2F6FD6] text-white" : ""}`}
-                        >
-                          {pt === "document" && (
-                            <Layers className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
-                          )}
-                          {pt === "vellum" && (
-                            <FileText className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
-                          )}
-                          {pt === "sticker" && (
-                            <StickyNote className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
-                          )}
-                          {pt === "photo" && (
-                            <Camera className={`w-4 h-4 shrink-0 ${fileData.printType === pt ? "text-white" : "text-[#2F6FD6]"} group-hover:text-white`} />
-                          )}
-                          <span className={`text-sm font-medium ${fileData.printType === pt ? "text-white" : "text-gray-900"} group-hover:text-white`}>
-                            {pt === "document"
-                              ? "Plain Paper"
-                              : pt === "vellum"
-                                ? "Vellum"
-                                : pt === "sticker"
-                                  ? "Sticker"
-                                  : "Photo Paper"}
-                          </span>
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Pick what type of printing this file needs. The print
-                      options below unlock once a type is selected.
-                    </p>
-                  </div>
+                          {/* Print Type selection */}
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Print Type</h3>
+                            <p className="mb-3 mt-0.5 text-xs text-gray-500">
+                              Pick what type of printing this file needs. Print settings unlock
+                              once a type is selected.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                              {(["document", "vellum", "sticker", "photo"] as const).map((pt) => {
+                                const selected = fileData.printType === pt;
+                                const label =
+                                  pt === "document"
+                                    ? "Plain Paper"
+                                    : pt === "vellum"
+                                      ? "Vellum"
+                                      : pt === "sticker"
+                                        ? "Sticker"
+                                        : "Photo Paper";
+                                return (
+                                  <button
+                                    type="button"
+                                    key={pt}
+                                    onClick={() =>
+                                      updateFileOption(
+                                        fileData.id,
+                                        "printType",
+                                        selected ? "" : pt,
+                                      )
+                                    }
+                                    aria-pressed={selected}
+                                    className={`relative flex items-center justify-center rounded-xl border p-3 transition-all duration-150 active:scale-[0.98] ${
+                                      selected
+                                        ? "border-[#2F6FD6] bg-[#F2F7FF]"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                    }`}
+                                  >
+                                    {selected && (
+                                      <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#2F6FD6]">
+                                        <Check className="h-3 w-3 text-white" />
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`text-sm font-medium ${
+                                        selected ? "text-[#2F6FD6]" : "text-gray-900"
+                                      }`}
+                                    >
+                                      {label}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
 
                   {fileData.printType ? (
-                    <>
+                    <div className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:space-y-6 sm:p-5">
+                      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                        <Settings className="h-4 w-4 text-[#2F6FD6]" />
+                        <h3 className="text-sm font-semibold text-gray-900">Print Settings</h3>
+                      </div>
                       {fileData.printType === "photo" ? (
-                        <div className="space-y-4 p-4 sm:p-5 rounded-xl border-2 border-blue-200 bg-white">
+                        <div className="space-y-4">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Photo Size</Label>
@@ -1806,58 +1952,66 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       ) : (
                         <>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Paper Size</Label>
-                              <Select
-                                value={fileData.paperSize}
-                                onValueChange={(value) =>
-                                  updateFileOption(fileData.id, "paperSize", value)
-                                }
-                              >
-                                <SelectTrigger className="h-10">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availablePaperSizes.length > 0 ? (
-                                    availablePaperSizes.map((size) => (
-                                      <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
-                                        {size.displayName}
-                                        {!size.inStock && " (Out of Stock)"}
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <SelectItem value="a4">A4</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
+                          <div className="space-y-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:space-y-0">
+                            <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                              <Label className="text-sm font-medium shrink-0">Paper Size</Label>
+                              <div className="w-[55%] shrink-0 sm:w-full">
+                                <Select
+                                  value={fileData.paperSize}
+                                  onValueChange={(value) =>
+                                    updateFileOption(fileData.id, "paperSize", value)
+                                  }
+                                >
+                                  <SelectTrigger className="h-10">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availablePaperSizes.length > 0 ? (
+                                      availablePaperSizes.map((size) => (
+                                        <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
+                                          {size.displayName}
+                                          {!size.inStock && " (Out of Stock)"}
+                                        </SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="a4">A4</SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Number of Copies</Label>
-                              <NumberStepper
-                                min={1}
-                                value={fileData.copies}
-                                onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
-                              />
+                            <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                              <Label className="text-sm font-medium shrink-0">Number of Copies</Label>
+                              <div className="w-[55%] shrink-0 sm:w-full">
+                                <NumberStepper
+                                  min={1}
+                                  value={fileData.copies}
+                                  onCommit={(n) => updateFileOption(fileData.id, "copies", n)}
+                                />
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Page Range</Label>
-                              <Select
-                                value={fileData.pageRange}
-                                onValueChange={(value) =>
-                                  updateFileOption(fileData.id, "pageRange", value)
-                                }
-                              >
-                                <SelectTrigger className="h-10">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">All Pages</SelectItem>
-                                  <SelectItem value="odd">Odd Pages Only</SelectItem>
-                                  <SelectItem value="even">Even Pages Only</SelectItem>
-                                  <SelectItem value="specific">Specific Pages</SelectItem>
-                                </SelectContent>
-                              </Select>
+                            <div className="sm:block">
+                              <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                                <Label className="text-sm font-medium shrink-0">Page Range</Label>
+                                <div className="w-[55%] shrink-0 sm:w-full">
+                                  <Select
+                                    value={fileData.pageRange}
+                                    onValueChange={(value) =>
+                                      updateFileOption(fileData.id, "pageRange", value)
+                                    }
+                                  >
+                                    <SelectTrigger className="h-10">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Pages</SelectItem>
+                                      <SelectItem value="odd">Odd Pages Only</SelectItem>
+                                      <SelectItem value="even">Even Pages Only</SelectItem>
+                                      <SelectItem value="specific">Specific Pages</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
                               {fileData.pageRange === "specific" && (
                                 <Input
                                   placeholder="e.g., 1-5, 8, 11-13"
@@ -1865,7 +2019,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                   onChange={(e) =>
                                     updateFileOption(fileData.id, "specificPages", e.target.value)
                                   }
-                                  className="h-10 mt-2"
+                                  className="h-10 mt-2 sm:mt-2"
                                 />
                               )}
                             </div>
@@ -1873,61 +2027,43 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
                           <div className="space-y-2">
                             <Label className="text-sm font-medium">Color Mode</Label>
-                            <RadioGroup
+                            <Select
                               value={fileData.colorMode}
                               onValueChange={(value) =>
                                 updateFileOption(fileData.id, "colorMode", value)
                               }
-                              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                             >
-                              <label
-                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
-                                  fileData.colorMode === "bw"
-                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
-                                    : "border-gray-200 hover:border-gray-300"
-                                }`}
-                              >
-                                {fileData.colorMode === "bw" && (
-                                  <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-                                )}
-                                <RadioGroupItem value="bw" id={`bw-${fileData.id}`} />
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900 text-sm">Black and White</p>
-                                  <p className="text-xs text-gray-600">
-                                    {formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed
-                                    in grayscale
-                                  </p>
-                                </div>
-                              </label>
-                              <label
-                                className={`relative overflow-hidden flex items-center space-x-3 p-3 border-2 rounded-lg cursor-pointer transition-all active:scale-[0.98] ${
-                                  fileData.colorMode === "colored"
-                                    ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
-                                    : "border-gray-200 hover:border-gray-300"
-                                }`}
-                              >
-                                {fileData.colorMode === "colored" && (
-                                  <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-                                )}
-                                <RadioGroupItem value="colored" id={`colored-${fileData.id}`} />
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900 text-sm">Colored</p>
-                                  <p className="text-xs text-gray-600 mt-0.5">Analysis-based pricing</p>
-                                </div>
-                              </label>
-                            </RadioGroup>
-                            <Button
+                              <SelectTrigger className="h-10">
+                                <SelectValue
+                                  placeholder={
+                                    COLOR_MODE_LABELS[fileData.colorMode] || "Select color mode"
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {COLOR_MODE_OPTIONS.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500">
+                              {fileData.colorMode === "bw"
+                                ? `${formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed in grayscale`
+                                : "The document analyzer prices each page by its detected color percentage."}
+                            </p>
+                            <button
                               type="button"
-                              variant="outline"
                               onClick={() => {
                                 setBreakdownFileId(fileData.id);
                                 setShowColorPricing(true);
                               }}
-                              className="w-full text-gray-600 font-semibold border-gray-300 hover:text-white hover:border-[#2F6FD6]"
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
                             >
-                              <Info className="mr-2 h-4 w-4" />
-                              See Colored Pricing Breakdown
-                            </Button>
+                              <Info className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
+                              See Pricing Breakdown
+                            </button>
                           </div>
 
                           <div className="space-y-2">
@@ -2037,27 +2173,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           )}
                         </>
                       )}
-                    </>
+                      </div>
                   ) : (
-                    <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                      <p className="text-sm text-gray-600">
-                        Select a print type above to unlock the print options
-                        for this file.
+                    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                      <Settings className="mx-auto mb-2 h-5 w-5 text-gray-400" />
+                      <p className="text-sm font-semibold text-gray-700">Print Settings</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Select a print type first to customize options.
                       </p>
                     </div>
                   )}
-                </div>
-              </Card>
-            ))}
-
-            {files.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <p>
-                  Please upload at least one file in Step 1 to
-                  configure print options.
-                </p>
-              </div>
-            )}
+                  </div>
+                  );
+                })}
+                </>
+              );
+            })())}
           </div>
         )}
 
@@ -2150,16 +2281,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </Button>
 
                         {quantity > 0 && (
-                          <span className="ml-auto text-sm font-semibold text-blue-600">
-                            ₱{Math.round(addon.price * quantity)}
-                          </span>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+<span className="ml-auto text-sm font-semibold text-blue-600">
+    ₱{Math.round(addon.price * quantity)}
+  </span>
+)}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
 
             {Object.keys(selectedAddons).some((key) => selectedAddons[key] > 0) && (
               <Card className="p-4 bg-white border-2 border-blue-200 border-2 border-blue-300">
@@ -2215,29 +2346,94 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   Customer Information
                 </h3>
                 <div className="text-sm text-gray-700">
-                  {customerType === "walkin" ? (
-                    <p>Walk-in Customer (Anonymous)</p>
-                  ) : (
-                    <>
-                      <p>
-                        <strong>Type:</strong>{" "}
-                        {customerType === "registered" ? "Registered Customer" : "New Customer"}
-                      </p>
-                      {customerName && (
-                        <p>
-                          <strong>Name:</strong> {customerName}
-                        </p>
-                      )}
-                      {customerEmail && (
-                        <p>
-                          <strong>Email:</strong> {customerEmail}
-                        </p>
-                      )}
-                    </>
-                  )}
+                  <p>
+                    <strong>Type:</strong>{" "}
+                    {WALKIN_CUSTOMER_TYPE_LABELS[customerType]}
+                  </p>
                 </div>
               </Card>
 
+              {isPhotocopy ? (
+                <>
+                  <Card className="p-5 bg-gray-50">
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      Photocopy Details
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-600">Paper Size</p>
+                        <p className="font-medium text-gray-900">
+                          {photocopyPaperLabel(photocopyPaperSize)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Copies</p>
+                        <p className="font-medium text-gray-900">{photocopyCopies}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Color Mode</p>
+                        <p className="font-medium text-gray-900">
+                          {photocopyColorMode === "bw" ? "Black & White" : "Colored"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Paper Usage</p>
+                        <p className="font-medium text-gray-900">
+                          {photocopyCopies} {photocopyCopies === 1 ? "sheet" : "sheets"}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-5 bg-white border-2 border-blue-200">
+                    <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                      <Calculator className="w-5 h-5 text-[#2F6FD6]" />
+                      Manual Price (Staff-Entered)
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Enter the price computed by the staff/technician for this photocopy in whole pesos (₱1 minimum). This overrides automatic pricing so the sale is recorded accurately. Leave blank and it defaults to ₱1.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold text-gray-900">₱</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder="1"
+                        value={photocopyManualPrice}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setPhotocopyManualPrice("");
+                            return;
+                          }
+                          const n = parseInt(raw, 10);
+                          if (isNaN(n)) return;
+                          setPhotocopyManualPrice(String(n < 1 ? 1 : n));
+                        }}
+                        onBlur={() => {
+                          if (photocopyManualPrice.trim() === "") setPhotocopyManualPrice("1");
+                        }}
+                        className="h-11 text-base font-semibold"
+                      />
+                    </div>
+                  </Card>
+
+                  <div className="p-6 bg-[#2F6FD6] text-white rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <p className="text-lg">Total to Collect</p>
+                      <p className="text-3xl font-semibold">{formatCurrency(photocopyPrice)}</p>
+                    </div>
+                    {photocopyManualPrice.trim() === "" && (
+                      <p className="text-xs text-white/80 mt-2">
+                        Blank price will be recorded as ₱1.00.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
               {files.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-900">
@@ -2300,7 +2496,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <div>
                             <p className="text-gray-600">Color Mode</p>
                             <p className="font-medium text-gray-900">
-                              {fileData.colorMode === "bw" ? "Black & White" : "Colored"}
+                              {fileData.colorMode === "bw"
+                                ? "Black & White"
+                                : COLOR_MODE_LABELS[fileData.colorMode] || "Colored"}
                             </p>
                           </div>
                         </div>
@@ -2346,6 +2544,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   <p className="text-3xl font-semibold">{formatCurrency(calculateTotal())}</p>
                 </div>
               </div>
+                </>
+              )}
 
               <div className="p-5 bg-blue-50 border-2 border-blue-300 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -2369,27 +2569,33 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 Step 4: Order Summary
               </h2>
 
-              <button
-                type="button"
-                onClick={() => setShowOrderSummary((isOpen) => !isOpen)}
-                aria-expanded={showOrderSummary}
-                className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#2F6FD6] sm:hidden"
-              >
-                {showOrderSummary ? "Hide Order Summary" : "See Order Summary"}
-                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showOrderSummary ? "rotate-180" : ""}`} />
-              </button>
+              <div className="rounded-lg border-2 border-gray-200 bg-white overflow-hidden sm:border-0 sm:bg-transparent">
+                <button
+                  type="button"
+                  onClick={() => setShowOrderSummary((isOpen) => !isOpen)}
+                  aria-expanded={showOrderSummary}
+                  className="flex w-full items-center justify-between text-left px-3 py-2.5 sm:hidden"
+                >
+                  <span className="text-sm font-semibold text-gray-900">
+                    {showOrderSummary ? "Hide Order Summary" : "See Order Summary"}
+                  </span>
+                  <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-300 ${showOrderSummary ? "rotate-180" : ""}`} />
+                </button>
 
-              <div className={`space-y-4 ${showOrderSummary ? "" : "hidden sm:block"}`}>
-                <div className="text-sm text-gray-600 mb-4">
-                  <strong>Total Files:</strong> {files.length}
-                </div>
+                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out sm:block ${showOrderSummary ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="min-h-0 overflow-hidden sm:contents">
+                    <div className="px-3 pb-3 sm:p-0">
+                      <div className="space-y-4">
+                        <div className="text-sm text-gray-600 mb-4">
+                          <strong>Total Files:</strong> {files.length}
+                        </div>
 
                 {files.map((fileData, index) => (
-                  <Card key={fileData.id} className="p-5 bg-gray-50">
-                    <div className="font-semibold text-gray-900 mb-1 pb-2 border-b border-gray-300 truncate">
+                  <Card key={fileData.id} className="p-3 sm:p-5 bg-gray-50">
+                    <div className="font-semibold text-gray-900 mb-0.5 pb-1 border-b border-gray-300 truncate">
                       File {index + 1}: {fileData.fileName}
                     </div>
-                    <p className="text-xs font-medium text-[#2F6FD6] mb-3">
+                    <p className="text-xs font-medium text-[#2F6FD6] mb-1.5 sm:mb-2">
                       Print Type:{" "}
                       {fileData.printType === "photo"
                         ? "Photo Paper"
@@ -2400,7 +2606,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             : "Plain Paper"}
                     </p>
                     {fileData.printType === "photo" ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                         <div>
                           <p className="text-gray-600">Photo Size</p>
                           <p className="font-medium text-gray-900">
@@ -2427,7 +2633,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                         <div>
                           <p className="text-gray-600">Pages</p>
                           <p className="font-medium text-gray-900">
@@ -2462,39 +2668,44 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         <div>
                           <p className="text-gray-600">Color Mode</p>
                           <p className="font-medium text-gray-900">
-                            {fileData.colorMode === "bw" && "Black & White"}
-                            {fileData.colorMode === "colored" && "Colored"}
+                            {COLOR_MODE_LABELS[fileData.colorMode] || "Black & White"}
                           </p>
                         </div>
-                        {fileData.colorMode === "colored" && fileData.colorAnalysis && (
+                        {fileData.colorMode !== "bw" && fileData.colorAnalysis && (
                           <div className="col-span-2">
                             <p className="text-gray-600">Color Breakdown</p>
                             <div className="font-medium text-gray-900 text-xs space-y-0.5">
                               {(() => {
-                                const highColor = fileData.colorAnalysis.colorPages.filter(
-                                  (p) => (fileData.colorAnalysis!.colorPercentages[p] ?? 0) > 50,
-                                ).length;
-                                const lowColor = fileData.colorAnalysis.colorPages.filter(
-                                  (p) => (fileData.colorAnalysis!.colorPercentages[p] ?? 0) <= 50,
-                                ).length;
+                                const buckets: Array<{ label: string; pct: number; count: number }> = [
+                                  { label: "25-50%", pct: 50, count: 0 },
+                                  { label: "51-75%", pct: 75, count: 0 },
+                                  { label: "76-100%", pct: 100, count: 0 },
+                                ];
+                                fileData.colorAnalysis.colorPages.forEach((p) => {
+                                  const pct = fileData.colorAnalysis!.colorPercentages[p] ?? 0;
+                                  const bucket =
+                                    pct <= 50
+                                      ? buckets[0]
+                                      : pct <= 75
+                                        ? buckets[1]
+                                        : buckets[2];
+                                  bucket.count += 1;
+                                });
                                 const bwCount = fileData.colorAnalysis.bwPages.length;
                                 return (
                                   <>
-                                    {highColor > 0 && (
-                                      <span className="block">
-                                        {formatPrice(matrixRatesFor(fileData).full)}/page × {highColor} page
-                                        {highColor !== 1 ? "s" : ""} (&gt;50% color)
-                                      </span>
-                                    )}
-                                    {lowColor > 0 && (
-                                      <span className="block">
-                                        {formatPrice(matrixRatesFor(fileData).partial)}/page × {lowColor} page
-                                        {lowColor !== 1 ? "s" : ""} (≤50% color)
-                                      </span>
+                                    {buckets.map((bucket) =>
+                                      bucket.count > 0 ? (
+                                        <span key={bucket.label} className="block">
+                                          {formatPrice(shadeRateFor(fileData, bucket.pct))}/page ×{" "}
+                                          {bucket.count} page{bucket.count !== 1 ? "s" : ""} (
+                                          {bucket.label} color)
+                                        </span>
+                                      ) : null,
                                     )}
                                     {bwCount > 0 && (
                                       <span className="block">
-                                        {formatPrice(matrixRatesFor(fileData).bw)}/page × {bwCount} B&amp;W page
+                                        {formatPrice(shadeRateFor(fileData, 0))}/page × {bwCount} B&amp;W page
                                         {bwCount !== 1 ? "s" : ""}
                                       </span>
                                     )}
@@ -2514,7 +2725,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         )}
                       </div>
                     )}
-                    <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between items-center">
+                    <div className="mt-2 pt-2 border-t border-gray-300 flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-700">Subtotal:</span>
                       <span className="font-semibold text-[#2F6FD6]">
                         {formatCurrency(calculateFileTotal(fileData))}
@@ -2563,25 +2774,32 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     </div>
                   </Card>
                 )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <Card className="p-4 sm:p-6 bg-white border-2 border-gray-200">
+              <div className="rounded-lg border-2 border-gray-200 bg-white overflow-hidden sm:border-0 sm:bg-transparent">
                 <button
                   type="button"
                   onClick={() => setShowPaymentOptions((isOpen) => !isOpen)}
                   aria-expanded={showPaymentOptions}
-                  className="flex w-full items-center justify-between text-left sm:hidden"
+                  className="flex w-full items-center justify-between text-left px-3 py-2.5 sm:hidden"
                 >
-                  <span className="text-lg font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-gray-900">
                     Select Payment Method
                   </span>
-                  <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-200 sm:hidden ${showPaymentOptions ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-5 w-5 text-[#2F6FD6] transition-transform duration-300 ${showPaymentOptions ? "rotate-180" : ""}`} />
                 </button>
-                <div className={`${showPaymentOptions ? "block" : "hidden"} sm:block`}>
-                  <h3 className="mb-3 hidden text-lg font-semibold text-gray-900 sm:mb-6 sm:block">
+
+                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out sm:block ${showPaymentOptions ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="min-h-0 overflow-hidden sm:contents">
+                    <div className="px-3 pb-3 sm:p-0">
+                  <h3 className="hidden text-lg font-semibold text-gray-900 sm:mb-6 sm:block">
                     Select Payment Method
                   </h3>
-                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <RadioGroup className="mt-3 sm:mt-0" value={paymentMethod} onValueChange={setPaymentMethod}>
                     <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
                       {onlineMethods.map((method) => {
   return (
@@ -2696,8 +2914,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
-              </Card>
+              </div>
+            </div>
 
               {!isWalkin && paymentMethod === "cash" && (
                 <CashOnPickupAcknowledgement
@@ -2711,37 +2931,44 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 const requirement = paymentRequirementFor(total);
                 if (requirement === "full") {
                   return (
-                    <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                    <div className="p-4 sm:p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <CreditCard className="w-5 h-5 text-amber-600" />
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-amber-900 mb-1 flex items-center gap-2">
                             Full Payment Required
-                            <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] sm:text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
                               100% Upfront
                             </span>
                           </h4>
                           <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                            Orders totaling <strong>₱{fullPaymentThreshold.toFixed(2)} or more</strong> must be{" "}
-                            <strong>paid in full</strong> before printing begins — the 50% down payment option is not available for this order. Your order will stay{" "}
-                            <strong>awaiting payment verification</strong> until the full payment is verified by Admin or Staff.
+                            <span className="sm:hidden">
+                              Orders of <strong>₱{fullPaymentThreshold.toFixed(0)} or more</strong> must be{" "}
+                              <strong>paid in full</strong> — no 50% option — and stay{" "}
+                              <strong>awaiting verification</strong> until paid.
+                            </span>
+                            <span className="hidden sm:inline">
+                              Orders totaling <strong>₱{fullPaymentThreshold.toFixed(2)} or more</strong> must be{" "}
+                              <strong>paid in full</strong> before printing begins — the 50% down payment option is not available for this order. Your order will stay{" "}
+                              <strong>awaiting payment verification</strong> until the full payment is verified by Admin or Staff.
+                            </span>
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                            <div className="p-3 bg-white rounded-lg border border-amber-200">
-                              <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
+                            <div className="p-2.5 sm:p-3 bg-white rounded-lg border border-amber-200">
+                              <p className="text-[11px] sm:text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
                                 Amount Due (Full Payment)
                               </p>
-                              <p className="text-2xl font-bold text-amber-700">
+                              <p className="text-lg sm:text-2xl font-bold text-amber-700">
                                 {formatCurrency(total)}
                               </p>
                             </div>
-                            <div className="p-3 bg-white rounded-lg border border-amber-200">
-                              <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
+                            <div className="p-2.5 sm:p-3 bg-white rounded-lg border border-amber-200">
+                              <p className="text-[11px] sm:text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
                                 Down Payment Option
                               </p>
-                              <p className="text-2xl font-bold text-gray-700">
+                              <p className="text-lg sm:text-2xl font-bold text-gray-700">
                                 Not Available
                               </p>
                             </div>
@@ -2749,16 +2976,29 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <div className="flex items-start gap-2 p-3 bg-amber-100 rounded-lg">
                             <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
                             <p className="text-xs text-amber-800">
-                              Pay{" "}
-                              <strong>{formatCurrency(total)}</strong> via{" "}
-                              <strong>
-                                {isOnline
-                                  ? paymentMethod
-                                  : paymentMethod === "cash"
-                                    ? "Cash at the shop"
-                                    : "your chosen payment method"}
-                              </strong>
-                              {" "}and inform the staff to verify. Once the full payment is verified, your order moves to the queue automatically.
+                              <span className="sm:hidden">
+                                Pay <strong>{formatCurrency(total)}</strong> via{" "}
+                                <strong>
+                                  {isOnline
+                                    ? paymentMethod
+                                    : paymentMethod === "cash"
+                                      ? "Cash at the shop"
+                                      : "your chosen payment method"}
+                                </strong>
+                                {" "}and inform staff to verify.
+                              </span>
+                              <span className="hidden sm:inline">
+                                Pay{" "}
+                                <strong>{formatCurrency(total)}</strong> via{" "}
+                                <strong>
+                                  {isOnline
+                                    ? paymentMethod
+                                    : paymentMethod === "cash"
+                                      ? "Cash at the shop"
+                                      : "your chosen payment method"}
+                                </strong>
+                                {" "}and inform the staff to verify. Once the full payment is verified, your order moves to the queue automatically.
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -2770,27 +3010,36 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 if (requirement === "down") {
                   const downDue = total * 0.5;
                   return (
-                    <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                    <div className="p-4 sm:p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <CreditCard className="w-5 h-5 text-amber-600" />
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-amber-900 mb-1 flex items-center gap-2">
                             Down Payment Required
-                            <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] sm:text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
                               50% Minimum
                             </span>
                           </h4>
                           <p className="text-sm text-amber-800 leading-relaxed">
-                            Orders totaling{" "}
-                            <strong>₱{downPaymentThreshold.toFixed(2)} or more</strong> require at
-                            least a <strong>50% down payment</strong> of{" "}
-                            <strong>{formatCurrency(downDue)}</strong> before printing begins
-                            (remaining <strong>{formatCurrency(total - downDue)}</strong> due on
-                            pickup). Choose any payment method below — you'll select{" "}
-                            <strong>Partial Payment</strong> or <strong>Full Payment</strong> on
-                            the payment verification page after placing your order.
+                            <span className="sm:hidden">
+                              Orders of{" "}
+                              <strong>₱{downPaymentThreshold.toFixed(0)} or more</strong> require a{" "}
+                              <strong>50% down</strong> of{" "}
+                              <strong>{formatCurrency(downDue)}</strong> before printing; the
+                              rest on pickup.
+                            </span>
+                            <span className="hidden sm:inline">
+                              Orders totaling{" "}
+                              <strong>₱{downPaymentThreshold.toFixed(2)} or more</strong> require at
+                              least a <strong>50% down payment</strong> of{" "}
+                              <strong>{formatCurrency(downDue)}</strong> before printing begins
+                              (remaining <strong>{formatCurrency(total - downDue)}</strong> due on
+                              pickup). Choose any payment method below — you'll select{" "}
+                              <strong>Partial Payment</strong> or <strong>Full Payment</strong> on
+                              the payment verification page after placing your order.
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -2860,7 +3109,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 type="button"
                 onClick={() => {
                   if (currentStep > 1) {
-                    const prev = currentStep - 1;
+                    const prev = isPhotocopy ? 1 : currentStep - 1;
                     setCurrentStep(prev);
                     scrollPageToTop();
                   } else {
@@ -2883,17 +3132,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             <button
               type="button"
               onClick={() => setShowProceedConfirm(true)}
-              disabled={files.length === 0}
+              disabled={isPhotocopy ? false : files.length === 0}
               className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
             >
               Proceed to In Queue
             </button>
           </div>
         ) : (
-        <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "flex items-center justify-between mt-1 pt-6 border-t gap-4 sm:gap-5"}>
+        <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse items-stretch gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:mt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:border-t sm:px-0 sm:py-0 sm:pt-6 sm:bg-transparent sm:backdrop-blur-none"}>
           <Button
             variant="outline"
-            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"}`}
+            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"}`}
             onClick={() => {
               if (currentStep > 1) {
                 const prev = currentStep - 1;
@@ -2907,24 +3156,30 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             {currentStep === 1 ? "Cancel" : "Back"}
           </Button>
 
-          <div className="flex gap-2 sm:gap-3">
+          <div className="flex flex-col w-full sm:flex-row gap-2 sm:gap-3 sm:w-auto">
             {currentStep < 4 ? (
               <Button
                 className={isWalkin
                   ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  : "min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
+                  : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
                 onClick={() => {
-                  const nextStep = currentStep + 1;
+                  const nextStep = isPhotocopy ? 4 : currentStep + 1;
                   setCurrentStep(nextStep);
                   scrollPageToTop();
                 }}
                 disabled={
-                  (currentStep === 1 && files.length === 0) ||
-                  (currentStep === 2 && files.length > 0 && !files.every((f) => f.printType)) ||
+                  (currentStep === 1 && !isPhotocopy && files.length === 0) ||
+                  (currentStep === 2 && !isPhotocopy && (files.length === 0 || !files.every((f) => f.printType))) ||
                   analyzingFileId !== null
                 }
               >
-                {analyzingFileId ? "Analyzing..." : "Next Step"}
+                {currentStep === 2 && !isWalkin
+                  ? "Continue"
+                  : analyzingFileId
+                    ? "Analyzing..."
+                    : isPhotocopy
+                      ? "Review & Complete"
+                      : "Next Step"}
               </Button>
             ) : (
               <>
@@ -2940,7 +3195,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 <Button
                   className={isWalkin
                     ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                    : "min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"}
+                    : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"}
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
@@ -2948,7 +3203,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       setShowPlaceOrderConfirm(true);
                     }
                   }}
-                  disabled={isWalkin ? files.length === 0 : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged)}
+                  disabled={isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged)}
                 >
                   {isWalkin ? "Proceed to In Queue" : isOnline ? "Go to Payment Verification" : "Place Order"}
                 </Button>
@@ -2965,16 +3220,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     <Layout menuItems={menuItems} title={title} showBackButton hideMobileBackButton>
       {isWalkin ? <StaffTimeInGate>{content}</StaffTimeInGate> : content}
 
-      {/* Colored Pricing Breakdown Modal */}
+      {/* Pricing Breakdown Modal */}
       <Dialog open={showColorPricing} onOpenChange={setShowColorPricing}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Colored Pricing Breakdown</DialogTitle>
+        <DialogContent className="sm:max-w-lg max-h-[70vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-gray-100 px-6 pt-6 pb-5">
+            <DialogTitle>Pricing Breakdown</DialogTitle>
             <DialogDescription>
-              Colored mode uses document analysis so each page is priced by its
-              detected content, based on the print type you chose for this file.
+              See how this file is priced by print type and color tier.
             </DialogDescription>
           </DialogHeader>
+          <div className="min-h-0 grow overflow-y-auto px-6 pb-6">
           {(() => {
             const bFile = files.find((f) => f.id === breakdownFileId) || null;
             if (!bFile) {
@@ -2985,16 +3240,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 </p>
               );
             }
-            const matrix = pricingStore.getMatrix();
-            const bService = (bFile.printType as ServiceType) || serviceType;
-            const bSizeKey = mapPaperSizeKey(bFile.paperSize);
             const bCType = bFile.contentType;
-            const rate = (tier: ColorTier) =>
-              getPriceFromMatrix(matrix, bService, {
-                contentType: bCType,
-                colorTier: tier,
-                sizeKey: bSizeKey,
-              });
             const typeLabel =
               bFile.printType === "photo"
                 ? "Photo Paper"
@@ -3044,7 +3290,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
             return (
               <>
-                <div className="rounded-lg border border-blue-200 bg-[#F2F7FF] p-3 text-sm mb-3">
+                <div className="rounded-lg border border-blue-200 bg-[#F2F7FF] p-3 text-sm mb-2">
                   <div className="flex justify-between gap-4">
                     <span className="font-medium text-gray-900">Print type</span>
                     <span className="font-medium text-[#2F6FD6]">{typeLabel}</span>
@@ -3060,28 +3306,188 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <span className="text-gray-900">{CONTENT_TYPE_LABELS[bCType]}</span>
                   </div>
                 </div>
-                <div className="space-y-3 rounded-lg border border-blue-200 bg-[#F2F7FF] p-4 text-sm">
+                <div className="space-y-2 rounded-lg border border-blue-200 bg-[#F2F7FF] p-3 text-sm">
                   <div className="flex justify-between gap-4">
                     <span>Black and white page</span>
-                    <strong>{formatPrice(rate("bw"))}</strong>
+                    <strong>{formatPrice(shadeRateFor(bFile, 0))}</strong>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <span>Partially colored page (&le;50%)</span>
-                    <strong>{formatPrice(rate("partial"))}</strong>
+                    <span>Partially colored page (25-50%)</span>
+                    <strong>{formatPrice(shadeRateFor(bFile, 50))}</strong>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <span>Fully colored page (&gt;50%)</span>
-                    <strong>{formatPrice(rate("full"))}</strong>
+                    <span>Colored page (51-75%)</span>
+                    <strong>{formatPrice(shadeRateFor(bFile, 75))}</strong>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Fully colored page (76-100%)</span>
+                    <strong>{formatPrice(shadeRateFor(bFile, 100))}</strong>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3">
-                  Paper size, copies, and page range are applied to the final total.
+                <p className="text-xs text-gray-500 mt-2">
+                  The document analyzer picks the color tier based on the detected color
+                  percentage. Paper size, copies, and page range are applied to the final total.
                 </p>
               </>
             );
           })()}
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Document Analysis Modal */}
+      <Dialog
+        open={analysisFileId !== null}
+        onOpenChange={(open) => {
+          if (!open) setAnalysisFileId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg max-h-[70vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-gray-100 px-6 pt-6 pb-5">
+            <DialogTitle>Document Analysis</DialogTitle>
+            <DialogDescription>
+              Page-by-page color breakdown for your uploaded file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 grow overflow-y-auto px-6 pb-6">
+            {(() => {
+              const aFile = files.find((f) => f.id === analysisFileId) || null;
+              if (!aFile || !aFile.colorAnalysis) {
+                return (
+                  <p className="text-sm text-gray-500">
+                    Color analysis is unavailable for this file.
+                  </p>
+                );
+              }
+              const ca = aFile.colorAnalysis;
+              return (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                  <p className="font-semibold text-gray-900">
+                    Document Analysis — {aFile.fileName}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {ca.totalPages} page{ca.totalPages !== 1 ? "s" : ""} detected ·{" "}
+                    {ca.colorPages.length} color page{ca.colorPages.length !== 1 ? "s" : ""} ·{" "}
+                    {ca.bwPages.length} black &amp; white page{ca.bwPages.length !== 1 ? "s" : ""}
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {ca.bwPages.length > 0 && (
+                      <div className="rounded-lg border border-gray-200 bg-white p-2.5">
+                        <p className="text-xs font-semibold text-gray-700">
+                          Black and White Pages
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                          Page {ca.bwPages.join(", ")}
+                        </p>
+                      </div>
+                    )}
+                    {(() => {
+                      const colorPages = ca.colorPages;
+                      const hasMore = colorPages.length > 3;
+                      const renderRow = (page: number) => (
+                        <div
+                          key={page}
+                          className="flex items-center justify-between gap-4 rounded border border-blue-100 bg-[#F2F7FF] px-2.5 py-1.5"
+                        >
+                          <span className="text-gray-700">Page {page}</span>
+                          <span className="font-medium text-gray-900">
+                            {ca.colorPercentages[page] ?? 0}% color
+                          </span>
+                        </div>
+                      );
+                      return (
+                        <div
+                          onClick={() => {
+                            if (analysisShowAll) setAnalysisShowAll(false);
+                          }}
+                          title={analysisShowAll ? "Click to collapse" : undefined}
+                          className={`rounded-lg border p-2.5 transition-colors ${
+                            analysisShowAll
+                              ? "cursor-pointer select-none border-blue-200 bg-blue-50/70"
+                              : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-gray-700">Colored Pages</p>
+                          {colorPages.length > 0 ? (
+                            hasMore ? (
+                              <>
+                                {!analysisShowAll && (
+                                  <div className="mt-1.5 space-y-1">
+                                    {colorPages.slice(0, 3).map(renderRow)}
+                                  </div>
+                                )}
+                                <div
+                                  className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                                    analysisShowAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                                  }`}
+                                >
+                                  <div className="min-h-0 overflow-hidden">
+                                    <div
+                                      className="mt-1.5 space-y-1 overflow-y-auto pr-1"
+                                      style={{
+                                        maxHeight: analysisShowAll ? "9rem" : "0px",
+                                      }}
+                                    >
+                                      {colorPages.map(renderRow)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  aria-expanded={analysisShowAll}
+                                  onClick={() => setAnalysisShowAll(!analysisShowAll)}
+                                  className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#2F6FD6] hover:bg-[#F2F7FF]"
+                                >
+                                  {analysisShowAll
+                                    ? "Collapse"
+                                    : `Show All (${colorPages.length} pages)`}
+                                  <ChevronDown
+                                    className={`h-3.5 w-3.5 transition-transform duration-300 ${
+                                      analysisShowAll ? "rotate-180" : ""
+                                    }`}
+                                  />
+                                </button>
+                              </>
+                            ) : (
+                              <div className="mt-1.5 space-y-1">
+                                {colorPages.map(renderRow)}
+                              </div>
+                            )
+                          ) : (
+                            <p className="text-xs text-gray-500 mt-1">
+                              No color detected on any page.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave print request confirmation (customer only, has uploads, not yet
+          submitted) */}
+      {!isWalkin && blocker && blocker.state === "blocked" && (
+        <ConfirmationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && blocker.state === "blocked") blocker.reset();
+          }}
+          onConfirm={() => {
+            clearPrintDraft();
+            blocker.proceed();
+          }}
+          title="Leave print request?"
+          description={`You have ${files.length} file${files.length === 1 ? "" : "s"} uploaded but have not reached payment verification. Leaving now will discard your progress and reset the form.`}
+          confirmLabel="Leave & Reset"
+          cancelLabel="Keep Editing"
+          destructive
+        />
+      )}
 
       {/* View Payment QR Code Modal (customer only) */}
       {!isWalkin && (
@@ -3319,7 +3725,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           onOpenChange={setShowProceedConfirm}
           onConfirm={() => { handleProceedToQueue(); setShowProceedConfirm(false); }}
           title="Place Walk-in Order?"
-          description={`This will create a walk-in order for ${customerType === "walkin" ? "Walk-in Customer" : (customerName || "Walk-in Customer")} with ${files.length} file(s), total ${formatCurrency(calculateTotal())}, and send it to the print queue immediately.`}
+          description={isPhotocopy
+            ? `This will create a walk-in photocopy order (${photocopyCopies} ${photocopyCopies === 1 ? "copy" : "copies"}, ${photocopyPaperLabel(photocopyPaperSize)}, ${photocopyColorMode === "bw" ? "Black & White" : "Colored"}), with a staff-entered price of ${formatCurrency(photocopyPrice)}, and send it to the print queue immediately.`
+            : `This will create a walk-in order (${WALKIN_CUSTOMER_TYPE_LABELS[customerType]}) for your ${files.length} file(s), add any selected add-ons, total ${formatCurrency(calculateTotal())}, and send it to the print queue immediately.`}
           confirmLabel="Proceed to In Queue"
           cancelLabel="Go Back"
           destructive={false}

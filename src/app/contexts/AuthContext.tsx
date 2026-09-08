@@ -7,19 +7,13 @@ export interface User {
   name: string;
   email: string;
   role: 'customer' | 'staff' | 'admin';
-  mfaEnabled?: boolean;
-  mfaVerified?: boolean;
   profileImage?: string;
   active?: boolean;
 }
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => { success: boolean; requiresMFA?: boolean; reason?: 'inactive' };
-  verifyMFA: (code: string) => boolean;
-  cancelMFA: () => void;
-  enableMFA: () => string;
-  disableMFA: () => void;
+  login: (email: string, password: string) => { success: boolean; reason?: 'inactive' };
   signup: (data: any) => boolean;
   registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => { success: boolean; message?: string };
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
@@ -46,8 +40,6 @@ const mockUsers = [
     name: 'Customer User',
     role: 'customer' as const,
     active: true,
-    mfaEnabled: true,
-    mfaSecret: 'JBSWY3DPEHPK3PXP',
     passwordHistory: [] as string[],
     profileImage: undefined,
   },
@@ -57,8 +49,6 @@ const mockUsers = [
     name: 'Staff User',
     role: 'staff' as const,
     active: true,
-    mfaEnabled: true,
-    mfaSecret: 'HXDMVJECJJWSRB3H',
     passwordHistory: [] as string[],
     profileImage: undefined,
   },
@@ -68,8 +58,6 @@ const mockUsers = [
     name: 'Admin User',
     role: 'admin' as const,
     active: true,
-    mfaEnabled: true,
-    mfaSecret: 'JBSWY3DPFQQHO33S',
     passwordHistory: [] as string[],
     profileImage: undefined,
   },
@@ -97,7 +85,6 @@ function readStoredUser(): User | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(readStoredUser);
-  const [pendingMFAUser, setPendingMFAUser] = useState<any>(null);
 
   useEffect(() => {
     try {
@@ -129,60 +116,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (foundUser.active === false) {
         return { success: false, reason: 'inactive' as const };
       }
-      setPendingMFAUser(foundUser);
-      return { success: true, requiresMFA: true };
+      setUser({
+        name: foundUser.name,
+        email: foundUser.email,
+        role: foundUser.role,
+        profileImage: foundUser.profileImage,
+      });
+      return { success: true };
     }
     return { success: false };
-  };
-
-  const verifyMFA = (code: string) => {
-    if (pendingMFAUser) {
-      if (code.length === 6 && /^\d{6}$/.test(code)) {
-        setUser({
-          name: pendingMFAUser.name,
-          email: pendingMFAUser.email,
-          role: pendingMFAUser.role,
-          mfaEnabled: true,
-          mfaVerified: true,
-          profileImage: pendingMFAUser.profileImage,
-        });
-        setPendingMFAUser(null);
-        return true;
-      } else {
-        toast.error('Invalid MFA code. Please enter a 6-digit code.');
-      }
-    }
-    return false;
-  };
-
-  const cancelMFA = () => {
-    setPendingMFAUser(null);
-  };
-
-  const enableMFA = () => {
-    const secret =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
-    if (user) {
-      const userIndex = mockUsers.findIndex(u => u.email === user.email);
-      if (userIndex !== -1) {
-        mockUsers[userIndex].mfaEnabled = true;
-        mockUsers[userIndex].mfaSecret = secret;
-        setUser({ ...user, mfaEnabled: true });
-      }
-    }
-    return secret;
-  };
-
-  const disableMFA = () => {
-    if (user) {
-      const userIndex = mockUsers.findIndex(u => u.email === user.email);
-      if (userIndex !== -1) {
-        mockUsers[userIndex].mfaEnabled = false;
-        mockUsers[userIndex].mfaSecret = '';
-        setUser({ ...user, mfaEnabled: false });
-      }
-    }
   };
 
   const signup = (data: any) => {
@@ -197,8 +139,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: fullName,
       role: 'customer' as const,
       active: true,
-      mfaEnabled: true,
-      mfaSecret: Math.random().toString(36).substring(2, 15),
       passwordHistory: [] as string[],
       profileImage: data.profileImage || undefined,
     };
@@ -207,13 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: fullName,
       email: data.email,
       role: 'customer',
-      mfaEnabled: true,
-      mfaVerified: true,
       profileImage: data.profileImage || undefined,
     });
-    toast.success(
-      'Account created! MFA is required for all accounts. You will be prompted to verify on login.'
-    );
+    toast.success('Account created! You can now log in with your email and password.');
     return true;
   };
 
@@ -234,8 +170,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: data.name,
       role: data.role || 'staff',
       active: true,
-      mfaEnabled: true,
-      mfaSecret: Math.random().toString(36).substring(2, 15),
       passwordHistory: [] as string[],
       profileImage: undefined,
       isAdminRegistered: true,
@@ -282,7 +216,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    setPendingMFAUser(null);
     sessionManager.destroy();
   };
 
@@ -336,7 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Update the current user's session state if they're logged in
       if (user && user.email === email) {
-        setUser({ ...user, name: user.name, email: user.email, role: user.role, mfaEnabled: user.mfaEnabled, profileImage: user.profileImage });
+        setUser({ ...user, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage });
       }
 
       return true; // Success will be shown by the calling component
@@ -351,10 +284,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         login,
-        verifyMFA,
-        cancelMFA,
-        enableMFA,
-        disableMFA,
         signup,
         registerStaff,
         updateStaffAccount,

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Shield, Camera } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -32,14 +32,11 @@ const defaultProfileData = {
 export default function CustomerProfile() {
   const navigate = useNavigate();
   // Layout will be updated with showBackButton prop below
-  const { user, enableMFA, disableMFA, resetPassword, updateProfile, logout } = useAuth();
+  const { user, resetPassword, updateProfile, logout } = useAuth();
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
-  const [showMFADialog, setShowMFADialog] = useState(false);
-  const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [mfaSecret, setMfaSecret] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -219,40 +216,24 @@ export default function CustomerProfile() {
     }
   };
 
-  const handleEnableMFA = () => {
-    const secret = enableMFA();
-    setMfaSecret(secret);
-    setShowMFADialog(true);
-  };
-
-  const handleDisableMFA = () => {
-    setShowDisableMFADialog(true);
-  };
-
-  const confirmDisableMFA = () => {
-    disableMFA();
-    setShowDisableMFADialog(false);
-    toast.success('Multi-factor authentication disabled');
-  };
-
   return (
     <Layout menuItems={menuItems} title="Profile Settings" showBackButton backButtonPath="/customer/dashboard" hideMobileBackButton>
       <div className="max-w-3xl mx-auto space-y-8">
-        {/* Mobile back button (under the header) */}
-        <button
-          type="button"
-          onClick={() => navigate("/customer/dashboard")}
-          aria-label="Go back"
-          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="text-sm font-medium">Back</span>
-        </button>
-
-        {/* Header */}
+        {/* Mobile back button + page header (kept tight together on mobile) */}
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Profile</h1>
-          <p className="text-gray-500 mt-1">Manage your account information</p>
+          <button
+            type="button"
+            onClick={() => navigate("/customer/dashboard")}
+            aria-label="Go back"
+            className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Back</span>
+          </button>
+          <div className="mt-1 md:mt-8">
+            <h1 className="text-3xl font-semibold text-gray-900">Profile</h1>
+            <p className="text-gray-500 mt-1">Manage your account information</p>
+          </div>
         </div>
 
         {/* Success Message */}
@@ -265,7 +246,7 @@ export default function CustomerProfile() {
 
         {/* Profile Card */}
         <Card className="p-8 bg-white shadow-sm">
-          <div className="flex flex-col gap-5 mb-8 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between sm:mb-8">
             <div className="flex items-center gap-4">
               <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-[#1D73EC] text-2xl font-semibold text-white ring-4 ring-white shadow-sm">
                 {profileImage ? (
@@ -312,7 +293,7 @@ export default function CustomerProfile() {
                 <Button
                   variant="outline"
                   onClick={() => setIsEditing(false)}
-                  className="order-2 w-full sm:order-1 sm:w-auto"
+                  className="order-2 w-full bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 sm:order-1 sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -397,7 +378,7 @@ export default function CustomerProfile() {
 
         {/* Security Section */}
         <Card className="p-8 bg-white shadow-sm">
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">Security</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2 sm:mb-3">Security</h3>
 
           <div className="space-y-2">
             <div className="flex flex-col items-start gap-2 border-b pb-2 sm:flex-row sm:items-center sm:justify-between">
@@ -414,37 +395,21 @@ export default function CustomerProfile() {
                 Change Password
               </Button>
             </div>
+          </div>
 
-            <div className="flex flex-col gap-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
-              <div className="w-full">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900">Multi-Factor Authentication</p>
-                </div>
-                <p className="mt-1 hidden text-sm text-gray-500 sm:block">
-                  {user?.mfaEnabled
-                    ? 'Additional security layer is active'
-                    : 'Add an extra layer of security to your account'}
-                </p>
-              </div>
-              <div className="flex flex-col items-start gap-2 sm:items-end">
-                <Button
-                variant="outline"
-                onClick={user?.mfaEnabled ? handleDisableMFA : handleEnableMFA}
-                className={`w-full sm:w-auto ${
-                  user?.mfaEnabled
-                    ? 'border-blue-600 text-blue-600 hover:bg-blue-50 border-2 border-blue-200'
-                    : 'border-blue-600 text-blue-600 hover:bg-white hover:text-blue-600 border-2 border-blue-200'
-                }`}
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                {user?.mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
-                </Button>
-              </div>
-            </div>
+          {/* Sign Out (mobile only, inside Security box) */}
+          <div className="border-t border-gray-100 pt-2 mt-2 md:hidden">
+            <Button
+              variant="outline"
+              onClick={() => setShowLogoutConfirm(true)}
+              className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
+            >
+              Sign Out
+            </Button>
           </div>
         </Card>
 
-        <div className="pb-4">
+        <div className="hidden md:block pb-4">
           <Button
             variant="outline"
             onClick={() => setShowLogoutConfirm(true)}
@@ -473,6 +438,7 @@ export default function CustomerProfile() {
             <Button
               variant="outline"
               onClick={() => setShowSaveDialog(false)}
+              className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               Cancel
             </Button>
@@ -482,77 +448,6 @@ export default function CustomerProfile() {
             >
               Save Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* MFA Setup Dialog */}
-      <Dialog open={showMFADialog} onOpenChange={setShowMFADialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <Shield className="w-6 h-6 text-blue-600" />
-              </div>
-              <DialogTitle className="text-xl">Enable Multi-Factor Authentication</DialogTitle>
-            </div>
-            <DialogDescription className="text-base">
-              Scan this QR code with your authenticator app
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="bg-white p-4 border-2 border-gray-200 rounded-lg">
-              <div className="bg-gray-100 h-48 flex items-center justify-center rounded">
-                <p className="text-sm text-gray-500 text-center px-4">
-                  QR Code Placeholder<br />
-                  <span className="text-xs">In production, show actual TOTP QR code</span>
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Or enter this code manually:</Label>
-              <Input
-                value={mfaSecret}
-                readOnly
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="p-3 bg-white border-2 border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">
-                <strong>Setup Instructions:</strong>
-              </p>
-              <ol className="text-xs text-blue-800 mt-2 space-y-1 list-decimal list-inside">
-                <li>Download an authenticator app (Google Authenticator, Authy, etc.)</li>
-                <li>Scan the QR code or enter the code manually</li>
-                <li>Enter the 6-digit code from your app when logging in</li>
-              </ol>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() => {
-                setShowMFADialog(false);
-                toast.success('Multi-factor authentication enabled successfully!');
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDisableMFADialog} onOpenChange={setShowDisableMFADialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Disable MFA?</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to disable multi-factor authentication? This will reduce the security of your account.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
-            <Button onClick={confirmDisableMFA} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Disable MFA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -618,6 +513,7 @@ export default function CustomerProfile() {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
+              className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
               onClick={() => {
                 setShowChangePasswordDialog(false);
                 setPasswordData({

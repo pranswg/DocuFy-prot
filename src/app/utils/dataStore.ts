@@ -74,6 +74,9 @@ export interface Order {
     total: number;
   };
   orderSource?: 'online' | 'walkin';
+  customerType?: 'printing' | 'photocopy';
+  // Optional manual staff-entered total (overrides automatic pricing, e.g. walk-in photocopy).
+  manualTotal?: number;
   // Down payment fields
   downPaymentRequired?: boolean;
   downPaymentAmount?: number;

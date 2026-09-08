@@ -195,6 +195,15 @@ export default function Layout({
     };
   }, []);
 
+  // On mobile the page scrolls with the document (body) so the whole page
+  // scrolls as ONE continuous stream. SPA navigation keeps the window scroll
+  // position across pages, so reset to the top on every Layout mount (Layout is
+  // instantiated per-page). Desktop never scrolls the window (inner scroller),
+  // so this is a no-op there.
+  useEffect(() => {
+    if (isMobile) window.scrollTo(0, 0);
+  }, [isMobile]);
+
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
@@ -914,7 +923,11 @@ export default function Layout({
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] flex font-poppins overflow-hidden">
+    <div
+      className={`min-h-screen bg-[#f6f7f9] flex font-poppins ${
+        isMobile ? "overflow-x-hidden" : "overflow-hidden"
+      }`}
+    >
       {!isMobile && (
         <aside
           aria-label="Primary navigation"
@@ -927,8 +940,16 @@ export default function Layout({
       )}
 
       {/* ─── MAIN CONTENT ─── */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="min-h-16 bg-white border-b border-slate-200/80 px-4 sm:px-5 lg:px-6 py-2 flex items-center justify-between z-40 flex-shrink-0">
+      <div
+        className={`flex-1 flex flex-col min-w-0 ${
+          isMobile ? "" : "h-screen"
+        }`}
+      >
+        <header
+          className={`min-h-16 bg-white border-b border-slate-200/80 px-4 sm:px-5 lg:px-6 py-2 flex items-center justify-between z-40 ${
+            isMobile ? "sticky top-0" : "flex-shrink-0"
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {isMobile ? (
               <button
@@ -1127,7 +1148,11 @@ export default function Layout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f6f7f9]">
+        <main
+          className={`bg-[#f6f7f9] ${
+            isMobile ? "" : "flex-1 overflow-y-auto custom-scrollbar"
+          }`}
+        >
           <div className="p-4 sm:p-5 lg:p-6 max-w-[1440px] mx-auto w-full">
             {children}
           </div>
