@@ -26,6 +26,17 @@ import {
   ChevronRight,
   Minus,
   AlertTriangle,
+  Layers,
+  Palette,
+  Copy,
+  Printer,
+  ShoppingBag,
+  MoreHorizontal,
+  Plus,
+  Pencil,
+  CircleOff,
+  StickyNote,
+  Image,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -33,8 +44,6 @@ import { SummaryCard } from "../ui/summary-card";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -42,10 +51,14 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { dataStore, Order } from "../../utils/dataStore";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import { inventoryStore, InventoryItem } from "../../utils/inventoryStore";
+import { pricingStore } from "../../utils/pricingStore";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const TABS = ["Overview", "Sales", "Services"] as const;
@@ -495,8 +508,65 @@ function InventorySnapshot({ items, navigate, className = "", inventoryPath = "/
   );
 }
 
+// ─── Date Range Selector (Overview) ───────────────────────────────────────────
+interface DateRangeSelectorProps {
+  selectedLabel: string;
+  rangeId: string;
+  onSelect: (id: string) => void;
+  customStart: string;
+  customEnd: string;
+  onCustomStart: (v: string) => void;
+  onCustomEnd: (v: string) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}
+
+function DateRangeSelector({ selectedLabel, rangeId, onSelect, customStart, customEnd, onCustomStart, onCustomEnd, open, setOpen }: DateRangeSelectorProps) {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200/70 rounded-xl text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+      >
+        <Calendar className="w-4 h-4 text-[#2F6FD6]" />
+        <span>{selectedLabel}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1">
+            {DATE_RANGES.map((range) => (
+              <button
+                key={range.id}
+                onClick={() => { onSelect(range.id); if (range.id !== "custom") setOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${rangeId === range.id ? "bg-blue-50 text-[#2F6FD6] font-semibold" : "text-slate-700 hover:bg-slate-50"}`}
+              >
+                {range.label}
+              </button>
+            ))}
+            {rangeId === "custom" && (
+              <div className="px-4 py-3 border-t border-slate-100 space-y-2">
+                <div>
+                  <label className="text-[10px] font-medium text-slate-500 uppercase">From</label>
+                  <input type="date" value={customStart} onChange={(e) => onCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-500 uppercase">To</label>
+                  <input type="date" value={customEnd} onChange={(e) => onCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
+                </div>
+                <button onClick={() => setOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ metrics, navigate, items, role = "admin" }: { metrics: DashboardMetrics; navigate: ReturnType<typeof useNavigate>; items: InventoryItem[]; role?: "admin" | "staff" }) {
+function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }: { metrics: DashboardMetrics; navigate: ReturnType<typeof useNavigate>; items: InventoryItem[]; role?: "admin" | "staff"; dateSelector?: React.ReactNode }) {
   const {
     totalSales, totalOrders, walkInCount, activeCustomers,
     prevTotalSales, prevTotalOrders, prevWalkInCount, prevActiveCustomers,
@@ -518,6 +588,15 @@ function OverviewTab({ metrics, navigate, items, role = "admin" }: { metrics: Da
 
   return (
     <div className="space-y-5">
+      {/* Tab header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Overview</h2>
+          <p className="text-sm text-slate-500 mt-1">Monitor your sales, orders, and inventory performance for the selected period.</p>
+        </div>
+        {dateSelector}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <SummaryCard
@@ -834,92 +913,425 @@ function SalesTab({ metrics, navigate, onViewServices }: { metrics: DashboardMet
 }
 
 // ─── Services Tab ─────────────────────────────────────────────────────────────
-function ServicesTab({ metrics }: { metrics: DashboardMetrics }) {
-  const { serviceStats, totalOrders } = metrics;
-  const activeServices = serviceStats.filter((s) => s.count > 0);
-  const topService = activeServices.length > 0 ? activeServices[0] : null;
+const SERVICES_RANGES = [
+  { id: "this-month", label: "This Month" },
+  { id: "last-month", label: "Last Month" },
+  { id: "this-quarter", label: "This Quarter" },
+  { id: "this-year", label: "This Year" },
+  { id: "all-time", label: "All Time" },
+] as const;
+type ServicesRangeId = (typeof SERVICES_RANGES)[number]["id"];
+
+const DONUT_COLORS = ["#1D73EC", "#2F6FD6", "#7FB0F0", "#A8CBF5", "#D6E7FB"];
+
+function serviceIcon(name: string, className = "w-4 h-4") {
+  const n = name.toLowerCase();
+  if (n.includes("color") || n.includes("vellum")) return <Palette className={className} />;
+  if (n.includes("black")) return <FileText className={className} />;
+  if (n.includes("sticker")) return <StickyNote className={className} />;
+  if (n.includes("photo")) return <Image className={className} />;
+  if (n.includes("school")) return <ShoppingBag className={className} />;
+  if (n.includes("photocopy")) return <Copy className={className} />;
+  return <Printer className={className} />;
+}
+
+function StatusBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 whitespace-nowrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+      {label}
+    </span>
+  );
+}
+
+// Read-only service catalog reflecting the REAL pricing store (no invented CRUD).
+function buildServiceCatalog() {
+  const matrix = pricingStore.getMatrix();
+  const docText = matrix.document.text;
+  const bwPrice = docText.bw.a4;
+  const colorPrice = docText.full.a4;
+  const vellumPrice = matrix.vellum.full.a4;
+  const stickerPrice = matrix.sticker.full;
+  const photoPrice = matrix.photo["4R"].price;
+  return [
+    {
+      name: "Colored Printing",
+      description: "High-quality color printing for documents and images.",
+      priceLabel: `₱${colorPrice}.00 / page`,
+      icon: <Palette className="w-4 h-4" />,
+    },
+    {
+      name: "Black & White Printing",
+      description: "Standard black and white printing.",
+      priceLabel: `₱${bwPrice}.00 / page`,
+      icon: <FileText className="w-4 h-4" />,
+    },
+    {
+      name: "Vellum Printing",
+      description: "Vellum paper printing for image-only designs.",
+      priceLabel: `₱${vellumPrice}.00 / page`,
+      icon: <Layers className="w-4 h-4" />,
+    },
+    {
+      name: "Sticker Printing",
+      description: "A4 sticker paper printing per sheet.",
+      priceLabel: `₱${stickerPrice}.00 / sheet`,
+      icon: <StickyNote className="w-4 h-4" />,
+    },
+    {
+      name: "Photo Printing",
+      description: "Clear and crisp photo printing in multiple sizes.",
+      priceLabel: `₱${photoPrice}.00 / photo`,
+      icon: <Image className="w-4 h-4" />,
+    },
+  ];
+}
+
+function ServicesTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const [rangeId, setRangeId] = useState<ServicesRangeId>("this-month");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [orders, setOrders] = useState(dataStore.getOrders());
+
+  useEffect(() => {
+    const unsub = dataStore.subscribe(() => setOrders(dataStore.getOrders()));
+    return () => unsub();
+  }, []);
+
+  const range = useMemo(() => getDateRange(rangeId), [rangeId]);
+
+  // Service performance within the selected period (real derived order data).
+  const serviceStats = useMemo(() => {
+    const rangeOrders = ordersInRange(orders, range);
+    const map = new Map<string, { count: number; revenue: number }>();
+    for (const o of rangeOrders) {
+      if (o.status === "Canceled") continue;
+      const name = deriveService(o);
+      const prev = map.get(name) || { count: 0, revenue: 0 };
+      prev.count += 1;
+      prev.revenue += parseTotal(o);
+      map.set(name, prev);
+    }
+    return SERVICE_NAMES.map((n) => ({
+      name: n,
+      count: map.get(n)?.count || 0,
+      revenue: map.get(n)?.revenue || 0,
+    }))
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [orders, range]);
+
+  const totalOrders = serviceStats.reduce((s, x) => s + x.count, 0);
+  const totalRevenue = serviceStats.reduce((s, x) => s + x.revenue, 0);
+  const mostUsed = serviceStats.length > 0 ? serviceStats[0] : null;
+  const topRevenue =
+    serviceStats.length > 0
+      ? [...serviceStats].sort((a, b) => b.revenue - a.revenue)[0]
+      : null;
+  const donutData = serviceStats.map((s) => ({ name: s.name, value: s.revenue }));
+  const rangeLabel = SERVICES_RANGES.find((r) => r.id === rangeId)?.label || "This Month";
 
   return (
     <div className="space-y-5">
-      {/* Summary row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
-          <p className="text-xs font-medium text-slate-500">Most-Used Service</p>
-          <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
-          {topService && <span className="inline-block mt-2 text-[10px] font-semibold text-[#2F6FD6] bg-blue-50 px-2 py-0.5 rounded-full">{topService.count.toLocaleString()} orders</span>}
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2F6FD6] flex items-center justify-center">
+              <Layers className="w-5 h-5" />
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Services</h2>
+          </div>
+          <p className="text-sm text-slate-500 mt-1.5">Manage your services and track their performance.</p>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+          >
+            <Calendar className="w-4 h-4 text-[#2F6FD6]" />
+            <span>{rangeLabel}</span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+          </button>
+          {dropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1">
+                {SERVICES_RANGES.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => { setRangeId(r.id); setDropdownOpen(false); }}
+                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${rangeId === r.id ? "bg-blue-50 text-[#2F6FD6] font-semibold" : "text-slate-600 hover:bg-slate-50"}`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <SummaryCard
+          label="Total Services"
+          value={serviceStats.length}
+          icon={Layers}
+          subtitle="Active services"
+        />
+        <SummaryCard
+          label="Most Used Service"
+          value={mostUsed ? mostUsed.name : "—"}
+          icon={Printer}
+          subtitle={
+            mostUsed
+              ? `${totalOrders > 0 ? Math.round((mostUsed.count / totalOrders) * 100) : 0}% of total orders`
+              : "No orders yet"
+          }
+        />
+        <SummaryCard
+          label="Top Revenue Service"
+          value={topRevenue ? topRevenue.name : "—"}
+          icon={TrendingUp}
+          subtitle={topRevenue ? `${fmt(topRevenue.revenue)} revenue` : "No revenue yet"}
+        />
+        <SummaryCard
+          label="Inactive Services"
+          value={0}
+          icon={CircleOff}
+          iconBg="bg-slate-100"
+          iconColor="text-slate-500"
+          subtitle="Currently unavailable"
+        />
+      </div>
+
+      {/* Service Performance + Revenue by Service */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Service Performance */}
+        <Card className="lg:col-span-2 bg-white border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-800">Service Performance</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Overview of your services for the selected period.</p>
+            </div>
+          </div>
+          <div className="px-5 pb-3">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left">
+                    {["Service", "Orders", "Revenue", "Usage", "Status", "Actions"].map((h) => (
+                      <th key={h} className="py-2 pr-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {serviceStats.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <div className="flex flex-col items-center text-slate-500">
+                          <Printer className="w-9 h-9 mb-2 text-slate-300" />
+                          <p className="text-sm font-medium text-slate-500">No service activity in this period.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    serviceStats.map((s) => {
+                      const pct = totalOrders > 0 ? (s.count / totalOrders) * 100 : 0;
+                      return (
+                        <tr key={s.name} className="group hover:bg-slate-50/70">
+                          <td className="py-3 pr-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2F6FD6] flex items-center justify-center shrink-0">
+                                {serviceIcon(s.name)}
+                              </div>
+                              <span className="text-sm font-medium text-slate-700 truncate">{s.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-3 text-sm font-medium text-slate-700 whitespace-nowrap">{s.count}</td>
+                          <td className="py-3 pr-3 text-sm font-medium text-slate-700 whitespace-nowrap">{fmt(s.revenue)}</td>
+                          <td className="py-3 pr-3">
+                            <div className="flex items-center gap-2 min-w-[110px]">
+                              <div className="w-[70px] h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                                <div className="h-full bg-[#2F6FD6] rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-3 whitespace-nowrap">
+                            <StatusBadge label="Active" />
+                          </td>
+                          <td className="py-3 pr-1 text-right">
+                            <button
+                              onClick={() => navigate("/admin/pricing")}
+                              title={`Manage ${s.name} pricing`}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#2F6FD6] hover:bg-blue-50 transition-colors"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+            <p className="text-xs text-slate-500">Showing {serviceStats.length} services</p>
+            <button
+              onClick={() => navigate("/admin/pricing")}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#2F6FD6] hover:underline"
+            >
+              View detailed report <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </Card>
-        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl">
-          <p className="text-xs font-medium text-slate-500">Best-Selling Revenue</p>
-          <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{topService ? topService.name : "—"}</p>
-          {topService && <span className="inline-block mt-2 text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">{fmt(topService.revenue)}</span>}
-        </Card>
-        <Card className="p-4 sm:p-5 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-slate-200/70 rounded-xl col-span-2 justify-self-center w-full max-w-[calc(50%-0.375rem)] sm:col-span-1 sm:max-w-none flex flex-col items-center text-center">
-          <p className="text-xs font-medium text-slate-500">Total Orders</p>
-          <p className="text-xl sm:text-2xl font-semibold text-slate-900 mt-1.5 leading-tight">{totalOrders.toLocaleString()}</p>
-          <span className="inline-block mt-2 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">all services</span>
+
+        {/* Revenue by Service */}
+        <Card className="lg:col-span-1 bg-white border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] rounded-xl flex flex-col">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-800">Revenue by Service</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Contribution to total revenue.</p>
+            </div>
+          </div>
+          <div className="px-5 pb-4 flex-1 flex flex-col">
+            {totalRevenue === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 py-8">
+                <BarChart3 className="w-9 h-9 text-slate-300" />
+                <p className="text-sm font-medium text-slate-500 mt-2">No revenue data yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center">
+                  <div className="relative w-44 h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={donutData}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={58}
+                          outerRadius={82}
+                          paddingAngle={2}
+                          strokeWidth={0}
+                        >
+                          {donutData.map((_, i) => (
+                            <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number | string) => [fmt(Number(value) || 0), "Revenue"]}
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontSize: 12 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className="text-xl font-semibold text-slate-900">{fmt(totalRevenue)}</p>
+                      <p className="text-[11px] font-medium text-slate-500">Total Revenue</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 space-y-2.5">
+                  {serviceStats.map((s, i) => {
+                    const pct = totalRevenue > 0 ? (s.revenue / totalRevenue) * 100 : 0;
+                    return (
+                      <div key={s.name} className="flex items-center gap-3">
+                        <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-slate-600 truncate">{s.name}</span>
+                            <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">{fmt(s.revenue)}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{pct.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-auto pt-5 flex justify-end">
+                  <button
+                    onClick={() => navigate("/admin/pricing")}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#2F6FD6] hover:underline"
+                  >
+                    View detailed report <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </Card>
       </div>
 
-      {/* Service breakdown */}
-      <SectionCard title="Service Breakdown" subtitle="Orders and revenue per service type">
-        {activeServices.length === 0 ? (
-          <EmptyState icon={BarChart3} message="No service data yet" />
-        ) : (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Service</th>
-                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Orders</th>
-                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Revenue</th>
-                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 hidden sm:table-cell">% of Total</th>
+      {/* Manage Services */}
+      <Card className="bg-white border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] rounded-xl overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 pt-4 pb-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">Manage Services</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Add, edit, or update your services, pricing, and availability.</p>
+          </div>
+          <button
+            onClick={() => navigate("/admin/pricing")}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-white border-2 border-blue-200 text-sm font-semibold text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <Plus className="w-4 h-4" /> Add Service
+          </button>
+        </div>
+        <div className="px-5 pb-4 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left">
+                {["Service", "Description", "Price", "Status", "Actions"].map((h) => (
+                  <th key={h} className="py-2 pr-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {buildServiceCatalog().map((s) => (
+                <tr key={s.name} className="group hover:bg-slate-50/70">
+                  <td className="py-3 pr-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2F6FD6] flex items-center justify-center shrink-0">
+                        {s.icon}
+                      </div>
+                      <span className="text-sm font-medium text-slate-700 truncate">{s.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 pr-3 text-sm text-slate-500 max-w-[260px]">{s.description}</td>
+                  <td className="py-3 pr-3 text-sm font-medium text-slate-700 whitespace-nowrap">{s.priceLabel}</td>
+                  <td className="py-3 pr-3 whitespace-nowrap">
+                    <StatusBadge label="Active" />
+                  </td>
+                  <td className="py-3 pr-1">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => navigate("/admin/pricing")}
+                        title={`Edit ${s.name}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-[#2F6FD6] hover:text-[#2F6FD6] transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => navigate("/admin/pricing")}
+                        title="More options"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#2F6FD6] hover:bg-blue-50 transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {activeServices.map((svc, i) => {
-                  const totalRev = activeServices.reduce((s, x) => s + x.revenue, 0);
-                  const pct = totalRev > 0 ? (svc.revenue / totalRev) * 100 : 0;
-                  return (
-                    <tr key={svc.name} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 px-3 font-medium text-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center text-[10px] font-bold text-[#2F6FD6] shrink-0">{i + 1}</span>
-                          <span className="min-w-0">
-                            <span className="block truncate">{svc.name}</span>
-                            <span className="block sm:hidden w-16 h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
-                              <span className="block h-full bg-[#2F6FD6] rounded-full" style={{ width: `${pct}%` }} />
-                            </span>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-slate-600">{svc.count.toLocaleString()}</td>
-                      <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{fmt(svc.revenue)}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-500 hidden sm:table-cell">{pct.toFixed(1)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
-
-      {/* Service chart */}
-      {activeServices.length > 0 && (
-        <SectionCard title="Revenue by Service" subtitle="Visual comparison">
-          <div className="h-44 lg:h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activeServices} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-                <Tooltip formatter={(v: number) => [fmt(v), "Revenue"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
-                <Bar dataKey="revenue" fill="#2F6FD6" radius={[6, 6, 0, 0]} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </SectionCard>
-      )}
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -957,53 +1369,28 @@ export default function AdminDashboard({
 
   const selectedRangeLabel = DATE_RANGES.find((r) => r.id === dateRangeId)?.label || "This Month";
 
+  const overviewDateSelector = (
+    <DateRangeSelector
+      selectedLabel={selectedRangeLabel}
+      rangeId={dateRangeId}
+      onSelect={setDateRangeId}
+      customStart={customStart}
+      customEnd={customEnd}
+      onCustomStart={setCustomStart}
+      onCustomEnd={setCustomEnd}
+      open={dateDropdownOpen}
+      setOpen={setDateDropdownOpen}
+    />
+  );
+
   return (
     <Layout menuItems={menuItems} title={role === "admin" ? "Admin Dashboard" : "Staff Dashboard"}>
       <div className="space-y-5 pb-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
             <p className="text-sm text-slate-500 mt-1">Welcome back, {userName || "admin"}! Here's what's happening with Docufy today.</p>
-          </div>
-          <div className="relative">
-            <button
-              onClick={() => setDateDropdownOpen(!dateDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200/70 rounded-xl text-sm font-medium text-slate-700 hover:border-[#2F6FD6] transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-            >
-              <Calendar className="w-4 h-4 text-[#2F6FD6]" />
-              <span>{selectedRangeLabel}</span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${dateDropdownOpen ? "rotate-180" : ""}`} />
-            </button>
-            {dateDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setDateDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1">
-                  {DATE_RANGES.map((range) => (
-                    <button
-                      key={range.id}
-                      onClick={() => { setDateRangeId(range.id); if (range.id !== "custom") setDateDropdownOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${dateRangeId === range.id ? "bg-blue-50 text-[#2F6FD6] font-semibold" : "text-slate-700 hover:bg-slate-50"}`}
-                    >
-                      {range.label}
-                    </button>
-                  ))}
-                  {dateRangeId === "custom" && (
-                    <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-                      <div>
-                        <label className="text-[10px] font-medium text-slate-500 uppercase">From</label>
-                        <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-slate-500 uppercase">To</label>
-                        <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                      </div>
-                      <button onClick={() => setDateDropdownOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </div>
         </div>
 
@@ -1027,12 +1414,12 @@ export default function AdminDashboard({
         {/* Tab content */}
         {role === "admin" ? (
           <>
-            {activeTab === "Overview" && <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} />}
+            {activeTab === "Overview" && <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} dateSelector={overviewDateSelector} />}
             {activeTab === "Sales" && <SalesTab metrics={metrics} navigate={navigate} onViewServices={() => setActiveTab("Services")} />}
-            {activeTab === "Services" && <ServicesTab metrics={metrics} />}
+            {activeTab === "Services" && <ServicesTab navigate={navigate} />}
           </>
         ) : (
-          <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} role="staff" />
+          <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} role="staff" dateSelector={overviewDateSelector} />
         )}
       </div>
     </Layout>
