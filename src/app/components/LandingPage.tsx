@@ -25,6 +25,7 @@ import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingValues } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import { useAuth } from "../contexts/AuthContext";
+import ShopStatusBanner from "./shared/ShopStatusBanner";
 import {
   Dialog,
   DialogContent,
@@ -80,8 +81,8 @@ export default function LandingPage() {
       feature3: "Secure payment",
       feature3Sub: "verification.",
       bindingPrice: "20",
-      hoursMonFri: "8:00 AM - 6:00 PM",
-      hoursSat: "9:00 AM - 4:00 PM",
+      hoursMonFri: "9:00 AM - 6:00 PM",
+      hoursSat: "9:00 AM - 6:00 PM",
       hoursSun: "Closed",
       locationCampus: "Palawan State University - Main Campus",
       locationRoom: "Room 4, TBI Building",
@@ -109,6 +110,15 @@ export default function LandingPage() {
               : title;
             merged[`feature${n}Sub`] = sub;
           }
+        }
+        // Migrate saved shop hours that still carry the old defaults to the
+        // uniform customer-dashboard schedule (9 AM - 6 PM throughout).
+        const HOURS_MIGRATION: Record<string, [string, string]> = {
+          hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 6:00 PM"],
+          hoursSat: ["9:00 AM - 4:00 PM", "9:00 AM - 6:00 PM"],
+        };
+        for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
+          if (String(merged[key]) === oldVal) merged[key] = newVal;
         }
         return merged;
       } catch {
@@ -399,6 +409,10 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pt-4">
+        <ShopStatusBanner />
+      </div>
 
       {/* Hero Section */}
       <section
@@ -691,19 +705,19 @@ export default function LandingPage() {
                     <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Mon - Fri:
+                          Mon-Thurs:
                         </span>{" "}
                         {content.hoursMonFri}
                       </p>
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Sat:
+                          Fri-Sat:
                         </span>{" "}
                         {content.hoursSat}
                       </p>
                       <p>
                         <span className="font-semibold text-[#1D73EC]">
-                          Sun:
+                          Sunday:
                         </span>{" "}
                         {content.hoursSun}
                       </p>

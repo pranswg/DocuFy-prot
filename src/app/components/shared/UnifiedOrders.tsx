@@ -30,6 +30,7 @@ import {
   Lock,
   Unlock,
   UserCheck,
+  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -37,6 +38,7 @@ import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
 import { formatPHDate, formatPHTime, toPHT } from "../../utils/pht";
+import { shopStatusStore } from "../../utils/shopStatusStore";
 import { Card } from "../ui/card";
 import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
@@ -223,6 +225,15 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     | "canceled"
     | null
   >(null);
+  const [shopPaused, setShopPaused] = useState(() => !shopStatusStore.isOperational());
+  const [pauseOverride, setPauseOverride] = useState<{
+    newStatus: "printing";
+    order: OrderType;
+  } | null>(null);
+  useEffect(() => {
+    const unsub = shopStatusStore.subscribe(() => setShopPaused(!shopStatusStore.isOperational()));
+    return unsub;
+  }, []);
   const [statusFormData, setStatusFormData] = useState({
     estimatedTime: "",
     completionTime: "",
@@ -396,8 +407,17 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       | "released"
       | "canceled",
     order: OrderType | null = selectedOrder,
+    opts?: { bypassPause?: boolean },
   ) => {
     if (!order) return;
+
+    // SHOP-PAUSED GATE: while Docufy is paused, staff can still finish jobs
+    // already in the pipeline (print/completed/release), but STARTING a new
+    // print is on hold unless the staff explicitly overrides it.
+    if (shopPaused && newStatus === "printing" && !opts?.bypassPause) {
+      setPauseOverride({ newStatus, order });
+      return;
+    }
 
     // PAYMENT VERIFICATION LOGIC - System-wide restriction
     // Orders awaiting payment can only leave that state through the system:
@@ -862,6 +882,19 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     <Layout menuItems={menuItems} title="Orders" showBackButton>
       <StaffTimeInGate>
         <div className="flex flex-col space-y-6">
+        {/* Shop-paused banner */}
+        {shopPaused && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+            <WifiOff className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Docufy is currently paused</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                New customer orders are on hold. You can still finish and release jobs already printing, but starting new prints requires override.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
           <div className="flex items-center gap-3">
@@ -1956,6 +1989,23 @@ title={
           cancelLabel="Go Back"
           destructive={pendingStatus === "canceled"}
           requirePhrase={pendingStatus === "canceled"}
+        />
+      )}
+
+      {/* Shop-paused override: staff can start a new print manually */}
+      {pauseOverride && (
+        <ConfirmationDialog
+          open
+          onOpenChange={(o) => { if (!o) setPauseOverride(null); }}
+          onConfirm={() => {
+            const target = pauseOverride;
+            setPauseOverride(null);
+            handleUpdateStatus(target.newStatus, target.order, { bypassPause: true });
+          }}
+          title="Start Printing While Paused?"
+          description="Docufy is currently paused, so new orders are on hold. You can still manually start this print job — the status form will open right after you confirm."
+          confirmLabel="Start Printing Anyway"
+          cancelLabel="Go Back"
         />
       )}
 

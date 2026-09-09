@@ -28,6 +28,7 @@ import {
 } from "../ui/dialog";
 import { shopPhotosStore, type ShopPhoto } from "../../utils/shopPhotosStore";
 import { dataStore, Order } from "../../utils/dataStore";
+import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   announcementsStore,
@@ -201,6 +202,8 @@ export default function CustomerDashboard() {
   return (
     <Layout menuItems={menuItems} title="Dashboard">
       <div className="space-y-4 sm:space-y-5 pb-6 sm:pb-8 max-w-7xl mx-auto">
+
+        <ShopStatusBanner />
 
         {/* Welcome */}
         <div>

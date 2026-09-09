@@ -38,6 +38,7 @@ import {
 import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
 import { dataStore } from "../../utils/dataStore";
+import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore, formatPrice, type PricingValues } from "../../utils/pricingStore";
 
@@ -202,6 +203,8 @@ export default function OrderTracking() {
       hideMobileBackButton
     >
       <div className="max-w-4xl mx-auto space-y-4">
+        <ShopStatusBanner />
+
         {/* Mobile back button (under the header) */}
         <button
           type="button"

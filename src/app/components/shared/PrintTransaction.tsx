@@ -88,6 +88,7 @@ import {
 import PaymentMethodQRPanel from "./PaymentMethodQR";
 import { CashOnPickupAcknowledgement } from "./CashOnPickupAcknowledgement";
 import LegalPolicyDialog from "./LegalPolicyDialog";
+import { shopStatusStore } from "../../utils/shopStatusStore";
 
 const ALLOWED_FILE_TYPES = {
   "application/pdf": ".pdf",
@@ -431,6 +432,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
   const downPaymentThreshold = pricing.downPaymentThreshold;
   const fullPaymentThreshold = pricing.fullPaymentThreshold;
+
+  const [shopPaused, setShopPaused] = useState(() => !shopStatusStore.isOperational());
+  useEffect(() => {
+    const unsub = shopStatusStore.subscribe(() => setShopPaused(!shopStatusStore.isOperational()));
+    return unsub;
+  }, []);
 
   // Classify the upfront-payment requirement for a given order total.
   //   none  → below the down-payment threshold (no upfront payment)
@@ -3129,10 +3136,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               </button>
             </div>
             {/* Bottom row: Proceed to In Queue */}
+            {shopPaused && (
+              <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
+                Docufy is currently paused — new orders are on hold until the shop reopens.
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setShowProceedConfirm(true)}
-              disabled={isPhotocopy ? false : files.length === 0}
+              disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
               className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
             >
               Proceed to In Queue
@@ -3155,6 +3167,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           >
             {currentStep === 1 ? "Cancel" : "Back"}
           </Button>
+
+          {shopPaused && !isWalkin && (
+            <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 sm:w-auto">
+              Docufy is currently paused — new orders are on hold until the shop reopens.
+            </div>
+          )}
 
           <div className="flex flex-col w-full sm:flex-row gap-2 sm:gap-3 sm:w-auto">
             {currentStep < 4 ? (
@@ -3203,7 +3221,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       setShowPlaceOrderConfirm(true);
                     }
                   }}
-                  disabled={isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged)}
+                  disabled={shopPaused || (isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged))}
                 >
                   {isWalkin ? "Proceed to In Queue" : isOnline ? "Go to Payment Verification" : "Place Order"}
                 </Button>

@@ -14,6 +14,7 @@
 import { dataStore, type Order } from './dataStore';
 import { notificationStore } from './notificationStore';
 import { formatPHDateTime } from './pht';
+import { shopStatusStore } from './shopStatusStore';
 
 export const PAYMENT_DEADLINE_EXPIRED_REASON = 'Payment Deadline Expired';
 
@@ -32,6 +33,9 @@ export function isOrderExpired(order: Order, now: Date = new Date()): boolean {
 
 // Cancel every expired awaiting-payment order. Dedup via clearing the deadline.
 export function expireOverdueOrders(): void {
+  // While the shop is paused, deadlines are frozen — no auto-cancellations.
+  if (!shopStatusStore.isOperational()) return;
+
   const now = new Date();
 
   for (const order of dataStore.getOrders()) {

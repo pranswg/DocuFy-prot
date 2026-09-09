@@ -88,8 +88,8 @@ export default function ContentManagement() {
         feature3: "Secure payment",
         feature3Sub: "verification.",
         bindingPrice: "20",
-        hoursMonFri: "8:00 AM - 6:00 PM",
-        hoursSat: "9:00 AM - 4:00 PM",
+        hoursMonFri: "9:00 AM - 6:00 PM",
+        hoursSat: "9:00 AM - 6:00 PM",
         hoursSun: "Closed",
         locationCampus:
           "Palawan State University - Main Campus",
@@ -115,6 +115,15 @@ export default function ContentManagement() {
                 : title;
               merged[`feature${n}Sub`] = sub;
             }
+          }
+          // Migrate saved shop hours that still carry the old defaults to the
+          // uniform customer-dashboard schedule (9 AM - 6 PM throughout).
+          const HOURS_MIGRATION: Record<string, [string, string]> = {
+            hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 6:00 PM"],
+            hoursSat: ["9:00 AM - 4:00 PM", "9:00 AM - 6:00 PM"],
+          };
+          for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
+            if (String(merged[key]) === oldVal) merged[key] = newVal;
           }
           return merged;
         } catch {
@@ -388,7 +397,7 @@ export default function ContentManagement() {
                         htmlFor="hoursMonFri"
                         className="text-sm text-gray-600"
                       >
-                        Monday - Friday
+                        Monday - Thursday
                       </Label>
                       <Input
                         id="hoursMonFri"
@@ -399,7 +408,7 @@ export default function ContentManagement() {
                             hoursMonFri: e.target.value,
                           })
                         }
-                        placeholder="8:00 AM - 6:00 PM"
+                        placeholder="9:00 AM - 6:00 PM"
                       />
                     </div>
                     <div>
@@ -407,7 +416,7 @@ export default function ContentManagement() {
                         htmlFor="hoursSat"
                         className="text-sm text-gray-600"
                       >
-                        Saturday
+                        Friday - Saturday
                       </Label>
                       <Input
                         id="hoursSat"
@@ -418,7 +427,7 @@ export default function ContentManagement() {
                             hoursSat: e.target.value,
                           })
                         }
-                        placeholder="9:00 AM - 4:00 PM"
+                        placeholder="9:00 AM - 6:00 PM"
                       />
                     </div>
                     <div>
@@ -692,11 +701,11 @@ export default function ContentManagement() {
                   </p>
                   <div className="space-y-1 text-sm">
                     <p>
-                      <strong>Mon-Fri:</strong>{" "}
+                      <strong>Mon-Thurs:</strong>{" "}
                       {landingContent.hoursMonFri}
                     </p>
                     <p>
-                      <strong>Saturday:</strong>{" "}
+                      <strong>Fri-Sat:</strong>{" "}
                       {landingContent.hoursSat}
                     </p>
                     <p>

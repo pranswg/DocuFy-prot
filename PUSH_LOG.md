@@ -502,3 +502,17 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Simplified staff attendance to one Time In and one Time Out per day: dropped the Morning/Afternoon session split across the timesheet, the time-in lockout gate, and the admin Attendance & Staff Monitoring view, so one continuous shift covers both AM and PM (legacy records auto-migrate).
 - Implemented exceeded extra clock-ins: staff can still clock in after their day is complete - a confirmation prompt explains the day is already done and the new clock-in is logged with an amber 'Exceeded' badge in the staff Personal Time Logs, the timesheet status, and the admin attendance table (extra hours count toward total and overtime).
 - Landing page header shows the profile when logged in: the header swaps its Log In button for a compact profile chip (avatar, name, and role caption) that opens the user's profile page; visitors still see Log In.
+
+---
+
+## September 9, 2026 4:35 PM (PHT) - prans
+- Implemented Shop Status / Outage Toggle (manual, Phase A): staff/admin can mark Docufy as Paused, Open, or Closed (Scheduled) from the Dashboard, with customer-facing notice, queue hold, and payment-deadline freeze — no automated ping for now (deferred).
+- Added Shop Status card to the Admin and Staff Dashboard: Mark Open / Mark Paused (reason required, optional ETA) / Mark Closed (Scheduled), with a current-status badge, reason/ETA, and who-updated-when; state persists in localStorage (docufy_shop_status_v1).
+- Added a customer-facing status banner under the header on the Landing Page, Customer Dashboard, My Orders, and Order Tracking — amber "paused" with reason + ETA, gray on scheduled close.
+- Gated new orders while paused: checkout disables the customer Place Order / Go to Payment Verification and the walk-in Proceed to In Queue buttons with an inline amber notice.
+- Paused the queue flow: the Orders page shows a "Docufy is currently paused" banner; starting a new print (Start Printing button or the Start Here tag) is blocked unless staff overrides with a "Start Printing While Paused?" confirmation; finishing and releasing already-running jobs stays available.
+- Froze payment deadlines while paused: awaiting-payment orders are no longer auto-canceled as expired during an outage and resume normally when the shop reopens.
+- Added shop-status notifications: pausing alerts staff/admin and, individually, every customer with an active order (order is safe and on hold); reopening sends "Docufy is Open Again".
+- Fixed Shop Status button hover legibility: Paused and Closed buttons now fill solid on hover (amber/slate with white text) instead of leaving white text on a light tint.
+- Restyled Admin Job Board cards to match the customer Job Board: blue icon tile, larger bold titles, inline type/department/posted meta, applicant-count + duration footer, and a roomier gray description area.
+- Updated shop operating hours to 9 AM - 6 PM (Mon-Sat, closed Sunday) across the customer-facing content defaults and the admin Content Management (saved records auto-migrate).

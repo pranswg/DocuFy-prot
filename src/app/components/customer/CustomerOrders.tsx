@@ -19,6 +19,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { dataStore, type Order } from "../../utils/dataStore";
 import { useAuth } from "../../contexts/AuthContext";
+import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
 
@@ -95,6 +96,8 @@ export default function CustomerOrders() {
   return (
     <Layout menuItems={menuItems} title="My Orders" showBackButton hideMobileBackButton>
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
+
+        <ShopStatusBanner />
 
         {/* ── Top Action Bar ─────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 md:justify-end mb-3">
