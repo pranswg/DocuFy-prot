@@ -109,13 +109,13 @@ export default function OrderPaymentSummary({
   const method = order.paymentMethod;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="overflow-hidden">
       <div className="grid grid-cols-2 gap-px bg-gray-100">
         <div className="bg-white p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Order Total
           </p>
-          <p className="text-lg font-bold text-[#2F6FD6]">
+          <p className="text-base font-bold text-[#2F6FD6]">
             {formatCurrency(summary.total)}
           </p>
         </div>
@@ -124,7 +124,7 @@ export default function OrderPaymentSummary({
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Amount Paid
           </p>
-          <p className="text-lg font-bold text-[#1c1f26]">
+          <p className="text-base font-semibold text-[#1c1f26]">
             {formatCurrency(summary.amountPaid)}
           </p>
         </div>
@@ -133,7 +133,7 @@ export default function OrderPaymentSummary({
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Remaining Balance
           </p>
-          <p className="text-lg font-bold text-[#1c1f26]">
+          <p className="text-base font-semibold text-[#1c1f26]">
             {formatCurrency(summary.remaining)}
           </p>
         </div>

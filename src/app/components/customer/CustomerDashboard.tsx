@@ -28,6 +28,7 @@ import {
 } from "../ui/dialog";
 import { shopPhotosStore, type ShopPhoto } from "../../utils/shopPhotosStore";
 import { dataStore, Order } from "../../utils/dataStore";
+import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   announcementsStore,
@@ -202,6 +203,8 @@ export default function CustomerDashboard() {
     <Layout menuItems={menuItems} title="Dashboard">
       <div className="space-y-4 sm:space-y-5 pb-6 sm:pb-8 max-w-7xl mx-auto">
 
+        <ShopStatusBanner />
+
         {/* Welcome */}
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -287,6 +290,7 @@ export default function CustomerDashboard() {
               label: "In Progress",
               value: inProgressCount,
               description: "Currently being processed",
+              descriptionMobile: "Processing",
               icon: Clock,
               color: "text-amber-600",
               bg: "bg-amber-50",
@@ -295,6 +299,7 @@ export default function CustomerDashboard() {
               label: "Ready for Pickup",
               value: readyCount,
               description: "Ready to be collected",
+              descriptionMobile: "For claiming",
               icon: Package,
               color: "text-emerald-600",
               bg: "bg-emerald-50",
@@ -305,19 +310,33 @@ export default function CustomerDashboard() {
               onClick={() => navigate("/customer/orders")}
               className="p-3 sm:p-5 cursor-pointer border border-gray-100 bg-white hover:border-gray-200 hover:shadow-md transition-all group"
             >
-              <div className="flex items-center gap-2 sm:gap-3">
+              {/* Mobile: number on the right, text at the bottom */}
+              <div className="sm:hidden flex items-center justify-between gap-2">
                 <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${card.bg} flex items-center justify-center flex-shrink-0`}
+                  className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center flex-shrink-0`}
                 >
-                  <card.icon
-                    className={`w-4 h-4 sm:w-5 sm:h-5 ${card.color}`}
-                  />
+                  <card.icon className={`w-4 h-4 ${card.color}`} />
+                </div>
+                <p className="text-3xl font-bold text-gray-900 leading-none">
+                  {card.value}
+                </p>
+              </div>
+              <p className="sm:hidden text-[10px] text-gray-500 mt-1.5 leading-tight">
+                {card.descriptionMobile ?? card.description}
+              </p>
+
+              {/* Desktop: icon left, value + description stacked */}
+              <div className="hidden sm:flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center flex-shrink-0`}
+                >
+                  <card.icon className={`w-5 h-5 ${card.color}`} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-2xl font-bold text-gray-900 leading-none">
+                  <p className="text-2xl font-bold text-gray-900 leading-none">
                     {card.value}
                   </p>
-                  <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 truncate">
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">
                     {card.description}
                   </p>
                 </div>
@@ -331,7 +350,7 @@ export default function CustomerDashboard() {
 
           {/* Current Order */}
           <div className="lg:col-span-2">
-            <Card className="border border-gray-200 bg-white h-full flex flex-col gap-0">
+            <Card className="border border-gray-300 sm:border-gray-200 bg-white h-full flex flex-col gap-0">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-300">
                 <h2 className="text-base sm:text-lg font-bold text-gray-900">
                   Current Order
@@ -460,7 +479,7 @@ export default function CustomerDashboard() {
 
           {/* Recent Orders */}
           <div className="lg:col-span-1">
-            <Card className="border border-gray-200 bg-white h-full flex flex-col gap-0">
+            <Card className="border border-gray-300 sm:border-gray-200 bg-white h-full flex flex-col gap-0">
               <div className="px-4 sm:px-5 py-4 border-b border-gray-300 flex items-center justify-between">
                 <h2 className="text-base sm:text-lg font-bold text-gray-900">
                   Recent Orders
@@ -501,7 +520,7 @@ export default function CustomerDashboard() {
                           }
                           className={`w-full text-left px-4 sm:px-5 py-3.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3 ${
                             idx < recentOrders.length - 1
-                              ? "border-b border-gray-200"
+                              ? "border-b border-gray-300 sm:border-gray-200"
                               : ""
                           }`}
                         >
@@ -547,7 +566,7 @@ export default function CustomerDashboard() {
                           }
                           className={`w-full text-left px-4 py-3.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3 ${
                             idx < recentOrders.length - 1
-                              ? "border-b border-gray-200"
+                              ? "border-b border-gray-300 sm:border-gray-200"
                               : ""
                           }`}
                         >

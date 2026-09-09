@@ -59,6 +59,7 @@ import { dataStore, Order } from "../../utils/dataStore";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import { inventoryStore, InventoryItem } from "../../utils/inventoryStore";
 import { pricingStore } from "../../utils/pricingStore";
+import ShopStatusControl from "../shared/ShopStatusControl";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const TABS = ["Overview", "Sales", "Services"] as const;
@@ -624,6 +625,9 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
           subtitle={<TrendText trend={customerTrendPct} label="vs previous period" />}
         />
       </div>
+
+      {/* Shop Status Control */}
+      <ShopStatusControl />
 
       {/* Recent Transactions + Sales Trend */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">

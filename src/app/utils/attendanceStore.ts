@@ -1,4 +1,8 @@
-// ── Attendance management system — Morning / Afternoon session model ────────
+// ── Attendance management system — single daily session model ──────────────
+// One Time In and one Time Out per day (covers the whole shift — there is no
+// separate Morning/Afternoon split anymore). Staff can still clock back in
+// AFTER the day is complete; that extra clock-in is flagged `exceeded` and is
+// surfaced as "Exceeded" in the staff timesheet and admin monitoring logs.
 import { internetUtcMs, toPHT, formatPHTime } from "./pht";
 
 export type SessionRecord = {
@@ -12,19 +16,23 @@ export type DailyAttendanceRecord = {
   userName: string;
   role: 'admin' | 'staff';
   date: string; // YYYY-MM-DD
-  morning: SessionRecord;
-  afternoon: SessionRecord;
+  timeIn?: Date;                      // the day's single primary clock-in
+  timeOut?: Date;                     // the day's single primary clock-out
+  exceeded?: boolean;                 // staff clocked back in after the day was complete
+  extraSessions: SessionRecord[];     // post-complete extra clock-ins (the "exceeded" ones)
+  // Legacy v1 shape (Morning/Afternoon split) — migrated to the single fields
+  // on restore, then cleared. Never written for new records.
+  morning?: SessionRecord;
+  afternoon?: SessionRecord;
 };
 
-// Determines which action the user should perform next
+// Determines which action the user should perform next.
 export type NextAction =
-  | 'morning-time-in'    // No morning session started yet
-  | 'morning-time-out'   // Morning started but not ended
-  | 'afternoon-time-in'  // Morning complete; afternoon not started
-  | 'afternoon-time-out' // Afternoon started but not ended
-  | 'complete';          // Both sessions fully recorded for today
+  | 'time-in'    // No active session today
+  | 'time-out'   // A session is currently open (running timer)
+  | 'complete';  // Day fully recorded (time-in + time-out, nothing active)
 
-// Backward-compat shapes kept for NewPrintRequest.tsx
+// Backward-compat shapes kept for any legacy consumers.
 export type AttendanceLog = {
   id: string;
   userId: string;
@@ -75,17 +83,22 @@ export const nowPHT = (): Date => toPHT(new Date(internetUtcMs()));
 // Philippines date key (YYYY-MM-DD) for the current moment.
 export const todayPHTKey = (): string => toDateKey(nowPHT());
 
-// Current session period (Morning/Afternoon) derived from the PHT clock.
-export const getCurrentPeriod = (): 'morning' | 'afternoon' =>
-  nowPHT().getHours() < 12 ? 'morning' : 'afternoon';
-
 // Format a UTC instant as a PHT HH:MM (or HH:MM:SS with includeSeconds).
 // Timezone-independent: resolved via Intl Asia/Manila.
 export const formatPHT = (d: Date | undefined | null, includeSeconds = false): string => {
   if (!d || Number.isNaN(d.getTime())) return '—';
-  const t = formatPHTime(d, { hour12: false, includeSeconds });
-  return t;
+  return formatPHTime(d, { hour12: false, includeSeconds });
 };
+
+// True while a session (the main one or an extra) is currently open.
+export const hasActiveSession = (record?: DailyAttendanceRecord): boolean => {
+  if (!record) return false;
+  if (record.timeIn && !record.timeOut) return true;
+  return !!record.extraSessions?.some(s => s.timeIn && !s.timeOut);
+};
+
+// True when a day was marked as exceeded (staff clocked back in after it was complete).
+export const isExceeded = (record?: DailyAttendanceRecord): boolean => !!record?.exceeded;
 
 // ── Timesheet analytics — constants & pure helpers ─────────────────────────
 export const STANDARD_DAILY_HOURS = 8;
@@ -100,19 +113,22 @@ export const getWeekStartKey = (d: Date = nowPHT()): string => {
   return toDateKey(monday);
 };
 
-// Elapsed ms across a record's sessions; an active (not-yet-clocked-out)
-// session counts up to `until` so live totals keep ticking during a shift.
+// Elapsed ms across a record's sessions (main + any extra); an active (not yet
+// clocked-out) session counts up to `until` so live totals keep ticking.
 export const sessionTotalMs = (record: DailyAttendanceRecord, until: Date = new Date()): number => {
-  const acc = (s: SessionRecord): number =>
-    s.timeIn ? Math.max(0, (s.timeOut ?? until).getTime() - s.timeIn.getTime()) : 0;
-  return acc(record.morning) + acc(record.afternoon);
+  let total = 0;
+  if (record.timeIn) {
+    total += Math.max(0, (record.timeOut ?? until).getTime() - record.timeIn.getTime());
+  }
+  for (const s of record.extraSessions ?? []) {
+    if (s.timeIn) total += Math.max(0, (s.timeOut ?? until).getTime() - s.timeIn.getTime());
+  }
+  return total;
 };
 
-// Gap between the Morning time-out and the Afternoon time-in (lunch/break).
-export const sessionBreakMs = (record: DailyAttendanceRecord): number => {
-  if (!record.morning.timeIn || !record.morning.timeOut || !record.afternoon.timeIn) return 0;
-  return Math.max(0, record.afternoon.timeIn.getTime() - record.morning.timeOut.getTime());
-};
+// The single-session model has no Morning/Afternoon gap, so breaks aren't
+// derived from the sessions anymore. Kept as a 0 stub for any legacy consumers.
+export const sessionBreakMs = (record: DailyAttendanceRecord): number => 0;
 
 // Overtime ms beyond a standard window (defaults: 8h/day, 40h/week).
 export const overtimeMs = (totalMs: number, standardHours: number = STANDARD_DAILY_HOURS): number =>
@@ -131,9 +147,15 @@ type AbsenceEntry = {
 };
 
 type StoredSession = { timeIn?: string; timeOut?: string };
-type StoredRecord = Omit<DailyAttendanceRecord, 'morning' | 'afternoon'> & {
-  morning: StoredSession;
-  afternoon: StoredSession;
+type StoredRecord = Omit<
+  DailyAttendanceRecord,
+  'timeIn' | 'timeOut' | 'extraSessions' | 'morning' | 'afternoon'
+> & {
+  timeIn?: string;
+  timeOut?: string;
+  extraSessions?: StoredSession[];
+  morning?: StoredSession;
+  afternoon?: StoredSession;
 };
 
 class AttendanceStore {
@@ -148,21 +170,38 @@ class AttendanceStore {
 
   // ── Persistence (demo: per-browser localStorage) ──────────────────────
   private serialize(): StoredRecord[] {
-    const toStored = (s: SessionRecord): StoredSession => ({
-      timeIn: s.timeIn?.toISOString(),
-      timeOut: s.timeOut?.toISOString(),
+    const toStored = (s?: SessionRecord): StoredSession | undefined =>
+      s?.timeIn || s?.timeOut
+        ? {
+            timeIn: s.timeIn?.toISOString(),
+            timeOut: s.timeOut?.toISOString(),
+          }
+        : undefined;
+    return this.records.map((r) => {
+      const { morning, afternoon, ...rest } = r;
+      void morning;
+      void afternoon;
+      return {
+        ...rest,
+        timeIn: r.timeIn?.toISOString(),
+        timeOut: r.timeOut?.toISOString(),
+        extraSessions: (r.extraSessions ?? [])
+          .map(toStored)
+          .filter((s): s is StoredSession => !!s),
+      };
     });
-    return this.records.map((r) => ({
-      ...r,
-      morning: toStored(r.morning),
-      afternoon: toStored(r.afternoon),
-    }));
   }
 
-  private parseStored(s: StoredSession): SessionRecord {
+  private parseStored(iso?: string): Date | undefined {
+    if (!iso) return undefined;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+
+  private parseSession(s?: StoredSession): SessionRecord {
     return {
-      timeIn: s.timeIn ? new Date(s.timeIn) : undefined,
-      timeOut: s.timeOut ? new Date(s.timeOut) : undefined,
+      timeIn: this.parseStored(s?.timeIn),
+      timeOut: this.parseStored(s?.timeOut),
     };
   }
 
@@ -179,11 +218,20 @@ class AttendanceStore {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as StoredRecord[];
-      this.records = parsed.map((r) => ({
-        ...r,
-        morning: this.parseStored(r.morning),
-        afternoon: this.parseStored(r.afternoon),
-      }));
+      this.records = parsed.map((r): DailyAttendanceRecord => {
+        const timeIn = this.parseStored(r.timeIn) ?? this.parseStored(r.morning?.timeIn) ?? this.parseStored(r.afternoon?.timeIn);
+        const timeOut = this.parseStored(r.timeOut) ?? this.parseStored(r.afternoon?.timeOut) ?? this.parseStored(r.morning?.timeOut);
+        const { morning, afternoon, ...rest } = r;
+        void morning;
+        void afternoon;
+        return {
+          ...rest,
+          timeIn,
+          timeOut,
+          exceeded: r.exceeded === true,
+          extraSessions: (r.extraSessions ?? []).map(s => this.parseSession(s)),
+        };
+      });
     } catch {
       this.records = [];
     }
@@ -239,8 +287,7 @@ class AttendanceStore {
         userName,
         role,
         date: today,
-        morning: {},
-        afternoon: {},
+        extraSessions: [],
       };
       this.records.push(record);
     }
@@ -248,72 +295,56 @@ class AttendanceStore {
   }
 
   // ── Determine next action for user ────────────────────────────────────
-  // Period-aware: the current PHT AM/PM dictates which session is in play.
-  // In the Morning you can only act on `morning`; in the Afternoon only on
-  // `afternoon`. 'complete' here means the CURRENT period's session is done.
   getNextAction(userId: string): NextAction {
     const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
-    const period = getCurrentPeriod();
-    const session = record?.[period];
-
-    if (!session || !session.timeIn) {
-      return period === 'morning' ? 'morning-time-in' : 'afternoon-time-in';
-    }
-    if (!session.timeOut) {
-      return period === 'morning' ? 'morning-time-out' : 'afternoon-time-out';
-    }
+    if (!record || !record.timeIn) return 'time-in';
+    if (hasActiveSession(record)) return 'time-out';
     return 'complete';
   }
 
-  // ── Time In (period-aware — AM = Morning, PM = Afternoon) ─────────────
+  // ── Time In ───────────────────────────────────────────────────────────
+  // First call records the day's primary clock-in. If the day is already
+  // complete (time-in + time-out), a further clock-in is still allowed — it
+  // opens an extra session, sets the `exceeded` flag, and is surfaced as
+  // "Exceeded" in the staff/admin logs.
   timeIn(userId: string, userName: string, role: 'admin' | 'staff'): DailyAttendanceRecord {
     const record = this.getOrCreateTodayRecord(userId, userName, role);
     const now = new Date();
-    const period = getCurrentPeriod();
 
-    const target = record[period];
-    if (!target.timeIn) {
-      target.timeIn = now;
-    } else if (!target.timeOut) {
-      throw new Error(
-        period === 'morning'
-          ? 'You are still in your Morning session. Please Time Out first.'
-          : 'You are still in your Afternoon session. Please Time Out first.',
-      );
-    } else {
-      throw new Error(
-        period === 'morning'
-          ? 'Your Morning session is already complete. Afternoon Time In opens in the PM.'
-          : 'Your Afternoon session is already complete for today.',
-      );
+    if (!record.timeIn) {
+      record.timeIn = now;
+      this.notify();
+      return record;
     }
-
+    if (hasActiveSession(record)) {
+      throw new Error('You are already clocked in. Please Time Out first.');
+    }
+    // Day's record is complete — allow the extra clock-in, flagged as exceeded.
+    record.exceeded = true;
+    record.extraSessions.push({ timeIn: now });
     this.notify();
     return record;
   }
 
-  // ── Time Out (period-aware — always closes the current AM/PM session) ─
+  // ── Time Out ──────────────────────────────────────────────────────────
+  // Closes whichever session is currently open (primary or an extra one).
   timeOut(userId: string): DailyAttendanceRecord {
     const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
 
-    if (!record) {
+    if (!record || !record.timeIn) {
       throw new Error('No attendance record found for today. Please Time In first.');
     }
-
-    const now = new Date();
-    const period = getCurrentPeriod();
-    const session = record[period];
-
-    if (session.timeIn && !session.timeOut) {
-      session.timeOut = now;
+    if (hasActiveSession(record)) {
+      if (record.timeIn && !record.timeOut) {
+        record.timeOut = new Date();
+      } else {
+        const extra = record.extraSessions.find(s => s.timeIn && !s.timeOut);
+        if (extra) extra.timeOut = new Date();
+      }
     } else {
-      throw new Error(
-        period === 'morning'
-          ? 'No active Morning session to Time Out from.'
-          : 'No active Afternoon session to Time Out from.',
-      );
+      throw new Error('No active session to Time Out from.');
     }
 
     this.notify();
@@ -352,14 +383,14 @@ class AttendanceStore {
   }
 
   // ── Manual adjustment (admin monitoring) ──────────────────────────────
-  // Sets (or clears, value = null) a session timestamp. Creates the record
-  // on first use so an admin can back-fill a day from the monitoring table.
-  upsertSession(
+  // Sets (or clears, value = null) the primary time-in/time-out. Creates the
+  // record on first use so an admin can back-fill a day from the monitoring
+  // table. Clearing the time-in wipes the day's session (incl. extras/signals).
+  upsertTime(
     userId: string,
     userName: string,
     role: 'admin' | 'staff',
     date: string,
-    session: 'morning' | 'afternoon',
     field: 'timeIn' | 'timeOut',
     value: Date | null,
   ): DailyAttendanceRecord {
@@ -371,21 +402,23 @@ class AttendanceStore {
         userName,
         role,
         date,
-        morning: {},
-        afternoon: {},
+        extraSessions: [],
       };
       this.records.push(record);
     }
 
-    const target = record[session];
     if (field === 'timeIn') {
-      target.timeIn = value ?? undefined;
-      if (!value) target.timeOut = undefined;
-    } else {
-      if (!target.timeIn && value) {
-        throw new Error('Set the session Time In before adjusting Time Out.');
+      record.timeIn = value ?? undefined;
+      if (!value) {
+        record.timeOut = undefined;
+        record.exceeded = false;
+        record.extraSessions = [];
       }
-      target.timeOut = value ?? undefined;
+    } else {
+      if (!record.timeIn && value) {
+        throw new Error('Set the Time In before adjusting Time Out.');
+      }
+      record.timeOut = value ?? undefined;
     }
 
     this.notify();
@@ -410,45 +443,36 @@ class AttendanceStore {
 
   // ── Check if a specific user is currently clocked in ─────────────────
   isUserAvailable(userId: string): boolean {
-    return this.getNextAction(userId) === 'morning-time-out'
-        || this.getNextAction(userId) === 'afternoon-time-out';
+    return this.getNextAction(userId) === 'time-out';
   }
 
   // ── Check if any user in a role is currently clocked in ──────────────
   isRoleAvailable(role: 'admin' | 'staff'): boolean {
     const today = toDateKey(nowPHT());
-    return this.records.some(r => {
-      if (r.role !== role || r.date !== today) return false;
-      const morningActive   = !!r.morning.timeIn   && !r.morning.timeOut;
-      const afternoonActive = !!r.afternoon.timeIn && !r.afternoon.timeOut;
-      return morningActive || afternoonActive;
-    });
+    return this.records.some(r => r.role === role && r.date === today && hasActiveSession(r));
   }
 
-  // ── Backward-compat: availability for NewPrintRequest.tsx ────────────
+  // ── Backward-compat: availability for legacy consumers ────────────────
   getAvailability(): { admin: UserAvailability; staff: UserAvailability } {
     const buildAvailability = (role: 'admin' | 'staff'): UserAvailability => {
       const today = toDateKey(nowPHT());
-      const activeRecord = this.records.find(r => {
-        if (r.role !== role || r.date !== today) return false;
-        const morningActive   = !!r.morning.timeIn   && !r.morning.timeOut;
-        const afternoonActive = !!r.afternoon.timeIn && !r.afternoon.timeOut;
-        return morningActive || afternoonActive;
-      });
-
+      const activeRecord = this.records.find(
+        r => r.role === role && r.date === today && hasActiveSession(r),
+      );
       if (!activeRecord) return { isTimedIn: false };
 
-      // Find active session's timeIn
-      const activeTimeIn = !activeRecord.morning.timeOut && activeRecord.morning.timeIn
-        ? activeRecord.morning.timeIn
-        : activeRecord.afternoon.timeIn!;
+      const session = hasActiveSession(activeRecord)
+        ? activeRecord.timeIn && !activeRecord.timeOut
+          ? activeRecord
+          : activeRecord.extraSessions.find(s => s.timeIn && !s.timeOut)!
+        : activeRecord;
 
       const legacyLog: AttendanceLog = {
         id:       activeRecord.id,
         userId:   activeRecord.userId,
         userName: activeRecord.userName,
         role:     activeRecord.role,
-        timeIn:   activeTimeIn,
+        timeIn:   session.timeIn!,
         status:   'active',
       };
 
@@ -465,16 +489,12 @@ class AttendanceStore {
   getCurrentSession(userId: string): AttendanceLog | null {
     const today = toDateKey(nowPHT());
     const record = this.records.find(r => r.userId === userId && r.date === today);
-    if (!record) return null;
+    if (!record || !hasActiveSession(record)) return null;
 
-    const morningActive   = !!record.morning.timeIn   && !record.morning.timeOut;
-    const afternoonActive = !!record.afternoon.timeIn && !record.afternoon.timeOut;
-
-    if (!morningActive && !afternoonActive) return null;
-
-    const activeTimeIn = morningActive
-      ? record.morning.timeIn!
-      : record.afternoon.timeIn!;
+    const activeTimeIn =
+      record.timeIn && !record.timeOut
+        ? record.timeIn
+        : record.extraSessions.find(s => s.timeIn && !s.timeOut)!.timeIn!;
 
     return {
       id:       record.id,
@@ -488,26 +508,13 @@ class AttendanceStore {
 
   // ── Compute total worked hours for a record ───────────────────────────
   getTotalHours(record: DailyAttendanceRecord): number {
-    let ms = 0;
-    if (record.morning.timeIn && record.morning.timeOut) {
-      ms += calcDurationMs(record.morning.timeIn, record.morning.timeOut);
-    }
-    if (record.afternoon.timeIn && record.afternoon.timeOut) {
-      ms += calcDurationMs(record.afternoon.timeIn, record.afternoon.timeOut);
-    }
-    return parseFloat((ms / 3_600_000).toFixed(2));
+    return parseFloat((sessionTotalMs(record) / 3_600_000).toFixed(2));
   }
 
   // ── Overall daily status ──────────────────────────────────────────────
-  getDayStatus(record: DailyAttendanceRecord): 'Complete' | 'Half-Day' | 'Incomplete' | 'Active' {
-    const mDone = !!(record.morning.timeIn && record.morning.timeOut);
-    const aDone = !!(record.afternoon.timeIn && record.afternoon.timeOut);
-    const mActive = !!(record.morning.timeIn && !record.morning.timeOut);
-    const aActive = !!(record.afternoon.timeIn && !record.afternoon.timeOut);
-
-    if (mActive || aActive) return 'Active';
-    if (mDone && aDone)     return 'Complete';
-    if (mDone || aDone)     return 'Half-Day';
+  getDayStatus(record: DailyAttendanceRecord): 'Complete' | 'Exceeded' | 'Incomplete' | 'Active' {
+    if (hasActiveSession(record)) return 'Active';
+    if (record.timeIn && record.timeOut) return record.exceeded ? 'Exceeded' : 'Complete';
     return 'Incomplete';
   }
 }

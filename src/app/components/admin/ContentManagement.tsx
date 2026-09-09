@@ -56,8 +56,11 @@ interface LandingPageContent {
   heroSubtitle: string;
   heroDescription: string;
   feature1: string;
+  feature1Sub: string;
   feature2: string;
+  feature2Sub: string;
   feature3: string;
+  feature3Sub: string;
   bindingPrice: string;
   hoursMonFri: string;
   hoursSat: string;
@@ -73,25 +76,20 @@ interface LandingPageContent {
 export default function ContentManagement() {
   const [landingContent, setLandingContent] =
     useState<LandingPageContent>(() => {
-      const saved = localStorage.getItem("landing_content");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          // Fall through to default
-        }
-      }
-      return {
+      const defaults = {
         heroTitle: "Print, Track, Succeed",
         heroSubtitle: "Your Printing Companion",
         heroDescription:
           "Upload, print, and track your documents with ease. Professional printing services designed for students and faculty.",
-        feature1: "Upload documents instantly",
-        feature2: "Real-time order tracking",
-        feature3: "Secure payment verification",
+        feature1: "Upload documents",
+        feature1Sub: "instantly",
+        feature2: "Real-time",
+        feature2Sub: "order tracking",
+        feature3: "Secure payment",
+        feature3Sub: "verification.",
         bindingPrice: "20",
-        hoursMonFri: "8:00 AM - 6:00 PM",
-        hoursSat: "9:00 AM - 4:00 PM",
+        hoursMonFri: "9:00 AM - 6:00 PM",
+        hoursSat: "9:00 AM - 6:00 PM",
         hoursSun: "Closed",
         locationCampus:
           "Palawan State University - Main Campus",
@@ -102,6 +100,37 @@ export default function ContentManagement() {
         aboutBody:
           "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
       };
+      const saved = localStorage.getItem("landing_content");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const merged = { ...defaults, ...parsed };
+          if (typeof parsed.feature1Sub !== "string") {
+            for (const n of [1, 2, 3] as const) {
+              const sub = defaults[`feature${n}Sub`];
+              const match = sub.replace(/\.$/, "");
+              const title = String(merged[`feature${n}`]);
+              merged[`feature${n}`] = title.includes(match)
+                ? title.replace(match, "").trim()
+                : title;
+              merged[`feature${n}Sub`] = sub;
+            }
+          }
+          // Migrate saved shop hours that still carry the old defaults to the
+          // uniform customer-dashboard schedule (9 AM - 6 PM throughout).
+          const HOURS_MIGRATION: Record<string, [string, string]> = {
+            hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 6:00 PM"],
+            hoursSat: ["9:00 AM - 4:00 PM", "9:00 AM - 6:00 PM"],
+          };
+          for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
+            if (String(merged[key]) === oldVal) merged[key] = newVal;
+          }
+          return merged;
+        } catch {
+          // Fall through to default
+        }
+      }
+      return defaults;
     });
 
   const [showPreview, setShowPreview] = useState(false);
@@ -250,37 +279,73 @@ export default function ContentManagement() {
 
                 <div>
                   <Label>Features List (3 items)</Label>
-                  <div className="space-y-2">
-                    <Input
-                      value={landingContent.feature1}
-                      onChange={(e) =>
-                        setLandingContent({
-                          ...landingContent,
-                          feature1: e.target.value,
-                        })
-                      }
-                      placeholder="Feature 1"
-                    />
-                    <Input
-                      value={landingContent.feature2}
-                      onChange={(e) =>
-                        setLandingContent({
-                          ...landingContent,
-                          feature2: e.target.value,
-                        })
-                      }
-                      placeholder="Feature 2"
-                    />
-                    <Input
-                      value={landingContent.feature3}
-                      onChange={(e) =>
-                        setLandingContent({
-                          ...landingContent,
-                          feature3: e.target.value,
-                        })
-                      }
-                      placeholder="Feature 3"
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Input
+                        value={landingContent.feature1}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature1: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 1 title"
+                      />
+                      <Input
+                        value={landingContent.feature1Sub}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature1Sub: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 1 subtitle"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Input
+                        value={landingContent.feature2}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature2: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 2 title"
+                      />
+                      <Input
+                        value={landingContent.feature2Sub}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature2Sub: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 2 subtitle"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Input
+                        value={landingContent.feature3}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature3: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 3 title"
+                      />
+                      <Input
+                        value={landingContent.feature3Sub}
+                        onChange={(e) =>
+                          setLandingContent({
+                            ...landingContent,
+                            feature3Sub: e.target.value,
+                          })
+                        }
+                        placeholder="Feature 3 subtitle"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -332,7 +397,7 @@ export default function ContentManagement() {
                         htmlFor="hoursMonFri"
                         className="text-sm text-gray-600"
                       >
-                        Monday - Friday
+                        Monday - Thursday
                       </Label>
                       <Input
                         id="hoursMonFri"
@@ -343,7 +408,7 @@ export default function ContentManagement() {
                             hoursMonFri: e.target.value,
                           })
                         }
-                        placeholder="8:00 AM - 6:00 PM"
+                        placeholder="9:00 AM - 6:00 PM"
                       />
                     </div>
                     <div>
@@ -351,7 +416,7 @@ export default function ContentManagement() {
                         htmlFor="hoursSat"
                         className="text-sm text-gray-600"
                       >
-                        Saturday
+                        Friday - Saturday
                       </Label>
                       <Input
                         id="hoursSat"
@@ -362,7 +427,7 @@ export default function ContentManagement() {
                             hoursSat: e.target.value,
                           })
                         }
-                        placeholder="9:00 AM - 4:00 PM"
+                        placeholder="9:00 AM - 6:00 PM"
                       />
                     </div>
                     <div>
@@ -579,13 +644,16 @@ export default function ContentManagement() {
                 </p>
                 <div className="space-y-1 pt-2">
                   {[
-                    landingContent.feature1,
-                    landingContent.feature2,
-                    landingContent.feature3,
+                    [landingContent.feature1, landingContent.feature1Sub],
+                    [landingContent.feature2, landingContent.feature2Sub],
+                    [landingContent.feature3, landingContent.feature3Sub],
                   ].map((feature, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-4 h-4 text-[#1D73EC]" />
-                      <span>{feature}</span>
+                      <span>
+                        {feature[0]}{" "}
+                        <span className="text-gray-500">{feature[1]}</span>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -633,11 +701,11 @@ export default function ContentManagement() {
                   </p>
                   <div className="space-y-1 text-sm">
                     <p>
-                      <strong>Mon-Fri:</strong>{" "}
+                      <strong>Mon-Thurs:</strong>{" "}
                       {landingContent.hoursMonFri}
                     </p>
                     <p>
-                      <strong>Saturday:</strong>{" "}
+                      <strong>Fri-Sat:</strong>{" "}
                       {landingContent.hoursSat}
                     </p>
                     <p>

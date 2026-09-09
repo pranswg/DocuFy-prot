@@ -5,8 +5,8 @@ export const DOCUFY_EMAIL = "support@docufy.com";
 export const DOCUFY_PHONE = "+63 123 456 7890";
 
 export const SHOP_HOURS = {
-  weekday: "8:00 AM - 6:00 PM",
-  saturday: "9:00 AM - 4:00 PM",
+  weekday: "9:00 AM - 6:00 PM",
+  saturday: "9:00 AM - 6:00 PM",
   sunday: "Closed",
 };
 

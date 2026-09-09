@@ -30,13 +30,11 @@ const defaultProfileData = {
 
 export default function AdminProfile() {
   const navigate = useNavigate();
-  const { user, enableMFA, disableMFA, resetPassword, updateProfile, logout } = useAuth();
+  const { user, resetPassword, updateProfile, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
-  const [showDisableMFADialog, setShowDisableMFADialog] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [mfaEnabled, setMfaEnabled] = useState(user?.mfaEnabled || false);
   const [profileImage, setProfileImage] = useState<string | null>(() => user?.profileImage || null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -148,23 +146,6 @@ export default function AdminProfile() {
       console.log('Password reset failed');
       toast.error('Current password is incorrect or password was previously used');
     }
-  };
-
-  const handleToggleMFA = () => {
-    if (mfaEnabled) {
-      setShowDisableMFADialog(true);
-    } else {
-      enableMFA();
-      setMfaEnabled(true);
-      toast.success('MFA enabled');
-    }
-  };
-
-  const confirmDisableMFA = () => {
-    disableMFA();
-    setMfaEnabled(false);
-    setShowDisableMFADialog(false);
-    toast.success('MFA disabled');
   };
 
   return (
@@ -350,44 +331,10 @@ export default function AdminProfile() {
               <Key className="w-4 h-4 mr-2" />
               Change Password
             </Button>
-
-            <div className="flex flex-col gap-2 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between">
-              <div className="w-full">
-                <div className="flex items-center justify-between gap-2">
-                <p className="font-medium text-gray-900">Multi-Factor Authentication (MFA)</p>
-                </div>
-                <p className="hidden text-sm text-gray-500 sm:block">Add an extra layer of security to your account</p>
-              </div>
-              <button
-                onClick={handleToggleMFA}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  mfaEnabled ? 'bg-[#1D73EC]' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    mfaEnabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </Card>
         <Button variant="outline" onClick={() => setShowLogoutConfirm(true)} className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700">Sign Out</Button>
       </div>
-
-      <Dialog open={showDisableMFADialog} onOpenChange={setShowDisableMFADialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Disable MFA?</DialogTitle>
-            <DialogDescription>Are you sure you want to disable multi-factor authentication? This will reduce the security of your account.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDisableMFADialog(false)}>Keep MFA</Button>
-            <Button onClick={confirmDisableMFA} className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Disable MFA</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Change Password Dialog */}
       <Dialog open={showChangePasswordDialog} onOpenChange={setShowChangePasswordDialog}>

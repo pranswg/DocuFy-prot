@@ -202,7 +202,7 @@ export default function PublicJobApplication() {
               <Button
                 variant="outline"
                 onClick={() => navigate('/')}
-                className="border-gray-300"
+                className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
               >
                 Cancel
               </Button>

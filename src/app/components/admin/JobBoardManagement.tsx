@@ -405,71 +405,72 @@ export default function JobBoardManagement() {
               return (
               <Card
                 key={job.id}
-                className="p-4 sm:p-6 bg-white shadow-sm"
+                className={`overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md ${isExpanded ? "gap-0" : ""}`}
               >
-                {/* Title + type + apps badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base sm:text-xl font-semibold text-gray-900 leading-snug">
-                        {job.title}
-                      </h3>
-                      <Badge className="bg-blue-100 text-blue-700">{job.type}</Badge>
-                      {job.status === 'archived' && (
-                        <Badge className="bg-gray-100 text-gray-700">{job.status}</Badge>
-                      )}
+                <div className={`p-4 sm:p-6 ${isExpanded ? "pb-2 sm:pb-2" : ""}`}>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-[#F2F7FF]">
+                      <Briefcase className="h-6 w-6 text-[#1D73EC]" />
                     </div>
-                  </div>
-                  <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-gray-500 px-2 py-1 rounded-full bg-slate-50">
-                    <Users className="w-3.5 h-3.5 text-[#1D73EC]" />
-                    {job.applicants.length}
-                  </span>
-                </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center justify-between gap-2 mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-2 border-blue-200 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white text-xs px-3"
-                    onClick={() => handleViewApplicants(job)}
-                  >
-                    <Eye className="w-3.5 h-3.5 mr-1" />
-                    View Applicants
-                  </Button>
-                  {job.status === 'active' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-600 hover:text-white text-xs px-3 transition-all"
-                      onClick={() => handleArchiveJob(job)}
-                    >
-                      Archive
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-white border-2 border-blue-300 text-blue-600 hover:bg-blue-600 hover:text-white text-xs px-3 transition-all"
-                      onClick={() => setJobToRestore(job)}
-                    >
-                      Restore
-                    </Button>
-                  )}
-                </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            <Badge className="text-xs bg-blue-100 text-blue-700">{job.type}</Badge>
+                            {job.status === 'archived' && (
+                              <Badge className="text-xs bg-gray-100 text-gray-700">{job.status}</Badge>
+                            )}
+                            <span className="text-xs text-gray-400">·</span>
+                            <span className="text-xs text-gray-500">{job.department}</span>
+                            <span className="text-xs text-gray-400">·</span>
+                            <span className="text-xs text-gray-500">Posted {job.posted}</span>
+                          </div>
+                        </div>
 
-                {/* Metadata stats bar */}
-                <div className="flex items-center gap-4 text-xs text-gray-500 py-2 border-t border-gray-100 mt-3">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-gray-500" />
-                    <strong className="font-medium text-gray-600">Duration:</strong> {job.duration}
-                  </div>
-                  <div>
-                    <strong className="font-medium text-gray-600">Applications:</strong> {job.applicants.length}
-                  </div>
-                  <div className="min-w-0">
-                    <strong className="font-medium text-gray-600">Posted:</strong>{" "}
-                    <span className="truncate">{job.id}</span>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-200 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white text-xs px-3"
+                            onClick={() => handleViewApplicants(job)}
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            View Applicants
+                          </Button>
+                          {job.status === 'active' ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-600 hover:text-white text-xs px-3 transition-all"
+                              onClick={() => handleArchiveJob(job)}
+                            >
+                              Archive
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-white border-2 border-blue-300 text-blue-600 hover:bg-blue-600 hover:text-white text-xs px-3 transition-all"
+                              onClick={() => setJobToRestore(job)}
+                            >
+                              Restore
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Meta footer */}
+                      <div className="mt-3 flex flex-col gap-2 text-xs text-gray-500 sm:flex-row sm:items-center sm:gap-5">
+                        <span className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" /> {job.applicants.length} applicants
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" /> {job.duration}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -478,7 +479,7 @@ export default function JobBoardManagement() {
                   <button
                     type="button"
                     onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                    className="flex w-full items-center justify-between gap-2 py-2 text-left text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] transition-colors"
+                    className="flex w-full items-center justify-between gap-2 px-4 sm:px-6 py-2.5 text-left text-sm font-semibold text-[#1D73EC] hover:text-[#10316B] transition-colors"
                     aria-expanded={isExpanded}
                   >
                     <span>{isExpanded ? "Hide description" : "Show description"}</span>
@@ -486,7 +487,9 @@ export default function JobBoardManagement() {
                   </button>
                   <div className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                     <div className="min-h-0 overflow-hidden">
-                      <p className="pb-2 text-sm text-gray-600 leading-relaxed">{job.description}</p>
+                      <div className="bg-gray-50/50 px-4 pb-4 sm:px-6 sm:pb-5">
+                        <p className="py-1 text-sm leading-relaxed text-gray-700">{job.description}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

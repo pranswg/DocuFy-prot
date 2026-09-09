@@ -12,6 +12,10 @@ import {
   Check,
   X,
   ListOrdered,
+  QrCode,
+  Lock,
+  Unlock,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -33,11 +37,19 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
+import { pricingStore } from "../../utils/pricingStore";
 import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
-import PaymentMethodQRPanel from "./PaymentMethodQR";
+import {
+  getLock,
+  claimLock,
+  releaseLock,
+  stillHoldsLock,
+  subscribeToLocks,
+} from "../../utils/orderLocks";
+import { useAuth } from "../../contexts/AuthContext";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
 import { StartHereTag } from "../ui/priority-badge";
 
@@ -68,6 +80,10 @@ type PaymentType = {
   canceled?: boolean;
   expired?: boolean;
   cancellationReason?: string;
+  // Low-value Cash on Pickup order (total under the down-payment threshold):
+  // auto-queued at checkout, so it shows as "Pending Payment · In Queue" with
+  // no reference number / proof of payment to review.
+  isLowValueCash?: boolean;
 };
 
 function parseOrderTotal(order: {
@@ -136,6 +152,12 @@ function generatePaymentsFromOrders(): PaymentType[] {
               : totalAmount;
       const remainingBalance = Math.max(0, totalAmount - amountPaid);
 
+      // Low-value Cash on Pickup order (below the down-payment threshold) —
+      // these are auto-queued at checkout with the cash collected on pickup.
+      const isLowValueCash =
+        isCashOnPickup &&
+        totalAmount < pricingStore.getPricing().downPaymentThreshold;
+
       return {
         id: order.id,
         orderId: order.id,
@@ -157,6 +179,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
         canceled,
         expired,
         cancellationReason: order.cancellationReason,
+        isLowValueCash,
       };
     })
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
@@ -191,6 +214,50 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     "verified" | "rejected" | null
   >(null);
 
+  const { user } = useAuth();
+  const myName = user?.name || "Staff";
+
+  // Session lock awareness: a badge tick that re-renders whenever lock state
+  // changes (in THIS tab or another — see orderLocks.ts). Used to show who is
+  // "viewing" an order and to disable Confirm while someone else holds the lock.
+  const [, setLocksTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setLocksTick((t) => t + 1);
+    const unsub = subscribeToLocks(bump);
+    const iv = setInterval(bump, 5000);
+    return () => {
+      unsub();
+      clearInterval(iv);
+    };
+  }, []);
+
+  // The current lock for the order being viewed (null if none / expired).
+  const selectedLock = selectedPayment ? getLock(selectedPayment.orderId) : null;
+  // Name of whoever holds it (could be a different tab / different user).
+  const lockHolder = selectedLock?.heldBy ?? null;
+  // Do WE hold it right now?
+  const iHoldLock = !!selectedLock && selectedLock.heldBy === myName;
+
+  // HEARTBEAT: while our details dialog is open on an actionable row, keep
+  // renewing OUR lock so it persists for as long as we keep viewing — it never
+  // vanishes mid-review. A dead tab stops beating and expires on its own.
+  useEffect(() => {
+    if (
+      !selectedPayment ||
+      !showDialog ||
+      !(selectedPayment.status === "pending" || selectedPayment.status === "rejected")
+    ) {
+      return;
+    }
+    const beat = () => {
+      if (stillHoldsLock(selectedPayment.orderId, myName)) {
+        claimLock(selectedPayment.orderId, myName);
+      }
+    };
+    const iv = setInterval(beat, 30000);
+    return () => clearInterval(iv);
+  }, [selectedPayment?.id, selectedPayment?.status, showDialog, myName]);
+
   // Load payments from dataStore
   useEffect(() => {
     const loadPayments = () => {
@@ -219,17 +286,53 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     if (payment) {
       setStatusFilter("all");
       setSelectedPayment(payment);
+      // Auto-claim when arriving via deep link (e.g. from a notification).
+      if (payment.status === "pending" || payment.status === "rejected") {
+        const existing = getLock(payment.orderId);
+        if (existing && existing.heldBy !== myName) {
+          toast.info(`${existing.heldBy} is viewing this order`);
+        } else {
+          claimLock(payment.orderId, myName);
+        }
+      }
       setShowDialog(true);
     }
-  }, [payments, searchParams]);
+  }, [payments, searchParams, myName]);
 
   const handleVerifyPayment = (
     status: "verified" | "rejected",
   ) => {
     if (selectedPayment) {
-      // SYSTEM-WIDE SYNC: Update the actual order in dataStore
-      // This ensures Order List and Payment Verification are connected
+      // ===== SESSION LOCK GUARD =====
+      // Re-check ownership at the FINAL confirm moment (a second tab might have
+      // claimed the order after we opened the modal). Only the lock holder may
+      // act. NOTE (Supabase later): this check must be a transactional
+      // conditional update (WHERE id = ? AND held_by = ?) on the shared table,
+      // not a client-side localStorage read.
+      if (!stillHoldsLock(selectedPayment.orderId, myName)) {
+        const other = getLock(selectedPayment.orderId);
+        toast.error(other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available", {
+          description: "Only the current reviewer can verify. Refresh to see the latest status.",
+        });
+        return;
+      }
+
+      // ===== CONFLICT GUARD (Option B) =====
+      // Defensive re-read: if someone already verified/rejected this order in
+      // another tab while we were looking, abort before writing.
       const orderRecords = dataStore.getOrders();
+      const latestOrder = orderRecords.find(
+        (o) => o.id === selectedPayment.orderId,
+      );
+      if (latestOrder && latestOrder.paymentVerified) {
+        toast.error("This payment has already been verified", {
+          description: "Refresh the page to see the latest status.",
+        });
+        releaseLock(selectedPayment.orderId, myName);
+        setShowDialog(false);
+        return;
+      }
+
       const targetOrder = orderRecords.find(
         (o) => o.id === selectedPayment.orderId,
       );
@@ -244,6 +347,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         // the order enters the queue automatically (staff never add it).
         ...(status === "verified" ? { status: "In Queue" as const } : {}),
       });
+
+      // The order is processed — release our hold so it's free for anyone.
+      releaseLock(selectedPayment.orderId, myName);
 
       setPayments((prev) =>
         prev.map((p) =>
@@ -264,6 +370,20 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
   const handleOpenDetails = (payment: PaymentType) => {
     setSelectedPayment(payment);
+    // Auto-claim the lock when opening the details (only for actionable rows).
+    // NOTE (Supabase later): this claim must be written to the shared
+    // session_locks table / broadcast over Realtime so OTHER machines see it,
+    // not just this tab's localStorage.
+    const existing = getLock(payment.orderId);
+    if (payment.status === "pending" || payment.status === "rejected") {
+      if (existing && existing.heldBy !== myName) {
+        toast.info(`${existing.heldBy} is viewing this order`, {
+          description: "You can review it, but only the current reviewer can verify.",
+        });
+      } else {
+        claimLock(payment.orderId, myName);
+      }
+    }
     setShowDialog(true);
   };
 
@@ -519,6 +639,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                     payment.status === "pending" &&
                     payment.id === nextToVerifyId;
                   const priority = pendingSequenceById.get(payment.id);
+                  // Live lock for this row (recomputed on every locksTick).
+                  const rowLock = getLock(payment.orderId);
+                  const rowLockedByMe = !!rowLock && rowLock.heldBy === myName;
                   return (
                   <tr
                     key={payment.id}
@@ -566,6 +689,21 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                           <p className="text-[11px] text-gray-500 mt-0.5">
                             {formatPHDate(payment.submittedAt, "short")} · {payment.time}
                           </p>
+                          {rowLock && (
+                            <span
+                              title={
+                                rowLockedByMe
+                                  ? "You are reviewing this order"
+                                  : `${rowLock.heldBy} is reviewing this order`
+                              }
+                              className={`mt-1 inline-flex items-center gap-1 text-[10px] font-semibold ${
+                                rowLockedByMe ? "text-green-600" : "text-amber-600"
+                              }`}
+                            >
+                              <Eye className="w-3 h-3" />
+                              {rowLockedByMe ? "Reviewing (you)" : `${rowLock.heldBy} is viewing`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -628,6 +766,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         status={payment.status}
                         canceled={payment.canceled}
                         expired={payment.expired}
+                        lowValueCash={payment.isLowValueCash}
                       />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
@@ -649,242 +788,275 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       </div>
 
       {/* Payment Details Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto border-none">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B] font-poppins flex items-center justify-between pr-6">
-              <span>Payment Details</span>
-              <Badge
-                variant="outline"
-                className="text-xs bg-[#F2F7FF] text-[#1D73EC] border-[#1D73EC]/20 font-mono"
-              >
-                {selectedPayment?.id}
-              </Badge>
-            </DialogTitle>
-            <DialogDescription className="text-gray-500">
-              Review and verify payment information
-            </DialogDescription>
+      <Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Release OUR hold when this details modal closes (reviewer done,
+            // or closed via X / Reject flow). ONLY releases our own lock —
+            // a different reviewer holding it is left untouched. The lock then
+            // expires on its own if a tab dies without cleanup.
+            if (selectedPayment) releaseLock(selectedPayment.orderId, myName);
+            setShowDialog(false);
+          } else {
+            setShowDialog(true);
+          }
+        }}
+      >
+<DialogContent className="sm:max-w-2xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
+          <DialogHeader className="px-5 pt-4 pr-10 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
+            <div>
+              <DialogTitle className="text-lg font-semibold text-[#1c1f26]">
+                Payment Details
+              </DialogTitle>
+              <DialogDescription className="text-gray-500">
+                Review and verify payment information
+              </DialogDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-xs bg-gray-100 text-gray-700 border-gray-200 font-mono"
+            >
+              {selectedPayment?.orderId}
+            </Badge>
           </DialogHeader>
 
           {selectedPayment && (
-            <div className="py-4 space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-[#F2F7FF] rounded-xl border border-[#1D73EC]/10">
-                <Avatar name={selectedPayment.customer} />
-                <div className="flex-1">
-                  <p className="font-bold text-[#1c1f26] text-lg">
-                    {selectedPayment.customer}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Submitted {formatPHDate(selectedPayment.submittedAt, "short")} · {selectedPayment.time}
-                  </p>
-                </div>
-              </div>
+            <>
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Session lock banner (demo: two tabs = two PCs) */}
+                {selectedPayment.status === "pending" || selectedPayment.status === "rejected" ? (
+                  iHoldLock ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                      <p className="text-sm font-semibold text-green-700 flex-1 min-w-[160px]">
+                        You are reviewing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-green-600">
+                        Only you can verify it right now
+                      </span>
+                    </div>
+                  ) : lockHolder ? (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50">
+                      <Eye className="w-4 h-4 text-amber-600" />
+                      <p className="text-sm font-semibold text-amber-800 flex-1 min-w-[160px]">
+                        {lockHolder} is reviewing this order
+                      </p>
+                      <span className="text-[11px] font-medium text-amber-700">
+                        Verify is locked until they finish
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                      <Lock className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                        This order is available
+                      </p>
+                      <span className="text-[11px] font-medium text-gray-500">
+                        Claim it by opening the details
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50">
+                    <Unlock className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm font-semibold text-gray-600 flex-1 min-w-[160px]">
+                      This order is already processed
+                    </p>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Read-only review
+                    </span>
+                  </div>
+                )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Verification Status
-                  </p>
+                {/* Customer */}
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <Avatar name={selectedPayment.customer} />
+                  <div className="flex-1 min-w-[180px]">
+                    <p className="font-bold text-[#1c1f26] text-base">
+                      {selectedPayment.customer}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Submitted {formatPHDate(selectedPayment.submittedAt, "short")} ·{" "}
+                      {formatPHTime(selectedPayment.submittedAt)}
+                    </p>
+                  </div>
                   <StatusBadge
                     status={selectedPayment.status}
+                    lowValueCash={selectedPayment.isLowValueCash}
                     className="text-sm"
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 col-span-2">
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Order ID
-                    </p>
-                    <p className="font-semibold text-[#1c1f26]">
-                      {selectedPayment.orderId}
+                {/* Payment Summary */}
+                <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50">
+                    <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                      Payment Summary
                     </p>
                   </div>
-
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Payment Type
-                    </p>
-                    <PaymentTypePill kind={selectedPayment.kind} />
-                  </div>
-
-                  <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Payment Method
-                    </p>
-                    <p className="font-semibold text-[#1D73EC]">
-                      {selectedPayment.method}
-                    </p>
+                  <div className="grid grid-cols-2 gap-px bg-gray-100">
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Order ID
+                      </p>
+                      <p className="font-semibold text-[#1c1f26] font-mono text-sm">
+                        {selectedPayment.orderId}
+                      </p>
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Payment Type
+                      </p>
+                      <PaymentTypePill kind={selectedPayment.kind} />
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Payment Method
+                      </p>
+                      <p className="font-semibold text-[#1c1f26]">
+                        {selectedPayment.method}
+                      </p>
+                    </div>
+                    <div className="bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Order Total
+                      </p>
+                      <p className="text-base font-semibold text-[#1c1f26]">
+                        ₱{selectedPayment.totalAmount.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 col-span-2">
-                  {selectedPayment.kind === "cash" ? (
-                    <>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Amount to Pay
-                        </p>
-                        <p className="text-2xl font-bold text-[#1D73EC]">
-                          ₱
-                          {selectedPayment.amountPaid > 0
-                            ? selectedPayment.amountPaid.toLocaleString()
-                            : selectedPayment.totalAmount.toLocaleString()}
-                        </p>
-                        {selectedPayment.downPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            50% down payment (cash at shop)
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Payment Deadline
-                        </p>
-                        <p className="text-sm font-bold text-[#1c1f26]">
-                          {selectedPayment.deadline
-                            ? formatPHDateTime(selectedPayment.deadline)
-                            : "No deadline set"}
-                        </p>
-                        {selectedPayment.deadline && (
-                          <PaymentDeadlineCountdown
-                            deadline={selectedPayment.deadline}
-                            className="mt-1"
-                          />
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl col-span-2 sm:col-span-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Confirmation Status
-                        </p>
-                        <p className="text-sm font-semibold text-amber-600">
-                          Awaiting Payment at Shop
-                        </p>
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          Confirm only once the customer has paid in cash
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Order Total
-                        </p>
-                        <p className="text-2xl font-bold text-[#1D73EC]">
-                          ₱{selectedPayment.totalAmount.toLocaleString()}
-                        </p>
-                        {selectedPayment.fullPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            Full payment required (100% upfront)
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Amount Paid
-                        </p>
-                        <p className="text-xl font-bold text-[#1c1f26]">
-                          ₱{selectedPayment.amountPaid.toLocaleString()}
-                        </p>
-                        {selectedPayment.downPaymentRequired && (
-                          <p className="text-[11px] text-amber-600 font-medium mt-1">
-                            50% down payment
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white border border-[#F2F7FF] rounded-xl">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Remaining Balance
-                        </p>
-                        <p
-                          className={`text-xl font-bold ${
-                            selectedPayment.remainingBalance > 0
-                              ? "text-amber-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          ₱{selectedPayment.remainingBalance.toLocaleString()}
-                        </p>
-                        {selectedPayment.remainingBalance > 0 && (
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Balance due on pickup
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                {/* Verification Status */}
+                <div
+                  className={`flex flex-wrap items-center gap-3 p-3 rounded-lg border ${
+                    selectedPayment.status === "verified"
+                      ? "bg-green-50 border-green-200"
+                      : selectedPayment.status === "rejected"
+                        ? "bg-red-50 border-red-200"
+                        : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> Verification Status
+                    </p>
+                    <p className="text-sm font-medium text-gray-700 mt-0.5">
+                      Payment submitted:{" "}
+                      {formatPHDate(selectedPayment.submittedAt, "short")} ·{" "}
+                      {formatPHTime(selectedPayment.submittedAt)}
+                    </p>
+                  </div>
+                  <StatusBadge
+                    status={selectedPayment.status}
+                    canceled={selectedPayment.canceled}
+                    expired={selectedPayment.expired}
+                    lowValueCash={selectedPayment.isLowValueCash}
+                  />
                 </div>
 
-                {/* Corresponding Payment Method QR / details for online payments */}
-                {selectedPayment.method !== "Cash" && (
-                  <div className="col-span-2">
-                    {(() => {
-                      const methodDetails = paymentMethodsStore.findByName(
-                        selectedPayment.method,
-                      );
-                      return methodDetails ? (
-                        <PaymentMethodQRPanel method={methodDetails} />
-                      ) : (
-                        <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl text-sm">
-                          <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider mb-1">
-                            Payment Instructions
-                          </p>
-                          <p className="text-gray-600">
-                            No QR code is set for this payment
-                            method. Verify the payment using the
-                            customer's reference number and proof
-                            of payment below.
+                {/* Payment Information (online methods only) */}
+                {selectedPayment.method !== "Cash" &&
+                  (() => {
+                    const methodDetails =
+                      paymentMethodsStore.findByName(selectedPayment.method);
+                    return (
+                      <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50">
+                          <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                            Payment Information
                           </p>
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-gray-100">
+                          <div className="bg-white p-4 flex flex-col items-center justify-center gap-3">
+                            {methodDetails?.qrCode ? (
+                              <img
+                                src={methodDetails.qrCode}
+                                alt={`${selectedPayment.method} QR code`}
+                                className="w-36 h-36 rounded-lg border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-36 h-36 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                                <QrCode className="w-10 h-10 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-white divide-y divide-gray-100">
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Account Name
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {methodDetails?.accountName || "—"}
+                              </p>
+                            </div>
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Payment Number
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {methodDetails?.accountNumber || "—"}
+                              </p>
+                            </div>
+                            <div className="px-4 py-3">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                                Payment Method
+                              </p>
+                              <p className="font-semibold text-[#1c1f26]">
+                                {selectedPayment.method}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                {selectedPayment.reference && (
-                  <div className="p-4 bg-white border-2 border-[#1D73EC]/10 rounded-xl col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-[#1D73EC] uppercase tracking-wider flex items-center gap-1.5">
-                        {selectedPayment.method !== "Cash" ? (
-                          <Smartphone className="w-4 h-4" />
-                        ) : (
-                          <Banknote className="w-4 h-4" />
-                        )}{" "}
-                        {selectedPayment.method} Reference Number
-                      </p>
-                      {selectedPayment.proofImageUrl && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setShowProofImage(true)
-                          }
-className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white h-7 transition-all"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" />{" "}
-                          View Proof
-                        </Button>
-                      )}
+                {/* Reference Number */}
+                {selectedPayment.reference &&
+                  !selectedPayment.isLowValueCash && (
+                    <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-gray-300 bg-gray-50/50 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold text-[#1c1f26] uppercase tracking-wider">
+                          {selectedPayment.method} Reference Number
+                        </p>
+                        {selectedPayment.proofImageUrl && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowProofImage(true)}
+                            className="h-7 border-2 border-[#2F6FD6]/30 text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            View Proof
+                          </Button>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 bg-white">
+                        <p className="text-sm font-mono font-semibold text-[#10316B]">
+                          {selectedPayment.reference}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm font-mono font-semibold text-[#10316B]">
-                      {selectedPayment.reference}
-                    </p>
-                  </div>
-                )}
+                  )}
               </div>
 
-{(selectedPayment.status === "pending" ||
-                selectedPayment.status === "rejected") && (
-                <div className="pt-4 border-t border-[#F2F7FF]">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    {selectedPayment.status === "rejected"
-                      ? "Payment came in late? Re-verify it"
-                      : "Verification Action"}
-                  </p>
-                  <div className="flex gap-3">
+              {/* Sticky action footer */}
+              <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
+                {(selectedPayment.status === "pending" ||
+                  selectedPayment.status === "rejected") && (
+                  <>
                     <Button
-                       className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-all"
+                      data-primary-action
+                      disabled={!iHoldLock}
+                      title={
+                        !iHoldLock && lockHolder
+                          ? `${lockHolder} is reviewing this order`
+                          : undefined
+                      }
+                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none disabled:hover:translate-y-0 disabled:hover:shadow-none"
                       onClick={() => setPendingVerifyAction("verified")}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
@@ -893,7 +1065,13 @@ className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:
                     {selectedPayment.status === "pending" && (
                       <Button
                         variant="outline"
-                        className="flex-1 border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                        disabled={!iHoldLock}
+                        title={
+                          !iHoldLock && lockHolder
+                            ? `${lockHolder} is reviewing this order`
+                            : undefined
+                        }
+                        className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => {
                           setShowDialog(false);
                           setShowRejectDialog(true);
@@ -903,10 +1081,16 @@ className="border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:
                         Reject Payment
                       </Button>
                     )}
-                  </div>
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+                {selectedPayment.status !== "pending" &&
+                  selectedPayment.status !== "rejected" && (
+                    <p className="text-xs font-medium text-gray-400 ml-auto">
+                      Read-only — this order is already processed
+                    </p>
+                  )}
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1064,9 +1248,9 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
             setShowDialog(false);
             setPendingVerifyAction(null);
           }}
-          title="Approve Payment?"
-          description={`Verify the ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer}. This will mark the payment verified and immediately move the order into the print queue.`}
-          confirmLabel="Approve Payment"
+          title="Verify Payment?"
+          description="Confirm that this payment has been reviewed and approved."
+          confirmLabel="Verify Payment"
           cancelLabel="Go Back"
           destructive={false}
         />
@@ -1082,11 +1266,11 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
             setPendingVerifyAction(null);
           }}
           title="Reject Payment?"
-          description={`The ${selectedPayment.method} payment of ₱${selectedPayment.amount.toFixed(2)} for order ${selectedPayment.orderId} from ${selectedPayment.customer} will be marked Rejected${
+          description={`Confirm that this payment should be rejected${
             rejectionReason.trim() ? ` (${rejectionReason.trim()})` : ""
-          }. The customer will be notified. This cannot be undone.`}
+          }.`}
           confirmLabel="Reject Payment"
-          cancelLabel="Keep Payment"
+          cancelLabel="Go Back"
           destructive
           requirePhrase
         />
@@ -1103,17 +1287,22 @@ function StatusBadge({
   canceled,
   expired,
   className,
+  lowValueCash,
 }: {
   status: string;
   canceled?: boolean;
   expired?: boolean;
   className?: string;
+  lowValueCash?: boolean;
 }) {
+  const isPending = status === "pending";
   const label =
     status === "verified"
       ? "Verified"
-      : status === "pending"
-        ? "Pending"
+      : isPending
+        ? lowValueCash
+          ? "Pending Payment"
+          : "Pending"
         : expired
           ? "Expired"
           : canceled
@@ -1122,16 +1311,26 @@ function StatusBadge({
   const styles =
     status === "verified"
       ? "bg-green-50 text-green-700 border-green-200"
-      : status === "pending"
+      : isPending
         ? "bg-amber-50 text-amber-700 border-amber-200"
         : "bg-red-50 text-red-600 border-red-200";
   return (
-    <Badge
-      variant="outline"
-      className={`text-[11px] font-semibold py-0.5 px-2 rounded-full border ${styles} ${className}`}
-    >
-      {label}
-    </Badge>
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        variant="outline"
+        className={`text-[11px] font-semibold py-0.5 px-2 rounded-full border ${styles} ${className}`}
+      >
+        {label}
+      </Badge>
+      {isPending && lowValueCash && (
+        <Badge
+          variant="outline"
+          className="text-[10px] font-semibold py-0.5 px-1.5 rounded-full border bg-blue-50 text-[#1D73EC] border-blue-200"
+        >
+          In Queue
+        </Badge>
+      )}
+    </span>
   );
 }
 
@@ -1179,7 +1378,7 @@ const Avatar = ({ name }: { name: string }) => {
     .slice(0, 2);
 
   return (
-    <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm bg-[#F2F7FF] text-[#1D73EC] border border-[#1D73EC]/10">
+    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[#F2F7FF] text-[#1D73EC] border border-[#1D73EC]/10">
       {initials}
     </div>
   );

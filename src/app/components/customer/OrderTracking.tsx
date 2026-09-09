@@ -38,6 +38,7 @@ import {
 import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
 import { dataStore } from "../../utils/dataStore";
+import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore, formatPrice, type PricingValues } from "../../utils/pricingStore";
 
@@ -202,6 +203,8 @@ export default function OrderTracking() {
       hideMobileBackButton
     >
       <div className="max-w-4xl mx-auto space-y-4">
+        <ShopStatusBanner />
+
         {/* Mobile back button (under the header) */}
         <button
           type="button"
@@ -1095,7 +1098,7 @@ export default function OrderTracking() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900">
               Keep Order
             </Button>
             <Button

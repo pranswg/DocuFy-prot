@@ -54,6 +54,7 @@ import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   attendanceStore,
   sessionTotalMs,
+  hasActiveSession,
   STANDARD_DAILY_HOURS,
   formatPHT,
   PHT_OFFSET_MS,
@@ -82,6 +83,7 @@ type AdminRow = {
   onTime: boolean;
   late: boolean;
   overtime: boolean;
+  exceeded: boolean;
   absence: AbsenceType | null;
   presence: Presence;
 };
@@ -99,18 +101,13 @@ function buildRow(
   const rec = override ?? attendanceStore.getRecord(member.email, dateKey);
   const absence = attendanceStore.getAbsence(member.email, dateKey);
 
-  const morningIn = rec?.morning.timeIn;
-  const morningOut = rec?.morning.timeOut;
-  const afternoonIn = rec?.afternoon.timeIn;
-  const afternoonOut = rec?.afternoon.timeOut;
-  const clockIn = morningIn ?? afternoonIn;
-  const clockOut = afternoonOut ?? morningOut;
+  const clockIn = rec?.timeIn;
+  const clockOut = rec?.timeOut;
 
   const isLive = !!(
     rec &&
     dateKey === toDateKey(new Date(now.getTime() + PHT_OFFSET_MS)) &&
-    ((rec.morning.timeIn && !rec.morning.timeOut) ||
-      (rec.afternoon.timeIn && !rec.afternoon.timeOut))
+    hasActiveSession(rec)
   );
 
   const totalMs = rec ? sessionTotalMs(rec, now) : 0;
@@ -141,6 +138,7 @@ function buildRow(
     onTime,
     late,
     overtime,
+    exceeded: rec?.exceeded === true,
     absence,
     presence,
   };
@@ -220,7 +218,6 @@ export default function AdminAttendancePage() {
   const [dateTo, setDateTo] = useState(todayKey);
 
   const [adjust, setAdjust] = useState<AdjustTarget>(null);
-  const [adjSession, setAdjSession] = useState<"morning" | "afternoon">("morning");
   const [adjValue, setAdjValue] = useState("");
   const [showSaveAdjustConfirm, setShowSaveAdjustConfirm] = useState(false);
   const [absenceTarget, setAbsenceTarget] = useState<{ row: AdminRow; type: AbsenceType } | null>(null);
@@ -306,16 +303,8 @@ export default function AdminAttendancePage() {
 
   // ── Row actions ────────────────────────────────────────────────────────────
   const openAdjust = (row: AdminRow, field: "timeIn" | "timeOut") => {
-    const session: "morning" | "afternoon" = "morning";
-    const current = row.record?.[session]?.[field];
+    const current = row.record?.[field];
     setAdjust({ row, field });
-    setAdjSession(session);
-    setAdjValue(current ? toLocalInput(current) : toLocalInput(new Date()));
-  };
-
-  const onAdjSessionChange = (s: "morning" | "afternoon") => {
-    setAdjSession(s);
-    const current = adjust?.row.record?.[s]?.[adjust.field];
     setAdjValue(current ? toLocalInput(current) : toLocalInput(new Date()));
   };
 
@@ -328,12 +317,11 @@ export default function AdminAttendancePage() {
       return;
     }
     try {
-      attendanceStore.upsertSession(
+      attendanceStore.upsertTime(
         row.member.email,
         row.member.name,
         "staff",
         row.date,
-        adjSession,
         field,
         parsed,
       );
@@ -357,8 +345,7 @@ export default function AdminAttendancePage() {
   };
 
   const resetDay = (row: AdminRow) => {
-    attendanceStore.upsertSession(row.member.email, row.member.name, "staff", row.date, "morning", "timeIn", null);
-    attendanceStore.upsertSession(row.member.email, row.member.name, "staff", row.date, "afternoon", "timeIn", null);
+    attendanceStore.upsertTime(row.member.email, row.member.name, "staff", row.date, "timeIn", null);
     attendanceStore.setAbsence(row.member.email, row.date, null);
     toast.success(`Attendance reset for ${row.member.name} on ${fmtLongDay(row.date)}.`);
   };
@@ -385,6 +372,9 @@ export default function AdminAttendancePage() {
         {row.onTime && <Badge className="border border-green-200 bg-green-100 text-green-700">On Time</Badge>}
         {row.late && <Badge className="border border-amber-200 bg-amber-100 text-amber-700">Late</Badge>}
         {row.overtime && <Badge className="border border-blue-200 bg-blue-100 text-blue-700">Overtime</Badge>}
+        {row.exceeded && (
+          <Badge className="border border-amber-200 bg-amber-100 text-amber-700">Exceeded</Badge>
+        )}
         {row.isLive && (
           <Badge className="border border-green-200 bg-green-50 text-green-700">
             <span className="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
@@ -540,8 +530,9 @@ export default function AdminAttendancePage() {
 
       <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
         <p className="text-xs text-gray-500 font-medium">
-          Session model: Morning + Afternoon shifts. Standard day {STANDARD_DAILY_HOURS}h —
+          Model: one Time In / Time Out per day. Standard day {STANDARD_DAILY_HOURS}h —
           On Time cutoff is 8:30 AM and totals beyond {STANDARD_DAILY_HOURS}h count as Overtime.
+          Staff who clock back in after the day is complete are flagged Exceeded.
           Records persist locally on this device (demo).
         </p>
       </div>
@@ -718,18 +709,6 @@ export default function AdminAttendancePage() {
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Session</Label>
-                <Select value={adjSession} onValueChange={v => onAdjSessionChange(v as "morning" | "afternoon")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="morning">Morning Shift</SelectItem>
-                    <SelectItem value="afternoon">Afternoon Shift</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</Label>
                 <Input
                   type="datetime-local"
@@ -738,8 +717,8 @@ export default function AdminAttendancePage() {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                Saving will overwrite the {adjSession === "morning" ? "Morning" : "Afternoon"} session's{" "}
-                {adjust?.field === "timeIn" ? "clock-in" : "clock-out"} timestamp for this staff member.
+                Saving will overwrite this staff member's{" "}
+                {adjust?.field === "timeIn" ? "clock-in" : "clock-out"} timestamp for the day.
               </p>
             </div>
 
@@ -761,7 +740,7 @@ export default function AdminAttendancePage() {
             onOpenChange={setShowSaveAdjustConfirm}
             onConfirm={saveAdjust}
             title="Adjust Time?"
-            description={`Overwrite ${adjust.row.member.name}'s ${adjust.field === "timeIn" ? "clock-in" : "clock-out"} for ${fmtLongDay(adjust.row.date)} (${adjSession === "morning" ? "Morning" : "Afternoon"} session) to ${adjValue}? This changes their recorded hours and status.`}
+            description={`Overwrite ${adjust.row.member.name}'s ${adjust.field === "timeIn" ? "clock-in" : "clock-out"} for ${fmtLongDay(adjust.row.date)} to ${adjValue}? This changes their recorded hours and status.`}
             confirmLabel="Save Changes"
             cancelLabel="Go Back"
             destructive={false}

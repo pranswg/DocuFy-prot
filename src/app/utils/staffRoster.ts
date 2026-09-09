@@ -60,15 +60,10 @@ export const seedDemoAttendance = (): void => {
     return new Date(phtWallClock.getTime() - 8 * 60 * 60 * 1000);
   };
 
-  const seedSession = (
-    member: StaffMember,
-    session: "morning" | "afternoon",
-    timeIn: Date,
-    timeOut: Date,
-  ) => {
+  const seedDay = (member: StaffMember, timeIn: Date, timeOut: Date) => {
     if (attendanceStore.getRecord(member.email, today)) return;
-    attendanceStore.upsertSession(member.email, member.name, "staff", today, session, "timeIn", timeIn);
-    attendanceStore.upsertSession(member.email, member.name, "staff", today, session, "timeOut", timeOut);
+    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn);
+    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeOut", timeOut);
   };
 
   // Heaven Rica — On Leave (never touch her clock flow)
@@ -76,17 +71,14 @@ export const seedDemoAttendance = (): void => {
     attendanceStore.setAbsence("staff@test.com", today, "on-leave");
   }
 
-  // Robert Chen — Present, On Time (8:00–12:00 / 13:00–17:00 = 8h)
-  seedSession(SEEDED_STAFF[1], "morning", at(8, 0), at(12, 0));
-  seedSession(SEEDED_STAFF[1], "afternoon", at(13, 0), at(17, 0));
+  // Robert Chen — Present, On Time (8:00–16:00 = 8h)
+  seedDay(SEEDED_STAFF[1], at(8, 0), at(16, 0));
 
   // Katie Perry — Present, Late (9:42 start, 7h18m total)
-  seedSession(SEEDED_STAFF[2], "morning", at(9, 42), at(12, 0));
-  seedSession(SEEDED_STAFF[2], "afternoon", at(13, 0), at(18, 0));
+  seedDay(SEEDED_STAFF[2], at(9, 42), at(17, 0));
 
-  // Miguel Santos — Present, Overtime (8:05 start, 10h05m total)
-  seedSession(SEEDED_STAFF[3], "morning", at(8, 5), at(12, 0));
-  seedSession(SEEDED_STAFF[3], "afternoon", at(13, 0), at(19, 5));
+  // Miguel Santos — Present, Overtime (8:05 start, 10h total)
+  seedDay(SEEDED_STAFF[3], at(8, 5), at(18, 5));
 
   // Ana Dela Cruz — Absent
   if (!attendanceStore.getAbsence("ana.delacruz@docufy.com", today)) {

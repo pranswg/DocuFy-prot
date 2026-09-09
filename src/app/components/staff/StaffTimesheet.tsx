@@ -5,13 +5,11 @@ import {
   CalendarDays,
   LogIn,
   LogOut,
-  Coffee,
   TrendingUp,
   History,
   ChevronDown,
   ChevronUp,
   Timer,
-  CheckCircle,
   ArrowRight,
   LayoutGrid,
   Package,
@@ -31,13 +29,13 @@ import {
   attendanceStore,
   getWeekStartKey,
   sessionTotalMs,
-  sessionBreakMs,
   overtimeMs,
+  hasActiveSession,
+  isExceeded,
   STANDARD_DAILY_HOURS,
   STANDARD_WEEKLY_HOURS,
   formatPHT,
   todayPHTKey,
-  getCurrentPeriod,
 } from "../../utils/attendanceStore";
 import type { DailyAttendanceRecord } from "../../utils/attendanceStore";
 import { internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
@@ -147,64 +145,57 @@ export default function StaffTimesheet() {
   const todayKey = todayPHTKey();
   const todayRecord = logs.find((l) => l.date === todayKey);
 
-  const currentPeriod = getCurrentPeriod();
-  const activePeriod = currentPeriod === "morning" ? "Morning" : "Afternoon";
+  const isOnClock = todayRecord ? hasActiveSession(todayRecord) : false;
+  const curDone = !!todayRecord?.timeIn && !!todayRecord?.timeOut && !isOnClock;
+  const exceeded = isExceeded(todayRecord);
 
-  const curSession = currentPeriod === "morning"
-    ? todayRecord?.morning
-    : todayRecord?.afternoon;
-  const curStarted = !!curSession?.timeIn;
-  const curDone = !!curSession?.timeIn && !!curSession?.timeOut;
-  const isOnClock = curStarted && !curDone;
-  const activeStart = curSession?.timeIn;
+  const activeSession =
+    todayRecord && todayRecord.timeIn && !todayRecord.timeOut
+      ? { timeIn: todayRecord.timeIn }
+      : todayRecord?.extraSessions?.find((s) => s.timeIn && !s.timeOut) ?? null;
+  const activeStart = activeSession?.timeIn;
 
   const todayTotalMs = todayRecord ? sessionTotalMs(todayRecord, now) : 0;
-  const todayBreakMs = todayRecord ? sessionBreakMs(todayRecord) : 0;
   const todayOvertimeMs = overtimeMs(todayTotalMs);
 
   const weekStartKey = getWeekStartKey(phtNow);
   const weekRecords = logs.filter((l) => l.date >= weekStartKey);
   const weekTotalMs = weekRecords.reduce((sum, r) => sum + sessionTotalMs(r, now), 0);
-  const weekBreakMs = weekRecords.reduce((sum, r) => sum + sessionBreakMs(r), 0);
   const weekOvertimeMs = overtimeMs(weekTotalMs, STANDARD_WEEKLY_HOURS);
 
   const sessionMs = isOnClock && activeStart ? now.getTime() - activeStart.getTime() : 0;
   const displayTime = isOnClock ? fmtTimer(sessionMs) : formatPHT(now, true);
 
-  const statusMeta = curDone
-    ? currentPeriod === "morning"
-      ? { label: "Morning Complete", cls: "bg-green-100 text-green-700 border-green-200" }
-      : { label: "Shift Complete", cls: "bg-green-100 text-green-700 border-green-200" }
-    : curStarted
-      ? { label: "Clocked In", cls: "bg-green-100 text-green-700 border-green-200" }
-      : currentPeriod === "morning"
-        ? { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" }
+  const statusMeta = isOnClock
+    ? { label: "Clocked In", cls: "bg-green-100 text-green-700 border-green-200" }
+    : curDone && exceeded
+      ? { label: "Exceeded for the Day", cls: "bg-amber-100 text-amber-700 border-amber-200" }
+      : curDone
+        ? { label: "Shift Complete", cls: "bg-green-100 text-green-700 border-green-200" }
         : { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" };
 
   const description = isOnClock
-    ? `${activePeriod} session · started at ${fmtShortTime(activeStart)}`
-    : curDone
-      ? currentPeriod === "morning"
-        ? "Morning session complete. Time In for your Afternoon session unlocks in the PM."
-        : "Both Morning and Afternoon sessions are recorded for today."
-      : `Clock in to start your ${activePeriod} session.`;
+    ? `Shift started at ${fmtShortTime(activeStart)}${exceeded ? " · extra clock-in after the day was done" : ""}`
+    : curDone && exceeded
+      ? "Time in and time out are done for today, but an extra clock-in was recorded — logged as exceeded for the day."
+      : curDone
+        ? "Time in and time out are recorded for today."
+        : "Clock in to start your shift.";
 
   const handleClock = () => {
     if (!email) return;
     try {
       if (isOnClock) {
         attendanceStore.timeOut(email);
-        toast.success(`${activePeriod} Time Out recorded at ${fmtShortTime(new Date(internetUtcMs()))}. See you next shift!`);
+        toast.success(`Time Out recorded at ${fmtShortTime(new Date(internetUtcMs()))}. See you next shift!`);
       } else if (curDone) {
-        toast.info(
-          currentPeriod === "morning"
-            ? "Morning session is complete. Come back in the PM to clock in your Afternoon session."
-            : "All sessions are already recorded for today. Come back tomorrow!",
-        );
-      } else {
-        const name = user.name || email.split("@")[0];
+        const name = user?.name || email.split("@")[0];
         attendanceStore.timeIn(email, name, "staff");
-        toast.success(`${activePeriod} Time In recorded at ${fmtShortTime(new Date(internetUtcMs()))}.`);
+        toast.success("Extra time-in recorded — today is logged as exceeded.");
+      } else {
+        const name = user?.name || email.split("@")[0];
+        attendanceStore.timeIn(email, name, "staff");
+        toast.success(`Time In recorded at ${fmtShortTime(new Date(internetUtcMs()))}.`);
       }
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);
@@ -235,11 +226,11 @@ export default function StaffTimesheet() {
             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
               {isOnClock
                 ? "Session Timer"
-                : curDone
-                  ? currentPeriod === "morning"
-                    ? "Morning Complete"
-                    : "Today Complete"
-                  : "Current Time"}
+                : curDone && exceeded
+                  ? "Exceeded — Day Done"
+                  : curDone
+                    ? "Today Complete"
+                    : "Current Time"}
             </p>
             <div
               className={`mt-2 font-mono font-bold tabular-nums tracking-tight ${
@@ -254,13 +245,13 @@ export default function StaffTimesheet() {
             <p className="mt-3 text-sm text-slate-500 font-medium">{description}</p>
 
             <Button
-              onClick={() => { if (!curDone) setShowClockConfirm(true); }}
-              disabled={curDone}
+              onClick={() => setShowClockConfirm(true)}
+              disabled={false}
               className={`mt-6 h-14 w-full max-w-sm rounded-xl text-base font-bold transition-all disabled:opacity-100 ${
                 isOnClock
                   ? "bg-[#2557b8] hover:bg-[#1d4e99] text-white"
                   : curDone
-                    ? "cursor-default bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"
+                    ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
                     : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"
               }`}
             >
@@ -271,15 +262,13 @@ export default function StaffTimesheet() {
                 </>
               ) : curDone ? (
                 <>
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  {currentPeriod === "morning"
-                    ? "Morning Complete — Back in PM"
-                    : "Attendance Complete for Today"}
+                  <LogIn className="h-5 w-5 mr-2" />
+                  Time In Again (Extra)
                 </>
               ) : (
                 <>
                   <LogIn className="h-5 w-5 mr-2" />
-                  Time In — {activePeriod}
+                  Time In
                 </>
               )}
             </Button>
@@ -296,7 +285,7 @@ export default function StaffTimesheet() {
         </Card>
 
         {/* ── Personal Metrics — Today vs This Week ───────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {[
             {
               id: "mt-tot",
@@ -304,13 +293,6 @@ export default function StaffTimesheet() {
               icon: Timer,
               today: fmtCompact(todayTotalMs),
               week: fmtCompact(weekTotalMs),
-            },
-            {
-              id: "mt-brk",
-              label: "Break Time",
-              icon: Coffee,
-              today: fmtCompact(todayBreakMs),
-              week: fmtCompact(weekBreakMs),
             },
             {
               id: "mt-ovt",
@@ -377,26 +359,24 @@ export default function StaffTimesheet() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Morning In</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Morning Out</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Afternoon In</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Afternoon Out</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Break</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock-In</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock-Out</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Overtime</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
                   {logs.length > 0 ? (
                     logs.map((record) => {
                       const total = sessionTotalMs(record, now);
-                      const brk = sessionBreakMs(record);
                       const ot = overtimeMs(total);
-                      const isToday = record.date === todayKey && isOnClock;
+                      const recExceeded = isExceeded(record);
+                      const activeToday = record.date === todayKey && isOnClock;
                       return (
                         <tr
                           key={record.id}
-                          className={`transition-colors border-b border-gray-100 ${isToday ? "bg-blue-50/40" : "hover:bg-gray-50"}`}
+                          className={`transition-colors border-b border-gray-100 ${activeToday ? "bg-blue-50/40" : "hover:bg-gray-50"}`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -411,19 +391,14 @@ export default function StaffTimesheet() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
-                            {fmtShortTime(record.morning.timeIn)}
+                            {fmtShortTime(record.timeIn)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
-                            {fmtShortTime(record.morning.timeOut)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
-                            {fmtShortTime(record.afternoon.timeIn)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
-                            {fmtShortTime(record.afternoon.timeOut)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
-                            {fmtCompact(brk)}
+                            {activeToday ? (
+                              <span className="font-semibold text-green-700">On Clock</span>
+                            ) : (
+                              record.timeOut ? fmtShortTime(record.timeOut) : "—"
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 tabular-nums">
                             {fmtCompact(total)}
@@ -431,12 +406,21 @@ export default function StaffTimesheet() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-amber-600 font-semibold tabular-nums">
                             {fmtCompact(ot)}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {recExceeded ? (
+                              <Badge className="border border-amber-200 bg-amber-100 text-amber-700">
+                                Exceeded
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-gray-300">—</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={6}>
                         <div className="flex flex-col items-center justify-center py-14 text-gray-500">
                           <History className="w-10 h-10 mb-3 opacity-40" />
                           <p className="text-sm font-medium">No clock entries yet</p>
@@ -455,8 +439,10 @@ export default function StaffTimesheet() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
                   <span className="font-bold text-slate-800">Today</span>
                   <span className="text-slate-500">
-                    Morning {fmtShortTime(todayRecord.morning.timeIn)}→{fmtShortTime(todayRecord.morning.timeOut)}{" "}
-                    · Afternoon {fmtShortTime(todayRecord.afternoon.timeIn)}→{fmtShortTime(todayRecord.afternoon.timeOut)}
+                    In {fmtShortTime(todayRecord.timeIn)} → Out {fmtShortTime(todayRecord.timeOut)}
+                    {todayRecord.exceeded && (
+                      <span className="ml-1 font-semibold text-amber-600">· Exceeded</span>
+                    )}
                   </span>
                   <span className="sm:ml-auto font-bold text-[#1D73EC] tabular-nums">
                     {fmtCompact(todayTotalMs)} total
@@ -473,7 +459,7 @@ export default function StaffTimesheet() {
           {/* Footnote */}
           <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
             <p className="text-xs text-gray-500 font-medium">
-              Timesheet is stored on this device (demo). Standard shift: {STANDARD_DAILY_HOURS}h/day · {STANDARD_WEEKLY_HOURS}h/week. Break = gap between Morning and Afternoon sessions.
+              Timesheet is stored on this device (demo). Standard shift: {STANDARD_DAILY_HOURS}h/day · {STANDARD_WEEKLY_HOURS}h/week. One Time In / Time Out per day — clocking back in after the day is complete is logged as Exceeded.
             </p>
           </div>
         </Card>
@@ -484,13 +470,15 @@ export default function StaffTimesheet() {
           open
           onOpenChange={setShowClockConfirm}
           onConfirm={() => { handleClock(); setShowClockConfirm(false); }}
-          title={isOnClock ? `Time Out of ${activePeriod} session?` : `Time In to ${activePeriod} session?`}
+          title={isOnClock ? "Time Out?" : curDone ? "Clock In Again?" : "Time In?"}
           description={
             isOnClock
-              ? `End your ${activePeriod} session now? Your clock-out time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))}. You can clock back in for your next session.`
-              : `Start your ${activePeriod} session now? Your clock-in time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))} and this session will count toward today's hours.`
+              ? `End your shift now? Your clock-out time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))}.`
+              : curDone
+                ? 'Your time in and time out are already done for today. Clock in again anyway? This will be recorded as exceeded time for today and will show up in your logs and the admin monitoring view.'
+                : `Start your shift now? Your clock-in time will be recorded at ${fmtShortTime(new Date(internetUtcMs()))} and this session will count toward today's hours.`
           }
-          confirmLabel={isOnClock ? "Time Out" : "Time In"}
+          confirmLabel={isOnClock ? "Time Out" : curDone ? "Yes, Clock In Again" : "Time In"}
           cancelLabel="Go Back"
           destructive={false}
         />

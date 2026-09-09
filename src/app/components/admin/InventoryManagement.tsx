@@ -19,6 +19,8 @@ import {
   Calendar,
   ChevronDown,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -530,8 +532,8 @@ function InventoryReports() {
       <ReportSection title="Current Inventory Report" subtitle="Reflects the same data as the Inventory Overview table">
         {currentReportItems.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">No inventory items match the current filters.</p>
-        ) : (
-          <div className="overflow-x-auto">
+) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/60 text-left">
@@ -581,6 +583,10 @@ export default function InventoryManagement({
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
 
+  // Table pagination
+  const PAGE_SIZE = 8;
+  const [page, setPage] = useState(1);
+
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [stockDialog, setStockDialog] = useState<StockDialogState>(null);
@@ -626,6 +632,10 @@ export default function InventoryManagement({
     (sum, item) => sum + item.currentStock,
     0,
   );
+  const papersLeftPieces = paperItems.reduce(
+    (sum, item) => sum + inventoryStore.getItemPieces(item),
+    0,
+  );
 
   const filteredItems = items.filter((item) => {
     const q = search.trim().toLowerCase();
@@ -636,6 +646,18 @@ export default function InventoryManagement({
       (item.brand || "").toLowerCase().includes(q)
     );
   });
+
+  // Pagination derived values
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const pageItems = filteredItems.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
+
+  // Jump back to page 1 when the result set changes (search / source toggle)
+  useEffect(() => {
+    setPage(1);
+  }, [search, showArchived, filteredItems.length]);
 
   const openAdd = () => {
     setForm({
@@ -847,49 +869,39 @@ export default function InventoryManagement({
           </div>
         )}
 
-        {/* Papers Left Card */}
-        <Card className="p-6 bg-white border border-slate-100 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-[#2F6FD6]">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Papers Left
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-slate-900">
-                    {formatNumber(papersLeftReams, 2)}
-                  </p>
-                  <p className="text-sm font-medium text-slate-500">
-                    reams left
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              {paperItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
-                >
-                  <p className="text-[10px] font-bold text-slate-500 uppercase">
-                    {item.name}
-                  </p>
-                  <p className="text-sm font-bold text-slate-800">
-                    {formatNumber(inventoryStore.getItemPieces(item), 0)} pcs
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-          <SummaryCard icon={Boxes} label="Items" value={inventoryStore.getActiveItems().length} iconBg="bg-blue-100" iconColor="text-[#2F6FD6]" />
-          <SummaryCard icon={Inbox} label="Low Stock" value={lowStockCount} iconBg="bg-green-100" iconColor="text-green-600" valueColor="text-red-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <SummaryCard
+            icon={FileText}
+            label="Papers Left"
+            value={formatNumber(papersLeftReams, 2)}
+            subtitle="reams in stock"
+            iconBg="bg-blue-100"
+            iconColor="text-[#2F6FD6]"
+          />
+          <SummaryCard
+            icon={Boxes}
+            label="Total Items"
+            value={inventoryStore.getActiveItems().length}
+            iconBg="bg-blue-100"
+            iconColor="text-[#2F6FD6]"
+          />
+          <SummaryCard
+            icon={AlertTriangle}
+            label="Low Stock"
+            value={lowStockCount}
+            iconBg="bg-amber-100"
+            iconColor="text-amber-600"
+            valueColor="text-amber-600"
+          />
+          <SummaryCard
+            icon={Inbox}
+            label="Bond Paper Stock"
+            value={`${formatNumber(papersLeftPieces, 0)} pcs`}
+            subtitle="total paper pieces on hand"
+            iconBg="bg-blue-100"
+            iconColor="text-[#2F6FD6]"
+          />
         </div>
 
         {/* Toolbar */}
@@ -907,14 +919,18 @@ export default function InventoryManagement({
             <Button
               type="button"
               onClick={() => setShowArchived(false)}
-              className={!showArchived ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]" : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"}
+              className={!showArchived
+                ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-md shadow-[#2F6FD6]/25"
+                : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white rounded-md"}
             >
               Active
             </Button>
             <Button
               type="button"
               onClick={() => setShowArchived(true)}
-              className={showArchived ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]" : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"}
+              className={showArchived
+                ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-md shadow-[#2F6FD6]/25"
+                : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white rounded-md"}
             >
               Archived
             </Button>
@@ -939,6 +955,7 @@ export default function InventoryManagement({
               </p>
             </div>
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -967,7 +984,7 @@ export default function InventoryManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item) => (
+                  {pageItems.map((item) => (
                     <tr
                       key={item.id}
                       className="border-b border-slate-50 hover:bg-slate-50/50"
@@ -1068,6 +1085,39 @@ export default function InventoryManagement({
                 </tbody>
               </table>
             </div>
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-t border-slate-100">
+              <p className="text-sm text-slate-500">
+                Showing {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-sm shadow-[#2F6FD6]/30 h-9 w-9"
+                >
+                  {page}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={page === pageCount}
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+            </>
           )}
         </Card>
         </>

@@ -4,7 +4,8 @@ import {
   Bell,
   LogOut,
   Menu,
-  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   User,
   ChevronDown,
   Printer,
@@ -84,6 +85,14 @@ interface LayoutProps {
 // user scrolls it themselves.
 let savedSidebarScrollTop = 0;
 
+// Which expandable parent was last active across Layout remounts (Layout is
+// instantiated per-page, so it remounts on every navigation). This drives the
+// parent's select animation: it should only replay when the user switches to a
+// DIFFERENT category (parent), not when picking another sub-option under the
+// same parent.
+let lastActiveCategoryPath: string | undefined;
+let pendingParentPulsePath: string | undefined;
+
 const NOTIF_TYPE_LABEL: Record<Notification["type"], string> = {
   order: "Order",
   payment: "Payment",
@@ -128,6 +137,13 @@ export default function Layout({
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
     () => snapshotExpandedParents(),
   );
+  // Submenus expanded by a click during THIS Layout instance. Layout remounts on
+  // every navigation, so persisting this here (empty by default) means
+  // already-expanded parents don't replay their fade-in animation when the
+  // sidebar re-renders after navigating — only genuinely fresh expands animate.
+  const [animatedModules, setAnimatedModules] = useState<Set<string>>(
+    () => new Set(),
+  );
   // Collapsed-sidebar tooltip: a single viewport-positioned label that follows
   // the hovered item. Fixed to the icon's real coordinates so the name always
   // sits right next to it (a plain `fixed left-[80px]` div with no vertical
@@ -135,11 +151,37 @@ export default function Layout({
   // bottom instead of next to the icon being hovered).
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; x: number; y: number } | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  // A single delayed tooltip scheduler for the collapsed sidebar (nav icons)
+  // so names never flash on a quick mouse pass — they appear only after a
+  // longer, deliberate hold.
+  const tooltipTimerRef = useRef<number | null>(null);
 
+  const scheduleSidebarTooltip = (label: string, e: React.MouseEvent<HTMLElement>, delayMs: number) => {
+    if (isMobile) return;
+    const itemRect = e.currentTarget.getBoundingClientRect();
+    // Anchor the tooltip to the sidebar's RIGHT edge (not the hovered icon), so
+    // it always floats fully OUTSIDE the bar — and it hugs the edge whether the
+    // sidebar sits at its collapsed (72px) or expanded (256px) width.
+    const asideRect = e.currentTarget.closest("aside")?.getBoundingClientRect();
+    const x = (asideRect?.right ?? itemRect.right) + 12;
+    const y = itemRect.top + itemRect.height / 2;
+    if (tooltipTimerRef.current !== null) window.clearTimeout(tooltipTimerRef.current);
+    tooltipTimerRef.current = window.setTimeout(() => {
+      tooltipTimerRef.current = null;
+      setSidebarTooltip({ label, x, y });
+    }, delayMs);
+  };
+
+  // Nav-icon tooltips in the collapsed sidebar — delayed, longer hold.
   const showSidebarTooltip = (label: string, e: React.MouseEvent<HTMLElement>) => {
-    if (isMobile || isSidebarExpanded) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setSidebarTooltip({ label, x: rect.right + 12, y: rect.top + rect.height / 2 });
+    if (isSidebarExpanded) return;
+    scheduleSidebarTooltip(label, e, 600);
+  };
+
+  const hideSidebarTooltip = () => {
+    if (tooltipTimerRef.current !== null) window.clearTimeout(tooltipTimerRef.current);
+    tooltipTimerRef.current = null;
+    setSidebarTooltip(null);
   };
 
   // Restore the desktop sidebar scroll position after this Layout instance
@@ -148,13 +190,41 @@ export default function Layout({
     if (navRef.current) {
       navRef.current.scrollTop = savedSidebarScrollTop;
     }
+    return () => {
+      if (tooltipTimerRef.current !== null) window.clearTimeout(tooltipTimerRef.current);
+    };
   }, []);
+
+  // On mobile the page scrolls with the document (body) so the whole page
+  // scrolls as ONE continuous stream. SPA navigation keeps the window scroll
+  // position across pages, so reset to the top on every Layout mount (Layout is
+  // instantiated per-page). Desktop never scrolls the window (inner scroller),
+  // so this is a no-op there.
+  useEffect(() => {
+    if (isMobile) window.scrollTo(0, 0);
+  }, [isMobile]);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTopProfileOpen, setIsTopProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] =
     useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const topProfileRef = useRef<HTMLDivElement>(null);
+
+  // Close the header profile dropdown when clicking outside of it.
+  useEffect(() => {
+    if (!isTopProfileOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        topProfileRef.current &&
+        !topProfileRef.current.contains(event.target as Node)
+      ) {
+        setIsTopProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isTopProfileOpen]);
 
   // Live header clock — real internet GMT+8 (Philippines time), visible to
   // every user/role on every page through the shared Layout header.
@@ -272,7 +342,25 @@ export default function Layout({
     return letters || "U";
   };
 
-  const profileImage = user?.profileImage;
+  const getStoredProfileImage = (): string | undefined => {
+    if (!user?.role) return undefined;
+    try {
+      const key = `${user.role}_profile_image`;
+      return localStorage.getItem(key) || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Profile pages write the photo both to AuthContext (user.profileImage) and to a
+  // role-scoped localStorage key; fall back to the stored key so the sidebar always
+  // reflects whatever photo the user has, even if the session never got it.
+  const [storedProfileImage, setStoredProfileImage] = useState<string | undefined>(getStoredProfileImage);
+  useEffect(() => {
+    setStoredProfileImage(getStoredProfileImage());
+  }, [user?.role, user?.email]);
+
+  const profileImage = user?.profileImage || storedProfileImage;
   const profileInitial = getInitials(user?.name || user?.email || "User");
 
   const displayTitle =
@@ -286,8 +374,29 @@ export default function Layout({
   }, [isMobile]);
 
   const handleNavigation = (path: string) => {
+    lastActiveCategoryPath = undefined;
+    pendingParentPulsePath = undefined;
     navigate(path);
   };
+
+  // Selecting a sub-option: pulse the parent's select animation ONLY when this
+  // sub-option belongs to a different category than the last one used.
+  const handleChildNavigation = (module: NavModule, childPath: string) => {
+    if (module.path !== lastActiveCategoryPath) {
+      pendingParentPulsePath = module.path;
+      lastActiveCategoryPath = module.path;
+    }
+    navigate(childPath);
+  };
+
+  // Capture the pending parent pulse for THIS instance's initial render, then
+  // clear it so the next instance doesn't replay it. Clearing post-mount keeps
+  // the animate-in class applied long enough for the CSS animation to play.
+  const pulseParentPath = pendingParentPulsePath;
+
+  useEffect(() => {
+    pendingParentPulsePath = undefined;
+  }, []);
 
   const customerModules: NavModule[] = menuItems.map((item) => ({
       label: item.label,
@@ -341,6 +450,7 @@ export default function Layout({
         persistExpandedParents(next);
         return next;
       });
+      setAnimatedModules((prev) => new Set(prev).add(module.path));
       return;
     }
     setExpandedModules((prev) => {
@@ -348,6 +458,12 @@ export default function Layout({
       if (next.has(module.path)) next.delete(module.path);
       else next.add(module.path);
       persistExpandedParents(next);
+      return next;
+    });
+    setAnimatedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(module.path)) next.delete(module.path);
+      else next.add(module.path);
       return next;
     });
   };
@@ -364,17 +480,25 @@ export default function Layout({
           type="button"
           onClick={() => toggleModule(module)}
           onMouseEnter={(e) => showSidebarTooltip(module.label, e)}
-          onMouseLeave={() => setSidebarTooltip(null)}
+          onMouseLeave={hideSidebarTooltip}
           aria-current={isActive ? "page" : undefined}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
-            showLabels ? "w-full px-4 py-3 gap-3.5 rounded-xl" : "w-11 h-11 justify-center rounded-xl"
-          } ${isActive ? "bg-white text-[#1D73EC] shadow-lg" : "text-white/90 hover:bg-white/10 hover:text-white"}`}
+          className={`flex items-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 active:scale-[0.97] ${
+            showLabels ? "w-full px-4 py-3 gap-3.5" : "w-11 h-11 justify-center rounded-xl"
+          } ${
+            isActive && hasChildren && showLabels
+              ? `rounded-lg bg-[#F2F7FF] text-[#1D73EC] shadow-[0_2px_8px_rgba(16,49,107,0.16)] ring-1 ring-inset ring-[#DCE8FB]${pulseParentPath === module.path ? " animate-in fade-in duration-200" : ""}`
+              : isActive
+                ? "rounded-xl bg-white text-[#1D73EC] shadow-lg animate-in fade-in duration-200"
+                : "rounded-xl text-white/90 hover:bg-white/10 hover:text-white"
+          }`}
         >
           <div className="relative flex-shrink-0 flex items-center justify-center">
             {module.icon}
           </div>
-          {showLabels && <span className="text-sm font-semibold whitespace-nowrap truncate">{module.label}</span>}
+          <span className={`text-sm font-semibold whitespace-nowrap overflow-hidden truncate ${showLabels ? "max-w-[200px] opacity-100" : "max-w-0 opacity-0 transition-all duration-300"}`}>
+            {module.label}
+          </span>
           {hasChildren && showLabels && (
             <span className="ml-auto flex-shrink-0 flex items-center justify-center">
               {isExpanded ? (
@@ -388,7 +512,11 @@ export default function Layout({
         </button>
 
         {hasChildren && isExpanded && showLabels && (
-          <div className="flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className={`relative flex flex-col items-stretch w-full ${animatedModules.has(module.path) ? "animate-in fade-in slide-in-from-top-1 duration-150" : ""}`}>
+            <span
+              aria-hidden="true"
+              className="absolute left-[36px] top-2 bottom-2 w-[2px] rounded-full bg-white/20 pointer-events-none"
+            />
             <div className="flex flex-col items-stretch">
               {module.children!.map((child) => {
                 const isChildActive = childPathMatches(
@@ -400,19 +528,22 @@ export default function Layout({
                   <button
                     key={child.path}
                     type="button"
-                    onClick={() => handleNavigation(child.path)}
+                    onClick={() => handleChildNavigation(module, child.path)}
                     onMouseEnter={(e) => showSidebarTooltip(child.label, e)}
-                    onMouseLeave={() => setSidebarTooltip(null)}
+                    onMouseLeave={hideSidebarTooltip}
                     aria-current={isChildActive ? "page" : undefined}
-                    className={`flex items-center w-full px-4 pl-[52px] py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
+                    className={`relative flex items-center w-full px-4 pl-[52px] py-2.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 active:scale-[0.97] ${
                       isChildActive
-                        ? "bg-white text-[#1D73EC] shadow-sm"
-                        : "text-white/90 hover:bg-white/10 hover:text-white"
+                        ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)] animate-in fade-in duration-200"
+                        : "text-white/80 font-medium hover:bg-white/10 hover:text-white"
                     }`}
                   >
+                    {isChildActive && (
+                      <span className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[6px] h-4 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.35)] animate-in fade-in slide-in-from-left-1 duration-200" />
+                    )}
                     <span className="truncate">{child.label}</span>
                     {isChildActive && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1D73EC] flex-shrink-0" />
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.25)] flex-shrink-0 animate-in fade-in zoom-in-75 duration-200" />
                     )}
                   </button>
                 );
@@ -620,7 +751,7 @@ export default function Layout({
   const navigation = (
     <>
       <div className="pt-5 pb-3 w-full">
-        <div className={showLabels ? "flex items-center justify-between px-4 gap-4" : "flex items-center justify-center"}>
+        <div className="relative h-10">
           <button
             type="button"
             onClick={() => {
@@ -628,23 +759,24 @@ export default function Layout({
                 setIsSidebarExpanded(true);
               }
             }}
-            onMouseEnter={(e) => {
-              if (!showLabels) showSidebarTooltip("Expand navigation", e);
-            }}
-            onMouseLeave={() => setSidebarTooltip(null)}
             aria-label="Docufy"
-            className="group flex items-center gap-3 rounded-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            className="group relative absolute top-0 left-4 w-10 h-10 flex items-center rounded-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             <img
               src={logoImage}
               alt=""
-              className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
+              className={`w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0 transition-opacity duration-200 ${showLabels ? "" : "group-hover:opacity-0"}`}
             />
-            {showLabels && (
-              <span className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
-                Docufy
-              </span>
-            )}
+            <span
+              className={`absolute inset-0 z-10 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${showLabels ? "hidden" : "opacity-0 group-hover:opacity-100"}`}
+            >
+              <PanelLeftOpen className="w-5 h-5 text-white" />
+            </span>
+            <span
+              className={`absolute left-[52px] top-1/2 -translate-y-1/2 text-lg font-bold tracking-tight text-white whitespace-nowrap pointer-events-none transition-opacity duration-300 ${showLabels ? "opacity-100" : "opacity-0"}`}
+            >
+              Docufy
+            </span>
           </button>
 
           {showLabels && (
@@ -659,9 +791,9 @@ export default function Layout({
               }}
               aria-label={isMobile ? "Close navigation" : "Collapse navigation"}
               aria-expanded={isMobile ? isNavigationOpen : isSidebarExpanded}
-              className="flex items-center justify-center rounded-lg w-8 h-8 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-colors duration-200"
+              className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg w-8 h-8 text-blue-100 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-colors duration-200"
             >
-              <PanelLeft className="w-[18px] h-[18px] flex-shrink-0" />
+              <PanelLeftClose className="w-[18px] h-[18px] flex-shrink-0" />
             </button>
           )}
         </div>
@@ -675,7 +807,7 @@ export default function Layout({
         ref={navRef}
         onScroll={(e) => {
           savedSidebarScrollTop = e.currentTarget.scrollTop;
-          setSidebarTooltip(null);
+          hideSidebarTooltip();
         }}
         aria-label="Primary navigation"
         className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
@@ -701,7 +833,7 @@ export default function Layout({
               // button shows, and opening the menu to preserve the click intent.
               setIsSidebarExpanded(true);
               setIsProfileOpen(true);
-              setSidebarTooltip(null);
+              hideSidebarTooltip();
             } else {
               setIsProfileOpen(!isProfileOpen);
             }
@@ -715,7 +847,7 @@ export default function Layout({
             isMobile || isSidebarExpanded ? "w-full px-3 py-2.5" : "mx-auto h-11 w-11 justify-center"
           } ${isProfileOpen ? "bg-white/10" : "hover:bg-white/10"}`}
         >
-          <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
+          <div className="w-8 h-8 bg-white text-[#1D73EC] rounded-lg flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 overflow-hidden">
             {profileImage ? (
               <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -778,8 +910,8 @@ export default function Layout({
         )}
       </div>
 
-      {/* Collapsed-sidebar tooltip — vertically centered on the hovered icon */}
-      {!isMobile && !isSidebarExpanded && sidebarTooltip && (
+      {/* Sidebar tooltip (nav icons when collapsed + collapse/expand header hint) */}
+      {!isMobile && sidebarTooltip && (
         <div
           className="fixed z-[9999] px-3 py-1.5 bg-[#1c1f26] text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap border border-white/10 pointer-events-none"
           style={{ left: sidebarTooltip.x, top: sidebarTooltip.y, transform: "translateY(-50%)" }}
@@ -791,7 +923,11 @@ export default function Layout({
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] flex font-poppins overflow-hidden">
+    <div
+      className={`min-h-screen bg-[#f6f7f9] flex font-poppins ${
+        isMobile ? "overflow-x-hidden" : "overflow-hidden"
+      }`}
+    >
       {!isMobile && (
         <aside
           aria-label="Primary navigation"
@@ -804,8 +940,16 @@ export default function Layout({
       )}
 
       {/* ─── MAIN CONTENT ─── */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="min-h-16 bg-white border-b border-slate-200/80 px-4 sm:px-5 lg:px-6 py-2 flex items-center justify-between z-40 flex-shrink-0">
+      <div
+        className={`flex-1 flex flex-col min-w-0 ${
+          isMobile ? "" : "h-screen"
+        }`}
+      >
+        <header
+          className={`min-h-16 bg-white border-b border-slate-200/80 px-4 sm:px-5 lg:px-6 py-2 flex items-center justify-between z-40 ${
+            isMobile ? "sticky top-0" : "flex-shrink-0"
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {isMobile ? (
               <button
@@ -969,7 +1113,7 @@ export default function Layout({
             />
 
             {!isMobile && (
-              <div className="relative">
+              <div className="relative" ref={topProfileRef}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1004,7 +1148,11 @@ export default function Layout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f6f7f9]">
+        <main
+          className={`bg-[#f6f7f9] ${
+            isMobile ? "" : "flex-1 overflow-y-auto custom-scrollbar"
+          }`}
+        >
           <div className="p-4 sm:p-5 lg:p-6 max-w-[1440px] mx-auto w-full">
             {children}
           </div>

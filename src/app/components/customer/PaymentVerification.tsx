@@ -9,6 +9,7 @@ import {
   FileText,
   Upload,
   AlertCircle,
+  XCircle,
   Package,
   Briefcase,
   X,
@@ -25,6 +26,13 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Alert, AlertDescription } from "../ui/alert";
 import {
   Dialog,
@@ -183,6 +191,9 @@ export default function PaymentVerification() {
   ] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
+  // Down-payment orders: how much the customer pays now — Partial pays the 50%
+  // down payment, Full pays the whole total up front.
+  const [paymentChoice, setPaymentChoice] = useState<"partial" | "full">("partial");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
   const [showImagePreview, setShowImagePreview] =
@@ -193,6 +204,7 @@ export default function PaymentVerification() {
   const [isScanning, setIsScanning] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cashAcknowledged, setCashAcknowledged] = useState(false);
   // Live view of the actual order (payment deadline, amounts, required payment).
   const [order, setOrder] = useState<DataStoreOrder | null>(null);
@@ -205,18 +217,18 @@ export default function PaymentVerification() {
     return unsubscribe;
   }, [orderId]);
 
-  // Preset the "amount paid" field to the amount actually required (full
-  // amount for full-payment orders, the down-payment amount otherwise).
+  // Derive the amount the customer pays from the Partial/Full choice (50% down
+  // payment vs whole total) for down-payment orders, then keep amountPaid in
+  // sync so submit/verification use the right figure.
   useEffect(() => {
-    if (!order || amountPaid) return;
+    if (!order) return;
     const total = parseFloat((order.total || "₱0").replace("₱", "").replace(",", ""));
-    const required = order.fullPaymentRequired
-      ? (order.fullPaymentAmount ?? total)
-      : order.downPaymentRequired
-        ? (order.downPaymentAmount ?? total * 0.5)
-        : total;
+    const required =
+      paymentChoice === "full"
+        ? (order.fullPaymentAmount ?? total)
+        : (order.downPaymentAmount ?? total * 0.5);
     setAmountPaid(required.toFixed(2));
-  }, [order]);
+  }, [order, paymentChoice]);
 
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
   const selectedMethod = isOnline
@@ -359,7 +371,7 @@ export default function PaymentVerification() {
 
       const paid = parseFloat(amountPaid);
       if (isNaN(paid) || paid <= 0) {
-        toast.error("Please enter the amount you paid.");
+        toast.error("Payment amount is not available yet. Please try again.");
         return;
       }
 
@@ -415,7 +427,110 @@ export default function PaymentVerification() {
     setReferenceNumber("");
     setProofFile(null);
     setImagePreviewUrl(null);
+    setPaymentChoice("partial");
   };
+
+  const handleCancelOrder = () => {
+    if (!orderId) return;
+    const reason = "Canceled by customer before payment.";
+    const pendingOrder = readPendingOrder();
+    const existingOrder = dataStore.getOrderById(orderId);
+    if (pendingOrder && pendingOrder.id === orderId && !existingOrder) {
+      // Online orders are held as pending (never entered the system until the
+      // reference is submitted). Materialize the held payload as Canceled so
+      // EVERY status display (My Orders, tracking, staff/admin lists) reflects
+      // the cancellation instead of the order silently vanishing.
+      dataStore.addOrder({
+        ...(pendingOrder as unknown as object),
+        status: "Canceled",
+        cancellationReason: reason,
+      } as DataStoreOrder);
+      clearPendingFlow(orderId);
+    } else {
+      dataStore.updateOrder(orderId, {
+        status: "Canceled",
+        cancellationReason: reason,
+      });
+    }
+    try {
+      localStorage.removeItem(`order_${orderId}`);
+    } catch {
+      /* ignore */
+    }
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${orderId} was canceled by the customer before payment verification.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
+    );
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${orderId} was canceled by the customer before payment verification.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
+    );
+    setShowCancelConfirm(false);
+    toast.success("Order has been canceled.");
+    navigate("/customer/orders");
+  };
+
+  // A canceled order no longer has a payment to verify — show a canceled state
+  // instead of the payment form so the page never reads as "Awaiting Payment".
+  if (order?.status === "Canceled") {
+    return (
+      <Layout
+        menuItems={menuItems}
+        title="Payment Verification"
+        showBackButton
+        backButtonPath="/customer/orders"
+        hideMobileBackButton
+      >
+        <div className="max-w-3xl mx-auto space-y-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">
+              Payment Verification
+            </h1>
+            <p className="text-gray-500 mt-1">
+              Order ID: {orderId}
+            </p>
+          </div>
+          <Card className="p-6 bg-red-50 border border-red-200">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-6 h-6 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-red-900 mb-1">
+                  This order has been canceled
+                </h3>
+                <p className="text-sm text-red-700">
+                  Order #{orderId} was canceled before payment was
+                  verified, so there is no payment to confirm. The order will
+                  no longer be processed.
+                  {order.cancellationReason
+                    ? ` Reason: ${order.cancellationReason}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => navigate("/customer/orders")}
+              className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
+            >
+              View My Orders
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/customer/dashboard")}
+              className="flex-1"
+            >
+              Go to Dashboard
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout
@@ -483,7 +598,7 @@ export default function PaymentVerification() {
         {/* Payment Method Display/Selector */}
         <Card className="p-6 bg-white shadow-sm">
           {!showPaymentMethodSelector ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-2">
                   Selected Payment Method
@@ -521,7 +636,7 @@ export default function PaymentVerification() {
                 onClick={() =>
                   setShowPaymentMethodSelector(true)
                 }
-                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors"
+                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors w-full sm:w-auto"
               >
                 Change Payment Method
               </Button>
@@ -747,8 +862,8 @@ export default function PaymentVerification() {
 
         {/* Reference Form - For digital payments (not cash) */}
         {isOnline && (
-          <Card className="p-6 bg-white shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          <Card className="p-6 bg-white shadow-sm gap-0">
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">
               Submit Payment Reference
             </h2>
 
@@ -765,34 +880,60 @@ export default function PaymentVerification() {
               }}
               className="space-y-6"
             >
-              <div className="space-y-2">
-                <Label htmlFor="amount-paid">
-                  Amount Paid *
-                </Label>
-                <Input
-                  id="amount-paid"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-                {order?.downPaymentRequired && (
-                  <p className="text-sm text-gray-500">
-                    You're required to pay a 50% down payment of{" "}
-                    {formatCurrency(order.downPaymentAmount || 0)}. The remaining
-                    balance of{" "}
-                    {formatCurrency(
-                      parseFloat(
-                        (order.total || "₱0").replace("₱", "").replace(",", ""),
-                      ) - (order.downPaymentAmount || 0),
-                    )}{" "}
-                    will be due on pickup.
-                  </p>
-                )}
-              </div>
+              {order?.downPaymentRequired && (
+                <div className="space-y-2">
+                  <Label htmlFor="payment-choice">
+                    Payment Amount *
+                  </Label>
+                  <Select
+                    value={paymentChoice}
+                    onValueChange={(value) =>
+                      setPaymentChoice(value as "partial" | "full")
+                    }
+                  >
+                    <SelectTrigger id="payment-choice" className="w-full">
+                      <SelectValue placeholder="Select how much to pay" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="partial">
+                        Partial Payment —{" "}
+                        {formatCurrency(
+                          order.downPaymentAmount ||
+                            parseFloat(
+                              (order.total || "₱0").replace("₱", "").replace(",", ""),
+                            ) * 0.5,
+                        )}{" "}
+                        (50% down)
+                      </SelectItem>
+                      <SelectItem value="full">
+                        Full Payment —{" "}
+                        {formatCurrency(
+                          parseFloat(
+                            (order.total || "₱0").replace("₱", "").replace(",", ""),
+                          ) || 0,
+                        )}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {paymentChoice === "full" ? (
+                    <p className="text-sm text-gray-500">
+                      Paying the full amount now — no balance due on pickup.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      You're required to pay a 50% down payment of{" "}
+                      {formatCurrency(order.downPaymentAmount || 0)}. The remaining
+                      balance of{" "}
+                      {formatCurrency(
+                        parseFloat(
+                          (order.total || "₱0").replace("₱", "").replace(",", ""),
+                        ) - (order.downPaymentAmount || 0),
+                      )}{" "}
+                      will be due on pickup.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="reference">
@@ -918,12 +1059,10 @@ export default function PaymentVerification() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    navigate("/customer/dashboard")
-                  }
-                  className="flex-1"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
-                  Cancel
+                  Cancel Order
                 </Button>
                 <Button
                   type="submit"
@@ -1055,6 +1194,20 @@ export default function PaymentVerification() {
           confirmLabel={paymentMethod === "cash" ? "Confirm Order" : "Submit Reference"}
           cancelLabel="Go Back"
           destructive={false}
+        />
+      )}
+
+      {/* Cancel Order Confirmation */}
+      {showCancelConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowCancelConfirm}
+          onConfirm={handleCancelOrder}
+          title="Cancel Order?"
+          description={`Are you sure you want to cancel order #${orderId}? This will permanently cancel the order and it can no longer be processed.`}
+          confirmLabel="Cancel Order"
+          cancelLabel="Keep Order"
+          destructive
         />
       )}
     </Layout>
