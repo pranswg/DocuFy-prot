@@ -617,10 +617,10 @@ export default function CustomerDashboard() {
                 </h4>
                 <div className="space-y-1.5 text-sm text-white/95">
                   <p>
-                    <strong>Mon-Thurs:</strong> 9:00 AM - 6:00 PM
+                    <strong>Mon-Fri:</strong> 9:00 AM - 5:00 PM
                   </p>
                   <p>
-                    <strong>Fri-Sat:</strong> 9:00 AM - 6:00 PM
+                    <strong>Saturday:</strong> Closed
                   </p>
                   <p>
                     <strong>Sunday:</strong> Closed

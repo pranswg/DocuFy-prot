@@ -17,6 +17,9 @@ import {
   X,
   CloudUpload,
   ShieldCheck,
+  LayoutDashboard,
+  User,
+  LogOut,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -25,6 +28,8 @@ import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingValues } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import { useAuth } from "../contexts/AuthContext";
+import { usePresence } from "./ui/use-presence";
+import { ConfirmationDialog } from "./ui/confirmation-dialog";
 import ShopStatusBanner from "./shared/ShopStatusBanner";
 import {
   Dialog,
@@ -37,7 +42,11 @@ import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profilePresence = usePresence(isProfileOpen, 200);
   const userInitials = user
     ? (user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "U")
     : "U";
@@ -58,6 +67,18 @@ export default function LandingPage() {
     const load = () => setPricing(pricingStore.getPricing());
     return pricingStore.subscribe(load);
   }, []);
+
+  // Close the header profile dropdown when clicking outside of it.
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isProfileOpen]);
 
   const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(
     shopPhotosStore.getPhotos(),
@@ -81,9 +102,19 @@ export default function LandingPage() {
       feature3: "Secure payment",
       feature3Sub: "verification.",
       bindingPrice: "20",
-      hoursMonFri: "9:00 AM - 6:00 PM",
-      hoursSat: "9:00 AM - 6:00 PM",
+      hoursMonFri: "9:00 AM - 5:00 PM",
+      hoursSat: "Closed",
       hoursSun: "Closed",
+      shopHours: [
+        { label: "Monday - Friday", hours: "9:00 AM - 5:00 PM" },
+        { label: "Saturday - Sunday", hours: "Closed" },
+      ],
+      hoursNote: "No noon break",
+      locationLines: [
+        "Palawan State University - Main Campus",
+        "Room 4, TBI Building",
+        "Puerto Princesa City, 5300 Palawan",
+      ],
       locationCampus: "Palawan State University - Main Campus",
       locationRoom: "Room 4, TBI Building",
       locationBuilding: "Puerto Princesa City, 5300 Palawan",
@@ -111,14 +142,41 @@ export default function LandingPage() {
             merged[`feature${n}Sub`] = sub;
           }
         }
-        // Migrate saved shop hours that still carry the old defaults to the
-        // uniform customer-dashboard schedule (9 AM - 6 PM throughout).
+        // Migrate saved shop hours that still carry old values to the
+        // current schedule (9 AM - 5 PM, Monday to Friday, no lunch break).
         const HOURS_MIGRATION: Record<string, [string, string]> = {
-          hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 6:00 PM"],
-          hoursSat: ["9:00 AM - 4:00 PM", "9:00 AM - 6:00 PM"],
+          hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
+          hoursMonFri6: ["9:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
+          hoursSat: ["9:00 AM - 4:00 PM", "Closed"],
+          hoursSat6: ["9:00 AM - 6:00 PM", "Closed"],
         };
         for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
-          if (String(merged[key]) === oldVal) merged[key] = newVal;
+          const realKey = key.replace(/6$/, "");
+          if (String(merged[realKey]) === oldVal) merged[realKey] = newVal;
+        }
+        // Structured shop-hours / location fields: build them from legacy
+        // flat values when not yet saved so the landing page reflects them.
+        if (!Array.isArray(merged.shopHours)) {
+          const satSun =
+            String(merged.hoursSat).toLowerCase() ===
+            String(merged.hoursSun).toLowerCase()
+              ? [{ label: "Saturday - Sunday", hours: String(merged.hoursSat || "Closed") }]
+              : [
+                  { label: "Saturday", hours: String(merged.hoursSat || "Closed") },
+                  { label: "Sunday", hours: String(merged.hoursSun || "Closed") },
+                ];
+          merged.shopHours = [
+            { label: "Monday - Friday", hours: String(merged.hoursMonFri || "") },
+            ...satSun,
+          ].filter((row) => row.hours !== "");
+          merged.hoursNote = "No noon break";
+        }
+        if (!Array.isArray(merged.locationLines)) {
+          merged.locationLines = [
+            merged.locationCampus,
+            merged.locationRoom,
+            merged.locationBuilding,
+          ].filter(Boolean);
         }
         return merged;
       } catch {
@@ -339,9 +397,6 @@ export default function LandingPage() {
               <h1 className="truncate text-base font-bold text-[#1c1f26] sm:text-xl">
                 Docufy PSMS
               </h1>
-              <p className="hidden text-xs text-gray-500 sm:block">
-                Your Printing Companion
-              </p>
             </div>
           </div>
 
@@ -376,27 +431,59 @@ export default function LandingPage() {
             </nav>
 
             {user ? (
-              <button
-                type="button"
-                onClick={() => navigate(`/${user.role}/profile`)}
-                className="flex shrink-0 items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-all duration-200 hover:border-[#1D73EC]/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] sm:pr-4"
-              >
-                <span className="h-8 w-8 overflow-hidden rounded-full bg-[#1D73EC] text-white flex items-center justify-center text-xs font-bold sm:h-9 sm:w-9">
-                  {user.profileImage ? (
-                    <img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
-                  ) : (
-                    userInitials
-                  )}
-                </span>
-                <span className="text-left leading-tight">
-                  <span className="block max-w-[120px] truncate text-xs font-semibold text-[#1c1f26] sm:max-w-[160px] sm:text-sm">
-                    {user.name}
-                  </span>
-                  <span className="hidden text-[10px] font-medium capitalize text-gray-500 sm:block">
-                    {user.role} Account
-                  </span>
-                </span>
-              </button>
+              <div className="relative shrink-0" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileOpen((prev) => !prev)}
+                  aria-label="Open profile"
+                  aria-expanded={isProfileOpen}
+                  aria-haspopup="menu"
+                  className="rounded-full transition-all duration-200 hover:scale-105 hover:ring-2 hover:ring-[#1D73EC]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC] focus-visible:ring-offset-2"
+                >
+                  <div className="h-10 w-10 overflow-hidden rounded-full bg-[#1D73EC] text-white shadow-sm flex items-center justify-center font-bold text-xs">
+                    {user.profileImage ? (
+                      <img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
+                    ) : (
+                      userInitials
+                    )}
+                  </div>
+                </button>
+
+                {profilePresence && (
+                  <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${profilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        navigate(`/${user.role}/dashboard`);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <LayoutDashboard className="h-4 w-4" /> Go to Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        navigate(`/${user.role}/profile`);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <User className="h-4 w-4" /> Edit Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        setShowLogoutConfirm(true);
+                      }}
+                      className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Button
                 variant="outline"
@@ -451,7 +538,7 @@ export default function LandingPage() {
               </div>
 
               {/* Features List */}
-              <div className="mt-6 flex min-w-0 items-center gap-x-4 sm:gap-x-8">
+              <div className="mt-6 flex min-w-0 items-center">
                 {[
                   {
                     title: content.feature1,
@@ -489,7 +576,7 @@ export default function LandingPage() {
                     {index < 2 && (
                       <span
                         aria-hidden
-                        className="mx-2 h-12 w-px shrink-0 bg-blue-200 sm:mx-3 sm:h-14"
+                        className="mx-auto h-12 w-px shrink-0 bg-blue-200 sm:h-14"
                       />
                     )}
                   </div>
@@ -703,24 +790,20 @@ export default function LandingPage() {
                       Shop Hours
                     </h4>
                     <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
-                      <p>
-                        <span className="font-semibold text-[#1D73EC]">
-                          Mon-Thurs:
-                        </span>{" "}
-                        {content.hoursMonFri}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-[#1D73EC]">
-                          Fri-Sat:
-                        </span>{" "}
-                        {content.hoursSat}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-[#1D73EC]">
-                          Sunday:
-                        </span>{" "}
-                        {content.hoursSun}
-                      </p>
+                      {content.shopHours.map((row: { label: string; hours: string }, index: number) => (
+                        <p key={index}>
+                          <span className="font-semibold text-[#1D73EC]">
+                            {row.label || "Schedule"}:
+                          </span>{" "}
+                          {row.hours}
+                        </p>
+                      ))}
+                      {content.hoursNote && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2F7FF] px-2.5 py-1 text-xs font-semibold text-[#1D73EC] sm:text-sm">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          {content.hoursNote}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -740,11 +823,11 @@ export default function LandingPage() {
                       Location
                     </h4>
                     <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
-                      <p className="font-semibold text-[#1D73EC]">
-                        {content.locationCampus}
-                      </p>
-                      <p>{content.locationRoom}</p>
-                      <p>{content.locationBuilding}</p>
+                      {content.locationLines.map((line: string, index: number) => (
+                        <p key={index} className={index === 0 ? "font-semibold text-[#1D73EC]" : ""}>
+                          {line}
+                        </p>
+                      ))}
                     </div>
                     <Button
                       onClick={() => setShowShopMap(true)}
@@ -1305,8 +1388,7 @@ export default function LandingPage() {
               <MapPin className="w-5 h-5 text-[#1D73EC]" /> Shop Location
             </DialogTitle>
             <DialogDescription>
-              {content.locationCampus}, {content.locationRoom},{" "}
-              {content.locationBuilding}
+              {content.locationLines.filter(Boolean).join(", ")}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-hidden rounded-xl border-2 border-blue-100">
@@ -1373,6 +1455,22 @@ export default function LandingPage() {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {showLogoutConfirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowLogoutConfirm}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
+          title="Sign out of Docufy?"
+          description="You will be returned to the sign-in page. Your current session and app data will be preserved, but sign-in will be required to continue."
+          confirmLabel="Log Out"
+          cancelLabel="Stay Signed In"
+          destructive
+        />
       )}
     </div>
   );

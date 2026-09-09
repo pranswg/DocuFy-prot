@@ -19,6 +19,7 @@ import {
   Camera,
   Image,
   X,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -65,6 +66,9 @@ interface LandingPageContent {
   hoursMonFri: string;
   hoursSat: string;
   hoursSun: string;
+  shopHours: { label: string; hours: string }[];
+  hoursNote: string;
+  locationLines: string[];
   locationCampus: string;
   locationRoom: string;
   locationBuilding: string;
@@ -88,9 +92,19 @@ export default function ContentManagement() {
         feature3: "Secure payment",
         feature3Sub: "verification.",
         bindingPrice: "20",
-        hoursMonFri: "9:00 AM - 6:00 PM",
-        hoursSat: "9:00 AM - 6:00 PM",
+        hoursMonFri: "9:00 AM - 5:00 PM",
+        hoursSat: "Closed",
         hoursSun: "Closed",
+        shopHours: [
+          { label: "Monday - Friday", hours: "9:00 AM - 5:00 PM" },
+          { label: "Saturday - Sunday", hours: "Closed" },
+        ],
+        hoursNote: "No noon break",
+        locationLines: [
+          "Palawan State University - Main Campus",
+          "Ground Floor, Room 105",
+          "Near the Library Entrance",
+        ],
         locationCampus:
           "Palawan State University - Main Campus",
         locationRoom: "Ground Floor, Room 105",
@@ -116,14 +130,41 @@ export default function ContentManagement() {
               merged[`feature${n}Sub`] = sub;
             }
           }
-          // Migrate saved shop hours that still carry the old defaults to the
-          // uniform customer-dashboard schedule (9 AM - 6 PM throughout).
+          // Migrate saved shop hours that still carry old values to the
+          // current schedule (9 AM - 5 PM, Monday to Friday, no lunch break).
           const HOURS_MIGRATION: Record<string, [string, string]> = {
-            hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 6:00 PM"],
-            hoursSat: ["9:00 AM - 4:00 PM", "9:00 AM - 6:00 PM"],
+            hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
+            hoursMonFri6: ["9:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
+            hoursSat: ["9:00 AM - 4:00 PM", "Closed"],
+            hoursSat6: ["9:00 AM - 6:00 PM", "Closed"],
           };
           for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
-            if (String(merged[key]) === oldVal) merged[key] = newVal;
+            const realKey = key.replace(/6$/, "");
+            if (String(merged[realKey]) === oldVal) merged[realKey] = newVal;
+          }
+          // Structured shop-hours / location fields: build them from legacy
+          // flat values when not yet saved so the add/remove editors work.
+          if (!Array.isArray(merged.shopHours)) {
+            const satSun =
+              String(merged.hoursSat).toLowerCase() ===
+              String(merged.hoursSun).toLowerCase()
+                ? [{ label: "Saturday - Sunday", hours: String(merged.hoursSat || "Closed") }]
+                : [
+                    { label: "Saturday", hours: String(merged.hoursSat || "Closed") },
+                    { label: "Sunday", hours: String(merged.hoursSun || "Closed") },
+                  ];
+            merged.shopHours = [
+              { label: "Monday - Friday", hours: String(merged.hoursMonFri || "") },
+              ...satSun,
+            ].filter((row) => row.hours !== "");
+            merged.hoursNote = "No noon break";
+          }
+          if (!Array.isArray(merged.locationLines)) {
+            merged.locationLines = [
+              merged.locationCampus,
+              merged.locationRoom,
+              merged.locationBuilding,
+            ].filter(Boolean);
           }
           return merged;
         } catch {
@@ -391,62 +432,82 @@ export default function ContentManagement() {
               <div className="space-y-4">
                 <div>
                   <Label>Shop Hours</Label>
+                  <p className="text-sm text-gray-500 mt-1 mb-3">
+                    Add or remove schedule rows. Each row shows a day/group
+                    label and its operating hours.
+                  </p>
                   <div className="space-y-2 mt-2">
+                    {landingContent.shopHours.map((row, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={row.label}
+                          onChange={(e) => {
+                            const next = [...landingContent.shopHours];
+                            next[index] = { ...next[index], label: e.target.value };
+                            setLandingContent({ ...landingContent, shopHours: next });
+                          }}
+                          placeholder="Monday - Friday"
+                          className="flex-shrink-0 flex-1"
+                        />
+                        <Input
+                          value={row.hours}
+                          onChange={(e) => {
+                            const next = [...landingContent.shopHours];
+                            next[index] = { ...next[index], hours: e.target.value };
+                            setLandingContent({ ...landingContent, shopHours: next });
+                          }}
+                          placeholder="9:00 AM - 5:00 PM"
+                          className="flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = landingContent.shopHours.filter(
+                              (_, i) => i !== index,
+                            );
+                            setLandingContent({ ...landingContent, shopHours: next });
+                          }}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                          title="Remove schedule"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setLandingContent({
+                          ...landingContent,
+                          shopHours: [
+                            ...landingContent.shopHours,
+                            { label: "", hours: "" },
+                          ],
+                        })
+                      }
+                      className="border-gray-300"
+                    >
+                      <Plus className="w-4 h-4" /> Add Schedule
+                    </Button>
                     <div>
                       <Label
-                        htmlFor="hoursMonFri"
+                        htmlFor="hoursNote"
                         className="text-sm text-gray-600"
                       >
-                        Monday - Thursday
+                        Hours Note
                       </Label>
                       <Input
-                        id="hoursMonFri"
-                        value={landingContent.hoursMonFri}
+                        id="hoursNote"
+                        value={landingContent.hoursNote}
                         onChange={(e) =>
                           setLandingContent({
                             ...landingContent,
-                            hoursMonFri: e.target.value,
+                            hoursNote: e.target.value,
                           })
                         }
-                        placeholder="9:00 AM - 6:00 PM"
-                      />
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="hoursSat"
-                        className="text-sm text-gray-600"
-                      >
-                        Friday - Saturday
-                      </Label>
-                      <Input
-                        id="hoursSat"
-                        value={landingContent.hoursSat}
-                        onChange={(e) =>
-                          setLandingContent({
-                            ...landingContent,
-                            hoursSat: e.target.value,
-                          })
-                        }
-                        placeholder="9:00 AM - 6:00 PM"
-                      />
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="hoursSun"
-                        className="text-sm text-gray-600"
-                      >
-                        Sunday
-                      </Label>
-                      <Input
-                        id="hoursSun"
-                        value={landingContent.hoursSun}
-                        onChange={(e) =>
-                          setLandingContent({
-                            ...landingContent,
-                            hoursSun: e.target.value,
-                          })
-                        }
-                        placeholder="Closed"
+                        placeholder="No noon break"
                       />
                     </div>
                   </div>
@@ -454,39 +515,53 @@ export default function ContentManagement() {
 
                 <div>
                   <Label>Location</Label>
+                  <p className="text-sm text-gray-500 mt-1 mb-3">
+                    Add or remove location detail lines shown on the landing
+                    page.
+                  </p>
                   <div className="space-y-2 mt-2">
-                    <Input
-                      value={landingContent.locationCampus}
-                      onChange={(e) =>
+                    {landingContent.locationLines.map((line, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={line}
+                          onChange={(e) => {
+                            const next = [...landingContent.locationLines];
+                            next[index] = e.target.value;
+                            setLandingContent({ ...landingContent, locationLines: next });
+                          }}
+                          placeholder="Palawan State University - Main Campus"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = landingContent.locationLines.filter(
+                              (_, i) => i !== index,
+                            );
+                            setLandingContent({ ...landingContent, locationLines: next });
+                          }}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                          title="Remove location line"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
                         setLandingContent({
                           ...landingContent,
-                          locationCampus: e.target.value,
+                          locationLines: [...landingContent.locationLines, ""],
                         })
                       }
-                      placeholder="Palawan State University - Main Campus"
-                    />
-                    <Input
-                      value={landingContent.locationRoom}
-                      onChange={(e) =>
-                        setLandingContent({
-                          ...landingContent,
-                          locationRoom: e.target.value,
-                        })
-                      }
-                      placeholder="Ground Floor, Room 105"
-                    />
-                    <Input
-                      value={landingContent.locationBuilding}
-                      onChange={(e) =>
-                        setLandingContent({
-                          ...landingContent,
-                          locationBuilding: e.target.value,
-                        })
-                      }
-                      placeholder="Near the Library Entrance"
-                    />
-                   </div>
-                 </div>
+                      className="border-gray-300"
+                    >
+                      <Plus className="w-4 h-4" /> Add Location Line
+                    </Button>
+                  </div>
+                </div>
 
                  <div>
                    <Label>Shop Photos</Label>
@@ -700,17 +775,18 @@ export default function ContentManagement() {
                     Shop Hours
                   </p>
                   <div className="space-y-1 text-sm">
-                    <p>
-                      <strong>Mon-Thurs:</strong>{" "}
-                      {landingContent.hoursMonFri}
-                    </p>
-                    <p>
-                      <strong>Fri-Sat:</strong>{" "}
-                      {landingContent.hoursSat}
-                    </p>
-                    <p>
-                      <strong>Sunday:</strong> {landingContent.hoursSun}
-                    </p>
+                    {landingContent.shopHours.map((row, index) => (
+                      <p key={index}>
+                        <strong>{row.label || "Schedule"}:</strong>{" "}
+                        {row.hours}
+                      </p>
+                    ))}
+                    {landingContent.hoursNote && (
+                      <p className="inline-flex items-center gap-1 rounded-full bg-[#F2F7FF] px-2 py-0.5 text-xs font-semibold text-[#1D73EC]">
+                        <CheckCircle className="h-3 w-3" />
+                        {landingContent.hoursNote}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -718,9 +794,9 @@ export default function ContentManagement() {
                     Location
                   </p>
                   <div className="space-y-1 text-sm">
-                    <p>{landingContent.locationCampus}</p>
-                    <p>{landingContent.locationRoom}</p>
-                    <p>{landingContent.locationBuilding}</p>
+                    {landingContent.locationLines.map((line, index) => (
+                      <p key={index}>{line}</p>
+                    ))}
                   </div>
                 </div>
               </div>

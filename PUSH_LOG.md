@@ -523,3 +523,20 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Implemented Services Tab redesign: rebuilt the Dashboard Services tab into a compact SaaS workspace with SummaryCards, a donut revenue chart, a service performance table, and a service catalog built from the pricing store.
 - Merged collaborator's Shop Status toggle (manual Phase A), Walk-in Photocopy simplified steps 1 & 2, Attendance single daily shift with exceeded extra clock-ins, and Landing Page header profile chip for logged-in users.
 - Installed pdf-lib dependency added by collaborator in PrintTransaction.tsx.
+
+---
+
+## September 10, 2026 1:46 AM (PHT) — prans
+- Fixed the upload bug at checkout so a file right after a previous upload no longer silently fails; the input is cleared only after processing.
+- Restricted allowed file formats: uploads are now PDF/DOC/DOCX/XLS/XLSX and images (JPG/JPEG/PNG/GIF/WEBP/BMP); PPT, PPTX and TXT removed, and any non-PDF selection requires a "Preferred Format: PDF" confirmation before being accepted.
+- Added a per-file "Editing file" dropdown in Step 2 (replaces the small prev/next arrows), showing only the active file's print options.
+- Fixed the Apply Settings to All Files hover so the text stays readable (fills dark blue, white text).
+- Shortened the Step 3 add-ons note to just "Need additional supplies?".
+- Landing header profile is now a dropdown menu (Go to Dashboard, Edit Profile, Sign Out with confirmation) instead of jumping straight to the profile page.
+- Removed the "Your Printing Companion" subtitle from the landing header.
+- Made "No noon break" more visible as a blue pill with a check icon on the landing page and Content Management preview.
+- Made shop hours and location dynamic: Content Management can add/remove schedule rows and location lines plus an Hours Note, all reflected live on the landing page.
+- Balanced the landing features-row spacing so the three hero blocks are evenly centered.
+- Fixed the Forgot Password crash by wiring up the /forgot-password route.
+- Completed the Forgot Password flow: the 6-digit code leads to the change-password screen and the new password is set via a new resetForgottenPassword (no current-password asked).
+- Updated shop hours across the app to Monday-Friday 9:00 AM - 5:00 PM, Saturday and Sunday closed (constants, customer dashboard, landing defaults; saved values auto-migrate).

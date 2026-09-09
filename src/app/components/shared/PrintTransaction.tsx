@@ -26,8 +26,6 @@ import {
   LayoutGrid,
   Clock,
   Boxes,
-  ChevronLeft,
-  ChevronRight,
   Check,
   Copy,
   Calculator,
@@ -90,21 +88,40 @@ import { CashOnPickupAcknowledgement } from "./CashOnPickupAcknowledgement";
 import LegalPolicyDialog from "./LegalPolicyDialog";
 import { shopStatusStore } from "../../utils/shopStatusStore";
 
-const ALLOWED_FILE_TYPES = {
-  "application/pdf": ".pdf",
-  "application/msword": ".doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-    ".docx",
-  "application/vnd.ms-powerpoint": ".ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-    ".pptx",
-  "application/vnd.ms-excel": ".xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-    ".xlsx",
-  "text/plain": ".txt",
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-};
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+]);
+
+const ALLOWED_EXTENSIONS = new Set([
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".bmp",
+]);
+
+const FILE_UPLOAD_ACCEPT = [
+  ...ALLOWED_MIME_TYPES,
+  ...ALLOWED_EXTENSIONS,
+].join(",");
+
+const SUPPORTED_FORMATS_LABEL =
+  "PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, GIF, WEBP, BMP";
 
 const COLOR_MODE_OPTIONS = [
   { value: "bw", label: "Black & White" },
@@ -425,6 +442,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [currentStep, setCurrentStep] = useState(1);
   const [fileError, setFileError] = useState("");
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [showNonPdfDialog, setShowNonPdfDialog] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<File[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showColorPricing, setShowColorPricing] = useState(false);
   const [breakdownFileId, setBreakdownFileId] = useState<string | null>(null);
   const [analysisFileId, setAnalysisFileId] = useState<string | null>(null);
@@ -721,18 +741,35 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       const fileExtension = "." + file.name.toLowerCase().split(".").pop();
 
       const isValidType =
-        Object.keys(ALLOWED_FILE_TYPES).includes(fileType) ||
-        Object.values(ALLOWED_FILE_TYPES).includes(fileExtension);
+        ALLOWED_MIME_TYPES.has(fileType) || ALLOWED_EXTENSIONS.has(fileExtension);
 
       if (!isValidType) {
         setFileError(
-          `Unsupported file format in "${file.name}". Please upload PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, JPG, or PNG files only.`,
+          `Unsupported file format in "${file.name}". Please upload PDF, DOC, DOCX, XLS, XLSX, or image files only.`,
         );
-        e.target.value = "";
         return;
       }
     }
 
+    const clearInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // Non-PDF files confirm the preferred PDF format before they are accepted.
+    if (filesToProcess.some((f) => f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf"))) {
+      setPendingUpload(filesToProcess);
+      setShowNonPdfDialog(true);
+      return;
+    }
+
+    try {
+      await processUploadedFiles(filesToProcess);
+    } finally {
+      clearInput();
+    }
+  };
+
+  const processUploadedFiles = async (filesToProcess: File[]) => {
     setIsProcessingFile(true);
 
     try {
@@ -794,8 +831,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       console.error(error);
       setIsProcessingFile(false);
       setAnalyzingFileId(null);
-    } finally {
-      e.target.value = "";
     }
   };
 
@@ -1652,7 +1687,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   : "Add More Files"}
               </p>
               <p className="text-sm text-gray-500 mb-2">
-                Supported formats: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, JPG, PNG
+                Supported formats: {SUPPORTED_FORMATS_LABEL}
               </p>
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 max-w-lg mx-auto">
                 <div className="flex items-start gap-2">
@@ -1662,7 +1697,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <br />
                     Docufy will not take responsibility for
                     any formatting errors or issues with Word
-                    (.docx), PowerPoint (.pptx), or other
+                    (.docx), Excel (.xlsx), or other
                     non-PDF files.
                   </p>
                 </div>
@@ -1675,8 +1710,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 </span>
                 <Input
                   type="file"
+                  ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,image/jpeg,image/png"
+                  accept={FILE_UPLOAD_ACCEPT}
                   className="hidden"
                   disabled={isProcessingFile}
                   multiple
@@ -1722,47 +1758,33 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 const hasMultiple = files.length > 1;
                 return (
                   <>
-                    {/* File navigation */}
+                    {/* File navigation — dropdown to pick which uploaded file to configure */}
                     {hasMultiple && (
-                      <div className="flex items-center justify-between gap-2 sm:hidden">
-                        <button
-                          type="button"
-                          onClick={() => setStep2FileIndex(Math.max(0, activeIndex - 1))}
-                          disabled={activeIndex === 0}
-                          aria-label="Previous file"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <div className="min-w-0 flex-1 text-center">
-                          <p className="text-sm font-semibold text-gray-900">
-                            File {activeIndex + 1} of {files.length}
-                          </p>
-                          <div className="mt-1.5 flex items-center justify-center gap-1.5">
-                            {files.map((f, i) => (
-                              <button
-                                key={f.id}
-                                type="button"
-                                onClick={() => setStep2FileIndex(i)}
-                                aria-label={`Go to file ${i + 1}`}
-                                className={`h-1.5 rounded-full transition-all duration-200 ${
-                                  i === activeIndex ? "w-5 bg-[#2F6FD6]" : "w-1.5 bg-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setStep2FileIndex(Math.min(files.length - 1, activeIndex + 1))
+                      <div className="w-full sm:max-w-md">
+                        <Label className="mb-1.5 block text-sm font-medium">
+                          Editing file
+                        </Label>
+                        <Select
+                          value={String(activeIndex)}
+                          onValueChange={(value) =>
+                            setStep2FileIndex(
+                              Math.min(files.length - 1, Math.max(0, Number(value))),
+                            )
                           }
-                          disabled={activeIndex === files.length - 1}
-                          aria-label="Next file"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select a file" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {files.map((f, i) => (
+                              <SelectItem key={f.id} value={String(i)}>
+                                <span className="block max-w-[280px] truncate">
+                                  File {i + 1}: {f.fileName}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
 
@@ -1771,7 +1793,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       return (
                         <div
                           key={fileData.id}
-                          className={`${isActive ? "block" : "hidden sm:block"} space-y-5 sm:space-y-6`}
+                          className={`${isActive ? "block" : "hidden"} space-y-5 sm:space-y-6`}
                           aria-hidden={!isActive}
                         >
                           {/* File information */}
@@ -2170,7 +2192,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                     }));
                                     toast.success("Print settings applied to all files");
                                   }}
-                                  className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#F2F7FF] font-medium sm:flex-1"
+                                  className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium sm:flex-1"
                                 >
                                   <Settings className="w-4 h-4 mr-2" />
                                   Apply Settings to All Files
@@ -2209,8 +2231,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
             <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                Need additional supplies? Add clips, staplers,
-                folders, or binding services to your order.
+                Need additional supplies?
               </p>
             </div>
 
@@ -3698,6 +3719,57 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           initialTab={legalPolicyTab}
         />
       )}
+
+      {/* Non-PDF upload — preferred-format reminder */}
+      <Dialog open={showNonPdfDialog} onOpenChange={setShowNonPdfDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <FileText className="h-5 w-5 text-amber-600" />
+              Preferred Format: PDF
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed">
+              You selected{" "}
+              <span className="font-semibold text-gray-800">
+                {pendingUpload?.map((f) => f.name).join(", ")}
+              </span>
+              . Docufy recommends uploading <strong>PDF</strong> files for the
+              most accurate print output. DOC, DOCX, Excel, and image files are
+              also supported, but Docufy is not responsible for any formatting
+              errors or layout issues that may occur when printing these
+              non-PDF formats.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-300 text-gray-600"
+              onClick={() => {
+                setShowNonPdfDialog(false);
+                setPendingUpload(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-primary-action
+              onClick={() => {
+                const filesToProcess = pendingUpload ?? [];
+                setShowNonPdfDialog(false);
+                setPendingUpload(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                void processUploadedFiles(filesToProcess);
+              }}
+              className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+            >
+              Continue with Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel Confirmation Dialog (walk-in only) */}
       {isWalkin && (

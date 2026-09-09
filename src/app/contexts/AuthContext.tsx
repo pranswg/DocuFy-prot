@@ -20,6 +20,7 @@ export interface AuthContextType {
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
+  resetForgottenPassword: (email: string, newPassword: string) => boolean;
   sendPasswordResetCode: (email: string) => boolean;
   verifyResetCode: (email: string, code: string) => boolean;
 }
@@ -279,6 +280,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   };
 
+  const resetForgottenPassword = (email: string, newPassword: string) => {
+    const userIndex = mockUsers.findIndex(u => u.email === email);
+
+    if (userIndex !== -1) {
+      const user = mockUsers[userIndex];
+
+      // Check password reuse - prevent using any of the last 5 passwords
+      const passwordHistory = user.passwordHistory || [];
+      const recentPasswords = [user.password, ...passwordHistory].slice(0, 5);
+
+      if (recentPasswords.includes(newPassword)) {
+        console.log('Password reuse detected');
+        return false; // Error will be shown by the calling component
+      }
+
+      // Update password history
+      mockUsers[userIndex].passwordHistory = [user.password, ...passwordHistory].slice(0, 5);
+      mockUsers[userIndex].password = newPassword;
+
+      console.log('Password updated successfully');
+
+      // Clear the used reset code so it cannot be reused
+      delete passwordResetCodes[email];
+
+      // Update the current user's session state if they're logged in
+      if (user && user.email === email) {
+        setUser({ ...user, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage });
+      }
+
+      return true; // Success will be shown by the calling component
+    }
+
+    console.log('User not found');
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -290,6 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         logout,
         resetPassword,
+        resetForgottenPassword,
         sendPasswordResetCode,
         verifyResetCode,
       }}

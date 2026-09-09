@@ -12,13 +12,12 @@ import logoImage from '../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const { sendPasswordResetCode, verifyResetCode, resetPassword } = useAuth();
+  const { sendPasswordResetCode, verifyResetCode, resetForgottenPassword } = useAuth();
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
 
   const handleSendCode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +53,11 @@ export default function ForgotPassword() {
       return;
     }
 
-    if (resetPassword(email, currentPassword, newPassword)) {
+    if (resetForgottenPassword(email, newPassword)) {
       toast.success('Password reset successful! Please login.');
       navigate('/login');
     } else {
-      toast.error('Failed to reset password. Please check your current password.');
+      toast.error('Failed to reset password. Please choose a different password.');
     }
   };
 
@@ -128,22 +127,6 @@ export default function ForgotPassword() {
 
           {step === 'password' && (
             <form onSubmit={handleResetPassword} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
                 <div className="relative">
