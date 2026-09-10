@@ -159,10 +159,10 @@ export default function LoginPage() {
                 </Label>
                 <Input
                   id="email"
-                  type="text"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter Email"
+                  placeholder="juan.delacruz@gmail.com"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -192,7 +192,7 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setPassword(e.target.value)
                     }
-                    placeholder="Enter Password"
+                    placeholder="Enter your password"
                     className="h-10 bg-[#F2F7FF] border-transparent rounded-xl pr-10 text-sm"
                     required
                   />

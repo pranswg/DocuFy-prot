@@ -547,3 +547,10 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Fixed the Forgot Password crash by wiring up the /forgot-password route.
 - Completed the Forgot Password flow: the 6-digit code leads to the change-password screen and the new password is set via a new resetForgottenPassword (no current-password asked).
 - Updated shop hours across the app to Monday-Friday 9:00 AM - 5:00 PM, Saturday and Sunday closed (constants, customer dashboard, landing defaults; saved values auto-migrate).
+
+---
+
+## September 10, 2026 5:14 PM (PHT) — prans
+- Fixed the customer payment flow: an online order awaiting payment verification (held only in sessionStorage until the reference is submitted) no longer renders as an empty/unfinished Print Request — the payment page now falls back to the held order so the total, deadline, and down-payment/full-payment choice display immediately, and the amount required is derived correctly per tier so Submit Reference completes.
+- Removed the duplicate "Details" line from the Order Tracking status card (it already shows in the amber Awaiting Payment banner).
+- Admin UI text visibility pass: placeholders, helper text, and aria-labels across login, signup, forgot-password, notifications, orders, payment verification, inventory, staff, and attendance pages read one step darker/more legible. Public job application phone field formatted as a number.

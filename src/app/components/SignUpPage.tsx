@@ -192,7 +192,7 @@ export default function SignUpPage() {
                   onChange={(e) =>
                     handleChange("firstName", e.target.value)
                   }
-                  placeholder="First name"
+                  placeholder="e.g. Juan"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -211,7 +211,7 @@ export default function SignUpPage() {
                   onChange={(e) =>
                     handleChange("lastName", e.target.value)
                   }
-                  placeholder="Last name"
+                  placeholder="e.g. Dela Cruz"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -233,7 +233,7 @@ export default function SignUpPage() {
                   onChange={(e) =>
                     handleChange("email", e.target.value)
                   }
-                  placeholder="Email address"
+                  placeholder="juan.delacruz@gmail.com"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -277,7 +277,7 @@ export default function SignUpPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
-                      placeholder="Enter password"
+                      placeholder="At least 8 characters"
                       onChange={(e) =>
                         handleChange("password", e.target.value)
                       }
@@ -313,7 +313,7 @@ export default function SignUpPage() {
                         showConfirmPassword ? "text" : "password"
                       }
                       value={formData.confirmPassword}
-                      placeholder="Confirm password"
+                      placeholder="Re-enter your password"
                       onChange={(e) =>
                         handleChange(
                           "confirmPassword",

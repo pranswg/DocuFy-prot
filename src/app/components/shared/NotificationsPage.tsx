@@ -761,7 +761,7 @@ export default function NotificationsPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter notification title"
+                placeholder="e.g. Docufy is temporarily paused"
                 className="h-11 bg-white text-sm"
               />
             </div>

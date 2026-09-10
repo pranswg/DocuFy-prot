@@ -86,7 +86,7 @@ export default function ForgotPassword() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="juan.delacruz@gmail.com"
                     className="pl-10"
                     required
                   />
@@ -110,7 +110,7 @@ export default function ForgotPassword() {
                     type="text"
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value)}
-                    placeholder="Enter 6-digit code"
+                    placeholder="e.g. 482913"
                     maxLength={6}
                     className="pl-10 text-center text-2xl tracking-widest"
                     required

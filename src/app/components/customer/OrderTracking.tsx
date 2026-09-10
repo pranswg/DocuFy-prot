@@ -317,15 +317,6 @@ export default function OrderTracking() {
               </div>
             </div>
           </div>
-
-          {/* Awaiting payment details */}
-          {isAwaitingPayment && holdReason && (
-            <div className="mt-0 pt-1 border-t border-amber-200">
-              <p className="text-sm text-amber-800 leading-relaxed">
-                <strong>Details:</strong> {holdReason}
-              </p>
-            </div>
-          )}
         </Card>
 
         {/* Order Summary */}

@@ -146,6 +146,7 @@ export default function PublicJobApplication() {
                 <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
                 <Input
                   id="phone"
+                  type="tel"
                   placeholder="+63 912 345 6789"
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
