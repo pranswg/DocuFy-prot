@@ -217,18 +217,29 @@ export default function PaymentVerification() {
     return unsubscribe;
   }, [orderId]);
 
+  // An online order is HELD in sessionStorage until the customer submits their
+  // reference — the dataStore has no row for it yet. Fall back to the held
+  // payload so the amounts / deadline / partial-full choices render right away
+  // instead of the page reading as an empty order.
+  const heldPending = readPendingOrder();
+  const displayOrder: DataStoreOrder | null = order ?? (heldPending && heldPending.id === orderId
+    ? (heldPending as unknown as DataStoreOrder)
+    : null);
+
   // Derive the amount the customer pays from the Partial/Full choice (50% down
   // payment vs whole total) for down-payment orders, then keep amountPaid in
   // sync so submit/verification use the right figure.
   useEffect(() => {
-    if (!order) return;
-    const total = parseFloat((order.total || "₱0").replace("₱", "").replace(",", ""));
+    if (!displayOrder) return;
+    const total = parseFloat((displayOrder.total || "₱0").replace(/[₱,]/g, ""));
+    // Partial only lowers the amount for down-payment tier orders; full tier
+    // and online none-tier orders always pay the full total up front.
     const required =
-      paymentChoice === "full"
-        ? (order.fullPaymentAmount ?? total)
-        : (order.downPaymentAmount ?? total * 0.5);
+      displayOrder.downPaymentRequired && paymentChoice === "partial"
+        ? (displayOrder.downPaymentAmount ?? total * 0.5)
+        : (displayOrder.fullPaymentAmount ?? total);
     setAmountPaid(required.toFixed(2));
-  }, [order, paymentChoice]);
+  }, [displayOrder, paymentChoice]);
 
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
   const selectedMethod = isOnline
@@ -804,20 +815,20 @@ export default function PaymentVerification() {
                       <p className="text-gray-700">
                         Amount to pay:{" "}
                         <strong>
-                          {order?.downPaymentRequired
-                            ? formatCurrency(order.downPaymentAmount || 0)
-                            : order?.total || formatCurrency(0)}
+                          {displayOrder?.downPaymentRequired
+                            ? formatCurrency(displayOrder.downPaymentAmount || 0)
+                            : displayOrder?.total || formatCurrency(0)}
                         </strong>
-                        {order?.downPaymentRequired && (
+                        {displayOrder?.downPaymentRequired && (
                           <span className="text-gray-500">
                             {" "}
                             (50% down payment —{" "}
                             {formatCurrency(
                               parseFloat(
-                                (order.total || "₱0")
+                                (displayOrder.total || "₱0")
                                   .replace("₱", "")
                                   .replace(",", ""),
-                              ) - (order.downPaymentAmount || 0),
+                              ) - (displayOrder.downPaymentAmount || 0),
                             )}{" "}
                             balance on pickup)
                           </span>
@@ -829,13 +840,13 @@ export default function PaymentVerification() {
                       <p className="text-gray-700">
                         Payment deadline:{" "}
                         <span className="font-mono font-semibold">
-                          {order?.paymentDeadline
-                            ? formatPHDateTime(order.paymentDeadline)
+                          {displayOrder?.paymentDeadline
+                            ? formatPHDateTime(displayOrder.paymentDeadline)
                             : "to be announced"}
                         </span>{" "}
-                        {order?.paymentDeadline && (
+                        {displayOrder?.paymentDeadline && (
                           <PaymentDeadlineCountdown
-                            deadline={order.paymentDeadline}
+                            deadline={displayOrder.paymentDeadline}
                           />
                         )}
                       </p>
@@ -880,7 +891,7 @@ export default function PaymentVerification() {
               }}
               className="space-y-6"
             >
-              {order?.downPaymentRequired && (
+              {displayOrder?.downPaymentRequired && (
                 <div className="space-y-2">
                   <Label htmlFor="payment-choice">
                     Payment Amount *
@@ -898,9 +909,9 @@ export default function PaymentVerification() {
                       <SelectItem value="partial">
                         Partial Payment —{" "}
                         {formatCurrency(
-                          order.downPaymentAmount ||
+                          displayOrder.downPaymentAmount ||
                             parseFloat(
-                              (order.total || "₱0").replace("₱", "").replace(",", ""),
+                              (displayOrder.total || "₱0").replace("₱", "").replace(",", ""),
                             ) * 0.5,
                         )}{" "}
                         (50% down)
@@ -909,7 +920,7 @@ export default function PaymentVerification() {
                         Full Payment —{" "}
                         {formatCurrency(
                           parseFloat(
-                            (order.total || "₱0").replace("₱", "").replace(",", ""),
+                            (displayOrder.total || "₱0").replace("₱", "").replace(",", ""),
                           ) || 0,
                         )}
                       </SelectItem>
@@ -922,12 +933,12 @@ export default function PaymentVerification() {
                   ) : (
                     <p className="text-sm text-gray-500">
                       You're required to pay a 50% down payment of{" "}
-                      {formatCurrency(order.downPaymentAmount || 0)}. The remaining
+                      {formatCurrency(displayOrder.downPaymentAmount || 0)}. The remaining
                       balance of{" "}
                       {formatCurrency(
                         parseFloat(
-                          (order.total || "₱0").replace("₱", "").replace(",", ""),
-                        ) - (order.downPaymentAmount || 0),
+                          (displayOrder.total || "₱0").replace("₱", "").replace(",", ""),
+                        ) - (displayOrder.downPaymentAmount || 0),
                       )}{" "}
                       will be due on pickup.
                     </p>
@@ -946,7 +957,7 @@ export default function PaymentVerification() {
                   onChange={(e) =>
                     setReferenceNumber(e.target.value)
                   }
-                  placeholder="Enter payment reference number"
+                  placeholder="e.g. G123456789"
                   required
                 />
                 <p className="text-sm text-gray-500">

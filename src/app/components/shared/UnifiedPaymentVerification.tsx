@@ -501,6 +501,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <Input
+              aria-label="Search payments"
               placeholder="Search payments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

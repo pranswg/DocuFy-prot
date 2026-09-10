@@ -909,6 +909,7 @@ export default function InventoryManagement({
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
+              aria-label="Search inventory items"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search items..."

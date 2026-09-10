@@ -526,6 +526,13 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ---
 
+## September 9, 2026 10:34 PM (PHT) - prans
+- Pushed accumulated testbranch2 work to remote: services tab redesign merge + collaborator's shop status toggle, photocopy steps, attendance, and landing header profile.
+- Services Tab redesign: rebuilt the Dashboard Services tab into a compact SaaS workspace with SummaryCards, a donut revenue chart, a service performance table, and a service catalog built from the pricing store.
+- Merged collaborator's Shop Status toggle (manual Phase A), Walk-in Photocopy simplified steps 1 & 2, Attendance single daily shift with exceeded extra clock-ins, and Landing Page header profile chip for logged-in users.
+
+---
+
 ## September 10, 2026 1:46 AM (PHT) — prans
 - Fixed the upload bug at checkout so a file right after a previous upload no longer silently fails; the input is cleared only after processing.
 - Restricted allowed file formats: uploads are now PDF/DOC/DOCX/XLS/XLSX and images (JPG/JPEG/PNG/GIF/WEBP/BMP); PPT, PPTX and TXT removed, and any non-PDF selection requires a "Preferred Format: PDF" confirmation before being accepted.
@@ -543,10 +550,16 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ---
 
-## September 10, 2026 6:10 PM (PHT) � prans
+## September 10, 2026 5:14 PM (PHT) — prans
+- Fixed the customer payment flow: an online order awaiting payment verification (held only in sessionStorage until the reference is submitted) no longer renders as an empty/unfinished Print Request — the payment page now falls back to the held order so the total, deadline, and down-payment/full-payment choice display immediately, and the amount required is derived correctly per tier so Submit Reference completes.
+- Removed the duplicate "Details" line from the Order Tracking status card (it already shows in the amber Awaiting Payment banner).
+- Admin UI text visibility pass: placeholders, helper text, and aria-labels across login, signup, forgot-password, notifications, orders, payment verification, inventory, staff, and attendance pages read one step darker/more legible. Public job application phone field formatted as a number.
+
+---
+
+## September 10, 2026 6:10 PM (PHT) — prans
 - Landing hero logo now sits above the "printing companion" heading on mobile only (desktop layout untouched).
 - Services & Pricing cards now reflect the real system catalog: Black & White and Color priced from the live pricing matrix, Binding card replaced with Photo, Vellum & Sticker (photo 2R-A4, vellum, A4 sticker sheets).
 - Mobile services carousel auto-advances every 4.5s in an infinite loop and the dot indicators were removed.
 - About Docufy overhauled: removed the mobile short-preview + "Show more" toggle that duplicated the same paragraph; single clean body on all screens.
 - Removed the inert footer Contact link.
-
