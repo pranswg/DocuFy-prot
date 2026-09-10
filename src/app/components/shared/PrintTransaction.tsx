@@ -16,7 +16,6 @@ import {
   ShoppingCart,
   Plus,
   Minus,
-  CheckCircle2,
   CreditCard,
   Info,
   ChevronDown,
@@ -948,8 +947,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const flowTier = paymentRequirementFor(checkoutTotal);
   const isDownTier = flowTier === "down";
   const isFullTier = flowTier === "full";
-  const requiresDownPayment = isDownTier;
-  const requiresFullPayment = isFullTier;
+  // Down payment only applies to Cash on Pickup. Online payments are always
+  // paid in full, so a down-payment-tier order shifts to full payment once an
+  // online method is selected (the 50% option never appears for online).
+  const requiresDownPayment = isDownTier && !isOnline;
+  const requiresFullPayment = isFullTier || (isDownTier && isOnline);
   const downPaymentValue = checkoutTotal * 0.5;
   // Low-value Cash on Pickup orders (under the down-payment threshold) skip the
   // upfront payment hold entirely: they are auto-queued at checkout and the cash
@@ -958,8 +960,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   // Cash on Pickup is unavailable ONLY for full-payment tier orders
   // (≥ fullPaymentThreshold → online only). Down-payment tier orders keep
-  // every option selectable here; the amount conditions apply later on the
-  // payment verification page.
+  // every option selectable here: cash keeps the 50% down payment, while an
+  // online method on the same order pays the full amount online.
   const cashDisabled = isFullTier;
 
   // Keep the payment method consistent when the order must be paid online.
@@ -1158,8 +1160,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
     const hasColor = files.some((f) => f.colorMode !== "bw");
 
-    const requiresFullPayment = flowTier === "full";
-    const requiresDownPayment = flowTier === "down";
+    const requiresDownPayment = flowTier === "down" && !isOnline;
+    const requiresFullPayment =
+      flowTier === "full" || (flowTier === "down" && isOnline);
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Payment confirmation/verification deadline from the admin-editable order
@@ -2984,85 +2987,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               {(() => {
                 const total = calculateTotal();
                 const requirement = paymentRequirementFor(total);
-                if (requirement === "full") {
-                  return (
-                    <div className="p-4 sm:p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-amber-900 mb-1 flex items-center gap-2">
-                            Full Payment Required
-                            <span className="text-[10px] sm:text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
-                              100% Upfront
-                            </span>
-                          </h4>
-                          <p className="text-sm text-amber-800 mb-3 leading-relaxed">
-                            <span className="sm:hidden">
-                              Orders of <strong>₱{fullPaymentThreshold.toFixed(0)} or more</strong> must be{" "}
-                              <strong>paid in full</strong> — no 50% option — and stay{" "}
-                              <strong>awaiting verification</strong> until paid.
-                            </span>
-                            <span className="hidden sm:inline">
-                              Orders totaling <strong>₱{fullPaymentThreshold.toFixed(2)} or more</strong> must be{" "}
-                              <strong>paid in full</strong> before printing begins — the 50% down payment option is not available for this order. Your order will stay{" "}
-                              <strong>awaiting payment verification</strong> until the full payment is verified by Admin or Staff.
-                            </span>
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
-                            <div className="p-2.5 sm:p-3 bg-white rounded-lg border border-amber-200">
-                              <p className="text-[11px] sm:text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
-                                Amount Due (Full Payment)
-                              </p>
-                              <p className="text-lg sm:text-2xl font-bold text-amber-700">
-                                {formatCurrency(total)}
-                              </p>
-                            </div>
-                            <div className="p-2.5 sm:p-3 bg-white rounded-lg border border-amber-200">
-                              <p className="text-[11px] sm:text-xs text-amber-700 font-semibold uppercase tracking-wider mb-1">
-                                Down Payment Option
-                              </p>
-                              <p className="text-lg sm:text-2xl font-bold text-gray-700">
-                                Not Available
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2 p-3 bg-amber-100 rounded-lg">
-                            <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-800">
-                              <span className="sm:hidden">
-                                Pay <strong>{formatCurrency(total)}</strong> via{" "}
-                                <strong>
-                                  {isOnline
-                                    ? paymentMethod
-                                    : paymentMethod === "cash"
-                                      ? "Cash at the shop"
-                                      : "your chosen payment method"}
-                                </strong>
-                                {" "}and inform staff to verify.
-                              </span>
-                              <span className="hidden sm:inline">
-                                Pay{" "}
-                                <strong>{formatCurrency(total)}</strong> via{" "}
-                                <strong>
-                                  {isOnline
-                                    ? paymentMethod
-                                    : paymentMethod === "cash"
-                                      ? "Cash at the shop"
-                                      : "your chosen payment method"}
-                                </strong>
-                                {" "}and inform the staff to verify. Once the full payment is verified, your order moves to the queue automatically.
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (requirement === "down") {
+                // The ONLY payment-requirement notice shown at Step 4 is the
+                // down-payment one, and it appears only when Cash on Pickup is
+                // selected. Online payments are paid in full and show no
+                // requirement message here, and neither do low-value orders.
+                if (requirement === "down" && paymentMethod === "cash") {
                   const downDue = total * 0.5;
                   return (
                     <div className="p-4 sm:p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
@@ -3091,25 +3020,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               least a <strong>50% down payment</strong> of{" "}
                               <strong>{formatCurrency(downDue)}</strong> before printing begins
                               (remaining <strong>{formatCurrency(total - downDue)}</strong> due on
-                              pickup). Choose any payment method below — you'll select{" "}
-                              <strong>Partial Payment</strong> or <strong>Full Payment</strong> on
-                              the payment verification page after placing your order.
+                              pickup). Pay it at the shop when you collect the order.
                             </span>
                           </p>
                         </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (total > 0) {
-                  return (
-                    <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                        <p className="text-sm text-blue-800">
-                          <strong>No down payment required.</strong> Your order total is below ₱{downPaymentThreshold.toFixed(2)} — pay in full via your chosen payment method.
-                        </p>
                       </div>
                     </div>
                   );
