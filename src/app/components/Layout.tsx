@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Printer,
   CheckCircle,
-  CheckCheck,
   Package as PackageIcon,
   AlertTriangle,
   FileText,
@@ -1033,7 +1032,13 @@ export default function Layout({
                     <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
                       <h3 className="font-bold text-base text-gray-900">Notifications</h3>
                       {combinedUnread > 0 && (
-                        <span className="text-[11px] font-semibold text-[#1D73EC]">{combinedUnread} unread</span>
+                        <button
+                          type="button"
+                          onClick={handleMarkAllRead}
+                          className="text-xs font-semibold text-[#1D73EC] hover:text-[#10316B] transition-colors"
+                        >
+                          Mark all as read
+                        </button>
                       )}
                     </div>
                     <div className="overflow-y-auto flex-1 min-h-0">
@@ -1080,10 +1085,7 @@ export default function Layout({
                         ))
                       )}
                     </div>
-                    <div className="px-5 py-3.5 border-t border-gray-100 space-y-2.5">
-                      <button className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all" onClick={handleMarkAllRead}>
-                        <CheckCheck className="w-4 h-4" /> Mark all as read
-                      </button>
+                    <div className="px-5 py-3.5 border-t border-gray-100">
                       <button
                         type="button"
                         onClick={handleShowAllNotifications}

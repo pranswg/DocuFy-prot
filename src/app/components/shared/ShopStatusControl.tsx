@@ -80,13 +80,26 @@ export default function ShopStatusControl() {
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-0.5 truncate">
-                {state.status !== "open" && state.reason ? (
-                  <>
-                    <span className="font-medium text-slate-600">{state.reason}</span>
-                    {state.eta && <span> · back around {state.eta}</span>}
-                  </>
-                ) : (
-                  "Docufy is currently accepting orders and processing the queue."
+                {state.status === "open" && "Docufy is currently accepting orders and processing the queue."}
+                {state.status === "paused" && (
+                  state.reason ? (
+                    <>
+                      <span className="font-medium text-slate-600">{state.reason}</span>
+                      {state.eta && <span> · back around {state.eta}</span>}
+                    </>
+                  ) : (
+                    "Docufy is temporarily paused. New orders are on hold."
+                  )
+                )}
+                {state.status === "closed-scheduled" && (
+                  state.reason ? (
+                    <>
+                      <span className="font-medium text-slate-600">{state.reason}</span>
+                      {state.eta && <span> · back around {state.eta}</span>}
+                    </>
+                  ) : (
+                    "Docufy is closed as scheduled. New orders are on hold."
+                  )
                 )}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">

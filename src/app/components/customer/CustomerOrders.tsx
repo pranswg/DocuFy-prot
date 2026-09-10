@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Eye,
   ArrowLeft,
+  Search,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -109,12 +110,6 @@ export default function CustomerOrders() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <Button
-            className="bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-            onClick={() => navigate("/customer/new-request")}
-          >
-            Print Request
-          </Button>
         </div>
 
         {/* ── Filters Card ───────────────────────────────────── */}
@@ -228,13 +223,17 @@ export default function CustomerOrders() {
                       >
                         Search
                       </Label>
-                      <Input
-                        id="search"
-                        type="text"
-                        placeholder="Order ID or Document..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Input
+                          id="search"
+                          type="text"
+                          placeholder="Order ID or Document..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 focus-visible:ring-[#1D73EC] rounded-lg"
+                        />
+                      </div>
                     </div>
 
                     {/* Clear */}

@@ -913,7 +913,7 @@ export default function InventoryManagement({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search items..."
-              className="pl-9 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
+              className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">

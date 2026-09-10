@@ -554,3 +554,14 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Fixed the customer payment flow: an online order awaiting payment verification (held only in sessionStorage until the reference is submitted) no longer renders as an empty/unfinished Print Request — the payment page now falls back to the held order so the total, deadline, and down-payment/full-payment choice display immediately, and the amount required is derived correctly per tier so Submit Reference completes.
 - Removed the duplicate "Details" line from the Order Tracking status card (it already shows in the amber Awaiting Payment banner).
 - Admin UI text visibility pass: placeholders, helper text, and aria-labels across login, signup, forgot-password, notifications, orders, payment verification, inventory, staff, and attendance pages read one step darker/more legible. Public job application phone field formatted as a number.
+
+---
+
+## September 11, 2026 12:10 AM (PHT) — prans
+- Unified filter toolbar UI system-wide: every admin/staff data-table page (Orders, Payment Verification, Staff) now uses the same labeled Card filter pattern as AdminAttendance — labeled fields with `text-xs font-semibold text-gray-500 uppercase tracking-wide`, blue-tinted search input with Search icon, consistent `mt-1.5` wrapper spacing, and `X` icon Clear buttons.
+- Removed redundant calendar icons from native date inputs and replaced with a consistent custom CalendarDays icon (hidden native picker via CSS, added custom `absolute right-3 top-1/2 -translate-y-1/2` icon) so From/To icons sit at the exact same vertical position across AdminAttendance, Orders, and Payment Verification.
+- Removed the redundant "Print Request" button from the customer My Orders top action bar (sidebar nav already provides access).
+- Renamed all filter "Reset" buttons to "Clear" (Payment Verification, Staff, AdminAttendance) to match the customer-side standard; switched icon from RefreshCw to X.
+- Removed the redundant Orders page Reset/Clear button entirely (status resets via clickable summary cards).
+- Shop Status card description text is now status-aware: Open shows accepting-orders line, Paused/Closed show reason+ETA or default status text.
+- Notification dropdown: "Mark all as read" moved from footer to header row as a small blue text link; footer now only has the solid-blue "Show All Notifications" button.
