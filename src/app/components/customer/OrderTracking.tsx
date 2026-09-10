@@ -234,12 +234,17 @@ export default function OrderTracking() {
                 <Clock className="w-6 h-6 text-amber-600" />
               </div>
               <div className="flex-1">
+                <p className="text-xs font-medium text-amber-700/80 mb-1">
+                  Current Status
+                </p>
                 <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
                   {orderData?.cancellationReason === "Payment Deadline Expired"
                     ? "Awaiting Payment — Cancelled (Expired)"
                     : "Awaiting Payment"}
                   <Badge className="bg-amber-100 text-amber-800">
-                    Payment Pending
+                    {currentOrderLabel === "Awaiting Payment"
+                      ? "Payment Pending"
+                      : currentOrderLabel}
                   </Badge>
                 </h3>
                 <p className="text-sm text-amber-800 mb-3 leading-relaxed">
@@ -280,7 +285,9 @@ export default function OrderTracking() {
           </Card>
         )}
 
-        {/* Current Status Banner */}
+        {/* Current Status Banner (skipped for Awaiting Payment — the amber
+            card above already shows the current status) */}
+        {!isAwaitingPayment && (
         <Card className={`p-5 bg-white shadow-sm border-l-4 ${statusStyle.accent}`}>
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center flex-shrink-0`}>
@@ -299,9 +306,6 @@ export default function OrderTracking() {
               {currentOrderStatus === "Canceled" && (
                 <X className={`w-5 h-5 ${statusStyle.icon}`} />
               )}
-              {currentOrderStatus === "Awaiting Payment" && (
-                <Clock className={`w-5 h-5 ${statusStyle.icon}`} />
-              )}
             </div>
             <div className="min-w-0">
               <p className="text-xs text-gray-500 font-medium">
@@ -318,6 +322,7 @@ export default function OrderTracking() {
             </div>
           </div>
         </Card>
+        )}
 
         {/* Order Summary */}
         <Card className="p-4 sm:p-6 bg-white shadow-sm gap-0">

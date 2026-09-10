@@ -22,6 +22,10 @@ export const PAYMENT_DEADLINE_EXPIRED_REASON = 'Payment Deadline Expired';
 // and its deadline has passed.
 export function isOrderExpired(order: Order, now: Date = new Date()): boolean {
   if (order.status !== 'Awaiting Payment') return false;
+  // Once the customer has submitted their payment reference, the order is
+  // waiting on staff verification — never auto-cancel it for deadline expiry
+  // (defense-in-depth even if a stored order still carries a deadline).
+  if (order.paymentReferenceNumber) return false;
   const verified =
     order.paymentVerified ||
     order.downPaymentVerified ||

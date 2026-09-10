@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation, useBlocker } from "react-router";
 import {
   LayoutDashboard,
@@ -512,6 +512,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [step2FileIndex, setStep2FileIndex] = useState(0);
   const [submittedOrderId, setSubmittedOrderId] = useState("");
+  // Set synchronously the moment an order is placed (before any navigate) so
+  // the useBlocker below can't fire from a stale submittedOrderId render while
+  // the intentional jump to Payment Verification is in flight, and so a
+  // dismissed success dialog can never re-place the same order.
+  const orderSubmittedRef = useRef(false);
   const [availablePaperSizes, setAvailablePaperSizes] = useState<
     Array<{
       id: string;
@@ -603,6 +608,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setPaymentMethod(draft.paymentMethod || "");
     if (draft.paymentMethod) {
       setSubmittedOrderId(draft.orderId || "");
+      // The order was already placed (held pending until reference submit), so
+      // the leave-guard must stay inactive for this whole resumed request.
+      orderSubmittedRef.current = true;
     }
     setCashAcknowledged(draft.cashAcknowledged || false);
     // Bring the customer back to the payment step for the submitted order.
@@ -625,11 +633,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   // yet, block navigating away so we can ask for confirmation. Confirming
   // leaves and discards the request (mid-form progress is never backed up, so
   // the form resets to zero on the next visit); cancelling keeps the customer
-  // on the page. Set once the order is submitted, so the jump to Payment
-  // Verification proceeds without a prompt.
-  const blocker = useBlocker(
-    !isWalkin && !submittedOrderId && files.length > 0,
+  // on the page. Passed as a FUNCTION (not a boolean) because useBlocker only
+  // re-reads its argument when a navigation is attempted — the boolean form
+  // bakes in the value from the last render, so the synchronous
+  // orderSubmittedRef.current flip right before the intentional jump to Payment
+  // Verification never got seen and the leave prompt fired anyway.
+  const shouldBlockLeavePrintRequest = useCallback(
+    () =>
+      !isWalkin &&
+      !orderSubmittedRef.current &&
+      files.length > 0,
+    [isWalkin, files.length, orderSubmittedRef],
   );
+  const blocker = useBlocker(shouldBlockLeavePrintRequest);
 
   const selectedMethod = onlineMethods.find(
     (m) => m.name === paymentMethod,
@@ -981,6 +997,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setPhotocopyCopies(1);
     setPhotocopyColorMode("bw");
     setPhotocopyManualPrice("");
+    setSubmittedOrderId("");
+    orderSubmittedRef.current = false;
     setCurrentStep(1);
   };
 
@@ -1100,6 +1118,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   };
 
   const handleSubmit = () => {
+    if (submittedOrderId || orderSubmittedRef.current) {
+      toast.error(
+        "This order has already been placed. Track it under My Orders to see its status.",
+      );
+      return;
+    }
+
     if (!paymentMethod) {
       toast.error(
         "Please select a payment method before placing your order.",
@@ -1307,6 +1332,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       });
 
       setSubmittedOrderId(orderId);
+      orderSubmittedRef.current = true;
 
       navigate(`/customer/payment/${orderId}`, {
         state: {
@@ -1363,6 +1389,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
 
     setSubmittedOrderId(orderId);
+    orderSubmittedRef.current = true;
     clearPrintDraft();
     setShowSuccessModal(true);
   };
@@ -3565,7 +3592,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
       {/* Customer Success Modal */}
       {!isWalkin && (
-        <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <Dialog
+          open={showSuccessModal}
+          onOpenChange={(open) => {
+            setShowSuccessModal(open);
+            // Dismissing the modal (X / escape / outside click) without
+            // choosing an action clears the whole request so the same order
+            // can never be placed twice.
+            if (!open && submittedOrderId) {
+              orderSubmittedRef.current = false;
+              setSubmittedOrderId("");
+              resetForm();
+            }
+          }}
+        >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <div className="flex justify-center mb-4">

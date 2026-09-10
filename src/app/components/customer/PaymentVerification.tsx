@@ -3,6 +3,7 @@ import {
   useNavigate,
   useParams,
   useLocation,
+  useBlocker,
 } from "react-router";
 import {
   LayoutDashboard,
@@ -226,6 +227,22 @@ export default function PaymentVerification() {
     ? (heldPending as unknown as DataStoreOrder)
     : null);
 
+  const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
+
+  // Guard against leaving the payment verification step so an accidental
+  // navigation doesn't discard the entered reference / proof. Released once the
+  // payment has been submitted (success dialog is up) and for already-canceled
+  // orders or an in-flight cancel confirmation, so the intentional
+  // post-submit / cancel navigation and the canceled page never prompt. Cash
+  // on Pickup has nothing to submit, so it is kept prompt-free.
+  const paymentBlocker = useBlocker(
+    isOnline &&
+      !showSuccessDialog &&
+      !showCancelConfirm &&
+      order?.status !== "Canceled" &&
+      !!displayOrder,
+  );
+
   // Derive the amount the customer pays from the Partial/Full choice (50% down
   // payment vs whole total) for down-payment orders, then keep amountPaid in
   // sync so submit/verification use the right figure.
@@ -241,7 +258,6 @@ export default function PaymentVerification() {
     setAmountPaid(required.toFixed(2));
   }, [displayOrder, paymentChoice]);
 
-  const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
   const selectedMethod = isOnline
     ? paymentMethodsStore.findByName(paymentMethod)
     : undefined;
@@ -396,6 +412,10 @@ export default function PaymentVerification() {
         dataStore.addOrder({
           ...(pendingOrder as unknown as object),
           paymentReferenceNumber: referenceNumber,
+          // Once the reference is submitted the order waits on staff
+          // verification — clear the checkout deadline so it is never
+          // auto-canceled as expired while awaiting review.
+          paymentDeadline: undefined,
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
           paymentAmountPaid: paid,
@@ -404,6 +424,7 @@ export default function PaymentVerification() {
       } else if (existingOrder) {
         dataStore.updateOrder(orderId!, {
           paymentReferenceNumber: referenceNumber,
+          paymentDeadline: undefined,
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
           paymentAmountPaid: paid,
@@ -447,39 +468,35 @@ export default function PaymentVerification() {
     const pendingOrder = readPendingOrder();
     const existingOrder = dataStore.getOrderById(orderId);
     if (pendingOrder && pendingOrder.id === orderId && !existingOrder) {
-      // Online orders are held as pending (never entered the system until the
-      // reference is submitted). Materialize the held payload as Canceled so
-      // EVERY status display (My Orders, tracking, staff/admin lists) reflects
-      // the cancellation instead of the order silently vanishing.
-      dataStore.addOrder({
-        ...(pendingOrder as unknown as object),
-        status: "Canceled",
-        cancellationReason: reason,
-      } as DataStoreOrder);
+      // The customer never submitted their reference, so the order was never
+      // really placed — just discard the held pending request. No Canceled
+      // record is created and it never appears in any order list.
       clearPendingFlow(orderId);
     } else {
+      // The order was already submitted/materialized — this is a real
+      // cancellation.
       dataStore.updateOrder(orderId, {
         status: "Canceled",
         cancellationReason: reason,
       });
+      notificationStore.addNotification(
+        "order",
+        "Order Canceled by Customer",
+        `Order #${orderId} was canceled by the customer before payment verification.`,
+        { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
+      );
+      notificationStore.addNotification(
+        "order",
+        "Order Canceled by Customer",
+        `Order #${orderId} was canceled by the customer before payment verification.`,
+        { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
+      );
     }
     try {
       localStorage.removeItem(`order_${orderId}`);
     } catch {
       /* ignore */
     }
-    notificationStore.addNotification(
-      "order",
-      "Order Canceled by Customer",
-      `Order #${orderId} was canceled by the customer before payment verification.`,
-      { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
-    );
-    notificationStore.addNotification(
-      "order",
-      "Order Canceled by Customer",
-      `Order #${orderId} was canceled by the customer before payment verification.`,
-      { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
-    );
     setShowCancelConfirm(false);
     toast.success("Order has been canceled.");
     navigate("/customer/orders");
@@ -1215,10 +1232,30 @@ export default function PaymentVerification() {
           onOpenChange={setShowCancelConfirm}
           onConfirm={handleCancelOrder}
           title="Cancel Order?"
-          description={`Are you sure you want to cancel order #${orderId}? This will permanently cancel the order and it can no longer be processed.`}
+          description={
+            order
+              ? `Are you sure you want to cancel order #${orderId}? This will permanently cancel the order and it can no longer be processed.`
+              : `This order has not been submitted yet — canceling will just discard the unsent request. It will not be recorded and will not appear in your orders.`
+          }
           confirmLabel="Cancel Order"
           cancelLabel="Keep Order"
           destructive
+        />
+      )}
+
+      {/* Leave payment verification confirmation */}
+      {paymentBlocker && paymentBlocker.state === "blocked" && (
+        <ConfirmationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && paymentBlocker.state === "blocked") paymentBlocker.reset();
+          }}
+          onConfirm={() => paymentBlocker.proceed()}
+          title="Leave payment verification?"
+          description="You haven't finished submitting your payment yet. Leaving now means your entered reference details and proof will be lost — you can come back and submit again from My Orders."
+          confirmLabel="Leave Page"
+          cancelLabel="Stay Here"
+          destructive={false}
         />
       )}
     </Layout>
