@@ -240,7 +240,7 @@ export default function OrderTracking() {
                 <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
                   {orderData?.cancellationReason === "Payment Deadline Expired"
                     ? "Awaiting Payment — Cancelled (Expired)"
-                    : "Awaiting Payment"}
+                    : currentOrderLabel || "Awaiting Payment"}
                   <Badge className="bg-amber-100 text-amber-800">
                     {currentOrderLabel === "Awaiting Payment"
                       ? "Payment Pending"

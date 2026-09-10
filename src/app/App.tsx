@@ -9,6 +9,7 @@ import CustomerProfile from './components/customer/CustomerProfile';
 import NewPrintRequest from './components/customer/NewPrintRequest';
 import CustomerOrders from './components/customer/CustomerOrders';
 import CustomerPaymentVerification from './components/customer/PaymentVerification';
+import DownPaymentMethod from './components/customer/DownPaymentMethod';
 import StaffOrdersUnified from './components/staff/StaffOrdersUnified';
 import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
@@ -117,6 +118,10 @@ const router = createBrowserRouter([
       {
         path: 'payment/:orderId',
         element: <ProtectedRoute role="customer"><CustomerPaymentVerification /></ProtectedRoute>,
+      },
+      {
+        path: 'payment-method/:orderId',
+        element: <ProtectedRoute role="customer"><DownPaymentMethod /></ProtectedRoute>,
       },
       {
         path: 'notifications',

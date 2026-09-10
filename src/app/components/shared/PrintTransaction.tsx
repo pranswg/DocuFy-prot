@@ -947,11 +947,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const flowTier = paymentRequirementFor(checkoutTotal);
   const isDownTier = flowTier === "down";
   const isFullTier = flowTier === "full";
-  // Down payment only applies to Cash on Pickup. Online payments are always
-  // paid in full, so a down-payment-tier order shifts to full payment once an
-  // online method is selected (the 50% option never appears for online).
-  const requiresDownPayment = isDownTier && !isOnline;
-  const requiresFullPayment = isFullTier || (isDownTier && isOnline);
+  // Down-payment tier = 50% down minimum (chosen on the "Down Payment Method"
+  // page after placing the order); full tier = full payment required.
+  const requiresDownPayment = isDownTier;
+  const requiresFullPayment = isFullTier;
   const downPaymentValue = checkoutTotal * 0.5;
   // Low-value Cash on Pickup orders (under the down-payment threshold) skip the
   // upfront payment hold entirely: they are auto-queued at checkout and the cash
@@ -960,8 +959,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   // Cash on Pickup is unavailable ONLY for full-payment tier orders
   // (≥ fullPaymentThreshold → online only). Down-payment tier orders keep
-  // every option selectable here: cash keeps the 50% down payment, while an
-  // online method on the same order pays the full amount online.
+  // every option selectable: cash gets a 50% down payment, and online methods
+  // default to a down payment with the full option available on the next page.
   const cashDisabled = isFullTier;
 
   // Keep the payment method consistent when the order must be paid online.
@@ -1160,9 +1159,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
     const hasColor = files.some((f) => f.colorMode !== "bw");
 
-    const requiresDownPayment = flowTier === "down" && !isOnline;
-    const requiresFullPayment =
-      flowTier === "full" || (flowTier === "down" && isOnline);
+    const requiresDownPayment = flowTier === "down";
+    const requiresFullPayment = flowTier === "full";
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Payment confirmation/verification deadline from the admin-editable order
@@ -1285,12 +1283,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       paperDeductedOnCreate: false,
     };
 
-    // ONLINE payment orders are NOT pushed to the system yet. We hold the full
-    // order payload as a pending order + a resume draft, then only create the
-    // real order once the customer submits their payment reference on the
-    // payment verification page. Backing out / going to the dashboard simply
-    // leaves the pending order unsaved (never entered the queue).
-    if (isOnline) {
+    // ONLINE payment orders and DOWN-PAYMENT-tier orders are NOT pushed to the
+    // system yet. We hold the full order payload as a pending order + a resume
+    // draft, then only create the real order once the customer picks their
+    // down-payment method and (for online) submits their payment reference on
+    // the payment verification page. Backing out / going to the dashboard
+    // simply leaves the pending order unsaved (never entered the queue).
+    if (isOnline || isDownTier) {
       const orderData = {
         orderId,
         total,
@@ -1337,13 +1336,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       setSubmittedOrderId(orderId);
       orderSubmittedRef.current = true;
 
-      navigate(`/customer/payment/${orderId}`, {
-        state: {
-          paymentMethod: methodLabel,
-          total,
-          showSuccessAfter: true,
-        },
-      });
+      if (flowTier === "down") {
+        navigate(`/customer/payment-method/${orderId}`, {
+          state: {
+            paymentMethod: methodLabel,
+            total,
+          },
+        });
+      } else {
+        navigate(`/customer/payment/${orderId}`, {
+          state: {
+            paymentMethod: methodLabel,
+            total,
+            showSuccessAfter: true,
+          },
+        });
+      }
       return;
     }
 
@@ -2956,10 +2964,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   {isOnline && (
                     <div className="mt-6">
                       <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <strong>Note:</strong> You will be
+                        <strong>Note:</strong>{" "}
+                        {isDownTier
+                          ? "After placing your order you'll confirm how much to pay — 50% down or the full amount — on the next page, then submit your payment receipt in payment verification."
+                          : <>You will be
                         redirected to payment verification after
                         placing your order. Please upload your{" "}
-                        {paymentMethod} payment receipt there.
+                        {paymentMethod} payment receipt there.</>}
                       </p>
                       {!isGcash && (
                         <p className="text-xs text-gray-500 bg-white border border-gray-200 rounded-lg p-3 mt-2">
@@ -3179,13 +3190,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
+                    } else if (isDownTier) {
+                      handleSubmit();
                     } else {
                       setShowPlaceOrderConfirm(true);
                     }
                   }}
                   disabled={shopPaused || (isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged))}
                 >
-                  {isWalkin ? "Proceed to In Queue" : isOnline ? "Go to Payment Verification" : "Place Order"}
+                  {isWalkin
+                    ? "Proceed to In Queue"
+                    : isDownTier
+                      ? "Proceed to Down Payment Method"
+                      : isOnline
+                        ? "Go to Payment Verification"
+                        : "Place Order"}
                 </Button>
               </>
             )}
@@ -3609,7 +3628,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 variant="outline"
                 onClick={() => {
                   setShowSuccessModal(false);
-                  if (isOnline) {
+                  if (isDownTier) {
+                    navigate(`/customer/payment-method/${submittedOrderId}`, {
+                      state: {
+                        paymentMethod: "Cash",
+                        total: calculateTotal(),
+                      },
+                    });
+                  } else if (isOnline) {
                     navigate(`/customer/payment/${submittedOrderId}`, {
                       state: {
                         paymentMethod,
@@ -3622,7 +3648,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 }}
                 className="flex-1"
               >
-                {isOnline ? "Proceed to Payment" : "Track Order"}
+                {isDownTier
+                  ? "Proceed to Down Payment Method"
+                  : isOnline
+                    ? "Proceed to Payment"
+                    : "Track Order"}
               </Button>
               <Button
                 onClick={() => {
@@ -3644,7 +3674,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           open
           onOpenChange={setShowPlaceOrderConfirm}
           onConfirm={() => { handleSubmit(); setShowPlaceOrderConfirm(false); }}
-          title={isOnline ? "Go to Payment Verification?" : "Place this order?"}
+          title={
+            isOnline && isDownTier
+              ? "Place order & set payment?"
+              : isOnline
+                ? "Go to Payment Verification?"
+                : "Place this order?"
+          }
           description={(() => {
             const total = calculateTotal();
             const paymentNote =
@@ -3656,11 +3692,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     ? ` Full payment of ${formatCurrency(total)} is required before printing.`
                     : ` You selected Cash on Pickup — you must pay ${formatCurrency(total)} in cash at the shop before your order can be printed.`;
 
-            return isOnline
-              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number.${paymentNote} Your order is NOT placed in the system until you submit your reference.`
-              : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod === "" ? "your selected method" : paymentMethod}.${paymentNote} This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`;
+            return isOnline && isDownTier
+              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}.${paymentNote} After placing you'll confirm how much to pay — 50% down or the full amount — on the next page, then submit your ${paymentMethod} payment receipt in payment verification. Your order is NOT placed in the system until you submit your reference.`
+              : isOnline
+                ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number.${paymentNote} Your order is NOT placed in the system until you submit your reference.`
+                : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod === "" ? "your selected method" : paymentMethod}.${paymentNote} This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`;
           })()}
-          confirmLabel={isOnline ? "Go to Payment Verification" : "Place Order"}
+          confirmLabel={
+            isOnline && isDownTier
+              ? "Place Order"
+              : isOnline
+                ? "Go to Payment Verification"
+                : "Place Order"
+          }
           cancelLabel="Go Back"
           destructive={false}
         />
