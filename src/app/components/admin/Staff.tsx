@@ -11,6 +11,7 @@ import {
   Search,
   Filter,
   Mail,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -522,36 +523,48 @@ export default function Staff() {
         </div>
 
         {/* Search and Filters */}
-        <Card className="p-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <Input
-                aria-label="Search staff"
-                placeholder="Search by name, email, or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
-              />
+        <Card className="p-4 border border-slate-100 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
+              <div className="relative mt-1.5">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  aria-label="Search staff"
+                  placeholder="Search by name, email, or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
+                />
+              </div>
             </div>
-            <div className="w-full md:w-56">
+            <div className="w-full lg:w-48">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
               <Select
                 value={filterStatus}
                 onValueChange={setFilterStatus}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-1.5">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4" />
                     <SelectValue />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            <Button
+              variant="outline"
+              className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => { setSearchQuery(""); setFilterStatus("all"); }}
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
           </div>
         </Card>
 

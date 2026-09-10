@@ -16,6 +16,8 @@ import {
   Lock,
   Unlock,
   UserCheck,
+  Filter,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -27,6 +29,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   Dialog,
   DialogContent,
@@ -206,6 +209,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     "all" | "cash" | "online" | "online-down"
   >("all");
   const [methodFilter, setMethodFilter] = useState<"all" | string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showRejectDialog, setShowRejectDialog] =
     useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -416,6 +421,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         return false;
       if (methodFilter !== "all" && p.method !== methodFilter)
         return false;
+      if (dateFrom && p.submittedAt.getTime() < new Date(`${dateFrom}T00:00:00`).getTime())
+        return false;
+      if (dateTo && p.submittedAt.getTime() > new Date(`${dateTo}T23:59:59.999`).getTime())
+        return false;
       return true;
     })
     .sort((a, b) => {
@@ -497,17 +506,6 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               Review and verify customer payments
             </p>
           </div>
-
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <Input
-              aria-label="Search payments"
-              placeholder="Search payments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white border-gray-200 shadow-sm rounded-lg h-9 text-sm"
-            />
-          </div>
         </div>
 
         {/* Summary Cards */}
@@ -548,54 +546,120 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           />
         </div>
 
-        {/* Payment Filter / Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(
-                e.target
-                  .value as "all" | "pending" | "verified" | "rejected" | "cancelled" | "expired",
-              )
-            }
-            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
-          >
-            <option value="pending">Status · Pending</option>
-            <option value="all">Status · All</option>
-            <option value="verified">Status · Verified</option>
-            <option value="rejected">Status · Rejected</option>
-            <option value="cancelled">Status · Cancelled</option>
-            <option value="expired">Status · Expired</option>
-          </select>
-
-          <select
-            value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(
-                e.target.value as "all" | "cash" | "online" | "online-down",
-              )
-            }
-            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
-          >
-            <option value="all">Type · All</option>
-            <option value="cash">Type · Cash on Pickup</option>
-            <option value="online">Type · Full Payment</option>
-            <option value="online-down">Type · Down Payment</option>
-          </select>
-
-          <select
-            value={methodFilter}
-            onChange={(e) => setMethodFilter(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D73EC]/30 focus:border-[#1D73EC]/40 cursor-pointer"
-          >
-            <option value="all">Method · All</option>
-            {methodsInList.map((m) => (
-              <option key={m} value={m}>
-                Method · {m}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Payment Filter & Search bar */}
+        <Card className="p-4 border border-slate-100 shadow-sm mb-4 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
+              <div className="relative mt-1.5">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  aria-label="Search payments"
+                  placeholder="Search by customer, order ID, or reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="w-full lg:w-48">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                <SelectTrigger className="mt-1.5">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full lg:w-48">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</Label>
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
+                <SelectTrigger className="mt-1.5">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="cash">Cash on Pickup</SelectItem>
+                  <SelectItem value="online">Full Payment</SelectItem>
+                  <SelectItem value="online-down">Down Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {methodsInList.length > 0 && (
+              <div className="w-full lg:w-48">
+                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Method</Label>
+                <Select value={methodFilter} onValueChange={setMethodFilter}>
+                  <SelectTrigger className="mt-1.5">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Methods</SelectItem>
+                    {methodsInList.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => {
+                setSearchQuery("");
+                setDateFrom("");
+                setDateTo("");
+                setStatusFilter("pending");
+                setTypeFilter("all");
+                setMethodFilter("all");
+              }}
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        </Card>
 
         {/* Payments Table */}
         <Card className="flex-1 border border-gray-200/80 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04)] overflow-hidden flex flex-col">

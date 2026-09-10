@@ -31,6 +31,7 @@ import {
   Unlock,
   UserCheck,
   WifiOff,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -208,6 +209,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   >("asc");
   const [statusFilter, setStatusFilter] =
     useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showStatusForm, setShowStatusForm] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
@@ -790,6 +793,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       );
     }
 
+    // Filter by date range
+    if (dateFrom) {
+      const from = new Date(`${dateFrom}T00:00:00`);
+      filtered = filtered.filter((o) => o.submittedAt.getTime() >= from.getTime());
+    }
+    if (dateTo) {
+      const to = new Date(`${dateTo}T23:59:59.999`);
+      filtered = filtered.filter((o) => o.submittedAt.getTime() <= to.getTime());
+    }
+
     // Filter by status
     if (statusFilter !== "all") {
       filtered = filtered.filter(
@@ -820,6 +833,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     sortColumn,
     sortDirection,
     statusFilter,
+    dateFrom,
+    dateTo,
   ]);
 
   // Group orders by time period
@@ -895,21 +910,50 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <Input
-                aria-label="Search orders"
-                placeholder="Search for anything"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 focus-visible:ring-[#1D73EC] rounded-lg"
-              />
+        {/* Filter & Search bar */}
+        <Card className="p-4 border border-slate-100 shadow-sm mb-6 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
+              <div className="relative mt-1.5">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  aria-label="Search orders"
+                  placeholder="Search order ID, customer, or type..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Summary Cards - 2 Rows */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">

@@ -8,4 +8,13 @@
   [role='button']:not(:disabled):not([data-cursor-default]) {
     cursor: pointer;
   }
+
+  /* Hide native date/time picker icons for consistent cross-browser alignment */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+  }
 }

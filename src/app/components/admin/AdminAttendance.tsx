@@ -4,14 +4,14 @@ import {
   UserCheck,
   UserX,
   PlaneTakeoff,
-  CalendarDays,
   Search,
   Filter,
   MoreHorizontal,
   Pencil,
   Clock,
   Trash2,
-  RefreshCw,
+  X,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -635,27 +635,27 @@ export default function AdminAttendancePage() {
               <div className="w-full lg:w-40">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
                 <div className="relative mt-1.5">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   <Input
                     type="date"
                     value={dateFrom}
                     max={dateTo}
                     onChange={e => setDateFrom(e.target.value || todayKey)}
-                    className="pl-10"
+                    className="pr-10"
                   />
+                  <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
               <div className="w-full lg:w-40">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
                 <div className="relative mt-1.5">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   <Input
                     type="date"
                     value={dateTo}
                     min={dateFrom}
                     onChange={e => setDateTo(e.target.value || todayKey)}
-                    className="pl-10"
+                    className="pr-10"
                   />
+                  <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
               <div className="w-full lg:w-48">
@@ -683,8 +683,8 @@ export default function AdminAttendancePage() {
                 className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
                 onClick={resetFilters}
               >
-                <RefreshCw className="h-4 w-4" />
-                Reset
+                <X className="h-4 w-4" />
+                Clear
               </Button>
             </div>
           </Card>
