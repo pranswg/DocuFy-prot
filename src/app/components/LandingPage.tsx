@@ -8,11 +8,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Briefcase,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
-  Bookmark,
-  LayoutTemplate,
+  Palette,
+  Package,
   Sparkles,
   X,
   CloudUpload,
@@ -25,7 +23,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { jobsStore } from "../utils/jobsStore";
-import { pricingStore, type PricingValues } from "../utils/pricingStore";
+import { pricingStore, type PricingMatrix } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
@@ -53,18 +51,16 @@ export default function LandingPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showShopMap, setShowShopMap] = useState(false);
-  const [pricing, setPricing] = useState<PricingValues>(pricingStore.getPricing());
+  const [matrix, setMatrix] = useState<PricingMatrix>(pricingStore.getMatrix());
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const servicesCarouselRef = useRef<HTMLDivElement>(null);
-  const [activeService, setActiveService] = useState(0);
-  const [docColorMode, setDocColorMode] = useState<"bw" | "color">("bw");
-  const [showAboutMore, setShowAboutMore] = useState(false);
   const [showShopPhotos, setShowShopPhotos] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("home");
+  const servicesScrollerRef = useRef<HTMLDivElement>(null);
+  const [activeServiceCard, setActiveServiceCard] = useState(0);
 
   useEffect(() => {
-    const load = () => setPricing(pricingStore.getPricing());
+    const load = () => setMatrix(pricingStore.getMatrix());
     return pricingStore.subscribe(load);
   }, []);
 
@@ -189,114 +185,6 @@ export default function LandingPage() {
   const content = getContent();
   const jobs = jobsStore.getActiveJobs();
 
-  useEffect(() => {
-    const el = servicesCarouselRef.current;
-    if (!el) return;
-
-    const isMobileLayout = () => window.innerWidth < 768;
-    const resetCards = () => {
-      el.querySelectorAll<HTMLElement>("[data-service-card]").forEach(
-        (card) => {
-          card.style.transform = "";
-          card.style.zIndex = "";
-          card.style.opacity = "";
-        }
-      );
-    };
-
-    const update = () => {
-      if (!isMobileLayout()) {
-        resetCards();
-        return;
-      }
-      const cards = Array.from(
-        el.querySelectorAll<HTMLElement>("[data-service-card]")
-      );
-      if (!cards.length) return;
-      const elRect = el.getBoundingClientRect();
-      const center = elRect.left + elRect.width / 2;
-      let closestIndex = 0;
-      let closestDist = Infinity;
-      cards.forEach((card, i) => {
-        const cardRect = card.getBoundingClientRect();
-        const cardCenter = cardRect.left + cardRect.width / 2;
-        const distance = Math.abs(cardCenter - center) / cardRect.width;
-
-        const scale = Math.max(1 - distance * 0.28, 0.75);
-        const opacity = Math.max(1 - distance * 1.1, 0.35);
-        card.style.transform = `scale(${scale})`;
-        card.style.opacity = opacity.toFixed(2);
-        card.style.zIndex = String(Math.round((1 - distance) * 10));
-
-        const dist = Math.abs(cardCenter - center);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestIndex = i;
-        }
-      });
-      setActiveService(closestIndex);
-    };
-
-    update();
-
-    let resizeTimer: number | undefined;
-    const onResize = () => {
-      // Revert any inline transforms immediately so zoom/resize never
-      // leaves the cards stuck in a scaled state, then recompute once.
-      resetCards();
-      window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(update, 150);
-    };
-
-    el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", onResize);
-      window.clearTimeout(resizeTimer);
-    };
-  }, []);
-
-  // Auto-center the active card when the services section enters the viewport
-  useEffect(() => {
-    const section = document.getElementById("services");
-    if (!section) return;
-
-    // Center the initial card on mount
-    const timer = setTimeout(() => {
-      const el = servicesCarouselRef.current;
-      if (!el) return;
-      const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
-      const target = cards[activeService];
-      if (!target) return;
-      const cardRect = target.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
-      el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
-    }, 500);
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          const el = servicesCarouselRef.current;
-          if (!el) return;
-          const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
-          const target = cards[activeService];
-          if (!target) return;
-          const cardRect = target.getBoundingClientRect();
-          const elRect = el.getBoundingClientRect();
-          const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
-          el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(section);
-    return () => { observer.disconnect(); clearTimeout(timer); };
-  }, [activeService]);
-
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -327,54 +215,57 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const goToService = (index: number) => {
-    const el = servicesCarouselRef.current;
+  // Track the active card in the mobile services carousel from its scroll position.
+  useEffect(() => {
+    const el = servicesScrollerRef.current;
     if (!el) return;
-    const cards = el.querySelectorAll<HTMLElement>("[data-service-card]");
-    if (!cards.length) return;
-    setActiveService(index);
-    const target = cards[Math.min(Math.max(index, 0), cards.length - 1)];
-    const cardRect = target.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const delta = cardRect.left - elRect.left - (el.clientWidth - cardRect.width) / 2;
-    el.scrollTo({ left: el.scrollLeft + delta, behavior: "smooth" });
-  };
+    const update = () => {
+      const cards = Array.from(el.querySelectorAll<HTMLElement>("[data-services-card]"));
+      if (cards.length === 0) return;
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let closest = 0;
+      let minDist = Infinity;
+      cards.forEach((card, i) => {
+        const box = card.getBoundingClientRect();
+        const elBox = el.getBoundingClientRect();
+        const dist = Math.abs(box.left - elBox.left + box.width / 2 - el.clientWidth / 2);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = i;
+        }
+      });
+      setActiveServiceCard(closest);
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // Auto-advance the mobile services carousel in an endless loop.
+  // Desktop renders a static grid (no horizontal scroll), so it is skipped.
+  useEffect(() => {
+    const el = servicesScrollerRef.current;
+    if (!el) return;
+    const timer = window.setInterval(() => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      const cards = Array.from(el.querySelectorAll<HTMLElement>("[data-services-card]"));
+      if (cards.length === 0) return;
+      const next = (activeServiceCard + 1) % cards.length;
+      const card = cards[next];
+      el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: "smooth" });
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [activeServiceCard]);
 
   const navItems = [
     { id: "home", label: "Home" },
     { id: "services", label: "Services & Pricing" },
     { id: "shop-info", label: "Shop Info" },
     { id: "about", label: "About Us" },
-  ];
-
-  const services = [
-    {
-      id: "document",
-      icon: <Printer className="h-5 w-5 text-[#1D73EC]" />,
-      iconBox: "bg-[#F2F7FF]",
-      title: "Standard Plain Paper Printing",
-      iconColor: "text-[#1D73EC]",
-      toggle: true,
-      cta: "Order Now",
-    },
-    {
-      id: "binding",
-      icon: <Bookmark className="h-5 w-5 text-[#1D73EC]" />,
-      iconBox: "bg-[#F2F7FF]",
-      title: "Binding & Finishing",
-      iconColor: "text-[#1D73EC]",
-      toggle: false,
-      cta: "Order Now",
-    },
-    {
-      id: "encoding",
-      icon: <LayoutTemplate className="h-5 w-5 text-[#1D73EC]" />,
-      iconBox: "bg-[#F2F7FF]",
-      title: "Document Encoding & Layout",
-      iconColor: "text-[#1D73EC]",
-      toggle: false,
-      cta: "Order Now",
-    },
   ];
 
   return (
@@ -584,7 +475,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-center lg:flex">
+            <div className="order-first flex items-center justify-center lg:order-none lg:flex">
               <div className="relative">
                 <div className="flex h-48 w-48 items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:h-72 sm:w-72 lg:h-96 lg:w-96">
                   <img
@@ -613,149 +504,73 @@ export default function LandingPage() {
               Affordable printing solutions for all your needs
             </p>
           </div>
-          <div className="flex items-center justify-end gap-2 mb-4 md:mb-6">
-            <button
-              onClick={() => { setActiveService((p) => Math.max(p - 1, 0)); goToService(activeService - 1); }}
-              aria-label="Previous service"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => { setActiveService((p) => Math.min(p + 1, 2)); goToService(activeService + 1); }}
-              aria-label="Next service"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-white text-[#1D73EC] transition-all hover:bg-[#1D73EC] hover:text-white hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div ref={servicesCarouselRef} className="md:grid md:grid-cols-3 gap-6 lg:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none flex md:gap-6 gap-4 pb-2 md:pb-0 items-stretch [&>*]:transition-transform [&>*]:duration-300">
-            {/* Card 1: Standard Plain Paper Printing (B&W / Color toggle) */}
-            <Card data-service-card onClick={() => goToService(0)} onTouchStart={() => setActiveService(0)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 0 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
-                  <Printer className="h-4 w-4 text-[#1D73EC]" />
-                </div>
-                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
-                  Standard Plain Paper Printing
-                </h4>
+          <div
+            ref={servicesScrollerRef}
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0 lg:gap-8"
+          >
+            <Card data-services-card="0" className="w-[85%] shrink-0 snap-center rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
+              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
+                <Printer className="w-8 h-8 text-[#1D73EC]" />
               </div>
-
-              <div className="mb-2.5 inline-flex w-fit items-center rounded-full border border-blue-200 bg-[#F2F7FF] p-0.5">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setDocColorMode("bw"); }}
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-all ${docColorMode === "bw" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
-                >
-                  B&W
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setDocColorMode("color"); }}
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-all ${docColorMode === "color" ? "bg-[#1D73EC] text-white shadow-sm" : "text-gray-500 hover:text-[#1D73EC]"}`}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Color
-                </button>
-              </div>
-
-              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
-                <span className="text-sm font-semibold">₱</span>
-                <span className="text-2xl font-bold leading-none">
-                  {docColorMode === "bw" ? pricing.bw.toFixed(2) : pricing.colorHigh.toFixed(2)}
+              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
+                Black & White Printing
+              </h4>
+              <p className="text-gray-600 mb-6">
+                Standard plain-paper printing for text
+                documents (Short, A4, Long)
+              </p>
+              <div className="text-4xl font-bold text-[#1D73EC]">
+                ₱{matrix.document.text.bw.a4.toFixed(2)}{" "}
+                <span className="text-base font-normal text-gray-500">
+                  / page
                 </span>
-                <span className="ml-1 text-[10px] font-medium text-gray-500">/ page</span>
-              </div>
-              <p className="mb-3 text-[11px] leading-snug text-gray-600">
-                {docColorMode === "bw"
-                  ? "Crisp B&W prints for documents, handouts, and thesis drafts."
-                  : "Vibrant full-color prints for presentations, posters, and photos."}
-              </p>
-              <div className="mt-auto">
-                <Button
-                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
-                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
-                >
-                  Order Now
-                </Button>
               </div>
             </Card>
 
-            {/* Card 2: Binding & Finishing */}
-            <Card data-service-card onClick={() => goToService(1)} onTouchStart={() => setActiveService(1)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 1 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
-                  <Bookmark className="h-4 w-4 text-[#1D73EC]" />
+            <Card data-services-card="1" className="w-[85%] shrink-0 snap-center rounded-2xl bg-[#1D73EC] p-8 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl md:w-auto relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
+              <div className="relative z-10">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                  <Palette className="w-8 h-8 text-white" />
                 </div>
-                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
-                  Binding & Finishing
-                </h4>
-              </div>
-
-              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
-                <span className="text-sm font-semibold">₱</span>
-                <span className="text-2xl font-bold leading-none">{content.bindingPrice}+</span>
-                <span className="ml-1 text-[10px] font-medium text-gray-500">starting</span>
-              </div>
-              <ul className="mb-3 space-y-1 text-[11px] text-gray-600">
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Coil binding
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Stapled & stapleless
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 text-[#1D73EC]" /> Hardbound covers
-                </li>
-              </ul>
-              <div className="mt-auto">
-                <Button
-                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
-                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
-                >
-                  Order Now
-                </Button>
-              </div>
-            </Card>
-
-            {/* Card 3: Document Encoding & Layout */}
-            <Card data-service-card onClick={() => goToService(2)} onTouchStart={() => setActiveService(2)} className={`cursor-pointer transition-all duration-300 border-2 p-4 rounded-xl snap-center md:snap-align-none min-w-[200px] md:min-w-0 w-[200px] md:w-auto aspect-square md:aspect-auto flex flex-col ${activeService === 2 ? "bg-[#F0F7FF] border-[#1D73EC] shadow-xl ring-2 ring-[#1D73EC]/40" : "bg-white border-[#E2E8F0] shadow-sm hover:shadow-md"}`}>
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF]">
-                  <LayoutTemplate className="h-4 w-4 text-[#1D73EC]" />
+                <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full mb-4">
+                  POPULAR
                 </div>
-                <h4 className="text-xs font-bold leading-snug text-[#1c1f26]">
-                  Document Encoding & Layout
+                <h4 className="text-xl font-bold mb-3">
+                  Color Printing
                 </h4>
-              </div>
-
-              <div className="mb-2 flex items-baseline gap-0.5 text-[#1D73EC]">
-                <span className="text-2xl font-bold leading-none">Custom</span>
-                <span className="ml-1 text-[10px] font-medium text-gray-500">/ document</span>
-              </div>
-              <p className="mb-3 text-[11px] leading-snug text-gray-600">
-                Custom layout design, formatting, and encoding for student theses, reports, and faculty documents.
-              </p>
-              <div className="mt-auto">
-                <Button
-                  onClick={(e) => { e.stopPropagation(); navigate("/signup"); }}
-                  className="w-full bg-[#1D73EC] text-xs text-white hover:bg-[#10316B] h-8"
-                >
-                  Order Now
-                </Button>
+                <p className="text-white/90 mb-6">
+                  Full-color plain-paper printing for documents
+                  and presentations
+                </p>
+                <div className="text-4xl font-bold">
+                  ₱{matrix.document.text.full.a4.toFixed(2)}{" "}
+                  <span className="text-base font-normal text-white/80">
+                    / page
+                  </span>
+                </div>
               </div>
             </Card>
-          </div>
 
-          {/* Pagination dots */}
-          <div className="mt-5 flex items-center justify-center gap-2 md:hidden">
-            {services.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => goToService(i)}
-                aria-label={`Go to ${s.title}`}
-                className={`h-2.5 rounded-full transition-all duration-300 ${activeService === i ? "w-6 bg-[#1D73EC]" : "w-2.5 bg-blue-200 hover:bg-[#1D73EC]/40"}`}
-              />
-            ))}
+            <Card data-services-card="2" className="w-[85%] shrink-0 snap-center rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
+              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
+                <Package className="w-8 h-8 text-[#1D73EC]" />
+              </div>
+              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
+                Photo, Vellum & Sticker
+              </h4>
+              <p className="text-gray-600 mb-6">
+                Photo prints (2R to A4), vellum paper, and A4
+                sticker sheets
+              </p>
+              <div className="text-4xl font-bold text-[#1D73EC]">
+                ₱{Math.min(matrix.vellum.bw.a4, matrix.sticker.bw, matrix.photo["2R"].price).toFixed(2)}{" "}
+                <span className="text-base font-normal text-gray-500">
+                  from
+                </span>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -910,7 +725,7 @@ export default function LandingPage() {
                   </div>
 
                   {/* Desktop: full card */}
-                  <div className="hidden p-6 md:block">
+                  <div className="hidden p-6 md:flex md:flex-1 md:flex-col">
                     <div className="mb-6 flex items-start gap-4">
                       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
                         <Briefcase className="h-6 w-6 text-white" />
@@ -929,7 +744,7 @@ export default function LandingPage() {
 
                     <p className="mb-4 text-sm leading-relaxed text-gray-600">{job.description}</p>
 
-                    <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
+                    <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-auto w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
                   </div>
                 </Card>
                 );
@@ -965,47 +780,11 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              {/* Collapsed: short preview */}
-              <div className="mt-3 text-center sm:hidden">
-                <p className="text-sm leading-relaxed text-white/95">
-                  Docufy is a modern printing management system for students, faculty, and staff.
-                </p>
-              </div>
-
-              {/* Mobile expandable body */}
-              <div className="sm:hidden">
-                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${showAboutMore ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                  <div className="min-h-0 overflow-hidden">
-                    <div className="pt-3 text-center">
-                      <p className="text-sm leading-relaxed text-white/95">
-                        {content.aboutBody ||
-                          "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mobile toggle */}
-              <div className="mt-3 text-center sm:hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowAboutMore((v) => !v)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-95"
-                  aria-expanded={showAboutMore}
-                >
-                  {showAboutMore ? "Show less" : "Show more"}
-                  <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showAboutMore ? "rotate-180" : ""}`} />
-                </button>
-              </div>
-
-              {/* Desktop: full body */}
-              <div className="hidden sm:block">
-                <p className="mt-4 text-center text-lg leading-relaxed text-white sm:text-xl">
-                  {content.aboutBody ||
-                    "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
-                </p>
-              </div>
+              {/* Body */}
+              <p className="mt-4 text-center text-sm leading-relaxed text-white/95 sm:text-lg">
+                {content.aboutBody ||
+                  "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
+              </p>
             </div>
           </Card>
         </div>
@@ -1039,9 +818,6 @@ export default function LandingPage() {
                 className="transition-colors hover:text-[#1D73EC]"
               >
                 Privacy
-              </button>
-              <button className="transition-colors hover:text-[#1D73EC]">
-                Contact
               </button>
             </div>
 

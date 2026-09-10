@@ -540,3 +540,13 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Fixed the Forgot Password crash by wiring up the /forgot-password route.
 - Completed the Forgot Password flow: the 6-digit code leads to the change-password screen and the new password is set via a new resetForgottenPassword (no current-password asked).
 - Updated shop hours across the app to Monday-Friday 9:00 AM - 5:00 PM, Saturday and Sunday closed (constants, customer dashboard, landing defaults; saved values auto-migrate).
+
+---
+
+## September 10, 2026 6:10 PM (PHT) — prans
+- Landing hero logo now sits above the "printing companion" heading on mobile only (desktop layout untouched).
+- Services & Pricing cards now reflect the real system catalog: Black & White and Color priced from the live pricing matrix, Binding card replaced with Photo, Vellum & Sticker (photo 2R-A4, vellum, A4 sticker sheets).
+- Mobile services carousel auto-advances every 4.5s in an infinite loop and the dot indicators were removed.
+- About Docufy overhauled: removed the mobile short-preview + "Show more" toggle that duplicated the same paragraph; single clean body on all screens.
+- Removed the inert footer Contact link.
+
