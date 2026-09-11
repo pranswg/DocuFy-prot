@@ -1358,10 +1358,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       setSubmittedOrderId(orderId);
       orderSubmittedRef.current = true;
 
-      if (!isOnline && flowTier === "down") {
-        // Down-payment tier + Cash on Pickup: customer picks 50% down vs full on
-        // the Down Payment Method page. Online down-tier orders skip this — they
-        // go straight to payment verification and pay the full amount online.
+      // Every down-payment-tier order (₱50–99), regardless of the method picked
+      // at checkout, goes to the Down Payment Method page where the customer
+      // chooses Pay At The Shop (→ order tracking, staff verifies the down
+      // payment at the shop) or Pay Online (→ Payment Verification, normal
+      // online verification).
+      if (flowTier === "down") {
         navigate(`/customer/payment-method/${orderId}`, {
           state: {
             paymentMethod: methodLabel,
@@ -2990,10 +2992,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <div className="mt-6">
                       <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <strong>Note:</strong>{" "}
-                        <>You will be
-                      redirected to payment verification after
-                      placing your order. Please upload your{" "}
-                      {paymentMethod} payment receipt there.</>
+                        {isDownTier ? (
+                          <>After placing your order you'll choose how to
+                        pay on the Down Payment Method page, then upload
+                        your {paymentMethod} payment receipt on Payment
+                        Verification.</>
+                        ) : (
+                          <>You will be
+                        redirected to payment verification after
+                        placing your order. Please upload your{" "}
+                        {paymentMethod} payment receipt there.</>
+                        )}
                       </p>
                       {!isGcash && (
                         <p className="text-xs text-gray-500 bg-white border border-gray-200 rounded-lg p-3 mt-2">
@@ -3222,7 +3231,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
-                    } else if (isDownTier && !isOnline) {
+                    } else if (isDownTier) {
                       handleSubmit();
                     } else {
                       setShowPlaceOrderConfirm(true);
@@ -3232,7 +3241,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 >
                   {isWalkin
                     ? "Proceed to In Queue"
-                    : isDownTier && !isOnline
+                    : isDownTier
                       ? "Proceed to Down Payment Method"
                       : isOnline
                         ? "Go to Payment Verification"

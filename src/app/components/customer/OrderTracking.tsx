@@ -608,12 +608,22 @@ export default function OrderTracking() {
                           : "Awaiting Down Payment"}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {orderData?.downPaymentVerified
-                          ? `${formatCurrency(orderData.downPaymentAmount || 0)} (50% down) paid via ${orderData.paymentMethod || "online"} — balance of ${formatCurrency(
-                              (orderData.total ? parseFloat(String(orderData.total).replace(/[₱,]/g, "")) : 0) -
-                                (orderData.downPaymentAmount || 0),
-                            )} due on pickup.`
-                          : `Pay at least ${formatCurrency(orderData.downPaymentAmount || 0)} (50% down) via ${orderData.paymentMethod || "online"} before printing — balance due on pickup.`}
+                        {(() => {
+                          const downAmt = orderData?.downPaymentAmount || 0;
+                          const totalAmt = orderData?.total
+                            ? parseFloat(String(orderData.total).replace(/[₱,]/g, ""))
+                            : 0;
+                          const balance = totalAmt - downAmt;
+                          const isCash = (orderData?.paymentMethod || "") === "Cash";
+                          const methodLabel = isCash
+                            ? "in cash at the shop"
+                            : `via ${orderData?.paymentMethod || "online"}`;
+                          return orderData?.downPaymentVerified
+                            ? `${formatCurrency(downAmt)} (50% down) paid ${methodLabel} — balance of ${formatCurrency(balance)} due on pickup.`
+                            : isCash
+                              ? `Pay at least ${formatCurrency(downAmt)} (50% down) in cash at the shop before your order can be printed — balance due on pickup.`
+                              : `Pay at least ${formatCurrency(downAmt)} (50% down) ${methodLabel} before printing — balance due on pickup.`;
+                        })()}
                       </p>
                     </div>
                   </div>

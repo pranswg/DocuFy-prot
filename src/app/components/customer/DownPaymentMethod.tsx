@@ -2,7 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import {
+  LayoutDashboard,
+  FileText,
+  Package,
+  Briefcase,
   Banknote,
+  Smartphone,
   Wallet,
   CheckCircle2,
   ChevronRight,
@@ -13,6 +18,7 @@ import { Button } from "../ui/button";
 import { dataStore } from "../../utils/dataStore";
 import { formatCurrency } from "../../utils/formatNumber";
 import { pricingStore } from "../../utils/pricingStore";
+import { paymentMethodsStore, type PaymentMethodType } from "../../utils/paymentMethodsStore";
 import {
   readPendingOrder,
   readOrderBlob,
@@ -25,7 +31,22 @@ const menuItems = [
   {
     label: "Dashboard",
     path: "/customer/dashboard",
-    icon: <Banknote className="w-5 h-5" />,
+    icon: <LayoutDashboard className="w-5 h-5" />,
+  },
+  {
+    label: "Print Request",
+    path: "/customer/new-request",
+    icon: <FileText className="w-5 h-5" />,
+  },
+  {
+    label: "My Orders",
+    path: "/customer/orders",
+    icon: <Package className="w-5 h-5" />,
+  },
+  {
+    label: "Job Board",
+    path: "/customer/job-board",
+    icon: <Briefcase className="w-5 h-5" />,
   },
 ];
 
@@ -34,6 +55,31 @@ export default function DownPaymentMethod() {
   const { orderId } = useParams();
   const [amountChoice, setAmountChoice] = useState<"down" | "full">("down");
   const [showConfirm, setShowConfirm] = useState(false);
+  const [onlineMethods, setOnlineMethods] = useState<PaymentMethodType[]>([]);
+
+  // Which venue does the stored order point to (from checkout)? Cash → shop;
+  // an online method chosen at checkout → Pay Online with that wallet selected.
+  const [venue, setVenue] = useState<"shop" | "online">(() => {
+    const m = String(
+      dataStore.getOrderById(orderId!)?.paymentMethod ||
+        readPendingOrder()?.paymentMethod ||
+        readOrderBlob(orderId!)?.paymentMethod ||
+        "",
+    );
+    return m && m !== "Cash" ? "online" : "shop";
+  });
+  const [wallet, setWallet] = useState<string>(() => {
+    const m = String(
+      dataStore.getOrderById(orderId!)?.paymentMethod ||
+        readPendingOrder()?.paymentMethod ||
+        readOrderBlob(orderId!)?.paymentMethod ||
+        "",
+    );
+    const active = paymentMethodsStore.getPaymentMethods();
+    return m && m !== "Cash" && active.some((x) => x.name === m)
+      ? m
+      : active[0]?.name ?? "";
+  });
 
   const total = useMemo(() => {
     if (!orderId) return 0;
@@ -53,38 +99,62 @@ export default function DownPaymentMethod() {
   }, [total]);
 
   useEffect(() => {
+    const loadMethods = () =>
+      setOnlineMethods(paymentMethodsStore.getPaymentMethods());
+    loadMethods();
+    const unsubscribe = paymentMethodsStore.subscribe(loadMethods);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     if (!isDownTier && total > 0) {
       navigate(`/customer/payment/${orderId}`, { replace: true });
     }
   }, [isDownTier, total, orderId, navigate]);
 
-  // Only Cash on Pickup orders reach this page (online down-tier orders pay in
-  // full on the payment verification page directly), so the venue is fixed to
-  // the shop.
   if (!isDownTier) {
     return null;
   }
 
   const downDue = total * 0.5;
+  const isOnlineVenue = venue === "online";
+  const amountNow = amountChoice === "down" ? downDue : total;
 
   const applyPlan = () => {
+    if (isOnlineVenue && !wallet) {
+      toast.error("Please choose a payment method first");
+      return;
+    }
     const decision = applyDownPaymentPlan(orderId!, total, {
-      venue: "shop",
+      venue: isOnlineVenue ? "online" : "shop",
       amountChoice,
-      wallet: "",
+      wallet: isOnlineVenue ? wallet : "",
     });
-    // The order was held as pending during checkout; materialize it into the
-    // data store so Payment Verification can load it.
-    materializeCashPendingOrder(orderId!);
-    toast.success(
-      decision.isFull ? "Full payment selected" : "Down payment selected",
-    );
-    navigate(`/customer/payment/${orderId}`, {
-      state: {
-        paymentMethod: "Cash",
-        total,
-      },
-    });
+    if (isOnlineVenue) {
+      // Online payment: the order stays held until the customer submits their
+      // reference on the Payment Verification page, then it is verified
+      // normally by staff/admin like any online payment.
+      toast.success(
+        decision.isFull ? "Full payment selected" : "Down payment selected",
+      );
+      navigate(`/customer/payment/${orderId}`, {
+        state: {
+          paymentMethod: wallet,
+          total,
+        },
+      });
+    } else {
+      // Pay at the shop: materialize the held order now, then send the customer
+      // to order tracking. There is NO customer Payment Verification step — the
+      // order stays on hold until staff/admin verifies the down payment in the
+      // Payment Verification module (with a 50% / Full choice), then it enters
+      // the queue.
+      materializeCashPendingOrder(orderId!);
+      toast.success(
+        decision.isFull ? "Full payment selected" : "Down payment selected",
+      );
+      navigate(`/customer/track/${orderId}`);
+    }
   };
 
   return (
@@ -106,29 +176,115 @@ export default function DownPaymentMethod() {
           </p>
         </div>
 
-        {/* How you'll pay — Cash on Pickup only (the down-payment function is
-            available only when Cash on Pickup is selected at checkout). */}
+        {/* Venue: Pay at the Shop or Pay Online */}
         <Card className="p-6 bg-white shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">
             How you'll pay
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            This order is set up for Cash on Pickup at the shop.
+            Pay the down payment in cash at the shop, or settle it online with
+            a wallet.
           </p>
-          <div className="relative flex items-start gap-3 p-4 border-2 border-[#2F6FD6] rounded-lg text-left bg-white">
-            <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-100">
-              <Banknote className="w-5 h-5 text-[#2F6FD6]" />
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">Pay at the Shop</p>
-              <p className="text-xs text-gray-500">
-                Visit the shop and pay in cash. Staff verifies your payment at
-                the counter.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setVenue("shop")}
+              className={`relative flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                venue === "shop"
+                  ? "border-[#2F6FD6] bg-white"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {venue === "shop" && (
+                <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+              )}
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-100">
+                <Banknote className="w-5 h-5 text-[#2F6FD6]" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">
+                  Pay at the Shop
+                </p>
+                <p className="text-xs text-gray-500">
+                  Visit the shop and pay in cash. Staff verifies your payment
+                  at the counter before your order is printed.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVenue("online")}
+              className={`relative flex items-start gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                venue === "online"
+                  ? "border-[#2F6FD6] bg-white"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {venue === "online" && (
+                <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+              )}
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-100">
+                <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">Pay Online</p>
+                <p className="text-xs text-gray-500">
+                  Pay with a mobile wallet and upload your receipt on Payment
+                  Verification.
+                </p>
+              </div>
+            </button>
           </div>
         </Card>
+
+        {/* Wallet picker (Pay Online only) */}
+        {isOnlineVenue && (
+          <Card className="p-6 bg-white shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              Choose your payment method
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              You'll pay online with a wallet, then upload your receipt on the
+              next step.
+            </p>
+            {onlineMethods.length === 0 ? (
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                No online payment methods are available right now. Please come
+                back later or choose Pay at the Shop.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {onlineMethods.map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    onClick={() => setWallet(method.name)}
+                    className={`relative flex items-center gap-3 p-4 border-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+                      wallet === method.name
+                        ? "border-[#2F6FD6] bg-white"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    {wallet === method.name && (
+                      <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
+                    )}
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-100">
+                      <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">
+                        {method.name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {method.accountName}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Step: amount */}
         <Card className="p-6 bg-white shadow-sm">
@@ -214,7 +370,7 @@ export default function DownPaymentMethod() {
                 : "Full Payment Due Now"}
             </span>
             <span className="font-bold text-[#2F6FD6]">
-              {formatCurrency(amountChoice === "down" ? downDue : total)}
+              {formatCurrency(amountNow)}
             </span>
           </div>
           {amountChoice === "down" && (
@@ -226,17 +382,29 @@ export default function DownPaymentMethod() {
             </div>
           )}
           <p className="text-xs text-gray-500 mt-2">
-            Paying via <strong>cash at the shop</strong>. Visit the shop to pay
-            in cash before your payment deadline.
+            {isOnlineVenue ? (
+              <>
+                Paying <strong>{formatCurrency(amountNow)}</strong> via{" "}
+                <strong>{wallet || "your chosen method"}</strong>. You'll upload
+                your receipt on Payment Verification.
+              </>
+            ) : (
+              <>
+                Paying via <strong>cash at the shop</strong>. Visit the shop to
+                pay in cash before your payment deadline; staff will verify your
+                payment.
+              </>
+            )}
           </p>
         </Card>
 
         <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-gray-100">
           <Button
             className="h-11 w-full bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
+            disabled={isOnlineVenue && onlineMethods.length === 0}
             onClick={() => setShowConfirm(true)}
           >
-            Proceed to Payment Verification
+            {isOnlineVenue ? "Proceed to Payment Verification" : "Confirm & Track Order"}
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -250,10 +418,14 @@ export default function DownPaymentMethod() {
           applyPlan();
         }}
         title="Confirm your payment plan?"
-        description={`You'll pay ${formatCurrency(
-          amountChoice === "down" ? downDue : total,
-        )} ${amountChoice === "down" ? "(50% down)" : "(full amount)"} in cash at the shop. Your order stays on hold until your payment is verified.`}
-        confirmLabel="Confirm & Continue"
+        description={
+          isOnlineVenue
+            ? `You'll pay ${formatCurrency(amountNow)} ${amountChoice === "down" ? "(50% down)" : "(full amount)"} via ${wallet || "your chosen method"}. You'll upload your receipt on Payment Verification, and your order is only placed once staff verifies the payment.`
+            : `You'll pay ${formatCurrency(amountNow)} ${amountChoice === "down" ? "(50% down)" : "(full amount)"} in cash at the shop. Your order stays on hold until staff verifies your payment.`
+        }
+        confirmLabel={
+          isOnlineVenue ? "Proceed to Payment Verification" : "Confirm & Track Order"
+        }
         cancelLabel="Go Back"
         destructive={false}
       />

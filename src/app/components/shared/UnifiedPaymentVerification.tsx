@@ -42,6 +42,7 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
 import { pricingStore } from "../../utils/pricingStore";
 import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
+import { formatCurrency } from "../../utils/formatNumber";
 import {
   paymentMethodsStore,
 } from "../../utils/paymentMethodsStore";
@@ -70,9 +71,12 @@ type PaymentType = {
   reference?: string;
   proofImageUrl?: string;
   // Payment-kind-aware fields (see generatePaymentsFromOrders):
-  //  - cash        → Cash on Pickup: paid at the shop, Amount to Pay + Deadline
-  //  - online      → Online payment (full amount, incl. high-value orders)
-  //  - online-down → Online down payment (Total / Paid / Remaining Balance)
+  //  - cash       → Cash on Pickup: paid at the shop, Amount to Pay + Deadline
+  //  - online     → Online payment (full amount, incl. high-value orders)
+  //  - online-down→ Online down payment (Total / Paid / Remaining Balance)
+  //  downTier     → marks a CASH order in the down-payment range (₱50–99): the
+  //                 customer chose "Pay at the Shop", so staff verify what was
+  //                 paid (50% down or Full) at the counter before queuing.
   kind: "cash" | "online" | "online-down";
   totalAmount: number;
   amountPaid: number;
@@ -83,6 +87,8 @@ type PaymentType = {
   canceled?: boolean;
   expired?: boolean;
   cancellationReason?: string;
+  downTier?: boolean;
+  downPaymentAmount?: number;
   // Low-value Cash on Pickup order (total under the down-payment threshold):
   // auto-queued at checkout, so it shows as "Pending Payment · In Queue" with
   // no reference number / proof of payment to review.
@@ -141,6 +147,18 @@ function generatePaymentsFromOrders(): PaymentType[] {
           ? "online-down"
           : "online";
 
+      // Cash down-tier order: a customer order in the 50%-down range paid at
+      // the shop ("Pay at the Shop" on the Down Payment Method page). The order
+      // stays on hold until staff verifies at the counter — with a 50% / Full
+      // choice — before it enters the queue. Walk-in orders are already fully
+      // paid/queued, so they are NOT treated as down-tier.
+      const pricing = pricingStore.getPricing();
+      const downTier =
+        isCashOnPickup &&
+        order.orderSource !== "walkin" &&
+        totalAmount >= pricing.downPaymentThreshold &&
+        totalAmount < pricing.fullPaymentThreshold;
+
       // For online payments the customer reports the amount they paid; for
       // down payments that's the down-payment amount, for full payments the
       // full amount (falling back to the required amount when not recorded).
@@ -159,7 +177,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
       // these are auto-queued at checkout with the cash collected on pickup.
       const isLowValueCash =
         isCashOnPickup &&
-        totalAmount < pricingStore.getPricing().downPaymentThreshold;
+        totalAmount < pricing.downPaymentThreshold;
 
       return {
         id: order.id,
@@ -183,6 +201,9 @@ function generatePaymentsFromOrders(): PaymentType[] {
         expired,
         cancellationReason: order.cancellationReason,
         isLowValueCash,
+        downTier,
+        downPaymentAmount:
+          order.downPaymentAmount ?? (downTier ? totalAmount * 0.5 : undefined),
       };
     })
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
@@ -218,6 +239,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   const [pendingVerifyAction, setPendingVerifyAction] = useState<
     "verified" | "rejected" | null
   >(null);
+  // Cash down-tier verify choice: what amount did the customer actually pay at
+  // the shop? "down" = 50% (matches plan), "full" = paid the full amount.
+  const [verifyAmountChoice, setVerifyAmountChoice] = useState<"down" | "full">("down");
 
   const { user } = useAuth();
   const myName = user?.name || "Staff";
@@ -341,16 +365,45 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       const targetOrder = orderRecords.find(
         (o) => o.id === selectedPayment.orderId,
       );
+
+      // === CASH DOWN-TIER VERIFICATION (Pay at the Shop) ===
+      // The staff member confirmed what was actually paid: 50% or Full.
+      // If "full" was paid → clear down flags, set fullPaymentRequired +
+      // fullPaymentVerified so the order is treated as fully paid online.
+      // If "down" (50%) was paid → keep downPaymentRequired +
+      // downPaymentVerified true; the balance is collected at pickup.
+      const isCashDown =
+        selectedPayment.method === "Cash" && (selectedPayment.downTier ?? false);
+      const paidFull = isCashDown && verifyAmountChoice === "full";
+      const verified = status === "verified";
+
       dataStore.updateOrder(selectedPayment.orderId, {
-        paymentVerified: status === "verified",
-        downPaymentVerified: status === "verified",
+        paymentVerified: verified,
+        downPaymentVerified: verified
+          ? isCashDown
+            ? !paidFull
+            : true
+          : undefined,
         fullPaymentVerified:
-          status === "verified" && !!targetOrder?.fullPaymentRequired,
+          verified && (paidFull || !!targetOrder?.fullPaymentRequired),
+        // Cash down-tier ("Pay at the Shop"): rewrite the planned-amount flags
+        // to match what was actually paid at the counter (50% vs Full). Other
+        // kinds leave the checkout-time flags untouched.
+        downPaymentRequired:
+          isCashDown && verified ? !paidFull : undefined,
+        downPaymentAmount:
+          isCashDown && verified && !paidFull
+            ? (selectedPayment.downPaymentAmount ?? selectedPayment.totalAmount * 0.5)
+            : undefined,
+        fullPaymentRequired:
+          isCashDown && verified && paidFull ? true : undefined,
+        fullPaymentAmount:
+          isCashDown && verified && paidFull ? selectedPayment.totalAmount : undefined,
         paymentReferenceNumber: selectedPayment.reference,
         paymentDeadline: undefined,
         // Auto-update order status to "In Queue" when payment is verified so
         // the order enters the queue automatically (staff never add it).
-        ...(status === "verified" ? { status: "In Queue" as const } : {}),
+        ...(verified ? { status: "In Queue" as const } : {}),
       });
 
       // The order is processed — release our hold so it's free for anyone.
@@ -375,6 +428,12 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
   const handleOpenDetails = (payment: PaymentType) => {
     setSelectedPayment(payment);
+    // Default the cash down-tier verify choice to the customer's plan
+    // (50% = downPaymentRequired, Full = already full) — staff can override
+    // with what was actually paid at the shop.
+    if (payment.method === "Cash" && (payment.downTier ?? false)) {
+      setVerifyAmountChoice(payment.downPaymentRequired ? "down" : "full");
+    }
     // Auto-claim the lock when opening the details (only for actionable rows).
     // NOTE (Supabase later): this claim must be written to the shared
     // session_locks table / broadcast over Realtime so OTHER machines see it,
@@ -791,9 +850,20 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                           <p className="text-sm font-bold text-[#1c1f26]">
                             ₱{payment.totalAmount.toLocaleString()}
                           </p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
-                            Amount to pay at shop
-                          </p>
+                          {payment.downTier ? (
+                            <>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                Down payment tier — pay at shop
+                              </p>
+                              <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
+                                ₱{(payment.downPaymentAmount ?? payment.totalAmount * 0.5).toLocaleString()} down · ₱{payment.remainingBalance.toLocaleString()} on pickup
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                              Amount to pay at shop
+                            </p>
+                          )}
                           {payment.deadline && (
                             <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
                               Due {formatPHDateTime(payment.deadline)}
@@ -1106,6 +1176,64 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       </div>
                     </div>
                   )}
+
+                  {/* Cash down-tier: what did the customer actually pay at the shop? */}
+                  {selectedPayment.method === "Cash" &&
+                    (selectedPayment.downTier ?? false) &&
+                    (selectedPayment.status === "pending" ||
+                      selectedPayment.status === "rejected") && (
+                      <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-[#1c1f26] mb-1">
+                          Cash down payment — how much was paid at the shop?
+                        </p>
+                        <p className="text-xs text-gray-500 mb-3">
+                          This order is in the down-payment range. Confirm what
+                          the customer actually paid at the counter. The balance
+                          ({formatCurrency(
+                            selectedPayment.totalAmount -
+                              (selectedPayment.downPaymentAmount ?? selectedPayment.totalAmount * 0.5),
+                          )}) is collected on pickup if only the 50% down was paid.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setVerifyAmountChoice("down")}
+                            className={`flex-1 min-w-[140px] rounded-lg border-2 px-4 py-2.5 text-left transition-all ${
+                              verifyAmountChoice === "down"
+                                ? "border-[#2F6FD6] bg-white"
+                                : "border-gray-200 bg-white/50 hover:border-gray-300"
+                            }`}
+                          >
+                            <p className="text-xs text-gray-500">
+                              Paid 50% Down
+                            </p>
+                            <p className="font-bold text-gray-900">
+                              ₱
+                              {(
+                                selectedPayment.downPaymentAmount ??
+                                selectedPayment.totalAmount * 0.5
+                              ).toLocaleString()}
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVerifyAmountChoice("full")}
+                            className={`flex-1 min-w-[140px] rounded-lg border-2 px-4 py-2.5 text-left transition-all ${
+                              verifyAmountChoice === "full"
+                                ? "border-[#2F6FD6] bg-white"
+                                : "border-gray-200 bg-white/50 hover:border-gray-300"
+                            }`}
+                          >
+                            <p className="text-xs text-gray-500">
+                              Paid Full Amount
+                            </p>
+                            <p className="font-bold text-gray-900">
+                              ₱{selectedPayment.totalAmount.toLocaleString()}
+                            </p>
+                          </button>
+                        </div>
+                      </div>
+                    )}
               </div>
 
               {/* Sticky action footer */}
