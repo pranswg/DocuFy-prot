@@ -668,3 +668,9 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Mobile back button consistency: customer Payment Verification mobile back arrow now uses the standard compact "← Back" pattern; AdminProfile and StaffProfile desktop "Back" buttons hidden `md:inline-flex` so mobile uses the Layout header back arrow exclusively.
 - Red asterisks on all required form labels: asterisks switched from gray to `text-red-500` across OrderTracking (Reason for Cancellation), ShopStatusControl (Reason), PaymentMethodsManagement (3 fields), Staff add/edit dialogs (9 fields), JobBoardManagement (8 fields), and PaymentVerification (Reference Number, Proof of Payment upload).
 - Proof-of-payment upload now required on the customer Payment Verification page: handleSubmit validates `proofFile` is present before allowing submission, and the upload label shows a red asterisk. Typecheck + build pass.
+
+---
+
+## September 12, 2026 12:34 AM (PHT) — prans
+- Fixed staff sidebar hierarchy: "Clock-In & Timesheet" is now a direct top-level staff nav item (right after Inventory) instead of living under a "Operations" parent menu — the OPERATIONS group was removed from the staff sidebar and from the walk-in/staff page menus, so the staff nav is flat and shorter.
+- Streamlined the staff Clock-In page: the big timer widget is now a compact "Current Shift" card with a single filled-blue Time In/Time Out button and simplified Clocked In / Clocked Out status (the Shift Complete/Exceeded header pills, the amber "Time In Again (Extra)" state, and the Back to Dashboard link were removed — extra clock-ins after the day is done are still recorded and still marked Exceeded on the log rows). The three metrics cards now read Today / This Week / Overtime this week, and the collapsed history lists recent entries as compact Today/Yesterday rows instead of a one-line today summary. Typecheck + build pass.
