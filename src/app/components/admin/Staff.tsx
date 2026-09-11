@@ -721,7 +721,7 @@ export default function Staff() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
+              <Label htmlFor="fullName">Full Name <span className="text-red-500">*</span></Label>
               <Input
                 id="fullName"
                 type="text"
@@ -735,7 +735,7 @@ export default function Staff() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staffEmail">Email Address *</Label>
+              <Label htmlFor="staffEmail">Email Address <span className="text-red-500">*</span></Label>
               <Input
                 id="staffEmail"
                 type="email"
@@ -752,7 +752,7 @@ export default function Staff() {
             </div>
 
             <div className="space-y-2">
-              <Label>Role *</Label>
+              <Label>Role <span className="text-red-500">*</span></Label>
               <ZoomSafeDropdown
                 value={newStaff.role}
                 onChange={(value) => setNewStaff({ ...newStaff, role: value })}
@@ -771,7 +771,7 @@ export default function Staff() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="staffPassword">Password *</Label>
+                <Label htmlFor="staffPassword">Password <span className="text-red-500">*</span></Label>
                 <div className="relative">
                   <Input
                     id="staffPassword"
@@ -794,7 +794,7 @@ export default function Staff() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="staffConfirmPassword">Confirm *</Label>
+                <Label htmlFor="staffConfirmPassword">Confirm <span className="text-red-500">*</span></Label>
                 <div className="relative">
                   <Input
                     id="staffConfirmPassword"
@@ -868,7 +868,7 @@ export default function Staff() {
           {editForm && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="editFullName">Full Name *</Label>
+                <Label htmlFor="editFullName">Full Name <span className="text-red-500">*</span></Label>
                 <Input
                   id="editFullName"
                   type="text"
@@ -882,7 +882,7 @@ export default function Staff() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editEmail">Email Address *</Label>
+                <Label htmlFor="editEmail">Email Address <span className="text-red-500">*</span></Label>
                 <Input
                   id="editEmail"
                   type="email"
@@ -897,7 +897,7 @@ export default function Staff() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Role *</Label>
+                  <Label>Role <span className="text-red-500">*</span></Label>
                   <ZoomSafeDropdown
                     value={editForm.role}
                     onChange={(value) =>
@@ -912,7 +912,7 @@ export default function Staff() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Account Status *</Label>
+                  <Label>Account Status <span className="text-red-500">*</span></Label>
                   <ZoomSafeDropdown
                     value={editForm.status}
                     onChange={(value) =>

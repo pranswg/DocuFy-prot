@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
 import {
   Clock,
   CalendarDays,
   LogIn,
   LogOut,
-  TrendingUp,
   History,
   ChevronDown,
   ChevronUp,
   Timer,
-  ArrowRight,
+  TrendingUp,
+  Info,
   LayoutGrid,
   Package,
   ShoppingCart,
@@ -47,14 +46,9 @@ const menuItems = [
     icon: <LayoutGrid className="w-5 h-5" />,
   },
   {
-    label: "Timesheet",
-    path: "/staff/timesheet",
-    icon: <Clock className="w-5 h-5" />,
-  },
-  {
-    label: "Walk-in Transactions",
-    path: "/staff/walk-in",
-    icon: <ShoppingCart className="w-5 h-5" />,
+    label: "Orders",
+    path: "/staff/queue",
+    icon: <Package className="w-5 h-5" />,
   },
   {
     label: "Payment Verification",
@@ -62,14 +56,19 @@ const menuItems = [
     icon: <CreditCard className="w-5 h-5" />,
   },
   {
-    label: "Orders",
-    path: "/staff/queue",
-    icon: <Package className="w-5 h-5" />,
+    label: "Walk-in Transactions",
+    path: "/staff/walk-in",
+    icon: <ShoppingCart className="w-5 h-5" />,
   },
   {
     label: "Inventory",
     path: "/staff/inventory",
     icon: <Boxes className="w-5 h-5" />,
+  },
+  {
+    label: "Clock-In & Timesheet",
+    path: "/staff/timesheet",
+    icon: <Clock className="w-5 h-5" />,
   },
 ];
 
@@ -95,14 +94,31 @@ const fmtCompact = (ms: number): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
+// "0h 00m" — used for the Today / This Week hours summary.
+const fmtHM = (ms: number): string => {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}h ${pad2(m)}m`;
+};
+
 const fmtDay = (dateKey: string): string => {
   const d = new Date(`${dateKey}T00:00:00`);
   if (Number.isNaN(d.getTime())) return dateKey;
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, { weekday: "long" });
+};
+
+// Day label for a log row: Today / Yesterday, else the weekday name.
+const fmtDayLabel = (dateKey: string, todayKey: string): string => {
+  if (dateKey === todayKey) return "Today";
+  const today = new Date(`${todayKey}T00:00:00`);
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const yesterdayKey = `${yesterday.getFullYear()}-${pad2(yesterday.getMonth() + 1)}-${pad2(yesterday.getDate())}`;
+  if (dateKey === yesterdayKey) return "Yesterday";
+  return fmtDay(dateKey);
 };
 
 export default function StaffTimesheet() {
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const email = user?.email ?? "";
@@ -156,7 +172,6 @@ export default function StaffTimesheet() {
   const activeStart = activeSession?.timeIn;
 
   const todayTotalMs = todayRecord ? sessionTotalMs(todayRecord, now) : 0;
-  const todayOvertimeMs = overtimeMs(todayTotalMs);
 
   const weekStartKey = getWeekStartKey(phtNow);
   const weekRecords = logs.filter((l) => l.date >= weekStartKey);
@@ -168,14 +183,10 @@ export default function StaffTimesheet() {
 
   const statusMeta = isOnClock
     ? { label: "Clocked In", cls: "bg-green-100 text-green-700 border-green-200" }
-    : curDone && exceeded
-      ? { label: "Exceeded for the Day", cls: "bg-amber-100 text-amber-700 border-amber-200" }
-      : curDone
-        ? { label: "Shift Complete", cls: "bg-green-100 text-green-700 border-green-200" }
-        : { label: "Not Started", cls: "bg-gray-100 text-gray-500 border-gray-200" };
+    : { label: "Clocked Out", cls: "bg-slate-100 text-slate-600 border-slate-200" };
 
   const description = isOnClock
-    ? `Shift started at ${fmtShortTime(activeStart)}${exceeded ? " · extra clock-in after the day was done" : ""}`
+    ? `Started at ${fmtShortTime(activeStart)}${exceeded ? " · extra clock-in after the day was done" : ""}`
     : curDone && exceeded
       ? "Time in and time out are done for today, but an extra clock-in was recorded — logged as exceeded for the day."
       : curDone
@@ -205,65 +216,45 @@ export default function StaffTimesheet() {
   return (
     <Layout menuItems={menuItems} title="Clock-In & Timesheet">
       <div className="space-y-6 pb-10">
-        {/* ── Primary Clock-In Widget ─────────────────────────────────────── */}
+        {/* ── Current Shift ─────────────────────────────────────────────── */}
         <Card className="overflow-hidden border border-slate-100 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 pt-6">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              <CalendarDays className="w-4 h-4 text-[#1D73EC]" />
-              {phtNow.toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+          <div className="px-6 py-6">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-slate-500">
+                {phtNow.toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </p>
+              <Badge variant="outline" className={`shrink-0 border text-xs font-bold ${statusMeta.cls}`}>
+                {statusMeta.label}
+              </Badge>
             </div>
-            <Badge variant="outline" className={`border text-xs font-bold ${statusMeta.cls}`}>
-              {statusMeta.label}
-            </Badge>
-          </div>
 
-          <div className="flex flex-col items-center px-6 pt-6 pb-8 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              {isOnClock
-                ? "Session Timer"
-                : curDone && exceeded
-                  ? "Exceeded — Day Done"
-                  : curDone
-                    ? "Today Complete"
-                    : "Current Time"}
+            <p className="mt-6 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              {isOnClock ? "Current Shift" : "Current Time"}
             </p>
             <div
-              className={`mt-2 font-mono font-bold tabular-nums tracking-tight ${
+              className={`mt-1 font-mono font-bold tabular-nums tracking-tight ${
                 isOnClock
-                  ? "text-6xl sm:text-7xl text-[#1D73EC]"
-                  : "text-5xl sm:text-6xl text-slate-900"
+                  ? "text-4xl sm:text-5xl text-[#1D73EC]"
+                  : "text-4xl sm:text-5xl text-slate-900"
               }`}
             >
               {displayTime}
             </div>
-
-            <p className="mt-3 text-sm text-slate-500 font-medium">{description}</p>
+            <p className="mt-2 text-sm text-slate-500 font-medium">{description}</p>
 
             <Button
               onClick={() => setShowClockConfirm(true)}
-              disabled={false}
-              className={`mt-6 h-14 w-full max-w-sm rounded-xl text-base font-bold transition-all disabled:opacity-100 ${
-                isOnClock
-                  ? "bg-[#2557b8] hover:bg-[#1d4e99] text-white"
-                  : curDone
-                    ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-                    : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"
-              }`}
+              className="mt-6 h-14 w-full rounded-xl text-base font-bold bg-[#1D73EC] hover:bg-[#1659c4] text-white"
             >
               {isOnClock ? (
                 <>
                   <LogOut className="h-5 w-5 mr-2" />
                   Time Out
-                </>
-              ) : curDone ? (
-                <>
-                  <LogIn className="h-5 w-5 mr-2" />
-                  Time In Again (Extra)
                 </>
               ) : (
                 <>
@@ -272,51 +263,33 @@ export default function StaffTimesheet() {
                 </>
               )}
             </Button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/staff/dashboard")}
-              className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#1D73EC] transition-colors hover:underline"
-            >
-              Back to Dashboard
-              <ArrowRight className="h-4 w-4" />
-            </button>
           </div>
         </Card>
 
-        {/* ── Personal Metrics — Today vs This Week ───────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          {[
-            {
-              id: "mt-tot",
-              label: "Total Hours",
-              icon: Timer,
-              today: fmtCompact(todayTotalMs),
-              week: fmtCompact(weekTotalMs),
-            },
-            {
-              id: "mt-ovt",
-              label: "Overtime",
-              icon: TrendingUp,
-              today: fmtCompact(todayOvertimeMs),
-              week: fmtCompact(weekOvertimeMs),
-            },
-          ].map(({ id, label, icon, today, week }) => (
-            <SummaryCard
-              key={id}
-              label={label}
-              value={today}
-              icon={icon}
-              iconBg="bg-[#F2F7FF]"
-              iconColor="text-[#1D73EC]"
-              subtitle={
-                <>
-                  Today · This week:{" "}
-                  <span className="font-semibold text-slate-600">{week}</span>
-                </>
-              }
-            />
-          ))}
+        {/* ── Hours Summary — Today / This Week / Overtime ───────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <SummaryCard
+            label="Today"
+            value={fmtHM(todayTotalMs)}
+            icon={Timer}
+            iconBg="bg-[#F2F7FF]"
+            iconColor="text-[#1D73EC]"
+          />
+          <SummaryCard
+            label="This Week"
+            value={fmtHM(weekTotalMs)}
+            icon={CalendarDays}
+            iconBg="bg-[#F2F7FF]"
+            iconColor="text-[#1D73EC]"
+          />
+          <SummaryCard
+            label="Overtime this week"
+            value={fmtHM(weekOvertimeMs)}
+            icon={TrendingUp}
+            iconBg="bg-amber-50"
+            iconColor="text-amber-600"
+            valueColor="text-amber-600"
+          />
         </div>
 
         {/* ── Personal History — collapsible log table ────────────────────── */}
@@ -433,33 +406,52 @@ export default function StaffTimesheet() {
               </table>
             </div>
           ) : (
-            /* Collapsed — today summary */
-            <div className="px-6 py-5">
-              {todayRecord ? (
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
-                  <span className="font-bold text-slate-800">Today</span>
-                  <span className="text-slate-500">
-                    In {fmtShortTime(todayRecord.timeIn)} → Out {fmtShortTime(todayRecord.timeOut)}
-                    {todayRecord.exceeded && (
-                      <span className="ml-1 font-semibold text-amber-600">· Exceeded</span>
-                    )}
-                  </span>
-                  <span className="sm:ml-auto font-bold text-[#1D73EC] tabular-nums">
-                    {fmtCompact(todayTotalMs)} total
-                  </span>
-                </div>
+            /* Collapsed — recent entries as compact rows */
+            <div className="px-6 py-2">
+              {logs.length > 0 ? (
+                logs.slice(0, 5).map((record) => {
+                  const total = sessionTotalMs(record, now);
+                  const activeToday = record.date === todayKey && isOnClock;
+                  return (
+                    <div
+                      key={record.id}
+                      className={`flex items-center justify-between gap-3 border-b border-gray-100 py-3 ${
+                        activeToday ? "bg-none" : ""
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">
+                          {fmtDayLabel(record.date, todayKey)}
+                        </p>
+                        <p className="text-sm text-slate-500 tabular-nums">
+                          {fmtShortTime(record.timeIn)} →{" "}
+                          {activeToday ? "—" : fmtShortTime(record.timeOut)}
+                          {record.exceeded && (
+                            <span className="ml-1 font-semibold text-amber-600">· Exceeded</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-bold text-slate-800 tabular-nums">
+                        {fmtCompact(total)}
+                      </span>
+                    </div>
+                  );
+                })
               ) : (
-                <p className="text-sm text-gray-500">
-                  No clock entries yet for today. Click <span className="font-semibold text-[#1D73EC]">Full History</span> to review previous days.
-                </p>
+                <div className="py-8">
+                  <p className="text-sm text-gray-500">
+                    No clock entries yet. Click <span className="font-semibold text-[#1D73EC]">Time In</span> above to start your first shift.
+                  </p>
+                </div>
               )}
             </div>
           )}
 
           {/* Footnote */}
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-            <p className="text-xs text-gray-500 font-medium">
-              Timesheet is stored on this device (demo). Standard shift: {STANDARD_DAILY_HOURS}h/day · {STANDARD_WEEKLY_HOURS}h/week. One Time In / Time Out per day — clocking back in after the day is complete is logged as Exceeded.
+          <div className="flex items-start gap-1.5 px-6 py-3 border-t border-gray-100">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
+            <p className="text-xs text-slate-400">
+              Timesheet is stored on this device. Standard shift: {STANDARD_DAILY_HOURS}h/day · {STANDARD_WEEKLY_HOURS}h/week. Clocking back in after the day is complete is logged as Exceeded.
             </p>
           </div>
         </Card>

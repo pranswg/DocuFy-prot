@@ -153,7 +153,7 @@ export default function ShopStatusControl() {
           </DialogHeader>
           <div className="mt-2 space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Reason *</Label>
+              <Label className="text-sm font-medium">Reason <span className="text-red-500">*</span></Label>
               <Input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

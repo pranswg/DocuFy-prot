@@ -13,6 +13,7 @@ import {
   Boxes,
   ClipboardList,
   SlidersHorizontal,
+  Clock,
 } from "lucide-react";
 
 export type NavChild = {
@@ -163,12 +164,11 @@ const staffInventory = {
   icon: <Boxes className="w-5 h-5" />,
 };
 
-// Staff's Operations parent holds the timesheet (staff attendance workflow).
-const staffOperations = {
-  label: "Operations",
+// Clock-In & Timesheet is a direct top-level staff destination (no parent menu).
+const staffTimesheet = {
+  label: "Clock-In & Timesheet",
   path: "/staff/timesheet",
-  icon: <ClipboardList className="w-5 h-5" />,
-  children: [{ label: "Clock-In & Timesheet", path: "/staff/timesheet" }],
+  icon: <Clock className="w-5 h-5" />,
 };
 
 export const staffSections: NavSection[] = [
@@ -181,7 +181,7 @@ export const staffSections: NavSection[] = [
       staffPaymentVerification,
       staffWalkIn,
       staffInventory,
+      staffTimesheet,
     ],
   },
-  { key: "operations", label: "OPERATIONS", items: [staffOperations] },
 ];
