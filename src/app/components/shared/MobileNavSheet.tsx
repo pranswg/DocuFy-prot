@@ -31,6 +31,7 @@ import {
   flattenSections,
   childPathMatches,
   type NavModule,
+  type NavSection,
 } from "../../utils/navigationConfig";
 import {
   snapshotExpandedParents,
@@ -131,6 +132,15 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
         ? flattenSections(staffSections)
         : customerNavigation;
   const activeModule = findActiveModule(allModules, pathname, search);
+
+  // Sectioned groups for the admin/staff mobile nav (MAIN / OPERATIONS /
+  // MANAGEMENT). Customers keep the legacy flat menu (no headings).
+  const sections: NavSection[] =
+    user?.role === "admin"
+      ? adminSections
+      : user?.role === "staff"
+        ? staffSections
+        : [];
 
   // Always keep the parent of the current route expanded so navigation state
   // matches the URL (auto-expands after navigating straight to a child).
@@ -330,7 +340,21 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
             className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
           >
             <div className="flex flex-col items-stretch w-full">
-              {allModules.map(renderModuleItem)}
+              {sections.length > 0 ? (
+                sections.map((section) => (
+                  <div key={section.key} className="flex flex-col items-stretch w-full">
+                    <div
+                      aria-hidden="true"
+                      className="px-6 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-100/70 select-none"
+                    >
+                      {section.label}
+                    </div>
+                    {section.items.map(renderModuleItem)}
+                  </div>
+                ))
+              ) : (
+                allModules.map(renderModuleItem)
+              )}
             </div>
           </nav>
 

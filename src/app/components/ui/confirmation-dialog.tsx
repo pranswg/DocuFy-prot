@@ -65,7 +65,9 @@ export function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className={`sm:max-w-[500px] ${destructive ? "border-t-4 border-t-red-500" : ""}`}
+      >
         {/* Wrapping in a form lets the shared dialog Enter handler (which finds a
             submit button) trigger the confirm action consistently with mouse clicks.
             The cancel button is type="button" so it never becomes the primary. */}
@@ -79,8 +81,8 @@ export function ConfirmationDialog({
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               {destructive && (
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                <div className="w-10 h-10 rounded-full bg-red-50 ring-1 ring-red-200 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
               )}
               <DialogTitle className="text-xl">{title}</DialogTitle>
@@ -94,7 +96,7 @@ export function ConfirmationDialog({
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="confirmation-input" className="text-sm font-medium">
-                  Type <span className="font-bold text-red-400">"{confirmationPhrase}"</span> to confirm
+                  Type <span className="font-bold text-red-500">"{confirmationPhrase}"</span> to confirm
                 </Label>
                 <Input
                   id="confirmation-input"
@@ -104,7 +106,7 @@ export function ConfirmationDialog({
                     setError('');
                   }}
                   placeholder={confirmationPhrase}
-                  className={error ? 'border-blue-500 focus-visible:ring-red-500' : ''}
+                  className={error ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   autoComplete="off"
                 />
                 {error && (
@@ -112,9 +114,9 @@ export function ConfirmationDialog({
                 )}
               </div>
 
-              <div className="bg-white border-2 border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-amber-800">
-                  <strong>Warning:</strong> This action requires confirmation for maximum protection.
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700">
+                  <strong>Warning:</strong> This action cannot be undone. It requires confirmation for maximum protection.
                 </p>
               </div>
             </div>
@@ -134,6 +136,7 @@ export function ConfirmationDialog({
               type="submit"
               variant={destructive ? "destructive" : "default"}
               disabled={!canConfirm || loading}
+              className={destructive ? "bg-red-600 hover:bg-red-700" : undefined}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {confirmLabel}

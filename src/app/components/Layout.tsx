@@ -57,6 +57,7 @@ import {
   flattenSections,
   childPathMatches,
   type NavModule,
+  type NavSection,
 } from "../utils/navigationConfig";
 import {
   snapshotExpandedParents,
@@ -409,6 +410,15 @@ export default function Layout({
       : user?.role === "staff"
         ? flattenSections(staffSections)
         : customerModules;
+
+  // Sectioned groups for the admin/staff sidebar (MAIN / OPERATIONS /
+  // MANAGEMENT). Customers keep the legacy flat menu (no headings).
+  const sections: NavSection[] =
+    user?.role === "admin"
+      ? adminSections
+      : user?.role === "staff"
+        ? staffSections
+        : [];
 
   const activeModule = findActiveModule(
     allModules,
@@ -813,7 +823,21 @@ export default function Layout({
       >
         {showLabels ? (
           <div className="flex flex-col items-stretch w-full">
-            {allModules.map(renderModuleItem)}
+            {sections.length > 0 ? (
+              sections.map((section) => (
+                <div key={section.key} className="flex flex-col items-stretch w-full">
+                  <div
+                    aria-hidden="true"
+                    className="px-6 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-100/70 select-none"
+                  >
+                    {section.label}
+                  </div>
+                  {section.items.map(renderModuleItem)}
+                </div>
+              ))
+            ) : (
+              allModules.map(renderModuleItem)
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center w-full space-y-2">

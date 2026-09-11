@@ -3834,18 +3834,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       {/* Cancel Confirmation Dialog (walk-in only) */}
       {isWalkin && (
         <Dialog open={showCancelConfirmDialog} onOpenChange={setShowCancelConfirmDialog}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md border-t-4 border-t-red-500">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-amber-900">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                Cancel Walk-in Transaction
-              </DialogTitle>
-              <DialogDescription>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-red-50 ring-1 ring-red-200 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                </div>
+                <DialogTitle className="text-xl text-red-700">
+                  Cancel Walk-in Transaction
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-base">
                 Are you sure you want to cancel this walk-in transaction? All entered information will be lost.
               </DialogDescription>
             </DialogHeader>
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mt-2">
-              <p className="text-sm text-amber-900">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg mt-2">
+              <p className="text-sm text-red-700">
                 <strong>Warning:</strong> This action cannot be undone. Customer details, uploaded files, and all settings will be cleared.
               </p>
             </div>
@@ -3853,6 +3857,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               <Button
                 variant="outline"
                 onClick={() => setShowCancelConfirmDialog(false)}
+                className="bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
               >
                 Keep Editing
               </Button>
