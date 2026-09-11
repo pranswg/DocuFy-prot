@@ -235,20 +235,15 @@ export default function OrderTracking() {
                 <Clock className="w-6 h-6 text-amber-600" />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-medium text-amber-700/80 mb-1">
+                <p className="text-sm font-medium text-amber-700/80 mb-1">
                   Current Status
                 </p>
-                <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+                <h3 className="text-2xl font-bold text-amber-900 mb-2 flex items-center gap-2">
                   {orderData?.cancellationReason === "Payment Deadline Expired"
                     ? "Awaiting Payment — Cancelled (Expired)"
                     : currentOrderLabel || "Awaiting Payment"}
-                  <Badge className="bg-amber-100 text-amber-800">
-                    {currentOrderLabel === "Awaiting Payment"
-                      ? "Payment Pending"
-                      : currentOrderLabel}
-                  </Badge>
                 </h3>
-                <p className="text-sm text-amber-800 mb-3 leading-relaxed">
+                <p className="text-base text-amber-800 mb-3 leading-relaxed">
                   <strong>Details:</strong>{" "}
                   {holdReason ||
                     (orderData?.paymentMethod === "Cash"
@@ -258,11 +253,11 @@ export default function OrderTracking() {
                 {orderData?.paymentMethod === "Cash" &&
                   orderData?.paymentDeadline && (
                     <div className="bg-white rounded-lg p-3 border border-amber-200 mb-3">
-                      <p className="text-xs text-gray-700">
+                      <p className="text-sm text-gray-700">
                         <strong className="text-amber-900">
                           Payment deadline:
                         </strong>{" "}
-                        <span className="font-mono text-sm text-amber-900">
+                        <span className="font-mono text-base text-amber-900">
                           {formatPHDateTime(orderData.paymentDeadline)}
                         </span>
                         <span className="ml-2 inline-block">
@@ -274,7 +269,7 @@ export default function OrderTracking() {
                     </div>
                   )}
                 <div className="bg-white rounded-lg p-3 border border-amber-200">
-                  <p className="text-xs text-gray-700">
+                  <p className="text-sm text-gray-700">
                     <strong className="text-amber-900">What to do:</strong>{" "}
                     {orderData?.paymentMethod === "Cash"
                       ? "Visit the shop and pay this amount before the deadline. The staff will confirm your payment and your order will be added to the print queue automatically."
@@ -309,16 +304,13 @@ export default function OrderTracking() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 font-medium">
+              <p className="text-sm text-gray-500 font-medium">
                 Current Status
               </p>
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-bold text-gray-900 text-lg">
+                <p className="font-bold text-gray-900 text-2xl">
                   {currentOrderLabel}
                 </p>
-                <Badge className={`border ${getStatusBadgeClasses(currentOrderStatus)}`}>
-                  {currentOrderLabel}
-                </Badge>
               </div>
             </div>
           </div>
