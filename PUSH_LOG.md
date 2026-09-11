@@ -673,6 +673,15 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 12, 2026 12:34 AM (PHT) — prans
 - Fixed staff sidebar hierarchy: "Clock-In & Timesheet" is now a direct top-level staff nav item (right after Inventory) instead of living under a "Operations" parent menu — the OPERATIONS group was removed from the staff sidebar and from the walk-in/staff page menus, so the staff nav is flat and shorter.
+
+---
+
+## September 12, 2026 2:42 AM (PHT) — prans
+- Mobile-first Sign Up page redesign: the account form now stacks in a single clean column on phones (name/email/phone and password fields go full-width), with a full-width filled-blue "Create Account" button and a centered Docufy logo + "Back to Home" link on top; desktop keeps the two-column layout with the white outline button. Added a 600ms submitting state (spinner + "Creating Account...", double-submit guard), larger touch targets, red `text-red-500` asterisks, autocomplete/enterKeyHint hints, and accessible show/hide password buttons.
+- Consistent search box sizing across filter toolbars: the search input on the Orders page, Payment Verification, Staff, AdminAttendance, and customer My Orders now use the same `w-full sm:max-w-xs` responsive width (full-width on mobile, fixed-width on desktop) instead of stretching/overlapping.
+- Staff dashboard Overview header alignment: the date-range selector now right-aligns under the staff greeting (`sm:ml-auto`) so the header row reads correctly now that the Overview title is hidden for staff.
+- Orders summary cards moved above the filter bar: on the staff/admin Orders page the six status summary cards now render directly under the page heading with the search/filter toolbar below them, so the cards stay visible without scrolling.
+- Invalid-date guards added: `toPHT` and the Orders time-period helper now return gracefully instead of crashing (RangeError) if fed a bad/invalid stored date, so the Order Details page can never blow up on corrupted persisted data. Typecheck + build pass.
 - Streamlined the staff Clock-In page: the big timer widget is now a compact "Current Shift" card with a single filled-blue Time In/Time Out button and simplified Clocked In / Clocked Out status (the Shift Complete/Exceeded header pills, the amber "Time In Again (Extra)" state, and the Back to Dashboard link were removed — extra clock-ins after the day is done are still recorded and still marked Exceeded on the log rows). The three metrics cards now read Today / This Week / Overtime this week, and the collapsed history lists recent entries as compact Today/Yesterday rows instead of a one-line today summary. Typecheck + build pass.
 
 ---

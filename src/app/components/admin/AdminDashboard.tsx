@@ -596,7 +596,9 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
             <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Overview</h2>
           </div>
         )}
-        {dateSelector}
+        <div className={role === "staff" ? "sm:ml-auto" : ""}>
+          {dateSelector}
+        </div>
       </div>
 
       {/* Summary Cards */}

@@ -3,10 +3,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
-  Info,
-  Printer,
   Eye,
   EyeOff,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
@@ -35,6 +34,7 @@ export default function SignUpPage() {
     useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -53,6 +53,7 @@ export default function SignUpPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     // Validate password strength
     const passwordValidation = validatePassword(formData.password);
@@ -71,18 +72,27 @@ export default function SignUpPage() {
       );
       return;
     }
-    signup({ ...formData, profileImage: profileImage ?? undefined });
-    toast.success("Account created successfully!");
-    navigate("/customer/dashboard");
+
+    setIsSubmitting(true);
+    setTimeout(() => {
+      signup({ ...formData, profileImage: profileImage ?? undefined });
+      toast.success("Account created successfully!");
+      navigate("/customer/dashboard");
+    }, 600);
   };
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const canSubmit =
+    formData.agreeTerms &&
+    validatePassword(formData.password).isValid &&
+    !isSubmitting;
+
   return (
-    <div className="h-screen flex flex-col lg:flex-row font-poppins bg-white overflow-hidden">
-      {/* Left Side - Logo & Illustration */}
+    <div className="min-h-[100dvh] flex flex-col lg:flex-row font-poppins bg-white lg:h-screen lg:overflow-hidden max-lg:overflow-x-hidden">
+      {/* Left Side - Logo & Illustration (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#10316B] items-center justify-center">
         <ImageWithFallback
           src="https://images.unsplash.com/photo-1758518725921-1eb74ed293be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidXNpbmVzcyUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzc1ODI4NTk2fDA&ixlib=rb-4.1.0&q=80&w=1080"
@@ -121,28 +131,30 @@ export default function SignUpPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-4 bg-white relative z-10 overflow-y-auto h-full">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-5 sm:px-8 lg:px-16 py-5 sm:py-8 lg:py-4 bg-white relative z-10 lg:h-full lg:overflow-y-auto">
         <div className="max-w-md w-full mx-auto">
-          {/* Mobile Only Header */}
-          <div className="lg:hidden flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#1D73EC] p-1.5 rounded-lg text-white">
-                <Printer size={20} strokeWidth={2.5} />
-              </div>
-              <span className="font-semibold text-lg text-[#1c1f26] tracking-tight">
-                Docufy PSMS
-              </span>
-            </div>
-            <button
-              onClick={() => navigate("/")}
-              className="text-xs text-gray-500 flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3 h-3" /> Home
-            </button>
-          </div>
+          {/* Mobile only — Back to Home */}
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-[#1D73EC] py-2 -ml-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </button>
 
-          <div className="mb-4 text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-[#1c1f26]">
+          {/* Mobile branding + heading */}
+          <div className="mt-1 mb-5 text-center lg:text-left">
+            <div className="lg:hidden flex justify-center mb-3">
+              <div className="w-16 h-16 rounded-full bg-white p-1 border border-slate-100 shadow-sm flex items-center justify-center">
+                <img
+                  src={image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c}
+                  alt="Docufy Logo"
+                  className="w-full h-full object-contain rounded-full"
+                />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-[#1c1f26] tracking-tight">
               Create Account
             </h2>
             <p className="text-sm text-gray-500 mt-1">
@@ -150,16 +162,17 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <div className="mb-4 flex items-center justify-center lg:justify-start gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-[#1D73EC] bg-[#EAF2FF] text-xl font-bold text-[#1D73EC] flex items-center justify-center">
+          {/* Profile photo — compact */}
+          <div className="mb-5 flex items-center justify-center lg:justify-start gap-3 lg:gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 lg:p-3">
+            <div className="relative h-12 w-12 shrink-0 lg:h-16 lg:w-16 overflow-hidden rounded-full border-2 border-[#1D73EC] bg-[#EAF2FF] text-sm lg:text-xl font-bold text-[#1D73EC] flex items-center justify-center">
               {profileImage ? (
                 <img src={profileImage} alt="Profile preview" className="h-full w-full object-cover" />
               ) : (
                 (formData.firstName || formData.lastName) ? `${(formData.firstName || "")[0] || ""}${(formData.lastName || "")[0] || ""}`.toUpperCase() || "U" : "U"
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center rounded-lg bg-[#1D73EC] px-3 py-2 text-xs font-medium text-white">
                   Upload photo
                   <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
@@ -172,12 +185,12 @@ export default function SignUpPage() {
                   Skip
                 </button>
               </div>
-              <p className="text-[10px] text-slate-500">Optional. Default initials are used if skipped.</p>
+              <p className="text-[10px] lg:text-[11px] text-slate-500">Optional. Default initials are used if skipped.</p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="firstName"
@@ -193,6 +206,8 @@ export default function SignUpPage() {
                     handleChange("firstName", e.target.value)
                   }
                   placeholder="e.g. Juan"
+                  autoComplete="given-name"
+                  enterKeyHint="next"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -212,13 +227,15 @@ export default function SignUpPage() {
                     handleChange("lastName", e.target.value)
                   }
                   placeholder="e.g. Dela Cruz"
+                  autoComplete="family-name"
+                  enterKeyHint="next"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="email"
@@ -233,7 +250,9 @@ export default function SignUpPage() {
                   onChange={(e) =>
                     handleChange("email", e.target.value)
                   }
-                  placeholder="juan.delacruz@gmail.com"
+                  placeholder="e.g. juan@example.com"
+                  autoComplete="email"
+                  enterKeyHint="next"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                 />
@@ -256,6 +275,8 @@ export default function SignUpPage() {
                     )
                   }
                   placeholder="09XX XXX XXXX"
+                  autoComplete="tel"
+                  enterKeyHint="next"
                   className="h-10 bg-[#F2F7FF] border-transparent rounded-xl text-sm"
                   required
                   maxLength={11}
@@ -264,7 +285,7 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label
                     htmlFor="password"
@@ -278,6 +299,8 @@ export default function SignUpPage() {
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       placeholder="At least 8 characters"
+                      autoComplete="new-password"
+                      enterKeyHint="next"
                       onChange={(e) =>
                         handleChange("password", e.target.value)
                       }
@@ -286,15 +309,17 @@ export default function SignUpPage() {
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
                       onClick={() =>
                         setShowPassword(!showPassword)
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 p-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
                     >
                       {showPassword ? (
-                        <EyeOff size={16} />
+                        <EyeOff size={18} />
                       ) : (
-                        <Eye size={16} />
+                        <Eye size={18} />
                       )}
                     </button>
                   </div>
@@ -304,7 +329,7 @@ export default function SignUpPage() {
                     htmlFor="confirmPassword"
                     className="text-xs font-medium"
                   >
-                    Confirm
+                    Confirm Password
                   </Label>
                   <div className="relative">
                     <Input
@@ -314,6 +339,8 @@ export default function SignUpPage() {
                       }
                       value={formData.confirmPassword}
                       placeholder="Re-enter your password"
+                      autoComplete="new-password"
+                      enterKeyHint="done"
                       onChange={(e) =>
                         handleChange(
                           "confirmPassword",
@@ -325,17 +352,19 @@ export default function SignUpPage() {
                     />
                     <button
                       type="button"
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showConfirmPassword}
                       onClick={() =>
                         setShowConfirmPassword(
                           !showConfirmPassword,
                         )
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 p-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
                     >
                       {showConfirmPassword ? (
-                        <EyeOff size={16} />
+                        <EyeOff size={18} />
                       ) : (
-                        <Eye size={16} />
+                        <Eye size={18} />
                       )}
                     </button>
                   </div>
@@ -343,24 +372,24 @@ export default function SignUpPage() {
               </div>
 
               {formData.password && (
-                <div className="col-span-2">
+                <div className="lg:col-span-2">
                   <PasswordStrengthIndicator password={formData.password} />
                 </div>
               )}
             </div>
 
-            <div className="flex items-start space-x-2 py-1">
+            <div className="flex items-start space-x-2.5 pt-1.5 pb-1">
               <Checkbox
                 id="terms"
                 checked={formData.agreeTerms}
                 onCheckedChange={(checked) =>
                   handleChange("agreeTerms", checked)
                 }
-                className="mt-0.5"
+                className="mt-0.5 size-5 lg:size-4 rounded-[6px]"
               />
               <label
                 htmlFor="terms"
-                className="text-[11px] text-gray-500 leading-tight cursor-pointer"
+                className="text-xs lg:text-[11px] text-gray-500 leading-snug cursor-pointer py-0.5"
               >
                 I agree to the{" "}
                 <button
@@ -378,14 +407,21 @@ export default function SignUpPage() {
 
             <Button
               type="submit"
-              disabled={!formData.agreeTerms || !validatePassword(formData.password).isValid}
-              className={`w-full h-10 rounded-xl shadow-md text-sm transition-all ${
-                formData.agreeTerms && validatePassword(formData.password).isValid
-                  ? "bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white cursor-pointer"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              disabled={!canSubmit}
+              className={`w-full h-11 lg:h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                canSubmit
+                  ? "bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] hover:border-[#10316B] shadow-md cursor-pointer lg:bg-white lg:text-[#1D73EC] lg:border-blue-200 lg:hover:bg-[#1D73EC] lg:hover:text-white lg:hover:border-blue-200"
+                  : "bg-gray-300 text-gray-500 border-2 border-gray-300 cursor-not-allowed"
               }`}
             >
-              Create Account
+              {isSubmitting ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating Account...
+                </span>
+              ) : (
+                "Create Account"
+              )}
             </Button>
           </form>
 
@@ -403,7 +439,7 @@ export default function SignUpPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-10 border-gray-200 rounded-xl text-sm"
+            className="w-full h-11 lg:h-10 border-gray-200 rounded-xl text-sm"
             onClick={() =>
               toast.info("Google Sign-In coming soon!")
             }
@@ -432,6 +468,7 @@ export default function SignUpPage() {
           <div className="mt-4 text-center text-xs text-gray-500">
             Already have an account?{" "}
             <button
+              type="button"
               onClick={() => navigate("/login")}
               className="text-[#1D73EC] font-semibold"
             >
