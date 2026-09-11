@@ -37,6 +37,8 @@ import {
   CircleOff,
   StickyNote,
   Image,
+  Sunrise,
+  Sunset,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -60,6 +62,7 @@ import { adminMenuItems } from "../../utils/adminMenuItems";
 import { inventoryStore, InventoryItem } from "../../utils/inventoryStore";
 import { pricingStore } from "../../utils/pricingStore";
 import ShopStatusControl from "../shared/ShopStatusControl";
+import CreateNotificationCard from "../shared/CreateNotificationCard";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const TABS = ["Overview", "Sales", "Services"] as const;
@@ -238,6 +241,7 @@ interface DashboardMetrics {
   monthlySales: { name: string; sales: number }[];
   highestMonth: { name: string; sales: number } | null;
   lowestMonth: { name: string; sales: number } | null;
+  todaySales: { morning: { sales: number; orders: number }; afternoon: { sales: number; orders: number } };
 }
 
 function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }): DashboardMetrics {
@@ -305,6 +309,22 @@ function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }):
     const db = new Date(b.createdAt || b.date).getTime();
     return db - da;
   }).slice(0, 8);
+
+  // today's sales split into morning (before 12 PM) and afternoon (12 PM on).
+  // Computed over ALL orders (not range-scoped) so "Today" is always real.
+  const nowD = new Date();
+  const todayStart = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate());
+  const todayEnd = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1);
+  const todaySales = { morning: { sales: 0, orders: 0 }, afternoon: { sales: 0, orders: 0 } };
+  for (const o of orders) {
+    if (o.status === "Canceled") continue;
+    const d = new Date(o.createdAt || o.date);
+    if (isNaN(d.getTime())) continue;
+    if (d < todayStart || d >= todayEnd) continue;
+    const period = d.getHours() < 12 ? "morning" : "afternoon";
+    todaySales[period].sales += parseTotal(o);
+    todaySales[period].orders += 1;
+  }
 
   // daily sales (ALL orders, not range-scoped — mirrors the Monthly trend so
   // the Daily view shows full history regardless of the selected date range)
@@ -380,6 +400,7 @@ function computeMetrics(orders: Order[], dateRange: { start: Date; end: Date }):
     monthlySales,
     highestMonth,
     lowestMonth,
+    todaySales,
   };
 }
 
@@ -404,6 +425,7 @@ function SectionCard({
   headerRight,
   children,
   className = "",
+  bodyClassName = "",
 }: {
   title: string;
   subtitle?: string;
@@ -412,6 +434,7 @@ function SectionCard({
   headerRight?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  bodyClassName?: string;
 }) {
   return (
     <Card className={`bg-white shadow-sm border border-slate-100 ${className}`}>
@@ -428,7 +451,7 @@ function SectionCard({
           </button>
         ) : null}
       </div>
-      <div className="px-5 pb-4">{children}</div>
+      <div className={`px-5 pb-4 ${bodyClassName}`}>{children}</div>
     </Card>
   );
 }
@@ -439,15 +462,6 @@ function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message:
       <Icon className="w-10 h-10 mb-3 text-slate-300" />
       <p className="text-sm font-medium text-slate-500">{message}</p>
     </div>
-  );
-}
-
-function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const isUp = value >= 0;
-  return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full ${isUp ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-      {isUp ? "↗" : "↘"} {Math.abs(value).toFixed(1)}%{suffix}
-    </span>
   );
 }
 
@@ -464,7 +478,8 @@ function InventorySnapshot({ items, navigate, className = "", inventoryPath = "/
       subtitle="Quick visibility into stock levels"
       action={() => navigate(inventoryPath)}
       actionLabel="View Inventory"
-      className={className}
+      className={`${className} flex flex-col`}
+      bodyClassName="flex-1 flex flex-col"
     >
       <div className="grid grid-cols-3 gap-2 text-center sm:gap-3">
         <div className="p-2.5 bg-gray-50 rounded-lg">
@@ -505,6 +520,45 @@ function InventorySnapshot({ items, navigate, className = "", inventoryPath = "/
           })}
         </div>
       )}
+
+      {/* Fills remaining row height without growing the card */}
+      <div className="mt-3 min-h-0 flex-1 flex flex-col">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Current Stock Levels</p>
+        {activeItems.length === 0 ? (
+          <p className="text-xs text-slate-500">No inventory items yet.</p>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
+            {activeItems.map((item) => {
+              const status = inventoryStore.getInventoryStatus(item);
+              const pieces = inventoryStore.getItemPieces(item);
+              const isPaper = item.category === "Paper";
+              const statusBadge =
+                status === "out" ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Out of Stock</span>
+                ) : status === "low" ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Low Stock</span>
+                ) : (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">In Stock</span>
+                );
+              return (
+                <div key={item.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="w-4 h-4 shrink-0 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-700 truncate">{item.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-semibold text-slate-700">
+                      {item.currentStock} {item.unit}
+                      {isPaper && <span className="text-[10px] text-slate-500 font-medium ml-0.5">({pieces.toLocaleString()} pcs)</span>}
+                    </span>
+                    {statusBadge}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </SectionCard>
   );
 }
@@ -571,7 +625,7 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
   const {
     totalSales, totalOrders, walkInCount, activeCustomers,
     prevTotalSales, prevTotalOrders, prevWalkInCount, prevActiveCustomers,
-    salesTrend, recentOrders,
+    recentOrders,
   } = metrics;
 
   const salesTrendPct = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : 0;
@@ -579,24 +633,20 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
   const walkInTrendPct = prevWalkInCount > 0 ? ((walkInCount - prevWalkInCount) / prevWalkInCount) * 100 : 0;
   const customerTrendPct = prevActiveCustomers > 0 ? ((activeCustomers - prevActiveCustomers) / prevActiveCustomers) * 100 : 0;
 
-  const salesComparisonPct = prevTotalSales > 0 ? (totalSales / prevTotalSales) * 100 : 0;
-  const salesDiff = totalSales - prevTotalSales;
-
-  // Staff see the same Overview but no Sales Trend / Sales Comparison cards.
-  const showSales = role === "admin";
   const ordersPath = role === "staff" ? "/staff/queue" : "/admin/orders";
   const inventoryPath = role === "staff" ? "/staff/inventory" : "/admin/inventory";
 
   return (
     <div className="space-y-5">
       {/* Tab header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {role === "admin" && (
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Overview</h2>
           </div>
         )}
-        <div className={role === "staff" ? "sm:ml-auto" : ""}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:ml-auto">
+          {role === "admin" && <CreateNotificationCard />}
           {dateSelector}
         </div>
       </div>
@@ -632,19 +682,25 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
       {/* Shop Status Control */}
       <ShopStatusControl />
 
-      {/* Recent Transactions + Sales Trend */}
+      {/* Recent Transactions + Inventory Snapshot */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
-        <SectionCard title="Recent Transactions" action={() => navigate(ordersPath)} actionLabel="View All">
+        <SectionCard
+          title="Recent Transactions"
+          action={() => navigate(ordersPath)}
+          actionLabel="View All"
+          className="flex flex-col"
+          bodyClassName="flex-1 flex flex-col"
+        >
           {recentOrders.length === 0 ? (
             <EmptyState icon={Clock} message="No transactions yet" />
           ) : (
-            <div className="flex flex-col gap-3 lg:min-h-[260px]">
-              <div className="space-y-3 flex-1">
-                {recentOrders.slice(0, 4).map((o) => {
+            <div className="flex flex-col gap-3 h-full">
+              <div className="flex flex-col gap-3 flex-1">
+                {recentOrders.slice(0, 6).map((o) => {
                   const isPaid = o.status !== "Awaiting Payment" && o.status !== "Canceled";
                   const isWalkIn = o.orderSource === "walkin";
                   return (
-                    <div key={o.id} className="flex items-center gap-3 py-2 px-2 rounded-lg bg-slate-50/80">
+                    <div key={o.id} className="flex items-center gap-3 py-2 px-2 rounded-lg bg-slate-50/80 flex-1">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-800">{o.id}</span>
@@ -664,84 +720,25 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
                   );
                 })}
               </div>
+              <div className="mt-auto flex items-center justify-between px-2 py-2 border-t border-slate-100">
+                <p className="text-xs text-slate-500">Showing {Math.min(recentOrders.length, 6)} recent</p>
+                <p className="text-xs font-semibold text-slate-700">
+                  Total {fmt(recentOrders.slice(0, 6).reduce((s, o) => s + parseTotal(o), 0))}
+                </p>
+              </div>
             </div>
           )}
         </SectionCard>
 
-        {showSales ? (
-          <SectionCard title="Sales Trend" subtitle="Monthly revenue overview" className="lg:col-span-2">
-            {salesTrend.length === 0 ? (
-              <EmptyState icon={TrendingUp} message="No sales data yet" />
-            ) : (
-              <div className="h-48 lg:h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={salesTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2F6FD6" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#2F6FD6" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-                    <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
-                    <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2} fill="url(#salesGradient)" dot={{ r: 3.5, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </SectionCard>
-        ) : (
-          <InventorySnapshot items={items} navigate={navigate} className="lg:col-span-2" inventoryPath={inventoryPath} />
-        )}
-      </div>
-
-      {/* Sales Comparison + Inventory Snapshot (admin only) */}
-      {showSales && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
-        <SectionCard title="Sales Comparison" subtitle="Current vs previous period">
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-between sm:gap-4">
-              <div className="sm:flex-1">
-                <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase sm:normal-case tracking-wide">This Period</p>
-                <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                  <p className="text-lg sm:text-2xl font-bold text-slate-900">{fmtShort(totalSales)}</p>
-                  <TrendBadge value={salesTrendPct} />
-                </div>
-              </div>
-              <div className="sm:flex-1">
-                <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase sm:normal-case tracking-wide">Previous Period</p>
-                <p className="text-lg sm:text-2xl font-bold text-slate-500 mt-0.5">{fmtShort(prevTotalSales)}</p>
-              </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2 sm:h-3 overflow-hidden">
-              <div className="bg-[#2F6FD6] h-full rounded-full transition-all" style={{ width: `${Math.min(salesComparisonPct, 100)}%` }} />
-            </div>
-            {salesDiff !== 0 && (
-              <p className="text-xs text-gray-500 mt-0.5">
-                {salesDiff > 0
-                  ? <>You earned <span className="font-semibold text-green-600">{fmt(salesDiff)}</span> more than the previous period.</>
-                  : <>You earned <span className="font-semibold text-red-500">{fmt(Math.abs(salesDiff))}</span> less than the previous period.</>
-                }
-              </p>
-            )}
-            {salesDiff === 0 && totalSales === 0 && prevTotalSales === 0 && (
-              <p className="text-xs text-slate-500">No sales data available for comparison.</p>
-            )}
-          </div>
-        </SectionCard>
-
         <InventorySnapshot items={items} navigate={navigate} className="lg:col-span-2" inventoryPath={inventoryPath} />
       </div>
-      )}
     </div>
   );
 }
 
 // ─── Sales Tab ────────────────────────────────────────────────────────────────
-function SalesTab({ metrics, navigate, onViewServices }: { metrics: DashboardMetrics; navigate: ReturnType<typeof useNavigate>; onViewServices?: () => void }) {
-  const { totalSales, totalOrders, prevTotalSales, prevTotalOrders, serviceStats, recentOrders, dailySales, weeklySales, monthlySales } = metrics;
+function SalesTab({ metrics, navigate }: { metrics: DashboardMetrics; navigate: ReturnType<typeof useNavigate> }) {
+  const { totalSales, totalOrders, prevTotalSales, prevTotalOrders, recentOrders, dailySales, weeklySales, monthlySales, todaySales } = metrics;
   const [salesView, setSalesView] = useState<"daily" | "weekly" | "monthly">("monthly");
 
   const chartData = salesView === "daily" ? dailySales : salesView === "weekly" ? weeklySales : monthlySales;
@@ -752,8 +749,12 @@ function SalesTab({ metrics, navigate, onViewServices }: { metrics: DashboardMet
   const prevAov = prevTotalOrders > 0 ? prevTotalSales / prevTotalOrders : 0;
   const aovTrendPct = prevAov > 0 ? ((aov - prevAov) / prevAov) * 100 : 0;
 
-  const activeServices = serviceStats.filter((s) => s.revenue > 0);
-  const totalServiceRevenue = activeServices.reduce((s, x) => s + x.revenue, 0);
+  const salesComparisonPct = prevTotalSales > 0 ? (totalSales / prevTotalSales) * 100 : 0;
+  const salesDiff = totalSales - prevTotalSales;
+
+  const dailyTotal = todaySales.morning.sales + todaySales.afternoon.sales;
+  const morningShare = dailyTotal > 0 ? (todaySales.morning.sales / dailyTotal) * 100 : 0;
+  const afternoonShare = dailyTotal > 0 ? (todaySales.afternoon.sales / dailyTotal) * 100 : 0;
 
   const recentSales = recentOrders.filter((o) => o.status !== "Canceled").slice(0, 5);
 
@@ -794,81 +795,137 @@ function SalesTab({ metrics, navigate, onViewServices }: { metrics: DashboardMet
         />
       </div>
 
-      {/* Sales Trend */}
-      <SectionCard
-        title="Sales Trend"
-        subtitle="Revenue performance over time"
-        headerRight={
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
-            {(["daily", "weekly", "monthly"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setSalesView(v)}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
-                  salesView === v
-                    ? "bg-white text-[#2F6FD6] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </button>
-            ))}
-          </div>
-        }
-      >
-        {chartData.length === 0 ? (
-          <EmptyState icon={TrendingUp} message="No sales data for this period" />
-        ) : (
-          <div className="h-52 lg:h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="salesGrad2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2F6FD6" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#2F6FD6" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
-                <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
-                <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2} fill="url(#salesGrad2)" dot={{ r: 3.5, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </SectionCard>
-
-      {/* Bottom: Sales by Service + Recent Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-        {/* Sales by Service */}
+      {/* Sales Trend (wider) + Today's Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
         <SectionCard
-          title="Sales by Service"
-          subtitle="Where revenue is coming from"
-          action={onViewServices}
-          actionLabel="View Services"
+          title="Sales Trend"
+          subtitle="Revenue performance over time"
+          className="lg:col-span-2"
+          headerRight={
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+              {(["daily", "weekly", "monthly"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setSalesView(v)}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                    salesView === v
+                      ? "bg-white text-[#2F6FD6] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                </button>
+              ))}
+            </div>
+          }
         >
-          {activeServices.length === 0 ? (
-            <EmptyState icon={BarChart3} message="No service sales in this period" />
+          {chartData.length === 0 ? (
+            <EmptyState icon={TrendingUp} message="No sales data for this period" />
+          ) : (
+            <div className="h-52 lg:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="salesGrad2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2F6FD6" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#2F6FD6" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }} tickFormatter={(v: number) => fmtShortPlain(v)} />
+                  <Tooltip formatter={(v: number) => [fmt(v), "Sales"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }} />
+                  <Area type="monotone" dataKey="sales" stroke="#2F6FD6" strokeWidth={2} fill="url(#salesGrad2)" dot={{ r: 3.5, fill: "#2F6FD6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Today's Sales — Morning vs Afternoon */}
+        <SectionCard title="Today's Sales" subtitle="Morning vs afternoon breakdown for today">
+          {dailyTotal === 0 ? (
+            <EmptyState icon={Sunrise} message="No sales recorded yet today" />
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-sky-100/60 border border-blue-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-lg bg-white text-[#2F6FD6] flex items-center justify-center shadow-sm">
+                    <Sunrise className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Morning</p>
+                    <p className="text-[11px] text-slate-500">Before 12:00 PM</p>
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 mt-3">{fmt(todaySales.morning.sales)}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{todaySales.morning.orders} {todaySales.morning.orders === 1 ? "order" : "orders"} · {morningShare.toFixed(0)}% of today</p>
+              </div>
+              <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-100/60 border border-amber-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-lg bg-white text-amber-600 flex items-center justify-center shadow-sm">
+                    <Sunset className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Afternoon</p>
+                    <p className="text-[11px] text-slate-500">12:00 PM onwards</p>
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 mt-3">{fmt(todaySales.afternoon.sales)}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{todaySales.afternoon.orders} {todaySales.afternoon.orders === 1 ? "order" : "orders"} · {afternoonShare.toFixed(0)}% of today</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-slate-500 shrink-0">Morning</span>
+                <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-[#2F6FD6] transition-all" style={{ width: `${morningShare}%` }} />
+                  <div className="h-full bg-amber-500 transition-all" style={{ width: `${afternoonShare}%` }} />
+                </div>
+                <span className="text-xs font-semibold text-slate-500 shrink-0">Afternoon</span>
+              </div>
+              <p className="text-xs text-slate-500">Total for today: <span className="font-semibold text-slate-700">{fmt(dailyTotal)}</span></p>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Bottom: Sales Comparison + Recent Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+        {/* Sales Comparison */}
+        <SectionCard title="Sales Comparison" subtitle="Current vs previous period">
+          {totalSales === 0 && prevTotalSales === 0 ? (
+            <EmptyState icon={BarChart3} message="No sales data available for comparison." />
           ) : (
             <div className="space-y-3">
-              {activeServices.map((svc) => {
-                const pct = totalServiceRevenue > 0 ? (svc.revenue / totalServiceRevenue) * 100 : 0;
-                return (
-                  <div key={svc.name}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-slate-700 truncate">{svc.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold text-slate-900">{fmt(svc.revenue)}</span>
-                        <span className="text-xs font-semibold text-[#2F6FD6] bg-blue-50 px-2 py-0.5 rounded-full">{pct.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                    <div className="mt-1.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#2F6FD6] rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-between sm:gap-4">
+                <div className="sm:flex-1">
+                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase sm:normal-case tracking-wide">This Period</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                    <p className="text-lg sm:text-2xl font-bold text-slate-900">{fmtShort(totalSales)}</p>
+                    {prevTotalSales > 0 && (
+                      <span className={`inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full ${revenueTrendPct >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                        {revenueTrendPct >= 0 ? "↗" : "↘"} {Math.abs(revenueTrendPct).toFixed(1)}%
+                      </span>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+                <div className="sm:flex-1">
+                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase sm:normal-case tracking-wide">Previous Period</p>
+                  <p className="text-lg sm:text-2xl font-bold text-slate-500 mt-0.5">{fmtShort(prevTotalSales)}</p>
+                </div>
+              </div>
+              {prevTotalSales > 0 && (
+                <div className="w-full bg-slate-100 rounded-full h-2 sm:h-3 overflow-hidden">
+                  <div className="bg-[#2F6FD6] h-full rounded-full transition-all" style={{ width: `${Math.min(salesComparisonPct, 100)}%` }} />
+                </div>
+              )}
+              {salesDiff !== 0 && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {salesDiff > 0
+                    ? <>You earned <span className="font-semibold text-green-600">{fmt(salesDiff)}</span> more than the previous period.</>
+                    : <>You earned <span className="font-semibold text-red-500">{fmt(Math.abs(salesDiff))}</span> less than the previous period.</>
+                  }
+                </p>
+              )}
             </div>
           )}
         </SectionCard>
@@ -1422,7 +1479,7 @@ export default function AdminDashboard({
         {role === "admin" ? (
           <>
             {activeTab === "Overview" && <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} dateSelector={overviewDateSelector} />}
-            {activeTab === "Sales" && <SalesTab metrics={metrics} navigate={navigate} onViewServices={() => setActiveTab("Services")} />}
+            {activeTab === "Sales" && <SalesTab metrics={metrics} navigate={navigate} />}
             {activeTab === "Services" && <ServicesTab navigate={navigate} />}
           </>
         ) : (

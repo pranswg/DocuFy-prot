@@ -57,7 +57,7 @@ import {
 } from "../../utils/orderLocks";
 import { useAuth } from "../../contexts/AuthContext";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
-import { StartHereTag } from "../ui/priority-badge";
+import { StartHereTag, PriorityBadge } from "../ui/priority-badge";
 
 /** Zoom-safe dropdown using CSS absolute positioning (no Radix portal).
  *  Radix Select's floating-ui popper mis-measures under CSS `zoom` on <html>,
@@ -863,15 +863,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       <div className="flex flex-col items-center gap-1">
                         {payment.status === "pending" ? (
                           <>
-                            <span
-                              className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-xs font-bold shrink-0 ${
-                                isNext
-                                  ? "bg-[#1D73EC] text-white shadow-[0_0_0_3px_rgba(29,115,236,0.15)]"
-                                  : "bg-[#F2F7FF] text-[#10316B] border border-[#1D73EC]/10"
-                              }`}
-                            >
-                              {priority ?? index + 1}
-                            </span>
+                            <PriorityBadge
+                              number={priority ?? index + 1}
+                              active={isNext}
+                            />
                             {isNext && (
                               <StartHereTag label="Next to Verify" />
                             )}

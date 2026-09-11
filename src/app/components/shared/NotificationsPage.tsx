@@ -9,7 +9,6 @@ import {
   CreditCard,
   Boxes,
   Bell,
-  BellRing,
   BadgeDollarSign,
   Wrench,
   Info,
@@ -18,26 +17,12 @@ import {
   AlertTriangle,
   AlertOctagon,
   ArrowLeft,
-  Plus,
   Trash2,
   CheckCheck,
   CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -48,7 +33,6 @@ import {
   ANNOUNCEMENT_PRIORITY_LABELS,
   type Announcement,
   type AnnouncementType,
-  type AnnouncementPriority,
 } from "../../utils/announcementsStore";
 import {
   notificationStore,
@@ -218,21 +202,15 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [detail, setDetail] = useState<AnnouncementDetailData | null>(null);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [priority, setPriority] = useState<AnnouncementPriority>("regular");
-  const [recipients, setRecipients] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
-  const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   useEffect(() => {
     const load = () =>
-      setAnnouncements(announcementsStore.getAnnouncementsFor(email));
+      setAnnouncements(announcementsStore.getAnnouncementsFor(email, user?.role));
     load();
     const unsubscribe = announcementsStore.subscribe(load);
     return unsubscribe;
-  }, [email]);
+  }, [email, user?.role]);
 
   useEffect(() => {
     const load = () =>
@@ -460,35 +438,6 @@ export default function NotificationsPage() {
     toast.success("All notifications marked as read");
   };
 
-  const handleSend = () => {
-    if (!title.trim()) {
-      toast.error("Please enter a notification title");
-      return;
-    }
-    if (!message.trim()) {
-      toast.error("Please write a message for the notification");
-      return;
-    }
-    announcementsStore.createAnnouncement({
-      title: title.trim(),
-      message: message.trim(),
-      type: "announcement",
-      priority,
-      sentBy: email,
-    });
-    toast.success(
-      priority === "regular"
-        ? "Notification sent to all users."
-        : `${ANNOUNCEMENT_PRIORITY_LABELS[priority]} announcement sent to all users.`,
-    );
-    setShowCreate(false);
-    setTitle("");
-    setMessage("");
-    setPriority("regular");
-    setRecipients("all");
-    setShowSendConfirm(false);
-  };
-
   const renderItem = (item: FeedItem, last: boolean) => {
     const isEmergency = item.priority === "emergency";
     const isImportant = item.priority === "important";
@@ -615,18 +564,8 @@ export default function NotificationsPage() {
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
               Announcements and updates from Docufy.
-              {isAdmin && " Send announcements to everyone in the system."}
             </p>
           </div>
-          {isAdmin && (
-            <Button
-              className="h-10 bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              onClick={() => setShowCreate(true)}
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              Create Notification
-            </Button>
-          )}
         </div>
 
         {/* Unread count + mark all read */}
@@ -721,122 +660,6 @@ export default function NotificationsPage() {
         announcement={detail}
       />
 
-      {/* Create Notification Dialog (Admin) */}
-      <Dialog
-        open={showCreate}
-        onOpenChange={(open) => {
-          setShowCreate(open);
-          if (!open) {
-            setTitle("");
-            setMessage("");
-            setPriority("regular");
-            setRecipients("all");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center">
-                <BellRing className="w-5 h-5" />
-              </div>
-              <DialogTitle className="text-[#10316B]">
-                Create Notification
-              </DialogTitle>
-            </div>
-            <DialogDescription>
-              This announcement will be sent to all users across the system.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="notif-title">Title</Label>
-              <Input
-                id="notif-title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Docufy is temporarily paused"
-                className="h-11 bg-white text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notif-message">Message</Label>
-              <Textarea
-                id="notif-message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write your announcement..."
-                className="min-h-32 bg-white text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notification Type</Label>
-              <ZoomSafeDropdown
-                value={priority}
-                onChange={(v) => setPriority(v as AnnouncementPriority)}
-                placeholder="Select type"
-                triggerClassName="h-11 bg-white"
-                options={[
-                  { value: "regular", label: "Regular Notification" },
-                  { value: "important", label: "Important Announcement" },
-                  { value: "emergency", label: "Emergency Announcement" },
-                ]}
-              />
-              <p className="text-xs text-gray-500">
-                {priority === "regular" &&
-                  "Normal system notification — appears in the unified notifications list."}
-                {priority === "important" &&
-                  "Highlighted announcement — shown with an Important badge in the list."}
-                {priority === "emergency" &&
-                  "Critical announcement — shown with an Emergency badge at the top of the list."}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Recipients</Label>
-              <ZoomSafeDropdown
-                value={recipients}
-                onChange={setRecipients}
-                placeholder="Select recipients"
-                triggerClassName="h-11 bg-white"
-                options={[
-                  { value: "all", label: "All Users" },
-                ]}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              className="h-11 w-full bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 sm:w-auto"
-              onClick={() => setShowCreate(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className={`h-11 w-full sm:w-auto ${
-                priority === "emergency"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : priority === "important"
-                    ? "bg-amber-500 hover:bg-amber-600"
-                    : "bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-              }`}
-              onClick={() => setShowSendConfirm(true)}
-            >
-              {priority === "emergency" ? (
-                <AlertOctagon className="w-4 h-4 mr-2" />
-              ) : priority === "important" ? (
-                <AlertTriangle className="w-4 h-4 mr-2" />
-              ) : (
-                <Megaphone className="w-4 h-4 mr-2" />
-              )}
-              Send{" "}
-              {ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Delete Notification Confirmation */}
       {deleteTarget && (
         <ConfirmationDialog
@@ -853,23 +676,6 @@ export default function NotificationsPage() {
           confirmLabel="Delete Notification"
           cancelLabel="Keep It"
           requirePhrase
-        />
-      )}
-
-      {/* Send Notification Confirmation */}
-      {showSendConfirm && (
-        <ConfirmationDialog
-          open
-          onOpenChange={setShowSendConfirm}
-          onConfirm={() => {
-            handleSend();
-            setShowSendConfirm(false);
-          }}
-          title={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} notification?`}
-          description={`This will broadcast "${title}" to all users. It will appear in the Notifications panel for everyone and cannot be unsent once delivered.`}
-          confirmLabel={`Send ${ANNOUNCEMENT_PRIORITY_LABELS[priority]} Notification`}
-          cancelLabel="Go Back"
-          destructive={false}
         />
       )}
     </Layout>

@@ -694,3 +694,14 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 12, 2026 3:30 AM (PHT) — prans
 - Removed the empty white space below the landing-page footer: a decorative blurred circle reached 192px past the page wrapper and, because the wrapper only clipped horizontal overflow, that blank area became scrollable under the Terms/Privacy/logo/copyright row. The wrapper now clips vertically too, so the page ends exactly at the footer. Typecheck + build pass.
+
+---
+
+## September 12, 2026 4:44 AM (PHT) - prans
+- Shop Status / Announcements broadcasts are now sent to customers only: the admin "Create Announcement" (renamed from "Create Notification") and shop-status change notifications (Paused / Open Again / Scheduled Close) no longer notify staff/admin - they target only customer accounts. Customers are a ll notified individually per signed-in email, while notifications pushed to staff/admin by their own actions were dropped from the broadcast path.
+- Admin Dashboard Overview no longer carries the sales cards: the Sales Trend and Sales Comparison cards were removed from the Overview tab, so the merged Sales tab (/admin overview tab) owns all sales analytics - the Overview now shows just the KPI row plus the Inventory Snapshot and Recent Transactions cards.
+- Sales tab reorganized: Sales Trend (wide, 2/3) and a new Today's Sales card (compact, 1/3) now sit on the same row via a 3-column grid instead of Sales Trend stretching full width.
+- Inventory Snapshot card bottom space filled without growing the card: a compact "Current Stock Levels" per-item list now fills whichever leftover vertical space remains under the three stock tiles (aligned by the same row height as Recent Transactions), while the card itself keeps its original height. Papers-left and stock-value figures were kept out of the healthy-warehouse notice; the total stock value stays in the low-stock state as before.
+- Recent Transactions now shows the most recent 6 orders (was 4) and stretches its rows to fill the card with a footer showing "Showing N recent" plus the total ₱ of those orders.
+- Payment Verification summary cards are informational again: only the Pending Verification card keeps its click behavior (Pending/All toggle), while Verified Today, In Queue, Cancelled / Expired, and Total Verified Today revert to plain read-only stats - filtering stays with the Status/Type/Method dropdowns to avoid clicking one card clearing another.
+- Payment Verification "#" priority badge unified with the Orders page: both tables now use the same shared PriorityBadge component (solid blue circle, ring on the "Next to Verify" row) instead of Payment Verification's older lighter inline badge. Typecheck + build pass.

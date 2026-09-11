@@ -120,32 +120,27 @@ class ShopStatusStore {
       .filter(Boolean)
       .join(" · ");
 
-    if (nextState.status === "paused") {
-      notificationStore.addNotification(
-        "status_update",
-        "Shop Paused",
-        `Docufy has been marked as paused${detail ? ` — ${detail}` : ""}. New orders are on hold until we reopen.`,
-        {
-          clickable: true,
-          priority: "important",
-          relatedRoute: "/staff/queue",
-          recipientRole: "staff_admin",
-        },
+    // Shop-status notifications are customer-only: the affected customers are
+    // notified individually via their email. Staff/admin are NOT notified (they
+    // flipped the toggle themselves).
+    const affected = dataStore
+      .getOrders()
+      .filter(
+        (o) =>
+          o.status === "In Queue" ||
+          o.status === "Printing" ||
+          o.status === "Awaiting Payment",
       );
-      const affected = dataStore
-        .getOrders()
-        .filter(
-          (o) =>
-            o.status === "In Queue" ||
-            o.status === "Printing" ||
-            o.status === "Awaiting Payment",
-        );
+    const notifyCustomers = (
+      title: string,
+      message: (order: { customerEmail?: string; id: string }) => string,
+    ) => {
       for (const order of affected) {
         if (!order.customerEmail) continue;
         notificationStore.addNotification(
           "status_update",
-          "Docufy is Temporarily Paused",
-          `Your order ${order.id} is safe and on hold — Docufy is currently paused${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we're back.`,
+          title,
+          message(order),
           {
             clickable: true,
             relatedOrderId: order.id,
@@ -154,29 +149,25 @@ class ShopStatusStore {
           },
         );
       }
+    };
+
+    if (nextState.status === "paused") {
+      notifyCustomers(
+        "Docufy is Temporarily Paused",
+        (order) =>
+          `Your order ${order.id} is safe and on hold — Docufy is currently paused${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we're back.`,
+      );
     } else if (nextState.status === "closed-scheduled") {
-      notificationStore.addNotification(
-        "status_update",
-        "Shop Closed — Scheduled",
-        "Docufy has been marked as scheduled close (e.g. weekend or holiday). New orders are on hold until we reopen.",
-        {
-          clickable: true,
-          priority: "important",
-          relatedRoute: "/staff/queue",
-          recipientRole: "staff_admin",
-        },
+      notifyCustomers(
+        "Docufy is Closed — Scheduled",
+        (order) =>
+          `Your order ${order.id} is safe and on hold — Docufy is on scheduled close (e.g. weekend or holiday)${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we reopen.`,
       );
     } else if (nextState.status === "open") {
-      notificationStore.addNotification(
-        "status_update",
+      notifyCustomers(
         "Docufy is Open Again",
-        "Docufy has resumed operations — new orders are accepted again and the queue can continue.",
-        {
-          clickable: true,
-          priority: "important",
-          relatedRoute: "/staff/queue",
-          recipientRole: "staff_admin",
-        },
+        (order) =>
+          `Your order ${order.id} — Docufy has resumed operations and will continue processing your order. New orders are accepted again.`,
       );
     }
   }

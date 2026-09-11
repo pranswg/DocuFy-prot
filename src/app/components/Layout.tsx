@@ -297,12 +297,12 @@ export default function Layout({
 
   useEffect(() => {
     const updateAnnouncements = () => {
-      setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email ?? ""));
+      setUnreadAnnouncements(announcementsStore.getUnreadCount(user?.email ?? "", user?.role));
     };
     updateAnnouncements();
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
     return unsubscribe;
-  }, [user?.email]);
+  }, [user?.email, user?.role]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -327,13 +327,13 @@ export default function Layout({
   // Subscribe to announcements and merge them into the bell dropdown
   useEffect(() => {
     const updateAnnouncements = () => {
-      const list = announcementsStore.getAnnouncementsFor(user?.email || "");
+      const list = announcementsStore.getAnnouncementsFor(user?.email || "", user?.role);
       setAnnouncements(list);
     };
     updateAnnouncements();
     const unsubscribe = announcementsStore.subscribe(updateAnnouncements);
     return unsubscribe;
-  }, [user?.email]);
+  }, [user?.email, user?.role]);
 
   const getInitials = (value?: string) => {
     if (!value) return "U";

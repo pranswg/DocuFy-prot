@@ -158,13 +158,13 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     const loadAnnouncements = () => {
-      const list = announcementsStore.getAnnouncementsFor(user?.email || "");
+      const list = announcementsStore.getAnnouncementsFor(user?.email || "", user?.role);
       setAllAnnouncements(list);
     };
     loadAnnouncements();
     const unsubscribe = announcementsStore.subscribe(loadAnnouncements);
     return unsubscribe;
-  }, [user?.email]);
+  }, [user?.email, user?.role]);
 
   const openAnnouncement = (a: Announcement) => {
     announcementsStore.markRead(a.id, user?.email || "");

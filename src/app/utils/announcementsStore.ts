@@ -1,7 +1,8 @@
 // Centralized system-wide notifications/announcements store.
-// Admins broadcast a notification to "All Users"; it then appears in every
-// user's Notifications section (customer, staff, and admin alike). Read-state
-// is tracked per user email so it survives page changes without a backend.
+// Admins broadcast a notification via the dashboard "Create Notification"
+// button; broadcasts are customer-only and appear in every customer's
+// Notifications section. Staff/admin never receive them. Read-state is
+// tracked per user email so it survives page changes without a backend.
 //
 // The `type` field is intentionally open-ended so later system events can push
 // their own notifications (e.g. pricing updates, order-status changes) through
@@ -26,9 +27,9 @@ export type Announcement = {
   priority: AnnouncementPriority;
   title: string;
   message: string;
-  // For now the only recipient scope is "All Users". Later this can become
-  // an array of emails/roles without changing the consumer API.
-  recipients: 'all';
+  // Recipient scope for this announcement. Dashboard broadcasts ("Create
+  // Notification") are 'customer'-only — staff/admin never receive them.
+  recipientRole: 'customer' | 'all';
   sentBy: string; // sender email
   sentAt: string; // ISO string
   readBy: string[]; // user emails that have marked it read
@@ -52,6 +53,10 @@ function isAnnouncementPriority(value: unknown): value is AnnouncementPriority {
   return value === 'regular' || value === 'important' || value === 'emergency';
 }
 
+function isRecipientRole(value: unknown): value is Announcement['recipientRole'] {
+  return value === 'customer' || value === 'all';
+}
+
 function normalize(raw: unknown): Announcement[] {
   if (!raw || !Array.isArray(raw)) return [];
   return raw
@@ -69,7 +74,7 @@ function normalize(raw: unknown): Announcement[] {
       ...a,
       type: isAnnouncementType(a.type) ? a.type : 'announcement',
       priority: isAnnouncementPriority(a.priority) ? a.priority : 'regular',
-      recipients: 'all',
+      recipientRole: isRecipientRole(a.recipientRole) ? a.recipientRole : 'customer',
       sentBy: typeof a.sentBy === 'string' ? a.sentBy : '',
       readBy: Array.isArray(a.readBy) ? a.readBy.filter((e) => typeof e === 'string') : [],
     }));
@@ -139,20 +144,26 @@ class AnnouncementsStore {
     );
   }
 
-  // Every announcement currently targets "All Users"; each user (including
-  // staff and admin) sees the full list scoped to the current session.
-  getAnnouncementsFor(email: string): Announcement[] {
-    return this.getAnnouncements();
+  // Announcements are scoped by recipientRole: dashboard "Create Notification"
+  // broadcasts are 'customer'-only, so staff/admin pass their role and never
+  // see them. 'all' announcements are visible to every role.
+  getAnnouncementsFor(email: string, viewerRole?: string): Announcement[] {
+    const role = viewerRole || '';
+    return this.getAnnouncements().filter(
+      (a) => a.recipientRole === 'all' || a.recipientRole === 'customer' && role === 'customer',
+    );
   }
 
-  getUnreadCount(email: string): number {
-    return this.getAnnouncements().filter((a) => !a.readBy.includes(email)).length;
+  getUnreadCount(email: string, viewerRole?: string): number {
+    return this.getAnnouncementsFor(email, viewerRole).filter(
+      (a) => !a.readBy.includes(email),
+    ).length;
   }
 
   // Unread important/emergency announcements — surfaced as a subtle "needs
   // attention" indicator in the sidebar so urgent items can't get lost.
-  getUrgentUnreadCount(email: string): number {
-    return this.getAnnouncements().filter(
+  getUrgentUnreadCount(email: string, viewerRole?: string): number {
+    return this.getAnnouncementsFor(email, viewerRole).filter(
       (a) => a.priority !== 'regular' && !a.readBy.includes(email),
     ).length;
   }
@@ -177,13 +188,15 @@ class AnnouncementsStore {
     this.notify();
   }
 
-  // Create a new announcement broadcast to All Users.
+  // Create a new announcement broadcast. Dashboard broadcasts are customer-only
+  // (staff/admin never receive them).
   createAnnouncement(data: {
     title: string;
     message: string;
     type?: AnnouncementType;
     priority?: AnnouncementPriority;
     sentBy: string; // admin email
+    recipientRole?: Announcement['recipientRole'];
   }): Announcement {
     const announcement: Announcement = {
       id: `an-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -193,7 +206,7 @@ class AnnouncementsStore {
       priority: isAnnouncementPriority(data.priority) ? data.priority : 'regular',
       title: data.title.trim(),
       message: data.message.trim(),
-      recipients: 'all',
+      recipientRole: data.recipientRole || 'customer',
       sentBy: data.sentBy,
       sentAt: new Date().toISOString(),
       // The sender has already seen it — don't count it as unread for them.

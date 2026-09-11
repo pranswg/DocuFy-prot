@@ -40,7 +40,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { notificationStore } from "../../utils/notificationStore";
-import { formatPHDate, formatPHTime, toPHT } from "../../utils/pht";
+import { formatPHDate, formatPHTime } from "../../utils/pht";
 import { shopStatusStore } from "../../utils/shopStatusStore";
 import { Card } from "../ui/card";
 import { SummaryCard } from "../ui/summary-card";
@@ -464,9 +464,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     setErrorMessage("");
   };
 
-  // "Start Here" action: immediately opens the status form to move the next
-  // order to Printing. After confirmation the order leaves received/inQueue,
-  // so nextToProcessId advances and the tag moves to the next order (or
+    // "Start Here" action: immediately opens the status form to move the next
+  // order to Printing. After confirmation the order leaves inQueue,
+  // so firstToProcessId advances and the tag moves to the next order (or
   // disappears when none are left to process).
   const handleStartFromHere = (order: OrderType) => {
     if (order.status === "awaitingPayment" && !order.paymentVerified) {
@@ -701,25 +701,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     });
   };
 
-  // Helper function to categorize orders by time period (PHT, matching the
-  // PHT wall-clock used everywhere else in the system � not the device timezone)
-  const getTimePeriod = (date: Date) => {
-    // Guard against invalid dates so the Order Details page can never crash.
-    if (!date || Number.isNaN(date.getTime())) return "Morning (6:00 AM - 11:59 AM)";
-    const hour = toPHT(date).getHours();
-    if (hour >= 6 && hour < 12)
-      return "Morning (6:00 AM - 11:59 AM)";
-    if (hour >= 12 && hour < 18)
-      return "Afternoon (12:00 PM - 5:59 PM)";
-    if (hour >= 18 && hour < 24)
-      return "Evening (6:00 PM - 11:59 PM)";
-    return "Late Night (12:00 AM - 5:59 AM)";
-  };
-
-  const getTimePeriodIcon = (period: string) => {
-    return "";
-  };
-
   // QUEUE-VISIBLE ORDERS: orders still awaiting payment verification are excluded
   // from the Orders/queue list until staff/admin verifies them (they then enter
   // the queue automatically as "In Queue"). Completed, Released, and Canceled
@@ -753,21 +734,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     processingOrder.forEach((o, i) => map.set(o.id, i + 1));
     return map;
   }, [processingOrder]);
-  const nextToProcessId = useMemo(() => {
-    const waiting = processingOrder.find(
-      (o) => o.status === "inQueue",
-    );
-    return waiting?.id;
-  }, [processingOrder]);
-  // Active printing job: the earliest order still on the printer. It also gets a
-  // (non-clickable) "Start Here" tag so staff see where the printer currently is,
-  // next to the clickable tag on the next in-queue order.
-  const printingNowId = useMemo(() => {
-    const printing = processingOrder.find(
-      (o) => o.status === "printing",
-    );
-    return printing?.id;
-  }, [processingOrder]);
+  // FIRST TO PROCESS (priority #1 of the FIFO queue): the "Start Here" tag
+  // always marks this single order — the earliest one still in the pipeline —
+  // exactly like Payment Verification's "Next to Verify" marks its first
+  // pending payment. When that order is In Queue the tag is clickable to start
+  // printing; when it's already on the printer it just indicates where the
+  // queue is at.
+  const firstToProcessId = useMemo(
+    () => processingOrder[0]?.id,
+    [processingOrder],
+  );
 
   const filteredOrders = useMemo(() => {
     // When a specific status filter is selected, show from the full orders list
@@ -857,23 +833,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, dateFrom, dateTo]);
-
-  // Group orders by time period
-  const groupedOrders = useMemo(() => {
-    const groups: { [key: string]: OrderType[] } = {};
-
-    paginatedOrders.forEach((order) => {
-      // Use statusUpdatedAt for grouping if available, otherwise use submittedAt
-      const relevantDate = order.statusUpdatedAt || order.submittedAt;
-      const period = getTimePeriod(relevantDate);
-      if (!groups[period]) {
-        groups[period] = [];
-      }
-      groups[period].push(order);
-    });
-
-    return groups;
-  }, [paginatedOrders]);
 
   // Calculate summary stats
   const stats = useMemo(() => {
@@ -1052,80 +1011,47 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {Object.entries(groupedOrders).map(
-                  ([period, periodOrders]) => {
-                    const periodStartIndex =
-                      filteredOrders.findIndex(
-                        (o) => o.id === periodOrders[0].id,
-                      );
-                    return (
-                      <React.Fragment key={period}>
-                        <tr className="bg-gray-50 border-y border-gray-200">
-                          <td
-                            colSpan={7}
-                            className="px-4 py-3"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-xl">
-                                {getTimePeriodIcon(period)}
-                              </span>
-                              <span className="font-bold text-sm text-gray-700 uppercase tracking-wide">
-                                {period}
-                              </span>
-                              <span className="ml-auto text-xs font-medium text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-300">
-                                {periodOrders.length}{" "}
-                                {periodOrders.length === 1
-                                  ? "order"
-                                  : "orders"}
-                              </span>
+                {paginatedOrders.map((order, index) => {
+                  // Use statusUpdatedAt if available, otherwise submittedAt
+                  const displayDate = order.statusUpdatedAt || order.submittedAt;
+                  const listPosition = (currentPage - 1) * PAGE_SIZE + index + 1;
+
+                  return (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100"
+                      onClick={() =>
+                        handleOpenDetails(order)
+                      }
+                    >
+<td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex flex-col items-center gap-1">
+                              {(() => {
+                                const priority = priorityById.get(order.id);
+                                const isFirst =
+                                  statusFilter === "all" &&
+                                  order.id === firstToProcessId;
+                                return (
+                                  <>
+                                    <PriorityBadge
+                                      number={priority ?? listPosition}
+                                      active={isFirst}
+                                    />
+                                    {isFirst && (
+                                      <StartHereTag
+                                        label="Start Here"
+                                        onClick={
+                                          order.status === "inQueue"
+                                            ? () => handleStartFromHere(order)
+                                            : undefined
+                                        }
+                                      />
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </td>
-                        </tr>
-                        {periodOrders.map((order, index) => {
-                          // Use statusUpdatedAt if available, otherwise submittedAt
-                          const displayDate = order.statusUpdatedAt || order.submittedAt;
-
-                          return (
-                            <tr
-                              key={order.id}
-                              className="hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100"
-                              onClick={() =>
-                                handleOpenDetails(order)
-                              }
-                            >
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="flex flex-col items-center">
-                                  {(() => {
-                                    const priority = priorityById.get(order.id);
-                                    const isNextToProcess =
-                                      statusFilter === "all" &&
-                                      order.id === nextToProcessId;
-                                    const isCurrentlyPrinting =
-                                      statusFilter === "all" &&
-                                      order.status === "printing" &&
-                                      order.id === printingNowId;
-                                    return (
-                                      <>
-                                        <PriorityBadge
-                                          number={
-                                            priority ??
-                                            periodStartIndex + index + 1
-                                          }
-                                          active={isNextToProcess}
-                                        />
-{isCurrentlyPrinting ? (
-  <StartHereTag label="Start Here" />
-) : isNextToProcess ? (
-  <StartHereTag
-    label="Start Here"
-    onClick={() => handleStartFromHere(order)}
-  />
-) : null}
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <div className="flex items-center gap-2">
                                   <Avatar name={order.customer} />
@@ -1175,8 +1101,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                 {formatPHDate(displayDate, "short")}
                               </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {formatPHTime(displayDate)}
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#10316B] bg-blue-50 border border-blue-100 rounded-lg px-2 py-1">
+                                  <Clock className="w-3.5 h-3.5 text-[#1D73EC]" />
+                                  {formatPHTime(displayDate)}
+                                </span>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <Badge
@@ -1218,13 +1147,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 </Button>
                               </td>
                             </tr>
-                          );
-                        })}
-                      </React.Fragment>
-                    );
-                  },
-                )}
-                {Object.keys(groupedOrders).length === 0 && (
+                  );
+                })}
+                {paginatedOrders.length === 0 && (
                   <tr>
                     <td colSpan={8}>
                       <div className="flex flex-col items-center justify-center py-16 text-gray-500">
