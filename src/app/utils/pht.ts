@@ -93,6 +93,9 @@ export const internetUtcMs = (): number => Date.now() + (internetOffsetMs ?? 0);
 // etc.) match the Manila wall-clock, so every downstream consumer that reads
 // local components gets Manila time no matter the device timezone.
 export const toPHT = (d: Date): Date => {
+  // Never throw on an invalid date — a bad persisted value would otherwise crash
+  // the whole page via Intl.formatToParts (RangeError: Invalid time value).
+  if (!d || Number.isNaN(d.getTime())) return d;
   const p = partsOf(d);
   return new Date(p.y, p.mo, p.day, p.h, p.m, p.s);
 };

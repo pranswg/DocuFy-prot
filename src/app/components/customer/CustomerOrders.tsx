@@ -217,7 +217,7 @@ export default function CustomerOrders() {
                     </div>
 
                     {/* Search */}
-                    <div className="space-y-2 flex-1">
+                    <div className="w-full sm:max-w-xs space-y-2">
                       <Label
                         htmlFor="search"
                         className="text-sm font-medium text-gray-700"

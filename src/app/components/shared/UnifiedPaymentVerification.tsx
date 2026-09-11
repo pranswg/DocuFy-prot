@@ -707,7 +707,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         {/* Payment Filter & Search bar */}
         <Card className="p-4 border border-slate-100 shadow-sm mb-4 shrink-0">
           <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-end gap-4">
-            <div className="flex-1 min-w-[200px]">
+            <div className="w-full lg:flex-1 lg:min-w-[200px]">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
               <div className="relative mt-1.5">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />

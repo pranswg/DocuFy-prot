@@ -710,6 +710,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   // Helper function to categorize orders by time period (PHT, matching the
   // PHT wall-clock used everywhere else in the system � not the device timezone)
   const getTimePeriod = (date: Date) => {
+    // Guard against invalid dates so the Order Details page can never crash.
+    if (!date || Number.isNaN(date.getTime())) return "Morning (6:00 AM - 11:59 AM)";
     const hour = toPHT(date).getHours();
     if (hour >= 6 && hour < 12)
       return "Morning (6:00 AM - 11:59 AM)";
@@ -935,6 +937,36 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </div>
         )}
 
+        {/* Summary Cards - 2 Rows */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
+          {([
+            ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
+            ["inQueue", "In Queue", "Waiting to be printed", Clock, stats.inQueue],
+            ["printing", "Printing", "Currently printing", Printer, stats.printing],
+            ["completed", "Completed", "Successfully completed", CheckCircle, stats.completed],
+            ["released", "Released", "Ready for pickup", CheckCircle, stats.released],
+            ["canceled", "Canceled", "Canceled orders", XCircle, stats.canceled],
+          ] as const).map(([key, label, description, Icon, count]) => {
+            const s = ORDER_STATUS_STYLES[key];
+            return (
+              <SummaryCard
+                key={key}
+                label={label}
+                value={count}
+                icon={Icon}
+                iconBg={s.chip}
+                iconColor={s.icon}
+                labelColor={s.label}
+                active={statusFilter === key}
+                activeBorder={s.accent}
+                activeBg={s.bg}
+                subtitle={description}
+                onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
+              />
+            );
+          })}
+        </div>
+
         {/* Filter & Search bar */}
         <Card className="p-4 border border-slate-100 shadow-sm mb-6 shrink-0">
           <div className="flex flex-col lg:flex-row lg:items-end gap-4">
@@ -979,36 +1011,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
             </div>
           </div>
         </Card>
-
-        {/* Summary Cards - 2 Rows */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
-          {([
-            ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
-            ["inQueue", "In Queue", "Waiting to be printed", Clock, stats.inQueue],
-            ["printing", "Printing", "Currently printing", Printer, stats.printing],
-            ["completed", "Completed", "Successfully completed", CheckCircle, stats.completed],
-            ["released", "Released", "Ready for pickup", CheckCircle, stats.released],
-            ["canceled", "Canceled", "Canceled orders", XCircle, stats.canceled],
-          ] as const).map(([key, label, description, Icon, count]) => {
-            const s = ORDER_STATUS_STYLES[key];
-            return (
-              <SummaryCard
-                key={key}
-                label={label}
-                value={count}
-                icon={Icon}
-                iconBg={s.chip}
-                iconColor={s.icon}
-                labelColor={s.label}
-                active={statusFilter === key}
-                activeBorder={s.accent}
-                activeBg={s.bg}
-                subtitle={description}
-                onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
-              />
-            );
-          })}
-        </div>
 
         {/* Table */}
         <Card className="overflow-hidden">
