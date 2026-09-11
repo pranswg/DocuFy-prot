@@ -1090,7 +1090,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
           {selectedPayment && (
             <>
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <div className="flex-1 overflow-y-auto px-5 pt-4 pb-6 space-y-4">
                 {/* Session lock banner (demo: two tabs = two PCs) */}
                 {selectedPayment.status === "pending" || selectedPayment.status === "rejected" ? (
                   iHoldLock ? (
@@ -1369,26 +1369,13 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               </div>
 
               {/* Sticky action footer */}
-              <div className="px-5 py-3 border-t border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col-reverse gap-2.5 border-t border-gray-200 bg-white px-5 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:pb-2.5">
                 {(selectedPayment.status === "pending" ||
                   selectedPayment.status === "rejected") && (
                   <>
-                    <Button
-                      data-primary-action
-                      disabled={!iHoldLock}
-                      title={
-                        !iHoldLock && lockHolder
-                          ? `${lockHolder} is reviewing this order`
-                          : undefined
-                      }
-                      className="bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none disabled:hover:translate-y-0 disabled:hover:shadow-none"
-                      onClick={() => setPendingVerifyAction("verified")}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Verify Payment
-                    </Button>
                     {selectedPayment.status === "pending" && (
                       <Button
+                        size="sm"
                         variant="outline"
                         disabled={!iHoldLock}
                         title={
@@ -1396,21 +1383,36 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                             ? `${lockHolder} is reviewing this order`
                             : undefined
                         }
-                        className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all disabled:opacity-40 disabled:pointer-events-none"
                         onClick={() => {
                           setShowDialog(false);
                           setShowRejectDialog(true);
                         }}
+                        className="h-9 w-full bg-white text-red-600 border-2 border-red-300 hover:bg-red-50 hover:text-red-600 hover:border-red-400 hover:-translate-y-0 hover:shadow-none transition-colors disabled:opacity-40 disabled:pointer-events-none sm:h-8 sm:w-auto"
                       >
-                        <XCircle className="w-4 h-4 mr-2" />
+                        <XCircle />
                         Reject Payment
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      data-primary-action
+                      disabled={!iHoldLock}
+                      title={
+                        !iHoldLock && lockHolder
+                          ? `${lockHolder} is reviewing this order`
+                          : undefined
+                      }
+                      onClick={() => setPendingVerifyAction("verified")}
+                      className="h-9 w-full bg-[#2F6FD6] text-white hover:bg-[#2557b8] hover:-translate-y-0 hover:shadow-none transition-colors disabled:opacity-40 disabled:pointer-events-none sm:h-8 sm:w-auto"
+                    >
+                      <CheckCircle />
+                      Verify Payment
+                    </Button>
                   </>
                 )}
                 {selectedPayment.status !== "pending" &&
                   selectedPayment.status !== "rejected" && (
-                    <p className="text-xs font-medium text-gray-400 ml-auto">
+                    <p className="ml-auto text-xs font-medium text-gray-400">
                       Read-only — this order is already processed
                     </p>
                   )}
