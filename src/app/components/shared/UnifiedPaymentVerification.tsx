@@ -478,8 +478,13 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         paymentReferenceNumber: selectedPayment.reference,
         paymentDeadline: undefined,
         // Auto-update order status to "In Queue" when payment is verified so
-        // the order enters the queue automatically (staff never add it).
-        ...(verified ? { status: "In Queue" as const } : {}),
+        // the order enters the queue automatically — UNLESS this is a
+        // low-value Cash on Pickup order that was already auto-queued at
+        // checkout. Those orders may have progressed to "Printing" by the
+        // time staff verifies, so we must NOT reset them back to "In Queue".
+        ...(verified && !selectedPayment.isLowValueCash
+          ? { status: "In Queue" as const }
+          : {}),
       });
 
       // The order is processed — release our hold so it's free for anyone.
@@ -1070,7 +1075,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           }
         }}
       >
-<DialogContent className="sm:max-w-2xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
+<DialogContent className="sm:max-w-2xl max-h-[calc(var(--docufy-vh,100vh)*0.92)] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
           <DialogHeader className="px-5 pt-4 pr-10 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
             <div>
               <DialogTitle className="text-lg font-semibold text-[#1c1f26]">

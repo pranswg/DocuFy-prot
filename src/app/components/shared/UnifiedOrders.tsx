@@ -1313,7 +1313,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           }
         }}
       >
-        <DialogContent className="sm:max-w-6xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-6xl max-h-[calc(var(--docufy-vh,100vh)*0.92)] p-0 flex flex-col gap-0 overflow-hidden">
           <DialogHeader className="px-5 pt-4 pr-8 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
             <div>
               <DialogTitle className="text-lg font-semibold text-[#1c1f26]">
