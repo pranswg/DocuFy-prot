@@ -408,6 +408,32 @@ export default function PaymentVerification() {
       const pendingOrder = readPendingOrder();
       const existingOrder = dataStore.getOrders().find((o) => o.id === orderId);
 
+      // Sync the down/full requirement flags to the Partial/Full choice so
+      // staff/admin see the correct payment type: Partial keeps the 50% down
+      // (balance at pickup), Full becomes a regular fully-paid online order.
+      const flexTotal = parseFloat(
+        String(displayOrder?.total || "₱0").replace(/[₱,]/g, "") || "0",
+      );
+      const flexDown = !!displayOrder?.downPaymentRequired;
+      const downSync = flexDown
+        ? paymentChoice === "partial"
+          ? {
+              downPaymentRequired: true as const,
+              downPaymentAmount:
+                displayOrder.downPaymentAmount ?? flexTotal * 0.5,
+              downPaymentVerified: false,
+              fullPaymentRequired: false,
+              fullPaymentAmount: undefined,
+            }
+          : {
+              downPaymentRequired: false,
+              downPaymentAmount: undefined,
+              downPaymentVerified: false,
+              fullPaymentRequired: true as const,
+              fullPaymentAmount: flexTotal,
+            }
+        : null;
+
       if (pendingOrder && pendingOrder.id === orderId) {
         dataStore.addOrder({
           ...(pendingOrder as unknown as object),
@@ -419,6 +445,7 @@ export default function PaymentVerification() {
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
           paymentAmountPaid: paid,
+          ...(downSync || {}),
         } as DataStoreOrder);
         clearPendingFlow(orderId!);
       } else if (existingOrder) {
@@ -428,6 +455,7 @@ export default function PaymentVerification() {
           paymentVerified: false,
           paymentProofUrl: imagePreviewUrl || undefined,
           paymentAmountPaid: paid,
+          ...(downSync || {}),
         });
       }
 

@@ -12,6 +12,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { dataStore } from "../../utils/dataStore";
 import { formatCurrency } from "../../utils/formatNumber";
+import { pricingStore } from "../../utils/pricingStore";
 import {
   readPendingOrder,
   readOrderBlob,
@@ -46,10 +47,10 @@ export default function DownPaymentMethod() {
     return Number.isNaN(n) ? 0 : n;
   }, [orderId]);
 
-  const isDownTier = useMemo(
-    () => total >= 51 && total < 100,
-    [total],
-  );
+  const isDownTier = useMemo(() => {
+    const p = pricingStore.getPricing();
+    return total >= p.downPaymentThreshold && total < p.fullPaymentThreshold;
+  }, [total]);
 
   useEffect(() => {
     if (!isDownTier && total > 0) {

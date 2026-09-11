@@ -26,6 +26,7 @@ import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { getOrderStatusStyle, getStatusBadgeClasses, getCustomerStatusLabel } from "../../utils/orderStatusPalette";
 import { formatPHTime, formatPHDate, formatPHDateTime } from "../../utils/pht";
+import { formatCurrency } from "../../utils/formatNumber";
 import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
 import {
   Dialog,
@@ -592,6 +593,34 @@ export default function OrderTracking() {
                 </div>
               ) : orderData?.status === "Canceled" ? (
                 <p className="font-medium text-gray-900">Canceled</p>
+              ) : orderData?.downPaymentRequired || orderData?.downPaymentVerified ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {orderData?.downPaymentVerified ? (
+                      <CheckCircle className="w-5 h-5 text-blue-600" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-yellow-600" />
+                    )}
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {orderData?.downPaymentVerified
+                          ? "Down Payment Verified"
+                          : "Awaiting Down Payment"}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {orderData?.downPaymentVerified
+                          ? `${formatCurrency(orderData.downPaymentAmount || 0)} (50% down) paid via ${orderData.paymentMethod || "online"} — balance of ${formatCurrency(
+                              (orderData.total ? parseFloat(String(orderData.total).replace(/[₱,]/g, "")) : 0) -
+                                (orderData.downPaymentAmount || 0),
+                            )} due on pickup.`
+                          : `Pay at least ${formatCurrency(orderData.downPaymentAmount || 0)} (50% down) via ${orderData.paymentMethod || "online"} before printing — balance due on pickup.`}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={orderData?.downPaymentVerified ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"}>
+                    {orderData?.downPaymentVerified ? "Verified" : "Pending"}
+                  </Badge>
+                </div>
               ) : orderData?.paymentVerified ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

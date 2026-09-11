@@ -957,12 +957,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const flowTier = paymentRequirementFor(checkoutTotal);
   const isDownTier = flowTier === "down";
   const isFullTier = flowTier === "full";
-  // Down-payment tier = 50% down minimum. This applies ONLY to Cash on Pickup
-  // (customer chooses down/full on the "Down Payment Method" page). Customers
-  // paying with an online method always pay in full on the payment verification
-  // page — no down-payment step for online; full tier = full payment required.
-  const requiresDownPayment = isDownTier && !isOnline;
-  const requiresFullPayment = isFullTier || (isDownTier && isOnline);
+  // Down-payment tier = 50% down minimum regardless of payment method. Cash
+  // customers choose down/full on the "Down Payment Method" page; customers
+  // paying online choose Partial (50%) vs Full on the payment verification
+  // page. Full tier = full payment required (no 50% option).
+  const requiresDownPayment = isDownTier;
+  const requiresFullPayment = isFullTier;
   const downPaymentValue = checkoutTotal * 0.5;
   // Low-value Cash on Pickup orders (under the down-payment threshold) skip the
   // upfront payment hold entirely: they are auto-queued at checkout and the cash
@@ -1176,9 +1176,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
     const hasColor = files.some((f) => f.colorMode !== "bw");
 
-    const requiresDownPayment = flowTier === "down" && !isOnline;
-    const requiresFullPayment =
-      flowTier === "full" || (flowTier === "down" && isOnline);
+    const requiresDownPayment = flowTier === "down";
+    const requiresFullPayment = flowTier === "full";
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Payment confirmation/verification deadline from the admin-editable order
@@ -3022,12 +3021,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               {(() => {
                 const total = calculateTotal();
                 const requirement = paymentRequirementFor(total);
-                // The ONLY payment-requirement notice shown at Step 4 is the
-                // down-payment one, and it appears only when Cash on Pickup is
-                // selected. Online payments are paid in full and show no
-                // requirement message here, and neither do low-value orders.
-                if (requirement === "down" && paymentMethod === "cash") {
+                // Down-payment minimum (₱X of total ₱Y) applies to ALL down-tier
+                // orders — cash customers pay at the shop, online customers pick
+                // Partial (50%) vs Full on the payment verification page.
+                if (requirement === "down") {
                   const downDue = total * 0.5;
+                  const cashFlow = paymentMethod === "cash" || paymentMethod === "";
                   return (
                     <div className="p-4 sm:p-5 bg-amber-50 border-2 border-amber-400 rounded-lg">
                       <div className="flex items-start gap-3">
@@ -3055,7 +3054,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               least a <strong>50% down payment</strong> of{" "}
                               <strong>{formatCurrency(downDue)}</strong> before printing begins
                               (remaining <strong>{formatCurrency(total - downDue)}</strong> due on
-                              pickup). Pay it at the shop when you collect the order.
+                              pickup).{" "}
+                              {cashFlow ? (
+                                <>Pay it at the shop when you collect the order.</>
+                              ) : (
+                                <>
+                                  Choose <strong>Partial (50%)</strong> or{" "}
+                                  <strong>Full</strong> payment on the payment
+                                  verification page.
+                                </>
+                              )}
                             </span>
                           </p>
                         </div>
