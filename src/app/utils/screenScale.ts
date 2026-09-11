@@ -33,13 +33,24 @@ const DESKTOP_MIN_WIDTH = 1024;
 
 let rafId = 0;
 
-// The viewport width must come from the Visual Viewport API: it reports the
-// actual device CSS-pixel width and is NOT affected by a CSS zoom applied to
-// <html>, so the measured width stays stable no matter what scale we set and
-// there is no feedback loop. innerWidth is only a fallback for the first call
-// (before any zoom has been applied) and for browsers without the API.
+// The viewport width must come from the screen (CSS-pixel screen width), NOT
+// the window. `innerWidth`/`visualViewport.width` change when the user zooms
+// the browser (Ctrl +/- / trackpad pinch), so measuring them for our CSS zoom
+// would make us compensate against the user's own zoom - the page visibly
+// zooms in and out and every compensation step re-rasterizes the text at a
+// different fractional scale, turning it blurry. `screen.width`/`availWidth`
+// are the screen's CSS-pixel size at 100% browser zoom: they reflect the OS
+// display scaling (125% Windows -> 1536 on a 1920 screen) but NEVER change
+// with the browser's page zoom, so our CSS zoom stays fixed and the user's own
+// browser zoom simply works on top, crisply. innerWidth/visualViewport remain
+// as fallbacks only for environments without the Screen API.
 function readRealViewportWidth(): number {
   if (typeof window === "undefined") return DESIGN_WIDTH;
+  const s = window.screen;
+  if (s) {
+    if (s.availWidth > 0) return s.availWidth;
+    if (s.width > 0) return s.width;
+  }
   const vv = window.visualViewport;
   if (vv && vv.width > 0) return vv.width;
   return window.innerWidth;
