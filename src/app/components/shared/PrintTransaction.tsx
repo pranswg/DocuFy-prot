@@ -1057,6 +1057,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     }
 
     const total = calculateTotal();
+    let filesTotal = 0;
+    for (const f of files) filesTotal += calculateFileTotal(f);
     const transactionId = orderId;
 
     if (!validatePhotoMinQty()) return;
@@ -1085,6 +1087,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         submittedAt: now,
         paymentVerified: true,
         orderSource: "walkin" as const,
+        costBreakdown: { printingCost: filesTotal, addonsCost: total - filesTotal, total },
         margins: files[0]?.margins || "default",
         scale: files[0]?.scale || "default",
         customScale: files[0]?.customScale || 100,
@@ -1160,6 +1163,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     }
 
     const total = calculateTotal();
+    let filesTotal = 0;
+    for (const f of files) filesTotal += calculateFileTotal(f);
     const orderId = dataStore.getNextOrderId();
     const methodLabel = isOnline ? paymentMethod : "Cash";
 
@@ -1209,6 +1214,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               : `${methodLabel} payment of ₱${Math.round(total)} is pending verification. Your order will be queued once the payment is verified.`
           : `Cash on Pickup: pay ₱${Math.round(total)}${requiresFullPayment ? " (full payment)" : requiresDownPayment ? ` (down payment of ₱${Math.round(downPaymentAmount)} — 50% of the total)` : ""} at the shop before your payment deadline to confirm this order.`,
       total: `₱${Math.round(total)}`,
+      costBreakdown: {
+        printingCost: filesTotal,
+        addonsCost: total - filesTotal,
+        total,
+      },
       date: todayPHTKey(),
       paperSize:
         files[0]?.paperSize === "a4"

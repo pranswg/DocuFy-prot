@@ -68,12 +68,15 @@ const mockUsers = [
 const passwordResetCodes: { [email: string]: string } = {};
 
 // Persist the logged-in user across page reloads so refreshing while signed in
-// does not bounce the user back to the login page.
-const AUTH_SESSION_KEY = 'docufy_auth_session';
+// does not bounce the user back to the login page. Uses sessionStorage (NOT
+// localStorage) so each browser tab keeps its own logged-in user — a prototype
+// convenience that lets separate tabs run as customer and staff/admin without
+// one refresh wiping the other tab's session.
+const AUTH_SESSION_KEY = 'docufy_auth_session_tab';
 
 function readStoredUser(): User | null {
   try {
-    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    const raw = sessionStorage.getItem(AUTH_SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
@@ -90,9 +93,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       if (user) {
-        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+        sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
       } else {
-        localStorage.removeItem(AUTH_SESSION_KEY);
+        sessionStorage.removeItem(AUTH_SESSION_KEY);
       }
     } catch {
       // ignore storage errors
