@@ -1028,7 +1028,7 @@ export default function Layout({
                       setIsNotificationOpen(false);
                     }}
                   />
-                  <div className={`absolute right-0 mt-2 w-[min(24rem,calc(100vw-1.5rem))] max-h-[min(32rem,calc(100vh-6rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                  <div className={`absolute right-0 mt-2 w-[min(24rem,calc(var(--docufy-vw,100vw)-1.5rem))] max-h-[min(32rem,calc(var(--docufy-vh,100vh)-6rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
                     <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
                       <h3 className="font-bold text-base text-gray-900">Notifications</h3>
                       {combinedUnread > 0 && (

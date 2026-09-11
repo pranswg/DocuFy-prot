@@ -23,6 +23,30 @@ class NotificationStore {
 
   constructor() {
     this.loadFromStorage();
+
+    // Cross-tab live sync: notifications added in ANOTHER tab/window (e.g. the
+    // staff tab where an order was placed, while the admin Notifications page
+    // is open in a second tab) persist to localStorage, which fires a `storage`
+    // event HERE. Reload from storage and re-render every subscriber live — the
+    // bell badge, the Notifications dropdown, and the full Notifications page
+    // all update without a page refresh.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'notifications' || e.newValue == null) return;
+      this.reloadFromStorage();
+    });
+  }
+
+  private parseNotifications(raw: string): Notification[] {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed.map((n: any) => ({
+        ...n,
+        timestamp: new Date(n.timestamp),
+      }));
+    } catch (e) {
+      console.error('Failed to parse notifications:', e);
+      return [];
+    }
   }
 
   private loadFromStorage() {
@@ -30,18 +54,18 @@ class NotificationStore {
 
     const saved = localStorage.getItem('notifications');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        this.notifications = parsed.map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp),
-        }));
-      } catch (e) {
-        console.error('Failed to parse notifications:', e);
-        this.notifications = [];
-      }
+      this.notifications = this.parseNotifications(saved);
     }
     this.initialized = true;
+  }
+
+  // Re-read unconditionally (ignores the `initialized` guard) and notify. Used
+  // by the cross-tab `storage` listener so a fresh snapshot from another tab
+  // replaces the in-memory list and every subscriber re-renders.
+  private reloadFromStorage() {
+    const saved = localStorage.getItem('notifications');
+    this.notifications = saved ? this.parseNotifications(saved) : [];
+    this.notify();
   }
 
   private saveToStorage() {

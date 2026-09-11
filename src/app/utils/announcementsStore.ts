@@ -82,10 +82,25 @@ class AnnouncementsStore {
 
   constructor() {
     this.load();
+
+    // Cross-tab live sync: announcements broadcast in ANOTHER tab/window
+    // persist to localStorage, which fires a `storage` event HERE. Reload and
+    // notify so the bell badge and the full Notifications page update live.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORAGE_KEY) return;
+      this.reload();
+    });
   }
 
   private load(): void {
     if (this.initialized) return;
+    this.reload();
+    this.initialized = true;
+  }
+
+  // Re-read unconditionally (ignores the `initialized` guard) and notify — used
+  // by the cross-tab `storage` listener.
+  private reload(): void {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       this.announcements = normalize(stored ? JSON.parse(stored) : []);
@@ -93,7 +108,7 @@ class AnnouncementsStore {
       console.error('Failed to load notifications:', error);
       this.announcements = [];
     }
-    this.initialized = true;
+    this.notify();
   }
 
   private save(): void {
