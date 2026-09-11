@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import {
   CreditCard,
@@ -18,6 +18,9 @@ import {
   UserCheck,
   Filter,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -29,7 +32,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +58,76 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
 import { StartHereTag } from "../ui/priority-badge";
+
+/** Zoom-safe dropdown using CSS absolute positioning (no Radix portal).
+ *  Radix Select's floating-ui popper mis-measures under CSS `zoom` on <html>,
+ *  so this replaces the three filter selects with a plain anchored list. */
+function FilterDropdown({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="relative mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-gray-200 bg-[#FBFDFF] px-3 py-2 text-sm shadow-sm ring-1 ring-blue-300 hover:border-[#2F6FD6] focus:outline-none focus:ring-2 focus:ring-blue-300"
+      >
+        <span className="flex items-center gap-2 truncate">
+          <Filter className="h-4 w-4 shrink-0 text-gray-500" />
+          <span className="truncate text-gray-800">{selected?.label ?? "Select"}</span>
+        </span>
+        <ChevronDown className={"h-4 w-4 shrink-0 text-gray-500 transition-transform" + (open ? " rotate-180" : "")} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[10rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+          <ul className="py-1">
+            {options.map((o) => (
+              <li key={o.value}>
+                <button
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); }}
+                  className={"flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-blue-50" +
+                    (o.value === value ? " font-medium text-[#2F6FD6]" : " text-gray-700")}
+                >
+                  {o.label}
+                  {o.value === value && <Check className="h-4 w-4 shrink-0 text-[#2F6FD6]" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // --- Types ---
 
@@ -242,6 +314,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   // Cash down-tier verify choice: what amount did the customer actually pay at
   // the shop? "down" = 50% (matches plan), "full" = paid the full amount.
   const [verifyAmountChoice, setVerifyAmountChoice] = useState<"down" | "full">("down");
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { user } = useAuth();
   const myName = user?.name || "Staff";
@@ -504,6 +580,24 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       return b.submittedAt.getTime() - a.submittedAt.getTime();
     });
 
+  // Reset to page 1 whenever filters change so the user always lands at the start
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, typeFilter, methodFilter, dateFrom, dateTo]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE)),
+    [filteredPayments],
+  );
+  const paginatedPayments = useMemo(
+    () =>
+      filteredPayments.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+      ),
+    [filteredPayments, currentPage],
+  );
+
   // VERIFICATION SEQUENCE: pending payments ranked oldest-first (FIFO). The
   // numbers staff see (1, 2, 3...) are the order in which payments should be
   // verified — the first pending record is always "next to verify".
@@ -607,7 +701,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
         {/* Payment Filter & Search bar */}
         <Card className="p-4 border border-slate-100 shadow-sm mb-4 shrink-0">
-          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-end gap-4">
             <div className="flex-1 min-w-[200px]">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
               <div className="relative mt-1.5">
@@ -649,59 +743,46 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             </div>
             <div className="w-full lg:w-48">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-                <SelectTrigger className="mt-1.5">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
+              <FilterDropdown
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                options={[
+                  { value: "pending",   label: "Pending" },
+                  { value: "all",       label: "All Statuses" },
+                  { value: "verified",  label: "Verified" },
+                  { value: "rejected",  label: "Rejected" },
+                  { value: "cancelled", label: "Cancelled" },
+                  { value: "expired",   label: "Expired" },
+                ]}
+              />
             </div>
             <div className="w-full lg:w-48">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</Label>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
-                <SelectTrigger className="mt-1.5">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="cash">Cash on Pickup</SelectItem>
-                  <SelectItem value="online">Full Payment</SelectItem>
-                  <SelectItem value="online-down">Down Payment</SelectItem>
-                </SelectContent>
-              </Select>
+              <FilterDropdown
+                value={typeFilter}
+                onChange={(v) => setTypeFilter(v as typeof typeFilter)}
+                options={[
+                  { value: "all",         label: "All Types" },
+                  { value: "cash",        label: "Cash on Pickup" },
+                  { value: "online",      label: "Full Payment" },
+                  { value: "online-down", label: "Down Payment" },
+                ]}
+              />
             </div>
             {methodsInList.length > 0 && (
               <div className="w-full lg:w-48">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Method</Label>
-                <Select value={methodFilter} onValueChange={setMethodFilter}>
-                  <SelectTrigger className="mt-1.5">
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Methods</SelectItem>
-                    {methodsInList.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterDropdown
+                  value={methodFilter}
+                  onChange={setMethodFilter}
+                  options={[
+                    { value: "all", label: "All Methods" },
+                    ...methodsInList.map((m) => ({ value: m, label: m })),
+                  ]}
+                />
               </div>
             )}
+            <div className="flex-none self-end">
             <Button
               variant="outline"
               className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
@@ -717,6 +798,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               <X className="h-4 w-4" />
               Clear
             </Button>
+            </div>
           </div>
         </Card>
 
@@ -758,7 +840,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       <p className="mt-1 text-xs text-gray-500">Payment records will appear here when customers place orders.</p>
                     </td>
                   </tr>
-                ) : filteredPayments.map((payment, index) => {
+                ) : paginatedPayments.map((payment, index) => {
                   const isNext =
                     payment.status === "pending" &&
                     payment.id === nextToVerifyId;
@@ -918,6 +1000,56 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-white">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-700">
+                {totalPages === 1
+                  ? filteredPayments.length
+                  : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filteredPayments.length)}`}
+              </span>{" "}
+              of <span className="font-semibold text-slate-700">{filteredPayments.length}</span>{" "}
+              payment{filteredPayments.length === 1 ? "" : "s"}
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <Button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={
+                      pg === currentPage
+                        ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-sm shadow-[#2F6FD6]/30 h-9 w-9"
+                        : "bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] rounded-md h-9 w-9"
+                    }
+                  >
+                    {pg}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>

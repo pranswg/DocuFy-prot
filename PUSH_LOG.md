@@ -635,3 +635,10 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 11, 2026 8:50 PM (PHT) — prans
 - Fixed "Awaiting Verification" displaying as "Awaiting Payment" in the customer My Orders list: the status badge now uses `getCustomerStatusLabel(order)` so orders with a submitted payment reference correctly show "Awaiting Verification" (amber) instead of the raw status "Awaiting Payment". Order Tracking status pill removed as it was a redundant duplicate of the already-shown Current Status heading text (both the amber awaiting banner and the generic banner). Current Status card fonts bumped up one step across both banners for better visibility — status headings now `text-2xl`, body text `text-base`, and box text `text-sm`. Typecheck + build pass.
+
+---
+
+## September 11, 2026 9:36 PM (PHT) — prans
+- Added pagination to the staff/admin Payment Verification and Orders lists: both tables now show 10 rows per page with Previous/Next and page-number buttons plus a "Showing X–Y of N" count, and the list resets to page 1 whenever a filter/search/date change. Added 20 new mock orders to the seed data (mixed-status demo rows and batches of pending and In-Queue/Printing orders) so both pages actually have more than one page to flip through.
+- Kept all five Payment Verification summary cards always visible (Pending Verification, Verified Today, In Queue, Cancelled / Expired, Total Verified Today) — the earlier "only show when filtered" hiding was reverted at the user's request.
+- Fixed the Status / Type / Method filter dropdowns on Payment Verification opening at the far right edge of the screen instead of under their buttons: the app's auto-scale applies a CSS `zoom` on `<html>`, which broke Radix Select's portal positioning math. Those three selects were replaced with a lightweight custom dropdown rendered with plain CSS absolute positioning (same technique as the header notification/profile menus), so the list always opens directly under its own button at any zoom level. Also wrapped the toolbar's Clear button so it can no longer overlap the Method dropdown when the sidebar is open. Typecheck + build pass.

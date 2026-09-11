@@ -32,6 +32,8 @@ import {
   UserCheck,
   WifiOff,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -247,6 +249,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   });
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { user } = useAuth();
   const myName = user?.name || "Staff";
@@ -837,11 +843,30 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     dateTo,
   ]);
 
+  // Pagination over the filtered set
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE)),
+    [filteredOrders],
+  );
+  const paginatedOrders = useMemo(
+    () =>
+      filteredOrders.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+      ),
+    [filteredOrders, currentPage],
+  );
+
+  // Reset to page 1 whenever filters change so the user always lands at the start
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, dateFrom, dateTo]);
+
   // Group orders by time period
   const groupedOrders = useMemo(() => {
     const groups: { [key: string]: OrderType[] } = {};
 
-    filteredOrders.forEach((order) => {
+    paginatedOrders.forEach((order) => {
       // Use statusUpdatedAt for grouping if available, otherwise use submittedAt
       const relevantDate = order.statusUpdatedAt || order.submittedAt;
       const period = getTimePeriod(relevantDate);
@@ -852,7 +877,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     });
 
     return groups;
-  }, [filteredOrders]);
+  }, [paginatedOrders]);
 
   // Calculate summary stats
   const stats = useMemo(() => {
@@ -1220,6 +1245,56 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-white">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-700">
+                {totalPages === 1
+                  ? filteredOrders.length
+                  : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filteredOrders.length)}`}
+              </span>{" "}
+              of <span className="font-semibold text-slate-700">{filteredOrders.length}</span>{" "}
+              order{filteredOrders.length === 1 ? "" : "s"}
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <Button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={
+                      pg === currentPage
+                        ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-sm shadow-[#2F6FD6]/30 h-9 w-9"
+                        : "bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] rounded-md h-9 w-9"
+                    }
+                  >
+                    {pg}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
