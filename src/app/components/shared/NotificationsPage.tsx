@@ -607,10 +607,11 @@ export default function NotificationsPage() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-3 w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl md:hidden transition-colors"
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span className="text-sm font-semibold">Back</span>
+          <span className="text-sm font-medium">Back</span>
         </button>
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

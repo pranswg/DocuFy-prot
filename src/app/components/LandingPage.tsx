@@ -84,6 +84,12 @@ export default function LandingPage() {
     return shopPhotosStore.subscribe(load);
   }, []);
 
+  const [jobs, setJobs] = useState<any[]>(() => jobsStore.getActiveJobs());
+  useEffect(() => {
+    const load = () => setJobs(jobsStore.getActiveJobs());
+    return jobsStore.subscribe(load);
+  }, []);
+
   // Load landing page content from localStorage or use defaults
   const getContent = () => {
     const defaults = {
@@ -183,7 +189,6 @@ export default function LandingPage() {
   };
 
   const content = getContent();
-  const jobs = jobsStore.getActiveJobs();
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -704,7 +709,10 @@ export default function LandingPage() {
                         <span>
                           <span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}
                         </span>
-                        <Badge className="shrink-0 bg-blue-100 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">Active</Badge>
+                        <span>
+                          <span className="font-semibold text-[#1D73EC]">Posted:</span> {job.posted || job.postedDate}
+                        </span>
+                        <Badge className="shrink-0 bg-blue-100 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">{job.type || "Active"}</Badge>
                       </p>
                     </div>
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 ${isExpanded ? "rotate-180 border-[#1D73EC] bg-[#1D73EC] text-white" : "border-blue-200 bg-white text-[#1D73EC]"}`}>
@@ -733,11 +741,13 @@ export default function LandingPage() {
                       <div className="flex-1">
                         <div className="mb-2 flex items-start justify-between gap-2">
                           <h4 className="text-lg font-bold text-[#1c1f26]">{job.title}</h4>
-                          <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">Active</Badge>
+                          <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">{job.type || "Active"}</Badge>
                         </div>
                         <div className="flex flex-col gap-1.5 text-sm text-gray-700 md:flex-row md:flex-wrap md:gap-x-5">
                           <p><span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}</p>
                           {job.location && <p><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
+                          {job.department && <p><span className="font-semibold text-[#1D73EC]">Department:</span> {job.department}</p>}
+                          <p><span className="font-semibold text-[#1D73EC]">Posted:</span> {job.posted || job.postedDate}</p>
                         </div>
                       </div>
                     </div>

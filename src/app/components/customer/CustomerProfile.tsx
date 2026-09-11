@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, CheckCircle, AlertCircle, Key, Camera } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Package, User, Mail, Phone, ArrowLeft, AlertCircle, Key, Camera, ChevronRight, Lock, LogOut, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '../Layout';
 import { Card } from '../ui/card';
@@ -29,12 +29,32 @@ const defaultProfileData = {
   studentId: 'STU-2024-001',
 };
 
+/** Scannable read-only row used in the profile VIEW state. */
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF] text-[#1D73EC]">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">{value || '—'}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{children}</h2>
+  );
+}
+
 export default function CustomerProfile() {
   const navigate = useNavigate();
-  // Layout will be updated with showBackButton prop below
   const { user, resetPassword, updateProfile, logout } = useAuth();
-  const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -138,6 +158,9 @@ export default function CustomerProfile() {
     }
   }, [user]);
 
+  const displayName = `${formData.firstName} ${formData.lastName}`.trim() || user?.name || 'Customer User';
+  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'U';
+
   const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -159,17 +182,19 @@ export default function CustomerProfile() {
   };
 
   const confirmSave = () => {
+    if (isSaving) return;
+    setIsSaving(true);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     if (profileImage) {
       localStorage.setItem('customer_profile_image', profileImage);
     } else {
       localStorage.removeItem('customer_profile_image');
     }
-    updateProfile({ profileImage: profileImage ?? undefined });
+    updateProfile({ name: displayName, profileImage: profileImage ?? undefined });
     setIsEditing(false);
-    setShowSavedMessage(true);
     setShowSaveDialog(false);
-    setTimeout(() => setShowSavedMessage(false), 3000);
+    setIsSaving(false);
+    toast.success('Profile updated successfully.');
   };
 
   const handleChangePassword = () => {
@@ -218,210 +243,220 @@ export default function CustomerProfile() {
 
   return (
     <Layout menuItems={menuItems} title="Profile Settings" showBackButton backButtonPath="/customer/dashboard" hideMobileBackButton>
-      <div className="max-w-3xl mx-auto space-y-8">
-        {/* Mobile back button + page header (kept tight together on mobile) */}
-        <div>
+      <div className="max-w-2xl mx-auto space-y-5 px-4 pb-12 sm:px-0">
+        {/* Back + page header (edit/view aware) */}
+        <div className="pt-2 md:pt-6">
           <button
             type="button"
-            onClick={() => navigate("/customer/dashboard")}
+            onClick={() => navigate(-1)}
             aria-label="Go back"
             className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
           >
             <ArrowLeft className="h-5 w-5" />
             <span className="text-sm font-medium">Back</span>
           </button>
-          <div className="mt-1 md:mt-8">
-            <h1 className="text-3xl font-semibold text-gray-900">Profile</h1>
-            <p className="text-gray-500 mt-1">Manage your account information</p>
+          <div className="mt-1 md:mt-6">
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+              {isEditing ? 'Edit Profile' : 'Profile'}
+            </h1>
+            <p className="mt-0.5 text-sm text-gray-500">
+              {isEditing ? 'Update your personal information' : 'Manage your account information'}
+            </p>
           </div>
         </div>
 
-        {/* Success Message */}
-        {showSavedMessage && (
-          <div className="bg-white border-2 border-blue-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <CheckCircle className="w-5 h-5 text-blue-600" />
-            <p className="text-sm font-medium text-blue-900">Profile changes saved successfully!</p>
-          </div>
-        )}
-
-        {/* Profile Card */}
-        <Card className="p-8 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between sm:mb-8">
-            <div className="flex items-center gap-4">
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-[#1D73EC] text-2xl font-semibold text-white ring-4 ring-white shadow-sm">
-                {profileImage ? (
-                  <img src={profileImage} alt="Profile preview" className="h-full w-full rounded-full object-cover" />
-                ) : (
-                  user?.name?.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'U'
-                )}
-                {isEditing && (
-                  <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1D73EC] text-white shadow-lg ring-2 ring-white">
-                    <Camera className="h-4 w-4" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
-                  </label>
-                )}
-                {isEditing && profileImage && (
-                  <button
-                    type="button"
-                    onClick={() => setProfileImage(null)}
-                    className="absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-red-600 hover:underline"
-                  >
-                    Remove photo
-                  </button>
-                )}
+        {/* Profile Identity Card */}
+        <Card className="bg-white shadow-sm">
+          <div className="p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <div className="flex shrink-0 flex-col items-start gap-1">
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#1D73EC] text-lg font-semibold text-white ring-4 ring-white shadow-sm">
+                    {profileImage ? (
+                      <img src={profileImage} alt="Profile preview" className="h-full w-full rounded-full object-cover" />
+                    ) : (
+                      <span>{initials}</span>
+                    )}
+                    {isEditing && (
+                      <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1D73EC] text-white shadow-lg ring-2 ring-white">
+                        <Camera className="h-4 w-4" />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
+                      </label>
+                    )}
+                  </div>
+                  {isEditing && profileImage && (
+                    <button
+                      type="button"
+                      onClick={() => setProfileImage(null)}
+                      className="whitespace-nowrap text-[11px] font-medium text-red-600 hover:underline"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-semibold text-gray-900">{displayName}</p>
+                  <p className="text-sm text-gray-500 capitalize">{user?.role} Account</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-900">{user?.name}</h2>
-                <p className="text-gray-500 capitalize">{user?.role} Account</p>
-              </div>
-            </div>
-            {!isEditing ? (
-              <Button
-                variant="outline"
-                onClick={() => setIsEditing(true)}
-              >
-                Edit Profile
-              </Button>
-            ) : (
-              <div className={`flex w-full flex-col gap-2 sm:w-auto sm:flex-row ${profileImage ? "pt-8" : ""}`}>
+              {!isEditing && (
                 <Button
-                  className="order-1 w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white sm:order-2 sm:w-auto"
-                  onClick={handleSave}
+                  variant="outline"
+                  onClick={() => setIsEditing(true)}
+                  className="w-full shrink-0 sm:w-auto bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
                 >
-                  Save Changes
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Profile
                 </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Personal Information */}
+        {isEditing ? (
+          <Card className="bg-white shadow-sm">
+            <div className="p-5">
+              <SectionHeading>Personal Information</SectionHeading>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email Address</Label>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone">Contact Number</Label>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="studentId">Student ID</Label>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                    <Input
+                      id="studentId"
+                      type="text"
+                      value={formData.studentId}
+                      disabled
+                      className="bg-gray-50 text-gray-500"
+                    />
+                  </div>
+                  <p className="flex items-center gap-1 text-xs text-gray-400">
+                    <Lock className="h-3 w-3" />
+                    Student ID cannot be changed.
+                  </p>
+                </div>
+              </div>
+
+              {/* Edit mode actions */}
+              <div className="mt-6 flex gap-3 border-t border-gray-100 pt-5">
                 <Button
                   variant="outline"
                   onClick={() => setIsEditing(false)}
-                  className="order-2 w-full bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 sm:order-1 sm:w-auto"
+                  className="flex-1 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 h-12"
                 >
                   Cancel
                 </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Profile Information */}
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <Input
-                    id="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <Input
-                    id="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
+                <Button
+                  onClick={handleSave}
+                  className="flex-1 bg-[#1D73EC] text-white hover:bg-[#10316B] h-12"
+                >
+                  Save Changes
+                </Button>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  disabled={!isEditing}
-                />
+          </Card>
+        ) : (
+          <Card className="bg-white shadow-sm">
+            <div className="px-5 py-4">
+              <SectionHeading>Personal Information</SectionHeading>
+              <div className="mt-1 divide-y divide-gray-100">
+                <InfoRow icon={<User className="h-4 w-4" />} label="First Name" value={formData.firstName} />
+                <InfoRow icon={<User className="h-4 w-4" />} label="Last Name" value={formData.lastName} />
+                <InfoRow icon={<Mail className="h-4 w-4" />} label="Email Address" value={formData.email} />
+                <InfoRow icon={<Phone className="h-4 w-4" />} label="Contact Number" value={formData.phone} />
+                <InfoRow icon={<FileText className="h-4 w-4" />} label="Student ID" value={formData.studentId} />
               </div>
             </div>
+          </Card>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Contact Number</Label>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="studentId">Student ID</Label>
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-400" />
-                <Input
-                  id="studentId"
-                  type="text"
-                  value={formData.studentId}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Security Section */}
-        <Card className="p-8 bg-white shadow-sm">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2 sm:mb-3">Security</h3>
-
-          <div className="space-y-2">
-            <div className="flex flex-col items-start gap-2 border-b pb-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium text-gray-900">Password</p>
-                <p className="mt-1 hidden text-sm text-gray-500 sm:block">Change your account password</p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowChangePasswordDialog(true)}
-                className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200 sm:w-auto"
-              >
-                <Key className="w-4 h-4 mr-2" />
-                Change Password
-              </Button>
-            </div>
-          </div>
-
-          {/* Sign Out (mobile only, inside Security box) */}
-          <div className="border-t border-gray-100 pt-2 mt-2 md:hidden">
-            <Button
-              variant="outline"
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
+        {/* Account Security */}
+        <Card className="bg-white shadow-sm">
+          <div className="px-5 py-4">
+            <SectionHeading>Account Security</SectionHeading>
+            <button
+              type="button"
+              onClick={() => setShowChangePasswordDialog(true)}
+              className="-mx-2 mt-2 flex w-full items-center justify-between gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
             >
-              Sign Out
-            </Button>
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF] text-[#1D73EC]">
+                  <Key className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-gray-900">Password</span>
+                  <span className="block text-xs text-gray-500">Change your password</span>
+                </span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+            </button>
           </div>
         </Card>
 
-        <div className="hidden md:block pb-4">
+        {/* Sign Out (destructive, separate from profile content) */}
+        <div className="pt-1 pb-4">
           <Button
             variant="outline"
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
+            className="h-12 w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
           >
+            <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
         </div>
       </div>
 
       {/* Save Confirmation Dialog */}
-      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+      <Dialog open={showSaveDialog} onOpenChange={(open) => { if (!isSaving) setShowSaveDialog(open); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -438,12 +473,14 @@ export default function CustomerProfile() {
             <Button
               variant="outline"
               onClick={() => setShowSaveDialog(false)}
+              disabled={isSaving}
               className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               Cancel
             </Button>
             <Button
               onClick={confirmSave}
+              disabled={isSaving}
               className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Save Changes

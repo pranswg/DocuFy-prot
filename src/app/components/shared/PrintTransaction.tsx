@@ -30,6 +30,7 @@ import {
   Calculator,
   WifiOff,
   CalendarClock,
+  ArrowLeft,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -1475,6 +1476,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   const content = (
     <div className={isWalkin ? "max-w-4xl mx-auto space-y-8" : "max-w-4xl mx-auto space-y-2 sm:space-y-3"}>
+      {!isWalkin && (
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+      )}
       {!isWalkin && isResumed && submittedOrderId && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3 min-w-0">

@@ -591,10 +591,11 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
     <div className="space-y-5">
       {/* Tab header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Overview</h2>
-          <p className="text-sm text-slate-500 mt-1">Monitor your sales, orders, and inventory performance for the selected period.</p>
-        </div>
+        {role === "admin" && (
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Overview</h2>
+          </div>
+        )}
         {dateSelector}
       </div>
 

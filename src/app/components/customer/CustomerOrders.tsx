@@ -106,9 +106,10 @@ export default function CustomerOrders() {
             type="button"
             onClick={() => navigate(-1)}
             aria-label="Go back"
-            className="md:hidden rounded-xl p-2 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+            className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
           >
             <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Back</span>
           </button>
         </div>
 

@@ -32,7 +32,7 @@ class JobsStore {
     if (this.initialized) return;
 
     try {
-      const JOBS_VERSION = '1.0'; // Increment this to force jobs reset
+      const JOBS_VERSION = '1.1'; // Increment this to force jobs reset
       const storedVersion = localStorage.getItem('jobsStoreVersion');
       const stored = localStorage.getItem('jobsStore');
 
@@ -88,18 +88,6 @@ class JobsStore {
         department: 'General',
         posted: '5 days ago',
         postedDate: '2026-08-23',
-      },
-      {
-        id: 'JOB-003',
-        title: 'Customer Service Representative (Walk-in)',
-        description:
-          'Greet and assist walk-in customers, receive print requests, verify orders, and process payments. Strong communication and customer service skills are a plus.',
-        type: 'Contract',
-        duration: 'Full-time (8 hours/day)',
-        status: 'active',
-        department: 'General',
-        posted: '1 week ago',
-        postedDate: '2026-08-21',
       },
     ];
   }
