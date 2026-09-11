@@ -21,13 +21,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -660,23 +654,22 @@ export default function AdminAttendancePage() {
               </div>
               <div className="w-full lg:w-48">
                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="mt-1.5">
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="on-time">On Time</SelectItem>
-                    <SelectItem value="late">Late</SelectItem>
-                    <SelectItem value="overtime">Overtime</SelectItem>
-                    <SelectItem value="no-clock-in">No Clock-In</SelectItem>
-                    <SelectItem value="absent">Absent</SelectItem>
-                    <SelectItem value="on-leave">On Leave</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ZoomSafeDropdown
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  placeholder="All Statuses"
+                  icon={<Filter className="w-4 h-4 text-gray-500" />}
+                  className="mt-1.5"
+                  options={[
+                    { value: "all", label: "All Statuses" },
+                    { value: "on-time", label: "On Time" },
+                    { value: "late", label: "Late" },
+                    { value: "overtime", label: "Overtime" },
+                    { value: "no-clock-in", label: "No Clock-In" },
+                    { value: "absent", label: "Absent" },
+                    { value: "on-leave", label: "On Leave" },
+                  ]}
+                />
               </div>
               <Button
                 variant="outline"

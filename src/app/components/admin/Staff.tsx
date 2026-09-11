@@ -22,13 +22,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { PasswordStrengthIndicator, validatePassword } from "../ui/password-strength-indicator";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -540,22 +534,18 @@ export default function Staff() {
             </div>
             <div className="w-full lg:w-48">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
-              <Select
+              <ZoomSafeDropdown
                 value={filterStatus}
-                onValueChange={setFilterStatus}
-              >
-                <SelectTrigger className="mt-1.5">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={setFilterStatus}
+                placeholder="All Statuses"
+                icon={<Filter className="w-4 h-4 text-gray-500" />}
+                className="mt-1.5"
+                options={[
+                  { value: "all", label: "All Statuses" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                ]}
+              />
             </div>
             <Button
               variant="outline"
@@ -763,20 +753,16 @@ export default function Staff() {
 
             <div className="space-y-2">
               <Label>Role *</Label>
-              <Select
+              <ZoomSafeDropdown
                 value={newStaff.role}
-                onValueChange={(value) =>
-                  setNewStaff({ ...newStaff, role: value })
-                }
-              >
-                <SelectTrigger className="h-11 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(value) => setNewStaff({ ...newStaff, role: value })}
+                placeholder="Select role"
+                triggerClassName="h-11 bg-white"
+                options={[
+                  { value: "staff", label: "Staff" },
+                  { value: "admin", label: "Admin" },
+                ]}
+              />
               <p className="text-xs text-gray-500">
                 Admins get full system access, staff get order and payment
                 access.
@@ -912,43 +898,33 @@ export default function Staff() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Role *</Label>
-                  <Select
+                  <ZoomSafeDropdown
                     value={editForm.role}
-                    onValueChange={(value) =>
-                      setEditForm({
-                        ...editForm,
-                        role: value as "Staff" | "Admin",
-                      })
+                    onChange={(value) =>
+                      setEditForm({ ...editForm, role: value as "Staff" | "Admin" })
                     }
-                  >
-                    <SelectTrigger className="h-11 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Staff">Staff</SelectItem>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select role"
+                    triggerClassName="h-11 bg-white"
+                    options={[
+                      { value: "Staff", label: "Staff" },
+                      { value: "Admin", label: "Admin" },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Account Status *</Label>
-                  <Select
+                  <ZoomSafeDropdown
                     value={editForm.status}
-                    onValueChange={(value) =>
-                      setEditForm({
-                        ...editForm,
-                        status: value as "Active" | "Inactive",
-                      })
+                    onChange={(value) =>
+                      setEditForm({ ...editForm, status: value as "Active" | "Inactive" })
                     }
-                  >
-                    <SelectTrigger className="h-11 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select status"
+                    triggerClassName="h-11 bg-white"
+                    options={[
+                      { value: "Active", label: "Active" },
+                      { value: "Inactive", label: "Inactive" },
+                    ]}
+                  />
                 </div>
               </div>
             </div>

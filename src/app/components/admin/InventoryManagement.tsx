@@ -54,6 +54,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   BarChart,
   Bar,
@@ -297,16 +298,13 @@ function InventoryReports() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {categoryFilter !== "all" && (
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-auto min-w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>{c === "all" ? "All Categories" : c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ZoomSafeDropdown
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              placeholder="All Categories"
+              className="min-w-[140px]"
+              options={categories.map((c) => ({ value: c, label: c === "all" ? "All Categories" : c }))}
+            />
           )}
           <div className="relative">
             <button
@@ -347,27 +345,23 @@ function InventoryReports() {
               </>
             )}
           </div>
-          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); if (v === "all") setItemFilter("all"); }}>
-            <SelectTrigger className="w-auto min-w-[150px]">
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>{c === "all" ? "All Categories" : c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={itemFilter} onValueChange={setItemFilter}>
-            <SelectTrigger className="w-auto min-w-[160px]">
-              <SelectValue placeholder="All Items" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Items</SelectItem>
-              {(categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter)).map((i) => (
-                <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ZoomSafeDropdown
+            value={categoryFilter}
+            onChange={(v) => { setCategoryFilter(v); if (v === "all") setItemFilter("all"); }}
+            placeholder="All Categories"
+            className="min-w-[150px]"
+            options={categories.map((c) => ({ value: c, label: c === "all" ? "All Categories" : c }))}
+          />
+          <ZoomSafeDropdown
+            value={itemFilter}
+            onChange={setItemFilter}
+            placeholder="All Items"
+            className="min-w-[160px]"
+            options={[
+              { value: "all", label: "All Items" },
+              ...(categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter)).map((i) => ({ value: i.id, label: i.name })),
+            ]}
+          />
         </div>
       </div>
 

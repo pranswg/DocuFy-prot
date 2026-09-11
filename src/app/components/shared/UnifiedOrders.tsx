@@ -58,13 +58,7 @@ import {
 import { Alert, AlertDescription } from "../ui/alert";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import { FileAttachments } from "../ui/file-attachments";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
@@ -1995,25 +1989,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
             <div>
               <Label>Error usage reason</Label>
-              <Select
+              <ZoomSafeDropdown
                 value={paperFormData.reason}
-                onValueChange={(v) =>
-                  setPaperFormData((prev) => ({ ...prev, reason: v }))
-                }
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Select a reason..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Printing Error">Printing Error</SelectItem>
-                  <SelectItem value="Equipment Issue">Equipment Issue</SelectItem>
-                  <SelectItem value="Out of Ink">Out of Ink</SelectItem>
-                  <SelectItem value="Paper Jam">Paper Jam</SelectItem>
-                  <SelectItem value="Misalignment">Misalignment</SelectItem>
-                  <SelectItem value="Customer Request">Customer Request</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(v) => setPaperFormData((prev) => ({ ...prev, reason: v }))}
+                placeholder="Select a reason..."
+                className="mt-2"
+                options={[
+                  { value: "Printing Error", label: "Printing Error" },
+                  { value: "Equipment Issue", label: "Equipment Issue" },
+                  { value: "Out of Ink", label: "Out of Ink" },
+                  { value: "Paper Jam", label: "Paper Jam" },
+                  { value: "Misalignment", label: "Misalignment" },
+                  { value: "Customer Request", label: "Customer Request" },
+                  { value: "Other", label: "Other" },
+                ]}
+              />
             </div>
 
             <div>

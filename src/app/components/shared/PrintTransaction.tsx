@@ -41,13 +41,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown, ZoomSafeActionDropdown } from "../ui/zoom-safe-dropdown";
 import { Textarea } from "../ui/textarea";
 import { formatCurrency } from "../../utils/formatNumber";
 import { todayPHTKey } from "../../utils/pht";
@@ -1595,15 +1589,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 {/* Customer Type Selection */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Customer Type</Label>
-                  <Select value={customerType} onValueChange={(value) => setCustomerType(value as "printing" | "photocopy")}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="printing">Walk-in Printing</SelectItem>
-                      <SelectItem value="photocopy">Photocopy</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <ZoomSafeDropdown
+                    value={customerType}
+                    onChange={(v) => setCustomerType(v as "printing" | "photocopy")}
+                    triggerClassName="h-10"
+                    placeholder="Select customer type"
+                    options={[
+                      { value: "printing", label: "Walk-in Printing" },
+                      { value: "photocopy", label: "Photocopy" },
+                    ]}
+                  />
                   <p className="text-xs text-slate-500">
                     Choose "Walk-in Printing" for print jobs and "Photocopy" for photocopies. This is recorded so the transaction history stays accurate.
                   </p>
@@ -1623,23 +1618,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Paper Size</Label>
-                    <Select value={photocopyPaperSize} onValueChange={setPhotocopyPaperSize}>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availablePaperSizes.length > 0 ? (
-                          availablePaperSizes.map((size) => (
-                            <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
-                              {size.displayName}
-                              {!size.inStock && " (Out of Stock)"}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="a4">A4</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                  <ZoomSafeDropdown
+                    value={photocopyPaperSize}
+                    onChange={setPhotocopyPaperSize}
+                    placeholder="Select paper size"
+                    options={
+                      availablePaperSizes.length > 0
+                        ? availablePaperSizes.map((size) => ({
+                            value: size.name,
+                            label: size.displayName + (size.inStock ? "" : " (Out of Stock)"),
+                            disabled: !size.inStock,
+                          }))
+                        : [{ value: "a4", label: "A4" }]
+                    }
+                    triggerClassName="h-10"
+                  />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Number of Copies</Label>
@@ -1652,17 +1645,18 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   </div>
                 </div>
 
-                <div className="space-y-2">
+<div className="space-y-2">
                   <Label className="text-sm font-medium">Color Mode</Label>
-                  <Select value={photocopyColorMode} onValueChange={(value) => setPhotocopyColorMode(value as "bw" | "colored")}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bw">Black &amp; White</SelectItem>
-                      <SelectItem value="colored">Colored</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <ZoomSafeDropdown
+                    value={photocopyColorMode}
+                    onChange={(v) => setPhotocopyColorMode(v as "bw" | "colored")}
+                    placeholder="Select color mode"
+                    options={[
+                      { value: "bw", label: "Black & White" },
+                      { value: "colored", label: "Colored" },
+                    ]}
+                    triggerClassName="h-10"
+                  />
                 </div>
 
                 <p className="text-xs text-slate-500">
@@ -1841,27 +1835,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         <Label className="mb-1.5 block text-sm font-medium">
                           Editing file
                         </Label>
-                        <Select
+                        <ZoomSafeDropdown
                           value={String(activeIndex)}
-                          onValueChange={(value) =>
+                          onChange={(value) =>
                             setStep2FileIndex(
                               Math.min(files.length - 1, Math.max(0, Number(value))),
                             )
                           }
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Select a file" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {files.map((f, i) => (
-                              <SelectItem key={f.id} value={String(i)}>
-                                <span className="block max-w-[280px] truncate">
-                                  File {i + 1}: {f.fileName}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          triggerClassName="h-10"
+                          placeholder="Select a file"
+                          options={files.map((f, i) => ({
+                            value: String(i),
+                            label: `File ${i + 1}: ${f.fileName}`,
+                          }))}
+                        />
                       </div>
                     )}
 
@@ -1968,23 +1955,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Photo Size</Label>
-                              <Select
-                                value={fileData.photoSize}
-                                onValueChange={(value) =>
-                                  updateFileOption(fileData.id, "photoSize", value as PhotoSizeKey)
-                                }
-                              >
-                                <SelectTrigger className="h-10">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(["2R", "3R", "4R", "5R", "6R", "A4photo"] as PhotoSizeKey[]).map((size) => (
-                                    <SelectItem key={size} value={size}>
-                                      {PHOTO_SIZE_LABELS[size]}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                          <ZoomSafeDropdown
+                            value={fileData.photoSize}
+                            onChange={(value) => updateFileOption(fileData.id, "photoSize", value)}
+                            placeholder="Select photo size"
+                            options={(["2R", "3R", "4R", "5R", "6R", "A4photo"] as PhotoSizeKey[]).map((s) => ({
+                              value: s,
+                              label: PHOTO_SIZE_LABELS[s],
+                            }))}
+                            triggerClassName="h-10"
+                          />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Finish</Label>
@@ -2062,28 +2042,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
                               <Label className="text-sm font-medium shrink-0">Paper Size</Label>
                               <div className="w-[55%] shrink-0 sm:w-full">
-                                <Select
-                                  value={fileData.paperSize}
-                                  onValueChange={(value) =>
-                                    updateFileOption(fileData.id, "paperSize", value)
-                                  }
-                                >
-                                  <SelectTrigger className="h-10">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availablePaperSizes.length > 0 ? (
-                                      availablePaperSizes.map((size) => (
-                                        <SelectItem key={size.id} value={size.name} disabled={!size.inStock}>
-                                          {size.displayName}
-                                          {!size.inStock && " (Out of Stock)"}
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="a4">A4</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
+<ZoomSafeDropdown
+                            value={fileData.paperSize}
+                            onChange={(value) => updateFileOption(fileData.id, "paperSize", value)}
+                            placeholder="Select paper size"
+                            options={
+                              availablePaperSizes.length > 0
+                                ? availablePaperSizes.map((size) => ({
+                                    value: size.name,
+                                    label: size.displayName + (size.inStock ? "" : " (Out of Stock)"),
+                                    disabled: !size.inStock,
+                                  }))
+                                : [{ value: "a4", label: "A4" }]
+                            }
+                            triggerClassName="h-10"
+                          />
                               </div>
                             </div>
                             <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
@@ -2100,22 +2073,20 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
                                 <Label className="text-sm font-medium shrink-0">Page Range</Label>
                                 <div className="w-[55%] shrink-0 sm:w-full">
-                                  <Select
+                                  <ZoomSafeDropdown
                                     value={fileData.pageRange}
-                                    onValueChange={(value) =>
+                                    onChange={(value) =>
                                       updateFileOption(fileData.id, "pageRange", value)
                                     }
-                                  >
-                                    <SelectTrigger className="h-10">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="all">All Pages</SelectItem>
-                                      <SelectItem value="odd">Odd Pages Only</SelectItem>
-                                      <SelectItem value="even">Even Pages Only</SelectItem>
-                                      <SelectItem value="specific">Specific Pages</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    placeholder="All Pages"
+                                    triggerClassName="h-10"
+                                    options={[
+                                      { value: "all", label: "All Pages" },
+                                      { value: "odd", label: "Odd Pages Only" },
+                                      { value: "even", label: "Even Pages Only" },
+                                      { value: "specific", label: "Specific Pages" },
+                                    ]}
+                                  />
                                 </div>
                               </div>
                               {fileData.pageRange === "specific" && (
@@ -2133,27 +2104,18 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
                           <div className="space-y-2">
                             <Label className="text-sm font-medium">Color Mode</Label>
-                            <Select
+                            <ZoomSafeDropdown
                               value={fileData.colorMode}
-                              onValueChange={(value) =>
+                              onChange={(value) =>
                                 updateFileOption(fileData.id, "colorMode", value)
                               }
-                            >
-                              <SelectTrigger className="h-10">
-                                <SelectValue
-                                  placeholder={
-                                    COLOR_MODE_LABELS[fileData.colorMode] || "Select color mode"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {COLOR_MODE_OPTIONS.map((option) => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              triggerClassName="h-10"
+                              placeholder={COLOR_MODE_LABELS[fileData.colorMode] || "Select color mode"}
+                              options={COLOR_MODE_OPTIONS.map((option) => ({
+                                value: option.value,
+                                label: option.label,
+                              }))}
+                            />
                             <p className="text-xs text-gray-500">
                               {fileData.colorMode === "bw"
                                 ? `${formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed in grayscale`
@@ -2191,26 +2153,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             />
                             <div className="mt-2">
                               <p className="text-xs text-gray-500 mb-1">Quick templates:</p>
-                              <Select
-                                onValueChange={(template) => {
+                              <ZoomSafeActionDropdown
+                                onSelect={(template) => {
                                   const currentNotes = fileData.notes;
                                   const newNotes = currentNotes
                                     ? `${currentNotes}\n${template}`
                                     : template;
                                   updateFileOption(fileData.id, "notes", newNotes.slice(0, 100));
                                 }}
-                              >
-                                <SelectTrigger className="h-9 text-black sm:hidden">
-                                  <SelectValue className="text-black" placeholder="Choose a template" />
-                                </SelectTrigger>
-                                <SelectContent className="sm:hidden">
-                                  {noteTemplates.map((template) => (
-                                    <SelectItem key={template} value={template}>
-                                      {template}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                triggerClassName="sm:hidden"
+                                className="sm:hidden"
+                                placeholder="Choose a template"
+                                options={noteTemplates.map((template) => ({
+                                  value: template,
+                                  label: template,
+                                }))}
+                              />
                               <div className="hidden sm:flex flex-wrap gap-2">
                                 {noteTemplates.map((template) => (
                                   <button

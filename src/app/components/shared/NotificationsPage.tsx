@@ -29,13 +29,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -778,25 +772,17 @@ export default function NotificationsPage() {
             </div>
             <div className="space-y-2">
               <Label>Notification Type</Label>
-              <Select
+              <ZoomSafeDropdown
                 value={priority}
-                onValueChange={(v) =>
-                  setPriority(v as AnnouncementPriority)
-                }
-              >
-                <SelectTrigger className="h-11 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="regular">Regular Notification</SelectItem>
-                  <SelectItem value="important">
-                    Important Announcement
-                  </SelectItem>
-                  <SelectItem value="emergency">
-                    Emergency Announcement
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(v) => setPriority(v as AnnouncementPriority)}
+                placeholder="Select type"
+                triggerClassName="h-11 bg-white"
+                options={[
+                  { value: "regular", label: "Regular Notification" },
+                  { value: "important", label: "Important Announcement" },
+                  { value: "emergency", label: "Emergency Announcement" },
+                ]}
+              />
               <p className="text-xs text-gray-500">
                 {priority === "regular" &&
                   "Normal system notification — appears in the unified notifications list."}
@@ -808,14 +794,15 @@ export default function NotificationsPage() {
             </div>
             <div className="space-y-2">
               <Label>Recipients</Label>
-              <Select value={recipients} onValueChange={setRecipients}>
-                <SelectTrigger className="h-11 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                </SelectContent>
-              </Select>
+              <ZoomSafeDropdown
+                value={recipients}
+                onChange={setRecipients}
+                placeholder="Select recipients"
+                triggerClassName="h-11 bg-white"
+                options={[
+                  { value: "all", label: "All Users" },
+                ]}
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">

@@ -19,13 +19,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -480,25 +474,19 @@ export default function JobApplyForm() {
                   <Label className="text-sm font-medium text-slate-700 mb-1.5">
                     Resume <span className="text-red-500">*</span>
                   </Label>
-                  <Select
+                  <ZoomSafeDropdown
                     value={formData.resumeType}
-                    onValueChange={(value: "link" | "file") => {
-                      setFormData((p) => ({ ...p, resumeType: value, resumeLink: "", resumeFile: null }));
+                    onChange={(v) => {
+                      setFormData((p) => ({ ...p, resumeType: v as "link" | "file", resumeLink: "", resumeFile: null }));
                       setErrors((prev) => { const n = { ...prev }; delete n.portfolio; return n; });
                     }}
-                  >
-                    <SelectTrigger className="h-11 bg-[#FBFDFF] border-blue-200 focus:ring-[#1D73EC]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="link">
-                        <span className="flex items-center gap-2"><Link2 className="w-3.5 h-3.5" /> Paste Link</span>
-                      </SelectItem>
-                      <SelectItem value="file">
-                        <span className="flex items-center gap-2"><Upload className="w-3.5 h-3.5" /> Upload File</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select resume type"
+                    triggerClassName="h-11"
+                    options={[
+                      { value: "link", label: "Paste Link", icon: <Link2 className="w-3.5 h-3.5" /> },
+                      { value: "file", label: "Upload File", icon: <Upload className="w-3.5 h-3.5" /> },
+                    ]}
+                  />
                 </div>
 
                 {formData.resumeType === "link" ? (
