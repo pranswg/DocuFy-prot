@@ -1112,7 +1112,7 @@ export default function OrderTracking() {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="cancel-reason">Reason for Cancellation *</Label>
+              <Label htmlFor="cancel-reason">Reason for Cancellation <span className="text-red-500">*</span></Label>
               <Textarea
                 id="cancel-reason"
                 placeholder="Please state the reason for cancellation..."

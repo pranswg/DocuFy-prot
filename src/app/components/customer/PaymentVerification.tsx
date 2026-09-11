@@ -396,6 +396,13 @@ export default function PaymentVerification() {
         return;
       }
 
+      if (!proofFile) {
+        toast.error(
+          "Please upload a screenshot or receipt as proof of payment.",
+        );
+        return;
+      }
+
       const paid = parseFloat(amountPaid);
       if (isNaN(paid) || paid <= 0) {
         toast.error("Payment amount is not available yet. Please try again.");
@@ -598,7 +605,20 @@ export default function PaymentVerification() {
     >
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Back to previous step (returns to the resumed print request) */}
-        <div>
+        <button
+          type="button"
+          onClick={() =>
+            navigate("/customer/new-request", {
+              state: { fromPaymentVerification: true },
+            })
+          }
+          aria-label="Go back"
+          className="md:hidden inline-flex items-center gap-1 rounded-xl p-2 pl-0 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+        <div className="hidden md:block">
           <Button
             type="button"
             variant="outline"
@@ -993,7 +1013,7 @@ export default function PaymentVerification() {
 
               <div className="space-y-2">
                 <Label htmlFor="reference">
-                  Reference Number *
+                  Reference Number <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="reference"
@@ -1020,7 +1040,7 @@ export default function PaymentVerification() {
               <div className="space-y-2">
                 <Label htmlFor="proof">
                   Upload Proof of Payment (Screenshot or
-                  Receipt)
+                  Receipt) <span className="text-red-500">*</span>
                 </Label>
                 <p className="text-sm text-gray-500 mb-2">
                   Image files only (JPG, PNG, GIF, WebP)
@@ -1111,18 +1131,18 @@ export default function PaymentVerification() {
                 )}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowCancelConfirm(true)}
-                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="w-full h-11 sm:flex-1 sm:h-9 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
                   Cancel Order
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-white text-[#1D73EC] border-2 border-[#1D73EC] hover:bg-[#1D73EC] hover:text-white transition-all"
+                  className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B]"
                 >
                   Submit Reference
                 </Button>
@@ -1139,18 +1159,18 @@ export default function PaymentVerification() {
               submit online — your order is only confirmed when you pay in cash
               at the shop.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/customer/dashboard")}
-                className="flex-1"
+                className="w-full h-11 sm:flex-1 sm:h-9"
               >
                 Dashboard
               </Button>
               <Button
                 onClick={() => navigate(`/customer/track/${orderId}`)}
-                className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
+                className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B]"
               >
                 Track Order
               </Button>
@@ -1220,7 +1240,7 @@ export default function PaymentVerification() {
           <div className="flex flex-col gap-3 mt-6">
             <Button
               onClick={() => navigate(`/customer/track/${orderId}`)}
-              className="w-full bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              className="w-full h-11 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B]"
             >
               See My Order
             </Button>

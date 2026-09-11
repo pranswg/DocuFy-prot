@@ -272,7 +272,7 @@ export default function JobBoard() {
                       {!application && (
                         <div className="mt-4">
                           <Button
-                            className="w-full bg-white text-sm text-[#1D73EC] border border-[#1D73EC] hover:bg-[#1D73EC] hover:text-white sm:w-auto"
+                            className="w-full h-11 text-sm bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] sm:w-auto"
                             onClick={() => navigate(`/customer/job-apply/${job.id}`)}
                           >
                             Apply for this Position

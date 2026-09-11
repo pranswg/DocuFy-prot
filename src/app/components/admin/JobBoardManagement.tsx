@@ -771,7 +771,7 @@ export default function JobBoardManagement() {
                 {statusUpdateData.status === "For Interview" && (
                   <>
                     <div className="space-y-2">
-                      <Label>Interview Date *</Label>
+                      <Label>Interview Date <span className="text-red-500">*</span></Label>
                       <Input
                         type="date"
                         className="bg-white"
@@ -785,7 +785,7 @@ export default function JobBoardManagement() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Interview Time *</Label>
+                      <Label>Interview Time <span className="text-red-500">*</span></Label>
                       <Input
                         type="time"
                         className="bg-white"
@@ -799,7 +799,7 @@ export default function JobBoardManagement() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Interview Location *</Label>
+                      <Label>Interview Location <span className="text-red-500">*</span></Label>
                       <Button
                         type="button"
                         variant="outline"
@@ -831,7 +831,7 @@ export default function JobBoardManagement() {
 
                 {statusUpdateData.status === "Rejected" && (
                   <div className="space-y-2">
-                    <Label>Reason for Rejection *</Label>
+                    <Label>Reason for Rejection <span className="text-red-500">*</span></Label>
                     <Textarea
                       placeholder="Explain why this application was rejected..."
                       className="bg-white"
@@ -881,7 +881,7 @@ export default function JobBoardManagement() {
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Job Title *</Label>
+              <Label htmlFor="title">Job Title <span className="text-red-500">*</span></Label>
               <Input
                 id="title"
                 type="text"
@@ -898,7 +898,7 @@ export default function JobBoardManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -916,7 +916,7 @@ export default function JobBoardManagement() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="type">Job Type *</Label>
+                <Label htmlFor="type">Job Type <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value) =>
@@ -938,7 +938,7 @@ export default function JobBoardManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration *</Label>
+                <Label htmlFor="duration">Duration <span className="text-red-500">*</span></Label>
                 <Input
                   id="duration"
                   type="text"

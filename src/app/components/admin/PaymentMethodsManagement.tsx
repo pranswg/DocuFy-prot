@@ -325,7 +325,7 @@ export default function PaymentMethodsManagement() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="pm-name">Payment Method Name *</Label>
+              <Label htmlFor="pm-name">Payment Method Name <span className="text-red-500">*</span></Label>
               <Input
                 id="pm-name"
                 type="text"
@@ -341,7 +341,7 @@ export default function PaymentMethodsManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pm-account-name">Account Name / Account Holder *</Label>
+              <Label htmlFor="pm-account-name">Account Name / Account Holder <span className="text-red-500">*</span></Label>
               <Input
                 id="pm-account-name"
                 type="text"
@@ -353,7 +353,7 @@ export default function PaymentMethodsManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pm-account-number">Account Number / Payment Account *</Label>
+              <Label htmlFor="pm-account-number">Account Number / Payment Account <span className="text-red-500">*</span></Label>
               <Input
                 id="pm-account-number"
                 type="text"

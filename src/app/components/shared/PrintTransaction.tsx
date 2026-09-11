@@ -3136,7 +3136,21 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         {/* Navigation Buttons */}
         {isWalkin && (currentStep === 4 || (isPhotocopy && currentStep === 2)) ? (
           <div className="flex flex-col gap-2 mt-6 pt-4 border-t border-gray-100">
-            {/* Top row: Back + Cancel Order */}
+            {/* Primary: Proceed to In Queue */}
+            {shopPaused && (
+              <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-1">
+                Docufy is currently paused — new orders are on hold until the shop reopens.
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowProceedConfirm(true)}
+              disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
+              className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+            >
+              Proceed to In Queue
+            </button>
+            {/* Secondary: Back + Cancel Order */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -3161,20 +3175,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 Cancel Order
               </button>
             </div>
-            {/* Bottom row: Proceed to In Queue */}
-            {shopPaused && (
-              <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
-                Docufy is currently paused — new orders are on hold until the shop reopens.
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowProceedConfirm(true)}
-              disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
-              className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
-            >
-              Proceed to In Queue
-            </button>
           </div>
         ) : (
         <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse items-stretch gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:mt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:border-t sm:px-0 sm:py-0 sm:pt-6 sm:bg-transparent sm:backdrop-blur-none"}>
@@ -3200,7 +3200,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             </div>
           )}
 
-          <div className="flex flex-col w-full sm:flex-row gap-2 sm:gap-3 sm:w-auto">
+          <div className="flex flex-col-reverse w-full sm:flex-row gap-2 sm:gap-3 sm:w-auto">
             {currentStep < 4 ? (
               <Button
                 className={isWalkin
