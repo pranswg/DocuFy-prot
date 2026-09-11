@@ -28,6 +28,8 @@ import {
   Check,
   Copy,
   Calculator,
+  WifiOff,
+  CalendarClock,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -85,7 +87,10 @@ import {
 import PaymentMethodQRPanel from "./PaymentMethodQR";
 import { CashOnPickupAcknowledgement } from "./CashOnPickupAcknowledgement";
 import LegalPolicyDialog from "./LegalPolicyDialog";
-import { shopStatusStore } from "../../utils/shopStatusStore";
+import {
+  shopStatusStore,
+  type ShopStatusState,
+} from "../../utils/shopStatusStore";
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -452,11 +457,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const downPaymentThreshold = pricing.downPaymentThreshold;
   const fullPaymentThreshold = pricing.fullPaymentThreshold;
 
-  const [shopPaused, setShopPaused] = useState(() => !shopStatusStore.isOperational());
+  const [shopStatus, setShopStatus] = useState<ShopStatusState>(() =>
+    shopStatusStore.getState(),
+  );
   useEffect(() => {
-    const unsub = shopStatusStore.subscribe(() => setShopPaused(!shopStatusStore.isOperational()));
+    const unsub = shopStatusStore.subscribe(() =>
+      setShopStatus(shopStatusStore.getState()),
+    );
     return unsub;
   }, []);
+  const shopPaused = shopStatus.status !== "open";
 
   // Classify the upfront-payment requirement for a given order total.
   //   none  → below the down-payment threshold (no upfront payment)
@@ -947,10 +957,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const flowTier = paymentRequirementFor(checkoutTotal);
   const isDownTier = flowTier === "down";
   const isFullTier = flowTier === "full";
-  // Down-payment tier = 50% down minimum (chosen on the "Down Payment Method"
-  // page after placing the order); full tier = full payment required.
-  const requiresDownPayment = isDownTier;
-  const requiresFullPayment = isFullTier;
+  // Down-payment tier = 50% down minimum. This applies ONLY to Cash on Pickup
+  // (customer chooses down/full on the "Down Payment Method" page). Customers
+  // paying with an online method always pay in full on the payment verification
+  // page — no down-payment step for online; full tier = full payment required.
+  const requiresDownPayment = isDownTier && !isOnline;
+  const requiresFullPayment = isFullTier || (isDownTier && isOnline);
   const downPaymentValue = checkoutTotal * 0.5;
   // Low-value Cash on Pickup orders (under the down-payment threshold) skip the
   // upfront payment hold entirely: they are auto-queued at checkout and the cash
@@ -1159,8 +1171,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     );
     const hasColor = files.some((f) => f.colorMode !== "bw");
 
-    const requiresDownPayment = flowTier === "down";
-    const requiresFullPayment = flowTier === "full";
+    const requiresDownPayment = flowTier === "down" && !isOnline;
+    const requiresFullPayment =
+      flowTier === "full" || (flowTier === "down" && isOnline);
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Payment confirmation/verification deadline from the admin-editable order
@@ -1336,7 +1349,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       setSubmittedOrderId(orderId);
       orderSubmittedRef.current = true;
 
-      if (flowTier === "down") {
+      if (!isOnline && flowTier === "down") {
+        // Down-payment tier + Cash on Pickup: customer picks 50% down vs full on
+        // the Down Payment Method page. Online down-tier orders skip this — they
+        // go straight to payment verification and pay the full amount online.
         navigate(`/customer/payment-method/${orderId}`, {
           state: {
             paymentMethod: methodLabel,
@@ -2965,12 +2981,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <div className="mt-6">
                       <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <strong>Note:</strong>{" "}
-                        {isDownTier
-                          ? "After placing your order you'll confirm how much to pay — 50% down or the full amount — on the next page, then submit your payment receipt in payment verification."
-                          : <>You will be
-                        redirected to payment verification after
-                        placing your order. Please upload your{" "}
-                        {paymentMethod} payment receipt there.</>}
+                        <>You will be
+                      redirected to payment verification after
+                      placing your order. Please upload your{" "}
+                      {paymentMethod} payment receipt there.</>
                       </p>
                       {!isGcash && (
                         <p className="text-xs text-gray-500 bg-white border border-gray-200 rounded-lg p-3 mt-2">
@@ -3190,7 +3204,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
-                    } else if (isDownTier) {
+                    } else if (isDownTier && !isOnline) {
                       handleSubmit();
                     } else {
                       setShowPlaceOrderConfirm(true);
@@ -3200,7 +3214,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 >
                   {isWalkin
                     ? "Proceed to In Queue"
-                    : isDownTier
+                    : isDownTier && !isOnline
                       ? "Proceed to Down Payment Method"
                       : isOnline
                         ? "Go to Payment Verification"
@@ -3217,7 +3231,64 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
   return (
     <Layout menuItems={menuItems} title={title} showBackButton hideMobileBackButton>
-      {isWalkin ? <StaffTimeInGate>{content}</StaffTimeInGate> : content}
+      {!isWalkin && shopPaused ? (
+        /* New print requests are locked while the shop is paused or on
+           scheduled close — only existing orders / the queue continue. */
+        <div className="max-w-3xl mx-auto">
+          <div className="rounded-2xl border-2 bg-white shadow-sm p-6 sm:p-10 text-center">
+            <div
+              className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                shopStatus.status === "paused"
+                  ? "bg-amber-100"
+                  : "bg-gray-200"
+              }`}
+            >
+              {shopStatus.status === "paused" ? (
+                <WifiOff className="w-8 h-8 text-amber-600" />
+              ) : (
+                <CalendarClock className="w-8 h-8 text-gray-600" />
+              )}
+            </div>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {shopStatus.status === "paused"
+                ? "Docufy is currently paused"
+                : "Docufy is on scheduled close"}
+            </h1>
+            <p
+              className={`text-sm mt-2 leading-relaxed ${
+                shopStatus.status === "paused"
+                  ? "text-amber-800"
+                  : "text-gray-600"
+              }`}
+            >
+              {shopStatus.status === "paused"
+                ? (
+                  <>
+                    {shopStatus.reason && (
+                      <span className="block">Reason: {shopStatus.reason}</span>
+                    )}
+                    {shopStatus.eta && (
+                      <span className="block">
+                        Estimated return: around {shopStatus.eta}
+                      </span>
+                    )}
+                    New print requests can't be placed right now. Existing orders
+                    are safe and will resume once we reopen.
+                  </>
+                )
+                : "The shop is currently closed (weekend / holiday schedule). New print requests will be accepted again once we reopen."}
+            </p>
+            <Button
+              onClick={() => navigate(dashboardPath)}
+              className="mt-6 h-11 px-6 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+            >
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+      ) : isWalkin ? (
+        <StaffTimeInGate>{content}</StaffTimeInGate>
+      ) : content}
 
       {/* Pricing Breakdown Modal */}
       <Dialog open={showColorPricing} onOpenChange={setShowColorPricing}>
@@ -3628,7 +3699,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 variant="outline"
                 onClick={() => {
                   setShowSuccessModal(false);
-                  if (isDownTier) {
+                  if (isDownTier && !isOnline) {
                     navigate(`/customer/payment-method/${submittedOrderId}`, {
                       state: {
                         paymentMethod: "Cash",
@@ -3648,7 +3719,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 }}
                 className="flex-1"
               >
-                {isDownTier
+                {isDownTier && !isOnline
                   ? "Proceed to Down Payment Method"
                   : isOnline
                     ? "Proceed to Payment"
@@ -3675,11 +3746,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           onOpenChange={setShowPlaceOrderConfirm}
           onConfirm={() => { handleSubmit(); setShowPlaceOrderConfirm(false); }}
           title={
-            isOnline && isDownTier
-              ? "Place order & set payment?"
-              : isOnline
-                ? "Go to Payment Verification?"
-                : "Place this order?"
+            isOnline
+              ? "Go to Payment Verification?"
+              : "Place this order?"
           }
           description={(() => {
             const total = calculateTotal();
@@ -3692,18 +3761,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     ? ` Full payment of ${formatCurrency(total)} is required before printing.`
                     : ` You selected Cash on Pickup — you must pay ${formatCurrency(total)} in cash at the shop before your order can be printed.`;
 
-            return isOnline && isDownTier
-              ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}.${paymentNote} After placing you'll confirm how much to pay — 50% down or the full amount — on the next page, then submit your ${paymentMethod} payment receipt in payment verification. Your order is NOT placed in the system until you submit your reference.`
-              : isOnline
+            return isOnline
                 ? `Your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod}. Continuing will take you to payment verification, where you will upload your ${paymentMethod} payment receipt and submit your reference number.${paymentNote} Your order is NOT placed in the system until you submit your reference.`
                 : `Submit your print request for ${files.length} file(s), ${files.reduce((s, f) => s + f.pageCount * f.copies, 0)} pages, total ${formatCurrency(total)} via ${paymentMethod === "" ? "your selected method" : paymentMethod}.${paymentNote} This will create your order, reserve paper stock, and notify staff. Review your details before confirming.`;
           })()}
           confirmLabel={
-            isOnline && isDownTier
-              ? "Place Order"
-              : isOnline
-                ? "Go to Payment Verification"
-                : "Place Order"
+            isOnline
+              ? "Go to Payment Verification"
+              : "Place Order"
           }
           cancelLabel="Go Back"
           destructive={false}
