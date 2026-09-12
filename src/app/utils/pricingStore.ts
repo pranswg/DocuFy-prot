@@ -31,10 +31,11 @@ export type PricingValues = {
   // Awaiting-payment orders are auto-cancelled as expired if payment is not
   // confirmed within these windows. Cash-on-pickup orders must be paid at the
   // shop; online orders must be submitted + verified. Admin-editable under
-  // "Order Rules" (hours, 0 = no auto-expiry). Deadline basis is hours (not
-  // store hours) pending client decision.
-  cashPickupPaymentHours: number; // how long a customer has to pay cash at the shop
-  onlinePaymentVerificationHours: number; // how long an online payment has to be submitted + verified
+  // "Order Rules" as a full duration (hours/minutes/seconds; 0 = no auto-expiry).
+  // Deadlines are wall-clock durations (not store hours) pending client decision.
+  // Stored as total seconds so the admin can pick any granularity down to seconds.
+  cashPickupPaymentWindowSeconds: number; // how long a customer has to pay cash at the shop
+  onlinePaymentVerificationWindowSeconds: number; // how long an online payment has to be submitted + verified
 };
 
 // Current system behavior (formerly hardcoded) is the default.
@@ -47,9 +48,9 @@ const DEFAULT_PRICING: PricingValues = {
   duplexSavings: 0.5,
   downPaymentThreshold: 50,
   fullPaymentThreshold: 100, // client named both ₱100 and ₱150; using ₱100 (admin-editable)
-  // Placeholder deadline windows (hours) — pending client confirmation.
-  cashPickupPaymentHours: 48,
-  onlinePaymentVerificationHours: 24,
+  // Placeholder deadline windows (seconds — 48h / 24h) — pending client confirmation.
+  cashPickupPaymentWindowSeconds: 48 * 3600,
+  onlinePaymentVerificationWindowSeconds: 24 * 3600,
 };
 
 // ============================================================
@@ -246,19 +247,19 @@ export const PRICING_ITEMS: PricingItemSpec[] = [
     editable: true,
   },
   {
-    id: 'cashPickupPaymentHours',
+    id: 'cashPickupPaymentWindowSeconds',
     label: 'Cash on Pickup Payment Window',
-    description: 'How long a customer has to pay in cash at the shop before the order is auto-cancelled (hours, 0 = never expires). PLACEHOLDER — pending client confirmation.',
+    description: 'How long a customer has to pay in cash at the shop before the order is auto-cancelled (set in hours, minutes, and/or seconds; 0 = never expires). PLACEHOLDER — pending client confirmation.',
     category: 'Order Rules',
-    unit: 'hrs',
+    unit: 'duration',
     editable: true,
   },
   {
-    id: 'onlinePaymentVerificationHours',
+    id: 'onlinePaymentVerificationWindowSeconds',
     label: 'Online Payment Verification Window',
-    description: 'How long an online payment must be submitted + verified before the order is auto-cancelled (hours, 0 = never expires). PLACEHOLDER — pending client confirmation.',
+    description: 'How long an online payment must be submitted + verified before the order is auto-cancelled (set in hours, minutes, and/or seconds; 0 = never expires). PLACEHOLDER — pending client confirmation.',
     category: 'Order Rules',
-    unit: 'hrs',
+    unit: 'duration',
     editable: true,
   },
 ];
@@ -291,6 +292,22 @@ function mergeStorage(stored: unknown): PricingValues {
     const n = convertToNumber(source[key]);
     values[key] = Number.isNaN(n) ? DEFAULT_PRICING[key] : n;
   });
+  // Migrate the legacy hours-only deadline windows (v1 fields) into the
+  // seconds-based duration fields so previously saved admin settings survive.
+  const legacyCashHours = convertToNumber(source['cashPickupPaymentHours']);
+  if (
+    !Number.isNaN(legacyCashHours) &&
+    Number.isNaN(convertToNumber(source['cashPickupPaymentWindowSeconds']))
+  ) {
+    values.cashPickupPaymentWindowSeconds = legacyCashHours * 3600;
+  }
+  const legacyOnlineHours = convertToNumber(source['onlinePaymentVerificationHours']);
+  if (
+    !Number.isNaN(legacyOnlineHours) &&
+    Number.isNaN(convertToNumber(source['onlinePaymentVerificationWindowSeconds']))
+  ) {
+    values.onlinePaymentVerificationWindowSeconds = legacyOnlineHours * 3600;
+  }
   return values as PricingValues;
 }
 
@@ -600,4 +617,21 @@ export function calcPagePrice(
 // Shared formatting helper so every consumer labels prices identically.
 export function formatPrice(value: number): string {
   return `₱${value.toFixed(2)}`;
+}
+
+// Compact human label for a duration stored as total seconds
+// (0 = no expiry). e.g. 172800 → "2 days", 5400 → "1 hr 30 min", 45 → "45 sec".
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "Never";
+  const s = Math.floor(seconds);
+  const d = Math.floor(s / 86_400);
+  const h = Math.floor((s % 86_400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d} day${d === 1 ? "" : "s"}`);
+  if (h > 0) parts.push(`${h} hr`);
+  if (m > 0) parts.push(`${m} min`);
+  if (sec > 0) parts.push(`${sec} sec`);
+  return parts.length > 0 ? parts.join(" ") : "0 sec";
 }

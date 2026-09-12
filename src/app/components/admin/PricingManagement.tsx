@@ -46,6 +46,7 @@ import {
   type ServiceType,
 } from "../../utils/pricingStore";
 import { PRICING_ITEMS } from "../../utils/pricingStore";
+import { formatDuration } from "../../utils/pricingStore";
 
 const menuItems = adminMenuItems;
 
@@ -83,6 +84,25 @@ const CATEGORY_ORDER: PricingCategory[] = [
   "Printing Options",
   "Order Rules",
 ];
+
+// The two order-rule deadline windows are edited as a full duration
+// (hours/minutes/seconds) instead of a single number input.
+const DURATION_WINDOW_IDS: Array<keyof PricingValues> = [
+  "cashPickupPaymentWindowSeconds",
+  "onlinePaymentVerificationWindowSeconds",
+];
+
+type DurationUnit = "hours" | "minutes" | "seconds";
+const DURATION_UNIT_MULTIPLIER: Record<DurationUnit, number> = {
+  hours: 3600,
+  minutes: 60,
+  seconds: 1,
+};
+const DURATION_UNIT_LABELS: Record<DurationUnit, string> = {
+  hours: "Hours",
+  minutes: "Minutes",
+  seconds: "Seconds",
+};
 
 // A single editable cell described by its location in the matrix.
 type EditTarget =
@@ -186,6 +206,75 @@ export default function PricingManagement() {
     setLegacyEditValue("");
   };
 
+  const [durationTarget, setDurationTarget] = useState<PricingItemSpec | null>(null);
+  const [durUnit, setDurUnit] = useState<DurationUnit>("hours");
+  const [durValue, setDurValue] = useState("0");
+  const [showDurationSaveConfirm, setShowDurationSaveConfirm] = useState(false);
+
+  const openDurationEdit = (item: PricingItemSpec) => {
+    const seconds = Number.isFinite(pricing[item.id])
+      ? Math.floor(pricing[item.id])
+      : 0;
+    let unit: DurationUnit = "seconds";
+    let value = seconds;
+    if (seconds > 0 && seconds % 3600 === 0) {
+      unit = "hours";
+      value = seconds / 3600;
+    } else if (seconds > 0 && seconds % 60 === 0) {
+      unit = "minutes";
+      value = seconds / 60;
+    }
+    setDurUnit(unit);
+    setDurValue(String(value));
+    setDurationTarget(item);
+    setShowResetConfirm(false);
+  };
+
+  const closeDurationEdit = () => {
+    setDurationTarget(null);
+    setShowDurationSaveConfirm(false);
+  };
+
+  const durationTotalSeconds = () => {
+    const n = Number(durValue);
+    const v = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    return v * DURATION_UNIT_MULTIPLIER[durUnit];
+  };
+
+  const handleDurationSave = () => {
+    if (!durationTarget) return;
+    const total = durationTotalSeconds();
+    const ok = pricingStore.updatePricing(durationTarget.id, total);
+    if (!ok) {
+      toast.error(`Could not update ${durationTarget.label}. Please try again.`);
+      return;
+    }
+    toast.success("Pricing updated successfully.");
+    closeDurationEdit();
+  };
+
+  const DurationRow = ({ item }: { item: PricingItemSpec }) => (
+    <div className="py-3.5 flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="font-medium text-gray-900">{item.label}</p>
+        <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="text-sm font-semibold text-[#10316B] whitespace-nowrap">
+          {formatDuration(pricing[item.id])}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
+          onClick={() => openDurationEdit(item)}
+        >
+          <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+        </Button>
+      </div>
+    </div>
+  );
+
   const handleLegacySave = () => {
     if (!legacyEditing) return;
     const parsed = Number(legacyEditValue);
@@ -203,8 +292,7 @@ export default function PricingManagement() {
   };
 
   const legacyDisplayValue = (item: PricingItemSpec) => {
-    const value = formatPrice(pricing[item.id]);
-    const price = `${item.prefix || ""}${value}`;
+    const price = `${item.prefix || ""}${formatPrice(pricing[item.id])}`;
     if (item.unit === "₱") return price;
     return `${price} ${item.unit}`;
   };
@@ -537,32 +625,36 @@ export default function PricingManagement() {
                   <h4 className="font-semibold text-gray-700">{category}</h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="py-3.5 flex items-center justify-between gap-4"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900">{item.label}</p>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          {item.description}
-                        </p>
+                  {items.map((item) =>
+                    DURATION_WINDOW_IDS.includes(item.id) ? (
+                      <DurationRow key={item.id} item={item} />
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="py-3.5 flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900">{item.label}</p>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {item.description}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-sm font-semibold text-[#10316B] whitespace-nowrap">
+                            {legacyDisplayValue(item)}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
+                            onClick={() => openLegacyEdit(item)}
+                          >
+                            <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-sm font-semibold text-[#10316B] whitespace-nowrap">
-                          {legacyDisplayValue(item)}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
-                          onClick={() => openLegacyEdit(item)}
-                        >
-                          <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -673,11 +765,6 @@ export default function PricingManagement() {
                   {legacyEditing?.unit === "₱" ? "" : legacyEditing?.unit}
                 </span>
               </div>
-              {legacyEditing?.unit === "₱" && (
-                <p className="text-xs text-gray-500">
-                  The order total at or above this amount requires a down payment.
-                </p>
-              )}
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -707,6 +794,103 @@ export default function PricingManagement() {
           onConfirm={handleLegacySave}
           title="Update Legacy Rate?"
           description={`Are you sure you want to set "${legacyEditing.label}" to ₱${legacyEditValue}? This changes the legacy rate/rule used by the standard document flow.`}
+          confirmLabel="Save Changes"
+          cancelLabel="Go Back"
+          destructive={false}
+        />
+      )}
+
+      {/* Edit Payment Window Duration Dialog */}
+      <Dialog
+        open={!!durationTarget}
+        onOpenChange={(open) => {
+          if (!open) closeDurationEdit();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">
+              Edit {durationTarget?.label}
+            </DialogTitle>
+            <DialogDescription>{durationTarget?.description}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Set the payment window by</Label>
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100">
+                {(Object.keys(DURATION_UNIT_MULTIPLIER) as DurationUnit[]).map(
+                  (unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setDurUnit(unit)}
+                      className={`h-9 rounded-lg text-sm font-semibold transition-all ${
+                        durUnit === unit
+                          ? "bg-white text-[#2F6FD6] shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {DURATION_UNIT_LABELS[unit]}
+                    </button>
+                  )
+                )}
+              </div>
+              <Label htmlFor="duration-window-value">
+                {DURATION_UNIT_LABELS[durUnit]}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="duration-window-value"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={durValue}
+                  onChange={(e) => setDurValue(e.target.value)}
+                  placeholder="0"
+                  className="h-11 bg-white text-sm"
+                />
+                <span className="text-sm text-gray-500 whitespace-nowrap">
+                  {DURATION_UNIT_LABELS[durUnit].toLowerCase()}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500">
+                Total window:{" "}
+                <span className="font-semibold text-[#10316B]">
+                  {formatDuration(durationTotalSeconds())}
+                </span>
+              </p>
+              <p className="text-xs text-gray-400">
+                Set 0 so orders never auto-expire while awaiting payment.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              onClick={closeDurationEdit}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-primary-action
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => setShowDurationSaveConfirm(true)}
+            >
+              <Edit2 className="w-4 h-4 mr-2" /> Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Payment Window Confirmation */}
+      {showDurationSaveConfirm && durationTarget && (
+        <ConfirmationDialog
+          open
+          onOpenChange={setShowDurationSaveConfirm}
+          onConfirm={handleDurationSave}
+          title="Update Payment Window?"
+          description={`Set "${durationTarget.label}" to ${formatDuration(durationTotalSeconds())}? Awaiting-payment orders will be auto-cancelled once this window passes.`}
           confirmLabel="Save Changes"
           cancelLabel="Go Back"
           destructive={false}

@@ -1202,15 +1202,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const downPaymentAmount = requiresDownPayment ? total * 0.5 : 0;
 
     // Payment confirmation/verification deadline from the admin-editable order
-    // rules (hours; 0 = no auto-expiry). Cash = pay at the shop, online =
+    // rules (seconds; 0 = no auto-expiry). Cash = pay at the shop, online =
     // submit reference + staff verification. Low-value cash orders get no
     // deadline because they are already in the queue. Pending client confirmation.
-    const deadlineHours = isOnline
-      ? pricing.onlinePaymentVerificationHours
-      : pricing.cashPickupPaymentHours;
+    const deadlineWindowSeconds = isOnline
+      ? pricing.onlinePaymentVerificationWindowSeconds
+      : pricing.cashPickupPaymentWindowSeconds;
     const paymentDeadline =
-      !isLowValueCash && deadlineHours > 0
-        ? new Date(Date.now() + deadlineHours * 3_600_000).toISOString()
+      !isLowValueCash && deadlineWindowSeconds > 0
+        ? new Date(Date.now() + deadlineWindowSeconds * 1000).toISOString()
         : undefined;
 
     const newOrder = {

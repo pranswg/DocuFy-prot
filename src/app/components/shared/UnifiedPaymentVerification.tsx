@@ -59,9 +59,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { PaymentDeadlineCountdown } from "./PaymentDeadlineCountdown";
 import { StartHereTag, PriorityBadge } from "../ui/priority-badge";
 
-/** Zoom-safe dropdown using CSS absolute positioning (no Radix portal).
- *  Radix Select's floating-ui popper mis-measures under CSS `zoom` on <html>,
- *  so this replaces the three filter selects with a plain anchored list. */
+/** Plain anchored dropdown for the filter selects — a `relative` wrapper
+ *  with an `absolute` list underneath, so it stays under its trigger at any
+ *  browser zoom without a portal. */
 function FilterDropdown({
   value,
   onChange,
@@ -893,7 +893,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                             {payment.orderId}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
-                            {formatPHDate(payment.submittedAt, "short")} · {payment.time}
+                            {formatPHDate(payment.submittedAt, "short")} ·{" "}
+                            <span className="font-semibold text-gray-800">
+                              {payment.time}
+                            </span>
                           </p>
                           {rowLock && (
                             <span
@@ -990,7 +993,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 px-3 text-xs text-gray-600 border-gray-200 hover:border-[#1D73EC]/30 hover:text-[#1D73EC] transition-colors"
+                        className="h-8 px-3 text-xs text-gray-600 border-gray-200 hover:border-transparent hover:text-white transition-colors"
                       >
                         <Eye className="w-3.5 h-3.5 mr-1" /> View
                       </Button>
@@ -1070,7 +1073,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           }
         }}
       >
-<DialogContent className="sm:max-w-2xl max-h-[calc(var(--docufy-vh,100vh)*0.92)] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
+<DialogContent className="sm:max-w-2xl max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden rounded-xl">
           <DialogHeader className="px-5 pt-4 pr-10 pb-3 border-b border-gray-200 flex-row items-center justify-between gap-4">
             <div>
               <DialogTitle className="text-lg font-semibold text-[#1c1f26]">

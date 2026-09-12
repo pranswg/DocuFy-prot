@@ -217,39 +217,43 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
           )}
         </button>
         {hasChildren && isExpanded && (
-          <div className="relative flex flex-col items-stretch w-full animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="relative flex flex-col items-stretch w-full mt-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
             <span
               aria-hidden="true"
-              className="absolute left-[36px] top-2 bottom-2 w-[2px] rounded-full bg-white/20 pointer-events-none"
+              className="absolute left-[30px] top-1 bottom-1 w-[2px] rounded-full bg-white/30 pointer-events-none"
             />
-            {module.children!.map((childItem) => {
-              const isChildActive = childPathMatches(
-                childItem,
-                pathname,
-                search,
-              );
-              return (
-                <button
-                  key={childItem.path}
-                  type="button"
-                  onClick={() => navigateAndClose(childItem.path)}
-                  aria-current={isChildActive ? "page" : undefined}
-                  className={`relative flex items-center w-full px-4 pl-[52px] py-2.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 ${
-                    isChildActive
-                      ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)]"
-                      : "text-white/80 font-medium hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {isChildActive && (
-                    <span className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[6px] h-4 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.35)]" />
-                  )}
-                  <span className="truncate">{childItem.label}</span>
-                  {isChildActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.25)] flex-shrink-0" />
-                  )}
-                </button>
-              );
-            })}
+            <div className="flex flex-col items-stretch gap-1.5">
+              {module.children!.map((childItem) => {
+                const isChildActive = childPathMatches(
+                  childItem,
+                  pathname,
+                  search,
+                );
+                return (
+                  <button
+                    key={childItem.path}
+                    type="button"
+                    onClick={() => navigateAndClose(childItem.path)}
+                    aria-current={isChildActive ? "page" : undefined}
+                    className={`relative ml-[32px] flex items-center pl-5 pr-3 py-1.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 active:scale-[0.97] ${
+                      isChildActive
+                        ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)] ring-1 ring-inset ring-white/10 animate-in fade-in duration-200"
+                        : "text-white/80 font-medium hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`absolute top-1/2 -translate-y-1/2 left-[-5px] h-2 w-2 rounded-full transition-colors duration-200 ${
+                        isChildActive
+                          ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.55)] animate-in fade-in zoom-in-75 duration-200"
+                          : "border border-white/45 bg-white/5"
+                      }`}
+                    />
+                    <span className="truncate">{childItem.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -349,7 +353,9 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
                     >
                       {section.label}
                     </div>
-                    {section.items.map(renderModuleItem)}
+                    <div className="flex flex-col space-y-1.5">
+                      {section.items.map(renderModuleItem)}
+                    </div>
                   </div>
                 ))
               ) : (

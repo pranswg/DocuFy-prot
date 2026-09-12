@@ -521,12 +521,12 @@ export default function Layout({
         </button>
 
         {hasChildren && isExpanded && showLabels && (
-          <div className={`relative flex flex-col items-stretch w-full ${animatedModules.has(module.path) ? "animate-in fade-in slide-in-from-top-1 duration-150" : ""}`}>
+          <div className={`relative flex flex-col items-stretch w-full mt-1.5 ${animatedModules.has(module.path) ? "animate-in fade-in slide-in-from-top-1 duration-150" : ""}`}>
             <span
               aria-hidden="true"
-              className="absolute left-[36px] top-2 bottom-2 w-[2px] rounded-full bg-white/20 pointer-events-none"
+              className="absolute left-[30px] top-1 bottom-1 w-[2px] rounded-full bg-white/30 pointer-events-none"
             />
-            <div className="flex flex-col items-stretch">
+            <div className="flex flex-col items-stretch gap-1.5">
               {module.children!.map((child) => {
                 const isChildActive = childPathMatches(
                   child,
@@ -541,19 +541,21 @@ export default function Layout({
                     onMouseEnter={(e) => showSidebarTooltip(child.label, e)}
                     onMouseLeave={hideSidebarTooltip}
                     aria-current={isChildActive ? "page" : undefined}
-                    className={`relative flex items-center w-full px-4 pl-[52px] py-2.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 active:scale-[0.97] ${
+                    className={`relative ml-[32px] flex items-center pl-5 pr-3 py-1.5 rounded-lg text-[13px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D73EC]/40 active:scale-[0.97] ${
                       isChildActive
-                        ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)] animate-in fade-in duration-200"
+                        ? "bg-white/15 text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(13,49,115,0.15)] ring-1 ring-inset ring-white/10 animate-in fade-in duration-200"
                         : "text-white/80 font-medium hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    {isChildActive && (
-                      <span className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[6px] h-4 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.35)] animate-in fade-in slide-in-from-left-1 duration-200" />
-                    )}
+                    <span
+                      aria-hidden="true"
+                      className={`absolute top-1/2 -translate-y-1/2 left-[-5px] h-2 w-2 rounded-full transition-colors duration-200 ${
+                        isChildActive
+                          ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.55)] animate-in fade-in zoom-in-75 duration-200"
+                          : "border border-white/45 bg-white/5"
+                      }`}
+                    />
                     <span className="truncate">{child.label}</span>
-                    {isChildActive && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.25)] flex-shrink-0 animate-in fade-in zoom-in-75 duration-200" />
-                    )}
                   </button>
                 );
               })}
@@ -832,7 +834,9 @@ export default function Layout({
                   >
                     {section.label}
                   </div>
-                  {section.items.map(renderModuleItem)}
+                  <div className="flex flex-col space-y-1.5">
+                    {section.items.map(renderModuleItem)}
+                  </div>
                 </div>
               ))
             ) : (
@@ -1052,7 +1056,7 @@ export default function Layout({
                       setIsNotificationOpen(false);
                     }}
                   />
-                  <div className={`absolute right-0 mt-2 w-[min(24rem,calc(var(--docufy-vw,100vw)-1.5rem))] max-h-[min(32rem,calc(var(--docufy-vh,100vh)-6rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                  <div className={`absolute right-0 mt-2 w-[min(24rem,calc(100vw-1.5rem))] max-h-[min(32rem,calc(100vh-6rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 z-20 ${notificationPresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
                     <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
                       <h3 className="font-bold text-base text-gray-900">Notifications</h3>
                       {combinedUnread > 0 && (

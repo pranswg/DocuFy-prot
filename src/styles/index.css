@@ -1,25 +1,3 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
-
-/* ── Auto-scale viewport-height remap ───────────────────────────────
-   A CSS `zoom` applied to <html> does NOT rescale viewport units in
-   Chromium: `100vh` keeps reporting the un-zoomed innerHeight while `100%`
-   correctly resolves to innerHeight/zoom. That would make any full-height
-   shell (min-h-screen / h-screen) visually shorter than the window and let
-   the white body background show at the bottom as a white box.
-   screenScale.ts publishes the true layout-space viewport height as
-   --docufy-vh (and width as --docufy-vw); both are removed when zoom is 1.
-   We remap the screen-height utilities to them. These rules are UN-layered,
-   which beats the layered Tailwind utilities. When the variables are unset
-   they fall back to plain 100vh / 100vw, so behavior is identical whenever
-   auto-scaling is inactive. */
-.min-h-screen,
-.min-h-\[100dvh\] {
-  min-height: var(--docufy-vh, 100vh);
-}
-
-.h-screen,
-.h-svh {
-  height: var(--docufy-vh, 100vh);
-}

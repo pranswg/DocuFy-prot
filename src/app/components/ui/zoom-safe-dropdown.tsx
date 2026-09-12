@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, Check } from "lucide-react";
 
 /**
- * Zoom-safe dropdown using CSS absolute positioning (no Radix portal).
+ * Plain anchored dropdown.
  *
- * Radix Select's floating-ui popper mis-measures under CSS `zoom` on <html>,
- * so this replaces portaled selects with a plain anchored list.
+ * The trigger is wrapped in a `relative` container and the list renders as an
+ * `absolute` child underneath it, so it stays aligned to the trigger at any
+ * browser zoom without any portal or viewport measurement.
  */
 export function ZoomSafeDropdown({
   value,

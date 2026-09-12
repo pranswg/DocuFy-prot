@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   UserCheck,
@@ -9,9 +10,11 @@ import {
   MoreHorizontal,
   Pencil,
   Clock,
+  AlarmClock,
   Trash2,
   X,
   CalendarDays,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -31,19 +34,6 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "../ui/dropdown-menu";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../ui/tabs";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   attendanceStore,
@@ -61,6 +51,7 @@ import {
   getStaffRoster,
   seedDemoAttendance,
   toDateKey,
+  DEFAULT_STAFF_SHIFT,
 } from "../../utils/staffRoster";
 import type { StaffMember } from "../../utils/staffRoster";
 
@@ -84,6 +75,10 @@ type AdminRow = {
 
 const LATE_CUTOFF = { hour: 8, minute: 30 };
 const MS_PER_HOUR = 3_600_000;
+
+// Fallbacks for staff who lack the (optional) roster metadata.
+const roleOf = (m: StaffMember): "Staff" | "Admin" => m.role ?? "Staff";
+const scheduleOf = (m: StaffMember): string => m.shift ?? DEFAULT_STAFF_SHIFT;
 
 // ── Row builders ────────────────────────────────────────────────────────────
 function buildRow(
@@ -155,7 +150,7 @@ function buildRangeRows(
     .map(l => {
       const member =
         byEmail.get(l.userId.toLowerCase()) ??
-        { id: l.id, name: l.userName, email: l.userId, position: "Staff" };
+        { id: l.id, name: l.userName, email: l.userId, position: "Staff", role: "Staff", shift: DEFAULT_STAFF_SHIFT };
       return buildRow(member, l.date, now, l);
     });
 }
@@ -205,9 +200,10 @@ export default function AdminAttendancePage() {
   const [now, setNow] = useState(new Date());
   const [version, setVersion] = useState(0);
 
-  const [activeTab, setActiveTab] = useState("attendance");
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [shiftFilter, setShiftFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState(todayKey);
   const [dateTo, setDateTo] = useState(todayKey);
 
@@ -231,6 +227,21 @@ export default function AdminAttendancePage() {
   const isRange = dateFrom !== dateTo;
 
   const members = useMemo(() => getStaffRoster(), [version]);
+
+  // Distinct filter option sets derived from the roster (today's rows only, so
+  // the lists match what the records can actually show).
+  const filterOptions = useMemo(() => {
+    const roles = new Set<"Staff" | "Admin">();
+    const shifts = new Set<string>();
+    for (const m of members) {
+      roles.add(roleOf(m));
+      shifts.add(scheduleOf(m));
+    }
+    return {
+      roles: [...roles].sort((a, b) => a.localeCompare(b)),
+      shifts: [...shifts].sort((a, b) => a.localeCompare(b)),
+    };
+  }, [members]);
 
   const todayRows = useMemo(
     () => buildDayRows(members, todayKey, now),
@@ -260,6 +271,8 @@ export default function AdminAttendancePage() {
         !q ||
         r.member.name.toLowerCase().includes(q) ||
         r.member.email.toLowerCase().includes(q);
+      const matchRole = roleFilter === "all" || roleOf(r.member) === roleFilter;
+      const matchShift = shiftFilter === "all" || scheduleOf(r.member) === shiftFilter;
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "on-time" && r.onTime) ||
@@ -268,15 +281,7 @@ export default function AdminAttendancePage() {
         (statusFilter === "no-clock-in" && r.presence === "no-clock-in") ||
         (statusFilter === "absent" && r.presence === "absent") ||
         (statusFilter === "on-leave" && r.presence === "on-leave");
-      const matchTab =
-        activeTab === "attendance"
-          ? true
-          : activeTab === "overtime"
-            ? r.overtime
-            : activeTab === "time-off"
-              ? r.absence !== null
-              : r.presence === "present";
-      return matchSearch && matchStatus && matchTab;
+      return matchSearch && matchRole && matchShift && matchStatus;
     });
     if (isRange) {
       rows.sort((a, b) =>
@@ -286,11 +291,13 @@ export default function AdminAttendancePage() {
       );
     }
     return rows;
-  }, [baseRows, searchQuery, statusFilter, activeTab, isRange]);
+  }, [baseRows, searchQuery, roleFilter, shiftFilter, statusFilter, isRange]);
 
   const resetFilters = () => {
     setSearchQuery("");
+    setRoleFilter("all");
     setStatusFilter("all");
+    setShiftFilter("all");
     setDateFrom(todayKey);
     setDateTo(todayKey);
   };
@@ -349,7 +356,7 @@ export default function AdminAttendancePage() {
     if (row.presence !== "present") {
       const style =
         row.presence === "on-leave"
-          ? "bg-amber-100 text-amber-700 border-amber-200"
+          ? "bg-orange-100 text-orange-700 border-orange-200"
           : row.presence === "absent"
             ? "bg-red-100 text-red-700 border-red-200"
             : "bg-gray-100 text-gray-500 border-gray-200";
@@ -365,7 +372,7 @@ export default function AdminAttendancePage() {
       <span className="flex flex-wrap gap-1">
         {row.onTime && <Badge className="border border-green-200 bg-green-100 text-green-700">On Time</Badge>}
         {row.late && <Badge className="border border-amber-200 bg-amber-100 text-amber-700">Late</Badge>}
-        {row.overtime && <Badge className="border border-blue-200 bg-blue-100 text-blue-700">Overtime</Badge>}
+        {row.overtime && <Badge className="border border-purple-200 bg-purple-100 text-purple-700">Overtime</Badge>}
         {row.exceeded && (
           <Badge className="border border-amber-200 bg-amber-100 text-amber-700">Exceeded</Badge>
         )}
@@ -379,13 +386,19 @@ export default function AdminAttendancePage() {
     );
   };
 
+  // Staff who are on the clock right now (drives the "Currently Working" strip).
+  const liveRows = useMemo(
+    () => todayRows.filter(r => r.isLive),
+    [todayRows],
+  );
+
   const renderTable = () => (
-    <Card className="overflow-hidden border border-slate-100 shadow-sm">
-      <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-gray-100">
+    <Card className="gap-0 overflow-hidden border border-slate-100 shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
         <div className="min-w-0">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Clock className="h-5 w-5 text-[#2F6FD6]" />
-            {isRange ? "Attendance Log" : "Daily Attendance Log"}
+            Staff Attendance Records
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
             {isRange ? fmtLongDay(dateFrom) + " → " + fmtLongDay(dateTo) : fmtLongDay(dateFrom)}
@@ -408,11 +421,12 @@ export default function AdminAttendancePage() {
               {isRange && (
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
               )}
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Staff Name</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Staff Member</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock-In</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock-Out</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hours Rendered</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Schedule</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock In</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Clock Out</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hours Worked</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
             </tr>
@@ -442,7 +456,23 @@ export default function AdminAttendancePage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{row.member.position}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Badge
+                      className={
+                        roleOf(row.member) === "Admin"
+                          ? "bg-[#1D73EC]/10 text-[#1D73EC] border border-[#1D73EC]/20"
+                          : "bg-gray-100 text-gray-700 border border-gray-200"
+                      }
+                    >
+                      {roleOf(row.member) === "Admin" ? (
+                        <Shield className="w-3 h-3" />
+                      ) : (
+                        <span className="w-3 h-3" />
+                      )}
+                      {roleOf(row.member)}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{scheduleOf(row.member)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 tabular-nums">
                     {row.clockIn ? fmtTime(row.clockIn) : "—"}
                   </td>
@@ -462,54 +492,20 @@ export default function AdminAttendancePage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{renderStatus(row)}</td>
                   <td className="px-6 py-4 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 cursor-pointer text-gray-500 hover:text-[#2F6FD6]"
-                          aria-label="Actions"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-[200px]">
-                        <DropdownMenuItem className="cursor-pointer" onSelect={() => openAdjust(row, "timeIn")}>
-                          <Pencil className="h-4 w-4" />
-                          Adjust Clock-In Time
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer" onSelect={() => openAdjust(row, "timeOut")}>
-                          <Clock className="h-4 w-4" />
-                          Adjust Clock-Out Time
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className={`cursor-pointer ${row.absence === "on-leave" ? "text-amber-600" : ""}`}
-                          onSelect={() => setAbsenceTarget({ row, type: "on-leave" })}
-                        >
-                          <PlaneTakeoff className="h-4 w-4" />
-                          {row.absence === "on-leave" ? "Clear On Leave" : "Mark On Leave"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className={`cursor-pointer ${row.absence === "absent" ? "text-red-600" : ""}`}
-                          onSelect={() => setAbsenceTarget({ row, type: "absent" })}
-                        >
-                          <UserX className="h-4 w-4" />
-                          {row.absence === "absent" ? "Clear Absent" : "Mark Absent"}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer text-red-600" onSelect={() => setResetTarget(row)}>
-                          <Trash2 className="h-4 w-4" />
-                          Reset Day's Record
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu
+                      row={row}
+                      onAdjustTimeIn={() => openAdjust(row, "timeIn")}
+                      onAdjustTimeOut={() => openAdjust(row, "timeOut")}
+                      onMarkLeave={() => setAbsenceTarget({ row, type: "on-leave" })}
+                      onMarkAbsent={() => setAbsenceTarget({ row, type: "absent" })}
+                      onResetDay={() => setResetTarget(row)}
+                    />
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={isRange ? 9 : 8}>
+                <td colSpan={isRange ? 10 : 9}>
                   <div className="flex flex-col items-center justify-center py-14 text-gray-500">
                     <Users className="w-10 h-10 mb-3 opacity-40" />
                     <p className="text-sm font-medium">No staff match these filters</p>
@@ -535,11 +531,11 @@ export default function AdminAttendancePage() {
 
   return (
     <Layout menuItems={adminMenuItems} title="Attendance & Staff Monitoring">
-      <div className="space-y-6 pb-10">
+      <div className="space-y-5 pb-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
           <p className="text-gray-600">
-            Monitoring of staff clock-in logs, attendance status, and time-off records.
+            Monitor staff clock-ins, attendance status, schedules, and time-off records.
           </p>
           {kpis.live > 0 && (
             <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
@@ -549,145 +545,222 @@ export default function AdminAttendancePage() {
           )}
         </div>
 
-        {/* Tab navigation */}
-        <Tabs defaultValue="attendance" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-            <TabsTrigger value="overtime">Overtime</TabsTrigger>
-            <TabsTrigger value="time-off">Time Off</TabsTrigger>
-            <TabsTrigger value="work-time">Work Time</TabsTrigger>
-          </TabsList>
+        {/* Overview KPI cards */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[980px]:grid-cols-4">
+          {[
+            {
+              id: "kpi-total",
+              label: "Total Staff",
+              val: kpis.total,
+              icon: Users,
+              iconBg: "bg-blue-50",
+              iconCls: "text-[#2F6FD6]",
+              desc: `${kpis.live} on clock now · ${kpis.away} on leave`,
+            },
+            {
+              id: "kpi-ontime",
+              label: "On Time Today",
+              val: kpis.onTime,
+              icon: UserCheck,
+              iconBg: "bg-green-50",
+              iconCls: "text-green-600",
+              desc: `${kpis.present} staff present today`,
+            },
+            {
+              id: "kpi-late",
+              label: "Late Today",
+              val: kpis.late,
+              icon: AlarmClock,
+              iconBg: "bg-amber-50",
+              iconCls: "text-amber-600",
+              desc: "Arrived after 8:30 AM",
+            },
+            {
+              id: "kpi-absent",
+              label: "Absent Today",
+              val: kpis.absent,
+              icon: UserX,
+              iconBg: "bg-red-50",
+              iconCls: "text-red-600",
+              desc: `${kpis.noClock} no clock-in · ${kpis.away} on leave`,
+            },
+          ].map(kpi => (
+            <SummaryCard
+              key={kpi.id}
+              label={kpi.label}
+              value={kpi.val}
+              icon={kpi.icon}
+              iconBg={kpi.iconBg}
+              iconColor={kpi.iconCls}
+              subtitle={kpi.desc}
+            />
+          ))}
+        </div>
 
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[980px]:grid-cols-4 mt-6">
-            {[
-              {
-                id: "kpi-total",
-                label: "Total Staff",
-                val: kpis.total,
-                icon: Users,
-                iconBg: "bg-blue-50",
-                iconCls: "text-[#2F6FD6]",
-                desc: `${kpis.live} on clock now`,
-              },
-              {
-                id: "kpi-present",
-                label: "Present",
-                val: kpis.present,
-                icon: UserCheck,
-                iconBg: "bg-green-50",
-                iconCls: "text-green-600",
-                desc: `${kpis.onTime} on time · ${kpis.late} late`,
-              },
-              {
-                id: "kpi-nonpresent",
-                label: "Non-Present",
-                val: kpis.absent + kpis.noClock,
-                icon: UserX,
-                iconBg: "bg-red-50",
-                iconCls: "text-red-600",
-                desc: `${kpis.absent} absent · ${kpis.noClock} no clock-in`,
-              },
-              {
-                id: "kpi-away",
-                label: "Away (On Leave)",
-                val: kpis.away,
-                icon: PlaneTakeoff,
-                iconBg: "bg-amber-50",
-                iconCls: "text-amber-600",
-                desc: `${kpis.away} staff on approved leave`,
-              },
-            ].map(kpi => (
-              <SummaryCard
-                key={kpi.id}
-                label={kpi.label}
-                value={kpi.val}
-                icon={kpi.icon}
-                iconBg={kpi.iconBg}
-                iconColor={kpi.iconCls}
-                subtitle={kpi.desc}
-              />
-            ))}
-          </div>
-
-          {/* Filter & Search bar */}
-          <Card className="p-4 border border-slate-100 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-              <div className="w-full sm:max-w-xs">
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
-                <div className="relative mt-1.5">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <Input
-                    aria-label="Search by staff name or email"
-                    placeholder="Search by staff name or email..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
-                  />
-                </div>
-              </div>
-              <div className="w-full lg:w-40">
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    max={dateTo}
-                    onChange={e => setDateFrom(e.target.value || todayKey)}
-                    className="pr-10"
-                  />
-                  <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-              <div className="w-full lg:w-40">
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom}
-                    onChange={e => setDateTo(e.target.value || todayKey)}
-                    className="pr-10"
-                  />
-                  <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-              <div className="w-full lg:w-48">
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
-                <ZoomSafeDropdown
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  placeholder="All Statuses"
-                  icon={<Filter className="w-4 h-4 text-gray-500" />}
-                  className="mt-1.5"
-                  options={[
-                    { value: "all", label: "All Statuses" },
-                    { value: "on-time", label: "On Time" },
-                    { value: "late", label: "Late" },
-                    { value: "overtime", label: "Overtime" },
-                    { value: "no-clock-in", label: "No Clock-In" },
-                    { value: "absent", label: "Absent" },
-                    { value: "on-leave", label: "On Leave" },
-                  ]}
+        {/* Filters */}
+        <Card className="p-4 border border-slate-100 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-end gap-4">
+            <div className="w-full sm:max-w-xs lg:flex-1 lg:min-w-[200px]">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search Staff</Label>
+              <div className="relative mt-1.5">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  aria-label="Search by staff name or email"
+                  placeholder="Search by staff name or email..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[#FBFDFF] border-gray-200 shadow-sm ring-1 ring-blue-300 rounded-lg"
                 />
               </div>
-              <Button
-                variant="outline"
-                className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
-                onClick={resetFilters}
-              >
-                <X className="h-4 w-4" />
-                Clear
-              </Button>
             </div>
-          </Card>
+            <div className="w-full lg:w-44">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Role</Label>
+              <ZoomSafeDropdown
+                value={roleFilter}
+                onChange={setRoleFilter}
+                placeholder="All Roles"
+                icon={<Users className="w-4 h-4 text-gray-500" />}
+                className="mt-1.5"
+                options={[
+                  { value: "all", label: "All Roles" },
+                  ...filterOptions.roles.map(r => ({ value: r, label: r })),
+                ]}
+              />
+            </div>
+            <div className="w-full lg:w-44">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
+              <ZoomSafeDropdown
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="All Statuses"
+                icon={<Filter className="w-4 h-4 text-gray-500" />}
+                className="mt-1.5"
+                options={[
+                  { value: "all", label: "All Statuses" },
+                  { value: "on-time", label: "On Time" },
+                  { value: "late", label: "Late" },
+                  { value: "overtime", label: "Overtime" },
+                  { value: "no-clock-in", label: "No Clock-In" },
+                  { value: "absent", label: "Absent" },
+                  { value: "on-leave", label: "On Leave" },
+                ]}
+              />
+            </div>
+            <div className="w-full lg:w-48">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Shift</Label>
+              <ZoomSafeDropdown
+                value={shiftFilter}
+                onChange={setShiftFilter}
+                placeholder="All Shifts"
+                icon={<Clock className="w-4 h-4 text-gray-500" />}
+                className="mt-1.5"
+                options={[
+                  { value: "all", label: "All Shifts" },
+                  ...filterOptions.shifts.map(s => ({ value: s, label: s })),
+                ]}
+              />
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date From</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo}
+                  onChange={e => setDateFrom(e.target.value || todayKey)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="w-full lg:w-40">
+              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date To</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom}
+                  onChange={e => setDateTo(e.target.value || todayKey)}
+                  className="pr-10"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="h-10 border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+              onClick={resetFilters}
+            >
+              <X className="h-4 w-4" />
+              Clear Filters
+            </Button>
+          </div>
+        </Card>
 
-          {/* Table per tab */}
-          <TabsContent value="attendance">{renderTable()}</TabsContent>
-          <TabsContent value="overtime">{renderTable()}</TabsContent>
-          <TabsContent value="time-off">{renderTable()}</TabsContent>
-          <TabsContent value="work-time">{renderTable()}</TabsContent>
-        </Tabs>
+        {/* Currently Working */}
+<Card className="gap-0 overflow-hidden border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                </span>
+                Currently Working
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Staff clocked in right now — live working time
+              </p>
+            </div>
+            <Badge className="border border-green-200 bg-green-50 text-green-700 shrink-0">
+              {liveRows.length} on clock now
+            </Badge>
+          </div>
+          <div className="p-4">
+            {liveRows.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 @min-[980px]:grid-cols-3 gap-3">
+                {liveRows.map(r => (
+                  <div
+                    key={r.key}
+                    className="flex items-center gap-3 rounded-xl border border-green-200/70 bg-green-50/40 p-3"
+                  >
+                    <div className="relative shrink-0">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1D73EC] text-xs font-bold text-white">
+                        {initialsOf(r.member.name)}
+                      </span>
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[#1c1f26]">{r.member.name}</p>
+                      <p className="truncate text-xs text-gray-500">{roleOf(r.member)}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Clocked In:{" "}
+                          <span className="font-semibold text-slate-700">{r.clockIn ? fmtTime(r.clockIn) : "—"}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <AlarmClock className="h-3 w-3" />
+                          Working:{" "}
+                          <span className="font-semibold text-green-700 tabular-nums">{fmtHms(r.totalMs)}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                <Users className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm font-medium text-gray-500">No staff are currently clocked in</p>
+                <p className="text-xs mt-1">Staff appear here the moment they clock in.</p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Attendance records table */}
+        {renderTable()}
 
         {/* Adjust dialog */}
         <Dialog open={!!adjust} onOpenChange={open => !open && setAdjust(null)}>
@@ -775,5 +848,153 @@ export default function AdminAttendancePage() {
         )}
       </div>
     </Layout>
+  );
+}
+
+// Row actions menu: rendered through a portal with `position: fixed`
+// coordinates taken from the trigger button's own rect, so it always opens
+// right under the ⋮ button even inside the scrollable table.
+function RowActionsMenu({
+  row,
+  onAdjustTimeIn,
+  onAdjustTimeOut,
+  onMarkLeave,
+  onMarkAbsent,
+  onResetDay,
+}: {
+  row: AdminRow;
+  onAdjustTimeIn: () => void;
+  onAdjustTimeOut: () => void;
+  onMarkLeave: () => void;
+  onMarkAbsent: () => void;
+  onResetDay: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    // Clamp so the menu never extends past the right or bottom edge of the
+    // visible viewport (used when a row sits at the far-right/bottom).
+    const menuW = 200;
+    const menuH = 232;
+    const left = rect.left;
+    const topBelow = rect.bottom + 4;
+    setPos({
+      left: Math.min(left, Math.max(0, window.innerWidth - menuW - 8)),
+      top:
+        topBelow + menuH > window.innerHeight
+          ? rect.top - menuH - 4
+          : topBelow,
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const onDocDown = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const onMove = () => updatePosition();
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open]);
+
+  const run = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+
+  return (
+    <>
+      <Button
+        ref={triggerRef as React.Ref<HTMLButtonElement>}
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 cursor-pointer text-gray-500 hover:text-white"
+        aria-label="Actions"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: pos.top, left: pos.left }}
+            className="z-50 min-w-[200px] origin-top-left rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+          >
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-gray-100"
+              onClick={run(onAdjustTimeIn)}
+            >
+              <Pencil className="h-4 w-4 shrink-0 text-gray-500" />
+              Adjust Clock-In Time
+            </button>
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-gray-100"
+              onClick={run(onAdjustTimeOut)}
+            >
+              <Clock className="h-4 w-4 shrink-0 text-gray-500" />
+              Adjust Clock-Out Time
+            </button>
+            <div className="my-1 h-px bg-gray-100" />
+            <button
+              type="button"
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-gray-100 ${
+                row.absence === "on-leave" ? "text-amber-600" : ""
+              }`}
+              onClick={run(onMarkLeave)}
+            >
+              <PlaneTakeoff className="h-4 w-4 shrink-0 text-gray-500" />
+              {row.absence === "on-leave" ? "Clear On Leave" : "Mark On Leave"}
+            </button>
+            <button
+              type="button"
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-gray-100 ${
+                row.absence === "absent" ? "text-red-600" : ""
+              }`}
+              onClick={run(onMarkAbsent)}
+            >
+              <UserX className="h-4 w-4 shrink-0 text-gray-500" />
+              {row.absence === "absent" ? "Clear Absent" : "Mark Absent"}
+            </button>
+            <div className="my-1 h-px bg-gray-100" />
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 hover:bg-gray-100"
+              onClick={run(onResetDay)}
+            >
+              <Trash2 className="h-4 w-4 shrink-0 text-gray-500" />
+              Reset Day's Record
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
