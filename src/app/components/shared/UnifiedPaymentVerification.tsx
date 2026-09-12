@@ -667,7 +667,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-4 shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 @min-[1100px]:grid-cols-5 gap-3 mb-4 shrink-0">
           <SummaryCard
             label="Pending Verification"
             value={stats.pending}

@@ -1640,7 +1640,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   </p>
                 </div>
 
-                <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
+                <div className="space-y-4 @min-[640px]:grid @min-[640px]:grid-cols-2 @min-[640px]:gap-4 @min-[640px]:space-y-0">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Paper Size</Label>
                   <ZoomSafeDropdown
@@ -1922,7 +1922,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               Pick what type of printing this file needs. Print settings unlock
                               once a type is selected.
                             </p>
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                            <div className="grid grid-cols-2 gap-2 @min-[720px]:grid-cols-4 @min-[720px]:gap-3">
                               {(["document", "vellum", "sticker", "photo"] as const).map((pt) => {
                                 const selected = fileData.printType === pt;
                                 const label =
@@ -1988,7 +1988,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               No photo paper in stock
                             </span>
                           )}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-start">
+                          <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-3 sm:gap-4 items-start">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Photo Size</Label>
                           <ZoomSafeDropdown
@@ -2033,11 +2033,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             </div>
                           </div>
                           <div className="pt-3 mt-3 border-t border-gray-300">
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                               <span className="text-sm font-medium text-gray-700">
                                 Subtotal for this file:
                               </span>
-                              <span className="text-lg font-semibold text-[#2F6FD6]">
+                              <span className="shrink-0 whitespace-nowrap text-lg font-semibold text-[#2F6FD6]">
                                 {formatCurrency(calculateFileTotal(fileData))}
                               </span>
                             </div>
@@ -2045,10 +2045,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       ) : (
                         <>
-                          <div className="space-y-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:space-y-0">
-                            <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                          <div className="space-y-4 @min-[640px]:grid @min-[640px]:grid-cols-2 @min-[640px]:gap-4 @min-[640px]:space-y-0 @min-[960px]:grid-cols-3">
+                            <div className="flex items-center justify-between gap-3 @min-[640px]:block @min-[640px]:space-y-2">
                               <Label className="text-sm font-medium shrink-0">Paper Size</Label>
-                              <div className="w-[55%] shrink-0 sm:w-full">
+                              <div className="w-[55%] shrink-0 @min-[640px]:w-full">
 <ZoomSafeDropdown
                             value={fileData.paperSize}
                             onChange={(value) => updateFileOption(fileData.id, "paperSize", value)}
@@ -2066,9 +2066,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           />
                               </div>
                             </div>
-                            <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                            <div className="flex items-center justify-between gap-3 @min-[640px]:block @min-[640px]:space-y-2">
                               <Label className="text-sm font-medium shrink-0">Number of Copies</Label>
-                              <div className="w-[55%] shrink-0 sm:w-full">
+                              <div className="w-[55%] shrink-0 @min-[640px]:w-full">
                                 <NumberStepper
                                   min={1}
                                   value={fileData.copies}
@@ -2076,10 +2076,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 />
                               </div>
                             </div>
-                            <div className="sm:block">
-                              <div className="flex items-center justify-between gap-3 sm:block sm:space-y-2">
+                            <div className="@min-[640px]:col-span-2 @min-[960px]:col-span-1">
+                              <div className="flex items-center justify-between gap-3 @min-[640px]:block @min-[640px]:space-y-2">
                                 <Label className="text-sm font-medium shrink-0">Page Range</Label>
-                                <div className="w-[55%] shrink-0 sm:w-full">
+                                <div className="w-[55%] shrink-0 @min-[640px]:w-full">
                                   <ZoomSafeDropdown
                                     value={fileData.pageRange}
                                     onChange={(value) =>
@@ -2142,7 +2142,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           </div>
 
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                               <Label className="text-sm font-medium">Additional Notes (Optional)</Label>
                               <span className="text-xs text-gray-500">
                                 {fileData.notes.length}/100
@@ -2198,9 +2198,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           </div>
 
                           <div className="pt-3 mt-3 border-t border-gray-300">
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                               <span className="text-sm font-medium text-gray-700">Subtotal for this file:</span>
-                              <span className="text-lg font-semibold text-[#2F6FD6]">
+                              <span className="shrink-0 whitespace-nowrap text-lg font-semibold text-[#2F6FD6]">
                                 {formatCurrency(calculateFileTotal(fileData))}
                               </span>
                             </div>
@@ -2288,29 +2288,30 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 @min-[700px]:grid-cols-2 gap-4">
                 {availableAddons.map((addon) => {
                   const quantity = selectedAddons[addon.id] || 0;
                   return (
                     <Card key={addon.id} className="p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
+                      <div className="flex flex-wrap items-start gap-x-3 gap-y-1 mb-3">
+                        <div className="min-w-[10rem] flex-1">
                           <h3 className="font-semibold text-gray-900">{addon.name}</h3>
                           <p className="text-xs text-gray-600 mt-1">{addon.description}</p>
                           <p className="text-sm font-bold text-[#2F6FD6] mt-2">
                             ₱{addon.price} / {addon.unit}
                           </p>
                         </div>
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded capitalize">
+                        <span className="shrink-0 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded capitalize">
                           {addon.category}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 mt-4">
+                      <div className="flex flex-wrap items-center gap-3 mt-4">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="shrink-0"
                           onClick={() => {
                             setSelectedAddons((prev) => ({
                               ...prev,
@@ -2333,13 +2334,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               [addon.id]: Math.max(0, value),
                             }));
                           }}
-                          className="w-20 text-center text-lg font-bold"
+                          className="w-20 shrink-0 text-center text-lg font-bold"
                         />
 
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="shrink-0"
                           onClick={() => {
                             setSelectedAddons((prev) => ({
                               ...prev,
@@ -2351,7 +2353,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </Button>
 
                         {quantity > 0 && (
-<span className="ml-auto text-sm font-semibold text-blue-600">
+<span className="ml-auto shrink-0 whitespace-nowrap text-sm font-semibold text-blue-600">
     ₱{Math.round(addon.price * quantity)}
   </span>
 )}
@@ -2372,11 +2374,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       const addon = availableAddons.find((a) => a.id === addonId);
                       if (!addon) return null;
                       return (
-                        <div key={addonId} className="flex justify-between text-sm">
+                        <div key={addonId} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
                           <span className="text-gray-700">
                             {addon.name} × {qty}
                           </span>
-                          <span className="font-semibold text-gray-900">
+                          <span className="shrink-0 whitespace-nowrap font-semibold text-gray-900">
                             ₱{Math.round(addon.price * qty)}
                           </span>
                         </div>
@@ -2491,9 +2493,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   </Card>
 
                   <div className="p-6 bg-[#2F6FD6] text-white rounded-lg">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                       <p className="text-lg">Total to Collect</p>
-                      <p className="text-3xl font-semibold">{formatCurrency(photocopyPrice)}</p>
+                      <p className="text-3xl font-semibold shrink-0 whitespace-nowrap">{formatCurrency(photocopyPrice)}</p>
                     </div>
                     {photocopyManualPrice.trim() === "" && (
                       <p className="text-xs text-white/80 mt-2">
@@ -2569,7 +2571,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       )}
                       <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Subtotal:</span>
-                        <span className="font-semibold text-[#2F6FD6]">
+                        <span className="shrink-0 whitespace-nowrap font-semibold text-[#2F6FD6]">
                           {formatCurrency(calculateFileTotal(fileData))}
                         </span>
                       </div>
@@ -2588,11 +2590,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         const addon = availableAddons.find((a) => a.id === addonId);
                         if (!addon) return null;
                         return (
-                          <div key={addonId} className="flex justify-between text-sm">
+                          <div key={addonId} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
                             <span className="text-gray-700">
                               {addon.name} × {qty}
                             </span>
-                            <span className="font-semibold text-gray-900">
+                            <span className="shrink-0 whitespace-nowrap font-semibold text-gray-900">
                               ₱{(addon.price * qty).toFixed(2)}
                             </span>
                           </div>
@@ -2603,9 +2605,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               )}
 
               <div className="p-6 bg-[#2F6FD6] text-white rounded-lg">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                   <p className="text-lg">Total Amount</p>
-                  <p className="text-3xl font-semibold">{formatCurrency(calculateTotal())}</p>
+                  <p className="text-3xl font-semibold shrink-0 whitespace-nowrap">{formatCurrency(calculateTotal())}</p>
                 </div>
               </div>
                 </>
@@ -2670,7 +2672,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             : "Plain Paper"}
                     </p>
                     {fileData.printType === "photo" ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
+                      <div className="grid grid-cols-1 @min-[560px]:grid-cols-2 gap-2 sm:gap-3 text-sm">
                         <div>
                           <p className="text-gray-600">Photo Size</p>
                           <p className="font-medium text-gray-900">
@@ -2691,7 +2693,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
+                      <div className="grid grid-cols-1 @min-[560px]:grid-cols-2 gap-2 sm:gap-3 text-sm">
                         <div>
                           <p className="text-gray-600">Pages</p>
                           <p className="font-medium text-gray-900">
@@ -2785,7 +2787,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     )}
                     <div className="mt-2 pt-2 border-t border-gray-300 flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-700">Subtotal:</span>
-                      <span className="font-semibold text-[#2F6FD6]">
+                      <span className="shrink-0 whitespace-nowrap font-semibold text-[#2F6FD6]">
                         {formatCurrency(calculateFileTotal(fileData))}
                       </span>
                     </div>
@@ -2805,19 +2807,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           const addon = availableAddons.find((a) => a.id === addonId);
                           if (!addon) return null;
                           return (
-                            <div key={addonId} className="flex justify-between text-sm">
+                            <div key={addonId} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
                               <span className="text-gray-700">
                                 {addon.name} × {qty}
                               </span>
-                              <span className="font-semibold text-gray-900">
+                              <span className="shrink-0 whitespace-nowrap font-semibold text-gray-900">
                                 ₱{Math.round(addon.price * qty)}
                               </span>
                             </div>
                           );
                         })}
-                      <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-bold">
+                      <div className="border-t border-blue-200 pt-2 mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 font-bold">
                         <span>Add-ons Subtotal:</span>
-                        <span className="text-blue-700">
+                        <span className="shrink-0 whitespace-nowrap text-blue-700">
                           {formatCurrency(
                             Object.entries(selectedAddons).reduce(
                               (sum, [addonId, qty]) => {
@@ -2858,7 +2860,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     Select Payment Method
                   </h3>
                   <RadioGroup className="mt-3 sm:mt-0" value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 @min-[720px]:grid-cols-2 @min-[720px]:gap-4">
                       {onlineMethods.map((method) => {
   return (
     <div
@@ -2874,11 +2876,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
       )}
       <RadioGroupItem value={method.name} id={`pm-${method.id}`} />
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
         <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-100">
           <Smartphone className="w-5 h-5 text-[#2F6FD6]" />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[8rem] flex-1">
           <Label htmlFor={`pm-${method.id}`} className="font-semibold cursor-pointer text-gray-900">
             {method.name}
           </Label>
@@ -2925,11 +2927,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
                         )}
                         <RadioGroupItem value="cash" id="cash" disabled={cashDisabled} />
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-10 h-10 bg-[#73bbff] rounded-lg flex items-center justify-center">
+                        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 bg-[#73bbff] rounded-lg flex items-center justify-center shrink-0">
                             <Banknote className="w-5 h-5 text-blue-600" />
                           </div>
-                          <div>
+                          <div className="min-w-[8rem] flex-1">
                             <Label htmlFor="cash" className={`font-semibold cursor-pointer ${cashDisabled ? "text-gray-500" : "text-gray-900"}`}>
                               Cash on Pickup
                             </Label>
@@ -2943,12 +2945,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               </p>
                             )}
                           </div>
+                          {cashDisabled && (
+                            <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                              Unavailable
+                            </span>
+                          )}
                         </div>
-                        {cashDisabled && (
-                          <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            Unavailable
-                          </span>
-                        )}
                       </div>
                     </div>
                   </RadioGroup>
@@ -3050,9 +3052,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               })()}
 
               <div className="p-4 sm:p-6 bg-[#2F6FD6] text-white rounded-lg">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                   <p className="text-lg">Total Amount</p>
-                  <p className="text-3xl font-semibold">
+                  <p className="text-3xl font-semibold shrink-0 whitespace-nowrap">
                     {formatCurrency(calculateTotal())}
                   </p>
                 </div>
@@ -3088,52 +3090,54 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
         {/* Navigation Buttons */}
         {isWalkin && (currentStep === 4 || (isPhotocopy && currentStep === 2)) ? (
-          <div className="flex flex-col gap-2 mt-6 pt-4 border-t border-gray-100">
-            {/* Primary: Proceed to In Queue */}
+          <div className="mt-6">
             {shopPaused && (
-              <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-1">
+              <div className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
                 Docufy is currently paused — new orders are on hold until the shop reopens.
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setShowProceedConfirm(true)}
-              disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
-              className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
-            >
-              Proceed to In Queue
-            </button>
-            {/* Secondary: Back + Cancel Order */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col-reverse gap-2 pt-4 border-t border-gray-100 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between @min-[640px]:gap-4">
+              {/* Secondary: Back + Cancel Order */}
+              <div className="grid grid-cols-2 gap-2 @min-[640px]:w-auto @min-[640px]:gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentStep > 1) {
+                      const prev = isPhotocopy ? 1 : currentStep - 1;
+                      setCurrentStep(prev);
+                      scrollPageToTop();
+                    } else {
+                      navigate(dashboardPath);
+                    }
+                  }}
+                  className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  className="w-full py-2.5 text-xs font-semibold rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 active:scale-[0.98] transition-all"
+                >
+                  Cancel Order
+                </button>
+              </div>
+              {/* Primary: Proceed to In Queue */}
               <button
                 type="button"
-                onClick={() => {
-                  if (currentStep > 1) {
-                    const prev = isPhotocopy ? 1 : currentStep - 1;
-                    setCurrentStep(prev);
-                    scrollPageToTop();
-                  } else {
-                    navigate(dashboardPath);
-                  }
-                }}
-                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition-all"
+                onClick={() => setShowProceedConfirm(true)}
+                disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
+                className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all @min-[640px]:w-auto @min-[640px]:min-w-[180px] @min-[640px]:px-6"
               >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelOrder}
-                className="w-full py-2.5 text-xs font-semibold rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 active:scale-[0.98] transition-all"
-              >
-                Cancel Order
+                Proceed to In Queue
               </button>
             </div>
           </div>
         ) : (
-        <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse items-stretch gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:mt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:border-t sm:px-0 sm:py-0 sm:pt-6 sm:bg-transparent sm:backdrop-blur-none"}>
+        <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse items-stretch gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur @min-[640px]:flex-row @min-[640px]:flex-wrap @min-[640px]:items-center @min-[640px]:justify-between @min-[640px]:gap-4 sm:static sm:mx-0 sm:mt-1 sm:border-t sm:px-0 sm:py-0 sm:pt-6 sm:bg-transparent sm:backdrop-blur-none"}>
           <Button
             variant="outline"
-            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium"}`}
+            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium"}`}
             onClick={() => {
               if (currentStep > 1) {
                 const prev = currentStep - 1;
@@ -3153,12 +3157,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             </div>
           )}
 
-          <div className="flex flex-col-reverse w-full sm:flex-row gap-2 sm:gap-3 sm:w-auto">
+          <div className={`flex flex-col-reverse w-full gap-2 ${isWalkin ? "sm:flex-row sm:gap-3 sm:w-auto" : "@min-[640px]:flex-row @min-[640px]:gap-3 @min-[640px]:w-auto"}`}>
             {currentStep < 4 ? (
               <Button
                 className={isWalkin
                   ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
+                  : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
                 onClick={() => {
                   const nextStep = currentStep + 1;
                   setCurrentStep(nextStep);
@@ -3192,7 +3196,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 <Button
                   className={isWalkin
                     ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                    : "w-full sm:w-auto sm:min-w-[155px] h-12 sm:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"}
+                    : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"}
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
@@ -3637,7 +3641,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </p>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Order Total</span>
-                          <span className="font-semibold text-gray-900">{formatCurrency(total)}</span>
+                          <span className="shrink-0 whitespace-nowrap font-semibold text-gray-900">{formatCurrency(total)}</span>
                         </div>
                         <div className="flex justify-between text-sm border-t border-amber-200 pt-2">
                           <span className="text-amber-800 font-bold">

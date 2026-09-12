@@ -652,7 +652,7 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[1040px]:grid-cols-4">
         <SummaryCard
           icon={DollarSign}
           label="Total Sales"
@@ -683,7 +683,7 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
       <ShopStatusControl />
 
       {/* Recent Transactions + Inventory Snapshot */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4 sm:gap-5">
         <SectionCard
           title="Recent Transactions"
           action={() => navigate(ordersPath)}
@@ -767,7 +767,7 @@ function SalesTab({ metrics, navigate }: { metrics: DashboardMetrics; navigate: 
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[1040px]:grid-cols-4">
         <SummaryCard
           icon={DollarSign}
           label="Total Revenue"
@@ -796,7 +796,7 @@ function SalesTab({ metrics, navigate }: { metrics: DashboardMetrics; navigate: 
       </div>
 
       {/* Sales Trend (wider) + Today's Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4 sm:gap-5">
         <SectionCard
           title="Sales Trend"
           subtitle="Revenue performance over time"
@@ -889,7 +889,7 @@ function SalesTab({ metrics, navigate }: { metrics: DashboardMetrics; navigate: 
       </div>
 
       {/* Bottom: Sales Comparison + Recent Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 @min-[820px]:grid-cols-2 gap-4 sm:gap-5">
         {/* Sales Comparison */}
         <SectionCard title="Sales Comparison" subtitle="Current vs previous period">
           {totalSales === 0 && prevTotalSales === 0 ? (
@@ -1136,7 +1136,7 @@ function ServicesTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 @min-[1100px]:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Services"
           value={serviceStats.length}
@@ -1170,7 +1170,7 @@ function ServicesTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       </div>
 
       {/* Service Performance + Revenue by Service */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4">
         {/* Service Performance */}
         <Card className="lg:col-span-2 bg-white border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">

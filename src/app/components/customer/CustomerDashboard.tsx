@@ -346,7 +346,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Main Content: Current Order + Recent Orders */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4 sm:gap-6">
 
           {/* Current Order */}
           <div className="lg:col-span-2">
@@ -605,7 +605,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Shop Information + Quick Tips — previous blue card style */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-3">
           <Card className="p-4 sm:p-6 bg-[#1D73EC] text-white shadow-lg border-none">
             <div className="flex items-start gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">

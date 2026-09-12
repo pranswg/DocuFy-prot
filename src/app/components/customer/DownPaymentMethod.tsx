@@ -185,7 +185,7 @@ export default function DownPaymentMethod() {
             Pay the down payment in cash at the shop, or settle it online with
             a wallet.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setVenue("shop")}
@@ -253,7 +253,7 @@ export default function DownPaymentMethod() {
                 back later or choose Pay at the Shop.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-3">
                 {onlineMethods.map((method) => (
                   <button
                     key={method.id}
@@ -295,7 +295,7 @@ export default function DownPaymentMethod() {
             You can pay a 50% down payment now and the rest on pickup, or settle
             the full amount now.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setAmountChoice("down")}

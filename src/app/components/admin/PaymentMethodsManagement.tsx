@@ -180,7 +180,7 @@ export default function PaymentMethodsManagement() {
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 @min-[720px]:grid-cols-3 gap-3 sm:gap-4">
           <SummaryCard icon={QrCode} label="Total Methods" value={methods.length} iconBg="bg-[#F2F7FF]" iconColor="text-[#1D73EC]" />
           <SummaryCard icon={UserCheck} label="Active for Customers" value={activeCount} iconBg="bg-green-50" iconColor="text-green-600" />
           <SummaryCard icon={Ban} label="Inactive" value={methods.length - activeCount} iconBg="bg-gray-100" iconColor="text-gray-500" />
@@ -196,7 +196,7 @@ export default function PaymentMethodsManagement() {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 @min-[1100px]:grid-cols-3 gap-6">
             {methods.map((method) => (
               <Card
                 key={method.id}

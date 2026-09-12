@@ -1179,7 +1179,7 @@ export default function Layout({
             isMobile ? "" : "flex-1 overflow-y-auto custom-scrollbar"
           }`}
         >
-          <div className="p-4 sm:p-5 lg:p-6 max-w-[1440px] mx-auto w-full">
+          <div className="p-4 sm:p-5 lg:p-6 max-w-[1440px] mx-auto w-full @container">
             {children}
           </div>
         </main>

@@ -372,7 +372,7 @@ function InventoryReports() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 @min-[1000px]:grid-cols-5 gap-3 sm:gap-4">
         <SummaryCard icon={Boxes} label="Total Items" value={activeItems.length} iconBg="bg-blue-100" iconColor="text-[#2F6FD6]" />
         <SummaryCard icon={AlertTriangle} label="Low Stock" value={lowStockItems.length} iconBg="bg-amber-100" iconColor="text-amber-600" valueColor="text-amber-600" />
         <SummaryCard icon={PackageMinus} label="Out of Stock" value={outOfStockItems.length} iconBg="bg-red-100" iconColor="text-red-600" valueColor="text-red-600" />
@@ -381,7 +381,7 @@ function InventoryReports() {
       </div>
 
       {/* Most Used Materials + Stock Movement */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 @min-[820px]:grid-cols-2 gap-6">
         <ReportSection title="Most Used Materials" subtitle="Consumption during the selected period">
           {usageMap.length === 0 ? (
             <div className="flex flex-col items-center py-10 text-slate-500">
@@ -468,7 +468,7 @@ function InventoryReports() {
       </ReportSection>
 
       {/* Histories */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 @min-[820px]:grid-cols-2 gap-6">
         <ReportSection title="Stock-In History" subtitle="Items added during the selected period">
           {scopedIn.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-500">No stock-in records for this period.</p>
@@ -871,7 +871,7 @@ export default function InventoryManagement({
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 @min-[1000px]:grid-cols-4 gap-3 sm:gap-4">
           <SummaryCard
             icon={FileText}
             label="Papers Left"

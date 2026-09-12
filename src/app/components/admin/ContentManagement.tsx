@@ -403,7 +403,7 @@ export default function ContentManagement() {
                 here and to the landing page automatically — no need to edit
                 them in content.
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="bindingPrice">
                     Binding & Finishing (₱ starting at)

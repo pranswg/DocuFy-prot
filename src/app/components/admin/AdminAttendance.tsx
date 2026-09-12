@@ -559,7 +559,7 @@ export default function AdminAttendancePage() {
           </TabsList>
 
           {/* KPI cards */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mt-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[980px]:grid-cols-4 mt-6">
             {[
               {
                 id: "kpi-total",

@@ -888,7 +888,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         )}
 
         {/* Summary Cards - 2 Rows */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
+        <div className="grid grid-cols-2 @min-[980px]:grid-cols-4 gap-2 sm:gap-4 mb-6 shrink-0">
           {([
             ["all", "All Orders", "Total orders", LayoutGrid, queueOrders.length],
             ["inQueue", "In Queue", "Waiting to be printed", Clock, stats.inQueue],

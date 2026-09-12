@@ -1085,11 +1085,11 @@ export default function PaymentVerification() {
                   </div>
                 ) : (
                   <div className="p-4 bg-white border-2 border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Image className="w-5 h-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Image className="w-5 h-5 text-blue-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 break-words">
                             {proofFile.name}
                           </p>
                           <p className="text-xs text-gray-600">
@@ -1098,7 +1098,7 @@ export default function PaymentVerification() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           type="button"
                           onClick={handleViewImage}
