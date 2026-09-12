@@ -208,7 +208,6 @@ type FileData = {
   customScale: number;
   notes: string;
   photoSize: PhotoSizeKey;
-  photoFinish: "matte" | "glossy";
   photoQty: number;
 };
 
@@ -244,7 +243,6 @@ type PrintDraft = {
     customScale: number;
     notes: string;
     photoSize: PhotoSizeKey;
-    photoFinish: "matte" | "glossy";
     photoQty: number;
   }>;
   selectedAddons: { [key: string]: number };
@@ -552,11 +550,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   }, []);
 
   useEffect(() => {
-    if (
-      availablePaperSizes.length > 0 &&
-      !availablePaperSizes.some((s) => s.name === photocopyPaperSize)
-    ) {
-      setPhotocopyPaperSize(availablePaperSizes[0].name);
+    if (availablePaperSizes.length > 0) {
+      if (!availablePaperSizes.some((s) => s.name === photocopyPaperSize)) {
+        setPhotocopyPaperSize(availablePaperSizes[0].name);
+      }
+    } else {
+      // No paper/material stock in inventory — nothing to select.
+      setPhotocopyPaperSize("");
     }
   }, [availablePaperSizes]);
 
@@ -603,7 +603,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       customScale: f.customScale,
       notes: f.notes,
       photoSize: f.photoSize,
-      photoFinish: f.photoFinish,
       photoQty: f.photoQty,
     }));
     setFiles(restoredFiles);
@@ -807,7 +806,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           colorAnalysis: null,
           contentType: isImageFile(file) ? "imageOnly" : "text",
           printType: "",
-          paperSize: availablePaperSizes.length > 0 ? availablePaperSizes[0].name : "a4",
+          paperSize: availablePaperSizes.length > 0 ? availablePaperSizes[0].name : "",
           copies: 1,
           colorMode: "bw",
           pagesPerSheet: "1",
@@ -820,8 +819,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           customScale: 100,
           notes: "",
           photoSize: "2R",
-          photoFinish: "matte",
-          photoQty: 1,
+          photoQty: Math.max(
+            1,
+            pricingStore.getMatrix().photo["2R"]?.minQty ?? 6,
+          ),
         };
 
         processedFiles.push(newFile);
@@ -1014,7 +1015,15 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const now = new Date();
     const orderId = dataStore.getNextOrderId();
 
+    const hasPaperInStock = availablePaperSizes.some((s) => s.inStock);
+
     if (isPhotocopy) {
+      if (!hasPaperInStock) {
+        toast.error(
+          "No paper stock available for printing right now. Please check back later or contact the shop.",
+        );
+        return;
+      }
       const manualPrice = photocopyPrice;
       const paperLabel = photocopyPaperLabel(photocopyPaperSize);
       const colorLabel = photocopyColorMode === "bw" ? "Black & White" : "Colored";
@@ -1058,6 +1067,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
     if (!validatePhotoMinQty()) return;
 
+    if (files.length > 0 && files.some((f) => f.printType !== "photo") && !hasPaperInStock) {
+      toast.error(
+        "No paper stock available for printing right now. Please check back later or contact the shop.",
+      );
+      return;
+    }
+
     if (files.length > 0) {
       const totalPages = files.reduce((sum, f) => sum + f.pageCount * f.copies, 0);
       const hasColor = files.some((f) => f.colorMode !== "bw");
@@ -1071,7 +1087,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         pages: totalPages > 0 ? totalPages : firstPhoto ? firstPhoto.photoQty : 0,
         type: hasPhoto ? "Photo" : hasColor ? "Colored" : "B&W",
         notes: hasPhoto
-          ? `Walk-in photo print - ${files.filter((f) => f.printType === "photo").map((f) => `${f.photoQty} pc(s) ${PHOTO_SIZE_LABELS[f.photoSize]} (${f.photoFinish})`).join(", ")}`
+          ? `Walk-in photo print - ${files.filter((f) => f.printType === "photo").map((f) => `${f.photoQty} pc(s) ${PHOTO_SIZE_LABELS[f.photoSize]}`).join(", ")}`
           : `Walk-in transaction - ${files.length} file(s)`,
         status: "inQueue" as const,
         time: formatPHTime(now),
@@ -1153,6 +1169,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     if (!isWalkin && paymentMethod === "cash" && cashDisabled) {
       toast.error(
         `Cash on Pickup is not available for orders ₱${fullPaymentThreshold.toLocaleString()} and above. Please pay online via one of the available payment methods.`,
+      );
+      return;
+    }
+
+    if (
+      files.some((f) => f.printType !== "photo") &&
+      !availablePaperSizes.some((s) => s.inStock)
+    ) {
+      toast.error(
+        "No paper stock available for printing right now. Please check back later or contact the shop.",
       );
       return;
     }
@@ -1341,7 +1367,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           customScale: f.customScale,
           notes: f.notes,
           photoSize: f.photoSize,
-          photoFinish: f.photoFinish,
           photoQty: f.photoQty,
         })),
         selectedAddons,
@@ -1629,7 +1654,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             label: size.displayName + (size.inStock ? "" : " (Out of Stock)"),
                             disabled: !size.inStock,
                           }))
-                        : [{ value: "a4", label: "A4" }]
+                        : [{ value: "", label: "No paper stock available", disabled: true }]
                     }
                     triggerClassName="h-10"
                   />
@@ -1952,12 +1977,33 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       </div>
                       {fileData.printType === "photo" ? (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          {!availablePaperSizes.some(
+                            (s) =>
+                              s.inStock &&
+                              (["2R", "3R", "4R", "5R", "6R", "A4photo"] as string[]).includes(
+                                s.name,
+                              ),
+                          ) && (
+                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
+                              No photo paper in stock
+                            </span>
+                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-start">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Photo Size</Label>
                           <ZoomSafeDropdown
                             value={fileData.photoSize}
-                            onChange={(value) => updateFileOption(fileData.id, "photoSize", value)}
+                            onChange={(value) => {
+                              updateFileOption(fileData.id, "photoSize", value);
+                              const item = pricingStore.getMatrix().photo[value as PhotoSizeKey];
+                              if (item && fileData.photoQty < item.minQty) {
+                                updateFileOption(
+                                  fileData.id,
+                                  "photoQty",
+                                  Math.max(1, item.minQty),
+                                );
+                              }
+                            }}
                             placeholder="Select photo size"
                             options={(["2R", "3R", "4R", "5R", "6R", "A4photo"] as PhotoSizeKey[]).map((s) => ({
                               value: s,
@@ -1966,45 +2012,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             triggerClassName="h-10"
                           />
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Finish</Label>
-                              <RadioGroup
-                                value={fileData.photoFinish}
-                                onValueChange={(value) =>
-                                  updateFileOption(fileData.id, "photoFinish", value as "matte" | "glossy")
-                                }
-                                className="flex flex-col gap-2"
-                              >
-                                <label
-                                  className={`relative overflow-hidden flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
-                                    fileData.photoFinish === "glossy"
-                                      ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
-                                      : "border-gray-200 hover:border-gray-300"
-                                  }`}
-                                >
-                                  {fileData.photoFinish === "glossy" && (
-                                    <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-                                  )}
-                                  <RadioGroupItem value="glossy" />
-                                  <span className="text-sm font-medium text-gray-900">Glossy</span>
-                                </label>
-                                <label
-                                  className={`relative overflow-hidden flex flex-1 items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
-                                    fileData.photoFinish === "matte"
-                                      ? "border-[#2F6FD6] bg-white border-2 border-blue-200"
-                                      : "border-gray-200 hover:border-gray-300"
-                                  }`}
-                                >
-                                  {fileData.photoFinish === "matte" && (
-                                    <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2F6FD6] rounded-full" />
-                                  )}
-                                  <RadioGroupItem value="matte" />
-                                  <span className="text-sm font-medium text-gray-900">Matte</span>
-                                </label>
-                              </RadioGroup>
-                            </div>
-                          </div>
-                          <div className="sm:grid sm:grid-cols-2 sm:gap-4">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Quantity</Label>
                               {(() => {
@@ -2053,7 +2060,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                     label: size.displayName + (size.inStock ? "" : " (Out of Stock)"),
                                     disabled: !size.inStock,
                                   }))
-                                : [{ value: "a4", label: "A4" }]
+                                : [{ value: "", label: "No paper stock available", disabled: true }]
                             }
                             triggerClassName="h-10"
                           />
@@ -2526,12 +2533,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             </p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Finish</p>
-                            <p className="font-medium text-gray-900 capitalize">
-                              {fileData.photoFinish}
-                            </p>
-                          </div>
-                          <div>
                             <p className="text-gray-600">Quantity</p>
                             <p className="font-medium text-gray-900">{fileData.photoQty} pcs</p>
                           </div>
@@ -2674,12 +2675,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                           <p className="text-gray-600">Photo Size</p>
                           <p className="font-medium text-gray-900">
                             {PHOTO_SIZE_LABELS[fileData.photoSize]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Finish</p>
-                          <p className="font-medium text-gray-900 capitalize">
-                            {fileData.photoFinish}
                           </p>
                         </div>
                         <div>
@@ -3331,10 +3326,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       <span className="text-gray-900">
                         {PHOTO_SIZE_LABELS[bFile.photoSize]}
                       </span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Finish</span>
-                      <span className="text-gray-900 capitalize">{bFile.photoFinish}</span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-gray-600">Quantity</span>

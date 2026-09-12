@@ -68,10 +68,16 @@ import {
 const CATEGORIES = [
   "Paper",
   "Ink",
-  "School supplies",
   "Add-ons",
+  "Vellum",
+  "Sticker",
+  "Photo paper",
   "Other",
 ];
+
+// Print-material categories that carry a paper/material size (their stock shows
+// up in the customer's paper size options). Price for Add-ons is the sell price.
+const MATERIAL_CATEGORIES = ["Paper", "Vellum", "Sticker", "Photo paper"];
 
 const UNIT_OPTIONS = ["ream", "piece", "box", "bottle", "pack", "roll"];
 
@@ -696,8 +702,9 @@ export default function InventoryManagement({
     const minimumStock = Math.max(0, Number(form.minimumStock) || 0);
     const price =
       form.category === "Add-ons" ? Math.max(0, Number(form.price) || 0) : 0;
-    const paperSize =
-      form.category === "Paper" ? form.paperSize.trim() : "";
+    const paperSize = MATERIAL_CATEGORIES.includes(form.category)
+      ? form.paperSize.trim()
+      : "";
     const pcsPerUnit =
       form.category === "Paper"
         ? form.unit === "ream"
@@ -1188,9 +1195,9 @@ export default function InventoryManagement({
                   </SelectContent>
                 </Select>
               </div>
-              {form.category === "Paper" ? (
+              {MATERIAL_CATEGORIES.includes(form.category) ? (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Paper Size</Label>
+                  <Label className="text-sm font-medium">Paper / Material Size</Label>
                   <Select
                     value={form.paperSize}
                     onValueChange={(value) => setForm({ ...form, paperSize: value })}
@@ -1205,6 +1212,12 @@ export default function InventoryManagement({
                       <SelectItem value="long">Long</SelectItem>
                       <SelectItem value="folio">Folio</SelectItem>
                       <SelectItem value="a3">A3</SelectItem>
+                      <SelectItem value="2R">2R</SelectItem>
+                      <SelectItem value="3R">3R</SelectItem>
+                      <SelectItem value="4R">4R</SelectItem>
+                      <SelectItem value="5R">5R</SelectItem>
+                      <SelectItem value="6R">6R</SelectItem>
+                      <SelectItem value="A4photo">A4 (Photo)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

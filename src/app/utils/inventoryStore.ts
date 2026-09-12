@@ -6,7 +6,7 @@ export type InventoryStatus = 'out' | 'low' | 'ok';
 export type InventoryItem = {
   id: string;
   name: string;
-  category: string; // e.g. Paper, Ink, School supplies, Add-ons
+  category: string; // e.g. Paper, Ink, Add-ons, Vellum, Sticker, Photo paper
   brand?: string;
   unit: string; // ream, piece, box, bottle, etc.
   currentStock: number;
@@ -141,11 +141,17 @@ class InventoryStore {
 
   // Backfill pcsPerUnit for existing Paper items that were saved before it
   // existed: a Paper ream is 500 pieces, other paper units default to 1.
+  // Also migrates the merged category: "School supplies" is now "Add-ons" so
+  // school-supply items appear alongside add-ons at the customer's checkout.
   private normalizeItem(item: InventoryItem): InventoryItem {
-    if (item.category === 'Paper' && item.pcsPerUnit == null) {
-      return { ...item, pcsPerUnit: item.unit === 'ream' ? 500 : 1 };
+    const normalized = {
+      ...item,
+      category: item.category === 'School supplies' ? 'Add-ons' : item.category,
+    };
+    if (normalized.category === 'Paper' && normalized.pcsPerUnit == null) {
+      return { ...normalized, pcsPerUnit: normalized.unit === 'ream' ? 500 : 1 };
     }
-    return item;
+    return normalized;
   }
 
   private saveToLocalStorage(): void {
@@ -186,7 +192,7 @@ class InventoryStore {
       { id: 'inv-paper-short', name: 'Bond Paper (Short)', category: 'Paper', brand: '', unit: 'ream', currentStock: 12, minimumStock: 3, paperSize: 'short', pcsPerUnit: 500 },
       { id: 'inv-paper-legal', name: 'Bond Paper (Legal)', category: 'Paper', brand: '', unit: 'ream', currentStock: 8, minimumStock: 2, paperSize: 'legal', pcsPerUnit: 500 },
       { id: 'inv-ink-black', name: 'Printer Ink (Black)', category: 'Ink', brand: 'Epson', unit: 'bottle', currentStock: 5, minimumStock: 2, pcsPerUnit: 1 },
-      { id: 'inv-ballpen', name: 'Ballpen (Black)', category: 'School supplies', brand: '', unit: 'piece', currentStock: 30, minimumStock: 10, pcsPerUnit: 1 },
+      { id: 'inv-ballpen', name: 'Ballpen (Black)', category: 'Add-ons', brand: '', unit: 'piece', currentStock: 30, minimumStock: 10, price: 10, pcsPerUnit: 1 },
       { id: 'inv-staples', name: 'Staples', category: 'Add-ons', brand: '', unit: 'box', currentStock: 15, minimumStock: 4, price: 5, pcsPerUnit: 1 },
     ];
   }
@@ -347,7 +353,8 @@ class InventoryStore {
     return this.movements.filter(m => m.type === type);
   }
 
-  // Paper size options for the customer order form (from Paper items)
+  // Paper size / material options for the customer order form (from Paper,
+  // Vellum, Sticker, and Photo paper stock items that carry a size).
   getPaperSizeOptions(): PaperSizeOption[] {
     this.loadFromLocalStorage();
     return this.items
@@ -355,7 +362,12 @@ class InventoryStore {
       .map(item => ({
         id: item.id,
         name: item.paperSize as string,
-        displayName: this.paperDisplayName(item.paperSize as string),
+        // Non-paper materials (Vellum/Sticker/Photo) are labeled with their
+        // item name so customers can tell stock items apart at a glance.
+        displayName:
+          item.category === 'Paper'
+            ? this.paperDisplayName(item.paperSize as string)
+            : `${item.name} (${this.paperDisplayName(item.paperSize as string)})`,
         inStock: item.currentStock > 0,
       }));
   }
@@ -384,6 +396,12 @@ class InventoryStore {
       case 'long': return 'Long (8.5 x 13 in)';
       case 'folio': return 'Folio (8.5 x 13 in)';
       case 'a3': return 'A3';
+      case '2R': return '2R';
+      case '3R': return '3R';
+      case '4R': return '4R';
+      case '5R': return '5R';
+      case '6R': return '6R';
+      case 'A4photo': return 'A4';
       default: return code;
     }
   }
