@@ -1,30 +1,25 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
-  FileText,
   Clock,
   MapPin,
   Printer,
   ArrowRight,
   CheckCircle2,
   Briefcase,
-  ChevronDown,
   Palette,
   Package,
-  Sparkles,
-  X,
   CloudUpload,
   ShieldCheck,
   LayoutDashboard,
   User,
   LogOut,
+  Mail,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingMatrix } from "../utils/pricingStore";
-import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
@@ -50,11 +45,7 @@ export default function LandingPage() {
     : "U";
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showShopMap, setShowShopMap] = useState(false);
   const [matrix, setMatrix] = useState<PricingMatrix>(pricingStore.getMatrix());
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [showShopPhotos, setShowShopPhotos] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("home");
   const servicesScrollerRef = useRef<HTMLDivElement>(null);
   const [activeServiceCard, setActiveServiceCard] = useState(0);
@@ -75,14 +66,6 @@ export default function LandingPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isProfileOpen]);
-
-  const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(
-    shopPhotosStore.getPhotos(),
-  );
-  useEffect(() => {
-    const load = () => setShopPhotos(shopPhotosStore.getPhotos());
-    return shopPhotosStore.subscribe(load);
-  }, []);
 
   const [jobs, setJobs] = useState<any[]>(() => jobsStore.getActiveJobs());
   useEffect(() => {
@@ -190,6 +173,10 @@ export default function LandingPage() {
 
   const content = getContent();
 
+  // Footer About Docufy blurb: the existing About body, trimmed.
+  const footerAboutShort =
+    "Docufy is a printing service designed to make document printing easier for students and faculty.";
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -202,7 +189,7 @@ export default function LandingPage() {
 
   // Scroll-spy: highlight the header nav item for the section currently in view.
   useEffect(() => {
-    const sectionIds = ["home", "services", "shop-info", "about"];
+    const sectionIds = ["home", "services", "shop-info", "footer"];
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -270,7 +257,7 @@ export default function LandingPage() {
     { id: "home", label: "Home" },
     { id: "services", label: "Services & Pricing" },
     { id: "shop-info", label: "Shop Info" },
-    { id: "about", label: "About Us" },
+    { id: "footer", label: "About Docufy" },
   ];
 
   return (
@@ -501,79 +488,123 @@ export default function LandingPage() {
         className="bg-[#F2F7FF] w-full py-12 sm:py-16 relative z-10"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
-              Services & Pricing
-            </h3>
-            <p className="text-lg text-gray-600">
-              Affordable printing solutions for all your needs
+          <div className="mb-12 text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
+              Services &amp; Pricing
+            </p>
+            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+              What can we print?
+            </h2>
+            <p className="mt-4 text-base text-gray-600 sm:text-lg">
+              Quality printing services with clear, affordable pricing.
             </p>
           </div>
           <div
             ref={servicesScrollerRef}
             className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0 lg:gap-8"
           >
-            <Card data-services-card="0" className="w-[85%] shrink-0 snap-center rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
-              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
+            <Card data-services-card="0" className="flex w-[85%] shrink-0 snap-center flex-col rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
+              <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
                 <Printer className="w-8 h-8 text-[#1D73EC]" />
               </div>
-              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
-                Black & White Printing
-              </h4>
-              <p className="text-gray-600 mb-6">
-                Standard plain-paper printing for text
-                documents (Short, A4, Long)
-              </p>
-              <div className="text-4xl font-bold text-[#1D73EC]">
-                ₱{matrix.document.text.bw.a4.toFixed(2)}{" "}
-                <span className="text-base font-normal text-gray-500">
-                  / page
-                </span>
-              </div>
-            </Card>
-
-            <Card data-services-card="1" className="w-[85%] shrink-0 snap-center rounded-2xl bg-[#1D73EC] p-8 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl md:w-auto relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
-              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
-              <div className="relative z-10">
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
-                  <Palette className="w-8 h-8 text-white" />
-                </div>
-                <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full mb-4">
-                  POPULAR
-                </div>
-                <h4 className="text-xl font-bold mb-3">
-                  Color Printing
+              <div className="mt-6 flex flex-1 flex-col">
+                <h4 className="text-xl font-bold text-[#1c1f26]">
+                  Black &amp; White Printing
                 </h4>
-                <p className="text-white/90 mb-6">
-                  Full-color plain-paper printing for documents
-                  and presentations
+                <p className="mt-2 text-gray-600">
+                  Standard plain-paper printing for everyday text documents.
                 </p>
-                <div className="text-4xl font-bold">
-                  ₱{matrix.document.text.full.a4.toFixed(2)}{" "}
-                  <span className="text-base font-normal text-white/80">
-                    / page
+                <dl className="mt-5 space-y-2.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Paper sizes</dt>
+                    <dd className="text-right text-gray-600">Short · A4 · Long</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Content</dt>
+                    <dd className="text-right text-gray-600">Text · Text + Image · Image</dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="pt-6 mt-7 border-t border-gray-100">
+                <div className="text-4xl font-bold text-[#1D73EC]">
+                  ₱{matrix.document.text.bw.a4.toFixed(2)}{" "}
+                  <span className="text-base font-normal text-gray-500">
+                    per page
                   </span>
                 </div>
               </div>
             </Card>
 
-            <Card data-services-card="2" className="w-[85%] shrink-0 snap-center rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
-              <div className="w-16 h-16 bg-[#F2F7FF] rounded-2xl flex items-center justify-center mb-6">
+            <Card data-services-card="1" className="relative flex w-[85%] shrink-0 snap-center flex-col overflow-hidden rounded-2xl bg-[#1D73EC] p-8 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl md:w-auto">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
+              <div className="relative z-10 flex flex-col">
+                <div className="flex items-start justify-between">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Palette className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full">
+                    POPULAR
+                  </div>
+                </div>
+                <div className="mt-6 flex flex-1 flex-col">
+                  <h4 className="text-xl font-bold">
+                    Color Printing
+                  </h4>
+                  <p className="mt-2 text-white/90">
+                    Full-color plain-paper printing for documents and presentations.
+                  </p>
+                  <dl className="mt-5 space-y-2.5 text-sm">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="shrink-0 font-semibold text-white/70">Paper sizes</dt>
+                      <dd className="text-right text-white/90">Short · A4 · Long</dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="shrink-0 font-semibold text-white/70">Color modes</dt>
+                      <dd className="text-right text-white/90">Partial · Full</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="pt-6 mt-7 border-t border-white/15">
+                  <div className="text-4xl font-bold">
+                    ₱{matrix.document.text.full.a4.toFixed(2)}{" "}
+                    <span className="text-base font-normal text-white/80">
+                      per page
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card data-services-card="2" className="flex w-[85%] shrink-0 snap-center flex-col rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
+              <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
                 <Package className="w-8 h-8 text-[#1D73EC]" />
               </div>
-              <h4 className="text-xl font-bold text-[#1c1f26] mb-3">
-                Photo, Vellum & Sticker
-              </h4>
-              <p className="text-gray-600 mb-6">
-                Photo prints (2R to A4), vellum paper, and A4
-                sticker sheets
-              </p>
-              <div className="text-4xl font-bold text-[#1D73EC]">
-                ₱{Math.min(matrix.vellum.bw.a4, matrix.sticker.bw, matrix.photo["2R"].price).toFixed(2)}{" "}
-                <span className="text-base font-normal text-gray-500">
-                  from
-                </span>
+              <div className="mt-6 flex flex-1 flex-col">
+                <h4 className="text-xl font-bold text-[#1c1f26]">
+                  Photo, Vellum &amp; Sticker
+                </h4>
+                <p className="mt-2 text-gray-600">
+                  Photo prints, vellum paper, and A4 sticker sheets.
+                </p>
+                <dl className="mt-5 space-y-2.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Photo sizes</dt>
+                    <dd className="text-right text-gray-600">2R · 3R · 4R · 5R · 6R · A4</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Materials</dt>
+                    <dd className="text-right text-gray-600">Vellum · Sticker (A4)</dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="pt-6 mt-7 border-t border-gray-100">
+                <div className="text-4xl font-bold text-[#1D73EC]">
+                  ₱{Math.min(matrix.vellum.bw.a4, matrix.sticker.bw, matrix.photo["2R"].price).toFixed(2)}{" "}
+                  <span className="text-base font-normal text-gray-500">
+                    from
+                  </span>
+                </div>
               </div>
             </Card>
           </div>
@@ -583,257 +614,267 @@ export default function LandingPage() {
       {/* Shop Info */}
       <section
         id="shop-info"
-        className="bg-white w-full py-12 sm:py-16 relative z-10"
+        className="bg-white w-full py-16 sm:py-20 relative z-10"
       >
-        <div className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full bg-[#1D73EC]/[0.05] blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 -left-32 h-72 w-72 rounded-full bg-[#2F6FD6]/[0.05] blur-3xl" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
-              Shop Info
-            </h3>
-            <p className="text-lg text-gray-600">
-              Visit us during our operating hours
+          <div className="mx-auto mb-12 max-w-2xl text-center lg:mb-16">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
+              Shop Information
+            </p>
+            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+              Visit us on campus.
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-600 sm:text-lg">
+              {content.locationLines?.[0]
+                ? `Docufy is conveniently located at ${content.locationLines[0]}. Drop by during operating hours, or start your order online.`
+                : "Docufy is conveniently located on campus. Drop by during operating hours, or start your order online."}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:gap-8">
-            <Card className="p-4 sm:p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#F2F7FF] rounded-full -translate-y-16 translate-x-16" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#F2F7FF] rounded-full translate-y-12 -translate-x-12" />
-              <div className="relative z-10">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#1D73EC] rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                  </div>
-                  <div className="min-w-0 w-full">
-                    <h4 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4 text-[#1c1f26]">
-                      Shop Hours
-                    </h4>
-                    <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
-                      {content.shopHours.map((row: { label: string; hours: string }, index: number) => (
-                        <p key={index}>
-                          <span className="font-semibold text-[#1D73EC]">
-                            {row.label || "Schedule"}:
-                          </span>{" "}
-                          {row.hours}
-                        </p>
-                      ))}
-                      {content.hoursNote && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2F7FF] px-2.5 py-1 text-xs font-semibold text-[#1D73EC] sm:text-sm">
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                          {content.hoursNote}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
 
-            <Card className="p-4 sm:p-8 bg-white border-2 border-[#1D73EC] shadow-xl rounded-2xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-32 h-32 bg-[#F2F7FF] rounded-full -translate-y-16 -translate-x-16" />
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-[#F2F7FF] rounded-full translate-y-12 translate-x-12" />
-              <div className="relative z-10">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#1D73EC] rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                  </div>
-                  <div className="min-w-0 w-full">
-                    <h4 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4 text-[#1c1f26]">
-                      Location
-                    </h4>
-                    <div className="space-y-1.5 sm:space-y-3 text-gray-700 text-xs sm:text-lg">
-                      {content.locationLines.map((line: string, index: number) => (
-                        <p key={index} className={index === 0 ? "font-semibold text-[#1D73EC]" : ""}>
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                    <Button
-                      onClick={() => setShowShopMap(true)}
-                      className="mt-3 sm:mt-5 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white transition-all duration-200 active:scale-[0.97] text-xs sm:text-sm h-9 sm:h-10"
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-14">
+            {/* Left: Shop Hours + Location */}
+            <div className="flex flex-col gap-6">
+              {/* Shop Hours */}
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
+                    <Clock className="h-4 w-4" />
+                  </span>
+                  Shop Hours
+                </h3>
+                <dl className="mt-4">
+                  {content.shopHours.map((row: { label: string; hours: string }, index: number) => (
+                    <div
+                      key={index}
+                      className="flex items-baseline justify-between gap-6 border-t border-gray-100 py-3.5 first:border-t-0 first:pt-0 last:pb-0"
                     >
-                      <MapPin className="w-4 h-4" /> Shop Location
-                    </Button>
-                  </div>
+                      <dt className="text-sm font-semibold text-[#1c1f26]">
+                        {row.label || "Schedule"}
+                      </dt>
+                      <dd className="text-right text-sm text-gray-600">{row.hours}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {content.hoursNote && (
+                  <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#1D73EC]">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    {content.hoursNote}
+                  </p>
+                )}
+              </div>
+
+              {/* Location */}
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
+                    <MapPin className="h-4 w-4" />
+                  </span>
+                  Location
+                </h3>
+                <address className="mt-4 space-y-1 not-italic">
+                  {content.locationLines.map((line: string, index: number) => (
+                    <p
+                      key={index}
+                      className={`text-sm leading-relaxed ${
+                        index === 0 ? "font-semibold text-[#1c1f26]" : "text-gray-600"
+                      }`}
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </address>
+              </div>
+            </div>
+
+            {/* Right: map fills the full height of the left column */}
+            <div className="flex flex-col">
+              <div className="relative h-80 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-sm lg:flex-1">
+                <div className="h-full w-full overflow-hidden rounded-lg">
+                  <iframe
+                    title="Docufy Printing Services - Shop Location"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
+                    className="h-full w-full border-0"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Job Openings Section */}
+      {/* Join Our Team */}
       <section
         id="jobs"
-        className="bg-white w-full py-12 sm:py-16 relative z-10"
+        className="bg-[#F2F7FF] w-full py-16 sm:py-20 relative z-10"
       >
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-96 -translate-x-1/2 rounded-full bg-[#1D73EC]/[0.05] blur-3xl" />
-        <div className="pointer-events-none absolute -right-32 top-1/3 h-72 w-72 rounded-full bg-[#2F6FD6]/[0.04] blur-3xl" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
-              <span className="w-2 h-2 bg-white border-2 border-blue-200 rounded-full animate-pulse"></span>
-              We're Hiring!
-            </div>
-            <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
-              Job Openings
-            </h3>
-            <p className="text-lg text-gray-600">
-              Join our team
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
+              Join Our Team
             </p>
+            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+              Work with us.
+            </h2>
+            <p className="mt-4 text-base text-gray-600 sm:text-lg">
+              Explore current openings at Docufy and start your application today.
+            </p>
+            {jobs.length > 0 && (
+              <div className="mt-8">
+                <Button
+                  type="button"
+                  onClick={() => scrollToSection("jobs-list")}
+                  className="h-12 rounded-lg bg-[#1D73EC] px-8 text-white shadow-md shadow-[#1D73EC]/30 transition-all duration-200 hover:bg-[#0f66d9] hover:shadow-lg hover:shadow-[#1D73EC]/35 active:scale-[0.98] active:shadow-sm"
+                >
+                  View Job Openings <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {jobs.length === 0 ? (
-            <Card className="border border-gray-200 bg-white p-12 text-center shadow-sm">
-              <Briefcase className="mx-auto mb-3 h-10 w-10 text-[#1D73EC]/35" />
-              <p className="text-lg font-semibold text-gray-500">No open positions right now</p>
-              <p className="mt-1 text-sm text-gray-400">Please check back later for new opportunities.</p>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-6 lg:gap-8">
-              {jobs.map((job) => {
-                const isExpanded = expandedJobId === job.id;
-                return (
-                <Card key={job.id} className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 ${isExpanded ? "border-[#1D73EC] ring-2 ring-[#1D73EC]/15 shadow-md" : "border-gray-200 hover:border-[#1D73EC]/50"}`}>
-                  {/* Mobile: compact accordion row (default collapsed) */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                    className="flex min-h-[52px] w-full items-center justify-between gap-3 p-3 text-left md:hidden"
-                    aria-expanded={isExpanded}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-bold leading-snug text-[#1c1f26]">{job.title}</h4>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-600">
-                        <span>
-                          <span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}
-                        </span>
-                        <span>
-                          <span className="font-semibold text-[#1D73EC]">Posted:</span> {job.posted || job.postedDate}
-                        </span>
-                        <Badge className="shrink-0 bg-blue-100 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">{job.type || "Active"}</Badge>
-                      </p>
-                    </div>
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 ${isExpanded ? "rotate-180 border-[#1D73EC] bg-[#1D73EC] text-white" : "border-blue-200 bg-white text-[#1D73EC]"}`}>
-                      <ChevronDown className="h-4 w-4" />
-                    </span>
-                  </button>
-
-                  {/* Mobile: expanded description + Apply Now (smooth height animation) */}
-                  <div className="md:hidden">
-                    <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                      <div className="min-h-0 overflow-hidden">
-                        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
-                          <p className="text-xs leading-relaxed text-gray-600">{job.description}</p>
-                          <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-3 w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Desktop: full card */}
-                  <div className="hidden p-6 md:flex md:flex-1 md:flex-col">
-                    <div className="mb-6 flex items-start gap-4">
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[#1D73EC]">
-                        <Briefcase className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <h4 className="text-lg font-bold text-[#1c1f26]">{job.title}</h4>
-                          <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">{job.type || "Active"}</Badge>
-                        </div>
-                        <div className="flex flex-col gap-1.5 text-sm text-gray-700 md:flex-row md:flex-wrap md:gap-x-5">
-                          <p><span className="font-semibold text-[#1D73EC]">Schedule:</span> {job.duration}</p>
-                          {job.location && <p><span className="font-semibold text-[#1D73EC]">Location:</span> {job.location}</p>}
-                          {job.department && <p><span className="font-semibold text-[#1D73EC]">Department:</span> {job.department}</p>}
-                          <p><span className="font-semibold text-[#1D73EC]">Posted:</span> {job.posted || job.postedDate}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="mb-4 text-sm leading-relaxed text-gray-600">{job.description}</p>
-
-                    <Button onClick={() => navigate(`/signup?jobId=${job.id}`)} className="mt-auto w-full bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white">Apply Now</Button>
-                  </div>
-                </Card>
-                );
-              })}
+            <div className="mt-12 rounded-xl border border-blue-200/60 bg-white p-10 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                <Briefcase className="h-6 w-6 text-[#1D73EC]" />
+              </div>
+              <p className="text-lg font-semibold text-[#1c1f26]">No open positions right now</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Please check back later for new opportunities at Docufy.
+              </p>
             </div>
+          ) : (
+            <ul id="jobs-list" className="mt-12 scroll-mt-24">
+              {jobs.map((job) => (
+                <li
+                  key={job.id}
+                  className="grid gap-3 border-t border-blue-200/60 py-6 last:border-b sm:grid-cols-[1fr_auto] sm:items-center sm:gap-10 lg:py-7"
+                >
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold text-[#1c1f26] lg:text-xl">
+                      {job.title}
+                    </h3>
+                    <p className="mt-1.5 text-sm text-gray-500">
+                      {[
+                        job.type,
+                        job.duration && `Schedule: ${job.duration}`,
+                        job.location && `Location: ${job.location}`,
+                        (job.posted || job.postedDate) && `Posted: ${job.posted || job.postedDate}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {job.description && (
+                      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-600">
+                        {job.description}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/signup?jobId=${job.id}`)}
+                    className="h-9 w-full rounded-lg bg-white px-5 text-sm font-semibold text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white sm:h-9 sm:w-auto"
+                  >
+                    Apply Now <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </section>
 
-      {/* About Us Section */}
-      <section
-        id="about"
-        className="bg-[#F2F7FF] w-full py-12 sm:py-16 relative z-10"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl sm:text-4xl font-bold text-[#1c1f26] mb-4">
-              {content.aboutTitle || "About Docufy"}
-            </h3>
-            <p className="text-lg text-gray-600">
-              {content.aboutSubtitle ||
-                "Your printing companion"}
-            </p>
-          </div>
-          <Card className="group relative overflow-hidden rounded-3xl bg-[#1D73EC] p-5 text-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:p-10">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -translate-y-12 translate-x-12" />
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full translate-y-8 -translate-x-8" />
-            <div className="relative z-10 max-w-3xl mx-auto">
-              <div className="flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5 text-white/90" />
-                <span className="text-sm font-semibold uppercase tracking-wide text-white/90 sm:text-base">
-                  Who we are
-                </span>
+      {/* Footer */}
+      <footer id="footer" className="relative z-10 bg-[#1351AE]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid gap-x-10 gap-y-10 py-12 lg:grid-cols-12 lg:gap-x-8 lg:py-14">
+            {/* Brand / About Docufy */}
+            <div className="lg:col-span-5">
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoImage}
+                  alt="Docufy Logo"
+                  className="h-10 w-10 rounded-full"
+                />
+                <h2 className="text-lg font-bold text-white">Docufy PSMS</h2>
               </div>
-
-              {/* Body */}
-              <p className="mt-4 text-center text-sm leading-relaxed text-white/95 sm:text-lg">
-                {content.aboutBody ||
-                  "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community."}
+              <h3 className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                About Docufy
+              </h3>
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-blue-100/90">
+                {footerAboutShort}
               </p>
             </div>
-          </Card>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white/90 backdrop-blur-md relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col items-center gap-5 text-center md:flex-row md:justify-between md:text-left">
-            <div className="flex items-center gap-2.5">
-              <img
-                src={logoImage}
-                alt="Docufy Logo"
-                className="h-8 w-8 rounded-full"
-              />
-              <div>
-                <h1 className="text-sm font-bold text-[#1c1f26]">Docufy</h1>
-                <p className="text-[11px] text-gray-500">Your Printing Companion</p>
+            {/* Quick Links */}
+            <nav className="lg:col-span-3 lg:pl-4" aria-label="Footer">
+              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
+                Quick Links
+              </h3>
+              <ul className="mt-4 space-y-2.5">
+                {[
+                  { id: "home", label: "Home" },
+                  { id: "services", label: "Services & Pricing" },
+                  { id: "shop-info", label: "Shop Info" },
+                  { id: "footer", label: "About Us" },
+                ].map((link) => (
+                  <li key={link.label}>
+                    <button
+                      type="button"
+                      onClick={() => scrollToSection(link.id)}
+                      className="text-sm text-blue-50/90 transition-colors hover:text-white"
+                    >
+                      {link.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            {/* Contact / Shop Information */}
+            <div className="lg:col-span-4">
+              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
+                Contact / Shop Information
+              </h3>
+              <div className="mt-4 space-y-3.5">
+                <p className="text-sm text-blue-50/90">
+                  {content.locationLines[0]}
+                </p>
+                <div className="text-sm text-blue-50/90">
+                  <p className="font-medium text-white">{content.shopHours[0].label}</p>
+                  <p>{content.shopHours[0].hours}</p>
+                </div>
+                <p className="text-sm text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
+                <a
+                  href="mailto:support@docufy.com"
+                  className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
+                >
+                  <Mail className="h-4 w-4" />
+                  support@docufy.com
+                </a>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center gap-5 text-xs text-gray-500 sm:text-sm">
+          <div className="flex flex-col items-center gap-4 border-t border-white/10 py-5 text-xs text-blue-100/80 sm:flex-row sm:justify-between">
+            <p>&copy; 2026 Docufy PSMS. All rights reserved.</p>
+            <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setShowTerms(true)}
-                className="transition-colors hover:text-[#1D73EC]"
+                className="transition-colors hover:text-white"
               >
-                Terms
+                Terms &amp; Condition
               </button>
+              <span aria-hidden className="text-blue-100/40">|</span>
               <button
+                type="button"
                 onClick={() => setShowPrivacy(true)}
-                className="transition-colors hover:text-[#1D73EC]"
+                className="transition-colors hover:text-white"
               >
-                Privacy
+                Privacy Policy
               </button>
             </div>
-
-            <p className="text-xs text-gray-400 md:text-sm">
-              &copy; 2026 Docufy PSMS
-            </p>
           </div>
         </div>
       </footer>
@@ -1165,83 +1206,6 @@ export default function LandingPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Shop Location Dialog */}
-      <Dialog open={showShopMap} onOpenChange={setShowShopMap}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#1D73EC]" /> Shop Location
-            </DialogTitle>
-            <DialogDescription>
-              {content.locationLines.filter(Boolean).join(", ")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="overflow-hidden rounded-xl border-2 border-blue-100">
-            <iframe
-              title="Docufy Printing Services - Shop Location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
-              className="w-full h-72 border-0"
-              loading="lazy"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-          {shopPhotos.length > 0 && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setShowShopPhotos(!showShopPhotos)}
-                className="flex items-center gap-2 text-sm font-medium text-[#2F6FD6] hover:text-[#1e5bb8] transition-colors"
-              >
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    showShopPhotos ? "rotate-180" : ""
-                  }`}
-                />
-                {showShopPhotos ? "Hide Shop Photos" : "View Shop Photos"}
-              </button>
-              {showShopPhotos && (
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  {shopPhotos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setLightboxPhoto(photo.dataUrl)}
-                      className="cursor-pointer"
-                    >
-                      <img
-                        src={photo.dataUrl}
-                        alt="Shop location"
-                        className="w-full h-24 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-[#2F6FD6] transition-all"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {lightboxPhoto && (
-        <Dialog open onOpenChange={() => setLightboxPhoto(null)}>
-          <DialogContent className="sm:max-w-2xl p-0 bg-black border-0 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setLightboxPhoto(null)}
-              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img
-              src={lightboxPhoto}
-              alt="Shop location full view"
-              className="w-full max-h-[80vh] object-contain"
-            />
-          </DialogContent>
-        </Dialog>
-      )}
 
       {showLogoutConfirm && (
         <ConfirmationDialog
