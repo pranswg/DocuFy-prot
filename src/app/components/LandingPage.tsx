@@ -15,11 +15,14 @@ import {
   User,
   LogOut,
   Mail,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingMatrix } from "../utils/pricingStore";
+import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
 import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
@@ -49,6 +52,15 @@ export default function LandingPage() {
   const [activeSection, setActiveSection] = useState("home");
   const servicesScrollerRef = useRef<HTMLDivElement>(null);
   const [activeServiceCard, setActiveServiceCard] = useState(0);
+  const [shopLocationOpen, setShopLocationOpen] = useState(false);
+  const [showShopPhotos, setShowShopPhotos] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(shopPhotosStore.getPhotos());
+
+  useEffect(() => {
+    const load = () => setShopPhotos(shopPhotosStore.getPhotos());
+    return shopPhotosStore.subscribe(load);
+  }, []);
 
   useEffect(() => {
     const load = () => setMatrix(pricingStore.getMatrix());
@@ -665,12 +677,22 @@ export default function LandingPage() {
 
               {/* Location */}
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-                <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
-                    <MapPin className="h-4 w-4" />
-                  </span>
-                  Location
-                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
+                      <MapPin className="h-4 w-4" />
+                    </span>
+                    Location
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShopLocationOpen(true)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-[#2F6FD6] hover:text-[#1e5bb8] transition-colors"
+                  >
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    Shop Photos
+                  </button>
+                </div>
                 <address className="mt-4 space-y-1 not-italic">
                   {content.locationLines.map((line: string, index: number) => (
                     <p
@@ -683,11 +705,21 @@ export default function LandingPage() {
                     </p>
                   ))}
                 </address>
+                <div className="relative mt-4 h-64 w-full overflow-hidden rounded-lg border-0 lg:hidden">
+                  <iframe
+                    title="Docufy Printing Services - Shop Location (mobile)"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
+                    className="h-full w-full border-0"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Right: map fills the full height of the left column */}
-            <div className="flex flex-col">
+            {/* Right: map fills the full height of the left column (desktop only) */}
+            <div className="hidden flex-col lg:flex">
               <div className="relative h-80 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-sm lg:flex-1">
                 <div className="h-full w-full overflow-hidden rounded-lg">
                   <iframe
@@ -1206,6 +1238,80 @@ export default function LandingPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {shopLocationOpen && (
+        <Dialog open={shopLocationOpen} onOpenChange={setShopLocationOpen}>
+          <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#2F6FD6]" /> Shop Location
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600">
+              {content.locationLines[0]
+                ? `Docufy is conveniently located at ${content.locationLines[0]}.`
+                : "Palawan State University - Main Campus, Puerto Princesa City, Palawan"}
+            </p>
+            {shopPhotos.length > 0 ? (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowShopPhotos(!showShopPhotos)}
+                  className="flex items-center gap-2 text-sm font-medium text-[#2F6FD6] hover:text-[#1e5bb8] transition-colors"
+                >
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      showShopPhotos ? "rotate-180" : ""
+                    }`}
+                  />
+                  {showShopPhotos ? "Hide Shop Photos" : "View Shop Photos"}
+                </button>
+                {showShopPhotos && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {shopPhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        type="button"
+                        onClick={() => setLightboxPhoto(photo.dataUrl)}
+                        className="cursor-pointer"
+                      >
+                        <img
+                          src={photo.dataUrl}
+                          alt="Shop location"
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-[#2F6FD6] transition-all"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                No shop photos uploaded yet.
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {lightboxPhoto && (
+        <Dialog open onOpenChange={() => setLightboxPhoto(null)}>
+          <DialogContent className="sm:max-w-2xl p-0 bg-black border-0 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setLightboxPhoto(null)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={lightboxPhoto}
+              alt="Shop location full view"
+              className="w-full max-h-[80vh] object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {showLogoutConfirm && (
         <ConfirmationDialog
