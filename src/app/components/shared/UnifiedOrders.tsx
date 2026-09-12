@@ -209,7 +209,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [dateTo, setDateTo] = useState("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showStatusForm, setShowStatusForm] = useState(false);
-  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [showPaperConfirm, setShowPaperConfirm] = useState(false);
   const [paperFormData, setPaperFormData] = useState<{
     noErrors: boolean;
@@ -585,7 +584,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     if (!isPhotocopyOrder(selectedOrder) && !stillHoldsLock(selectedOrder.id, myName)) {
       const other = getLock(selectedOrder.id);
       setShowStatusForm(false);
-      setShowStatusConfirm(false);
       setPendingStatus(null);
       toast.error(
         other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available",
@@ -600,22 +598,21 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       extraOrder = { ...paperData };
     }
 
-    // Update the status with form data (including cancellation reason if applicable)
-    const updatedOrders = orders.map((o) =>
-      o.id === selectedOrder.id
-        ? {
-            ...o,
-            ...extraOrder,
-            status: pendingStatus,
-            cancellationReason:
-              pendingStatus === "canceled"
-                ? statusFormData.cancellationReason
-                : o.cancellationReason,
-            statusUpdatedAt: new Date(), // Update timestamp
-          }
-        : o,
-    );
-    ordersStore.setOrders(updatedOrders);
+    // Update the status with form data (including cancellation reason if applicable).
+    // NOTE: we update ONLY the selected order through the store — setOrders() is
+    // O(n): it re-pushes the ENTIRE order list to the shared snapshot one order at
+    // a time (each step = a full localStorage read+write + a storage event to every
+    // other tab), which is what made status updates feel delayed. updateOrder()
+    // writes just this one order to the snapshot in a single pass.
+    ordersStore.updateOrder(selectedOrder.id, {
+      ...extraOrder,
+      status: pendingStatus,
+      cancellationReason:
+        pendingStatus === "canceled"
+          ? statusFormData.cancellationReason
+          : selectedOrder.cancellationReason,
+      statusUpdatedAt: new Date(), // Update timestamp
+    });
 
     const updatedSelectedOrder = {
       ...selectedOrder,
@@ -1836,8 +1833,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
           <DialogFooter className="gap-2">
             <Button
-              variant="outline"
               onClick={() => setShowStatusForm(false)}
+              className="bg-white hover:-translate-y-0.5 hover:shadow-md hover:bg-red-50 border-2 border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-600"
             >
               Cancel
             </Button>
@@ -1845,12 +1842,12 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               onClick={() =>
                 pendingStatus === "completed"
                   ? openPaperConfirm()
-                  : setShowStatusConfirm(true)
+                  : confirmStatusUpdate()
               }
               className={
                 pendingStatus === "canceled"
                   ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
               }
               disabled={
                 pendingStatus === "canceled" &&
@@ -1974,60 +1971,6 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Status Update Confirmation */}
-      {showStatusConfirm && pendingStatus && selectedOrder && (
-        <ConfirmationDialog
-          open
-          onOpenChange={setShowStatusConfirm}
-          onConfirm={() => { confirmStatusUpdate(); setShowStatusConfirm(false); }}
-title={
-            pendingStatus === "canceled"
-              ? "Cancel Order?"
-              : pendingStatus === "released"
-                ? "Release Order?"
-                : pendingStatus === "completed"
-                  ? "Mark Order as Completed?"
-                  : pendingStatus === "inQueue"
-                    ? "Move Order to In Queue?"
-                    : pendingStatus === "printing"
-                      ? "Start Printing Order?"
-                      : `Mark Order as ${
-                          String(pendingStatus).charAt(0).toUpperCase() +
-                          String(pendingStatus).slice(1)
-                        }?`
-          }
-        description={
-          pendingStatus === "canceled"
-            ? `Cancel order ${selectedOrder.id}? This will change the order status to Cancelled${
-                statusFormData.cancellationReason
-                  ? ` with reason "${statusFormData.cancellationReason}"`
-                  : ""
-              }. This action cannot be undone and the customer will be notified.`
-            : pendingStatus === "released"
-              ? "Confirm that the customer has received the completed print job."
-              : pendingStatus === "completed"
-                ? "Confirm that this print job has finished and is ready for release."
-                : pendingStatus === "printing"
-                  ? "Confirm that this order is ready to start printing."
-                  : `Update order ${selectedOrder.id} to "${pendingStatus === "inQueue" ? "In Queue" : String(pendingStatus).charAt(0).toUpperCase() + String(pendingStatus).slice(1)}" and notify the customer?`
-        }
-        confirmLabel={
-          pendingStatus === "canceled"
-            ? "Cancel Order"
-            : pendingStatus === "released"
-              ? "Release Order"
-              : pendingStatus === "completed"
-                ? "Mark as Completed"
-                : pendingStatus === "printing"
-                  ? "Start Printing"
-                  : "Confirm Update"
-        }
-          cancelLabel="Go Back"
-          destructive={pendingStatus === "canceled"}
-          requirePhrase={pendingStatus === "canceled"}
-        />
-      )}
 
       {/* Shop-paused override: staff can start a new print manually */}
       {pauseOverride && (

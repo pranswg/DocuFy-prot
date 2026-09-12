@@ -60,6 +60,22 @@ class InventoryStore {
 
   constructor() {
     this.loadFromLocalStorage();
+
+    // Cross-tab live sync: when ANOTHER tab writes inventory (e.g. the customer
+    // tab placing an order deducts paper pieces), the `storage` event fires
+    // HERE. Reload from localStorage and re-render every subscriber live — the
+    // staff/admin Inventory page, paper size options, and low/out-of-stock
+    // alerts all update without a page refresh.
+    window.addEventListener('storage', (e) => {
+      if (
+        e.key !== 'inventoryStore' &&
+        e.key !== 'inventoryMovements' &&
+        e.key !== 'inventoryStoreVersion'
+      ) {
+        return;
+      }
+      this.reloadFromLocalStorage();
+    });
   }
 
   private loadFromLocalStorage(): void {
@@ -95,6 +111,32 @@ class InventoryStore {
     }
 
     this.initialized = true;
+  }
+
+  // Re-read inventory + movements unconditionally (ignores the `initialized`
+  // guard) and notify. Used by the cross-tab `storage` listener so a fresh
+  // snapshot from another tab replaces the in-memory state and every
+  // subscriber re-renders.
+  private reloadFromLocalStorage(): void {
+    try {
+      const stored = localStorage.getItem('inventoryStore');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        this.items = Array.isArray(parsed)
+          ? parsed.map(item => this.normalizeItem(item))
+          : [];
+      }
+      const storedMoves = localStorage.getItem('inventoryMovements');
+      try {
+        const movesParsed = storedMoves ? JSON.parse(storedMoves) : [];
+        this.movements = Array.isArray(movesParsed) ? movesParsed : [];
+      } catch {
+        this.movements = [];
+      }
+      this.notify();
+    } catch (error) {
+      console.error('Failed to reload inventory from localStorage:', error);
+    }
   }
 
   // Backfill pcsPerUnit for existing Paper items that were saved before it

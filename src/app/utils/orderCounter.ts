@@ -19,6 +19,7 @@ class OrderCounter {
   private state: CounterState;
 
   constructor() {
+    this.state = { year: new Date().getFullYear(), seq: 0 };
     const stored = localStorage.getItem(ORDER_COUNTER_KEY);
     if (stored) {
       try {
@@ -29,13 +30,31 @@ class OrderCounter {
           parsed.seq >= 0
         ) {
           this.state = parsed;
-          return;
         }
       } catch {
-        // malformed – fall through
+        // malformed – keep the default state
       }
     }
-    this.state = { year: new Date().getFullYear(), seq: 0 };
+
+    // Cross-tab live sync: when ANOTHER tab mints an order ID (e.g. a walk-in
+    // order on the staff/admin tab) it persists its new sequence, which fires a
+    // `storage` event HERE. Reload the persisted state so this tab never mints
+    // a duplicate ID from a stale in-memory sequence.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== ORDER_COUNTER_KEY || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue) as CounterState;
+        if (
+          typeof parsed.year === 'number' &&
+          typeof parsed.seq === 'number' &&
+          parsed.seq >= 0
+        ) {
+          this.state = parsed;
+        }
+      } catch {
+        // ignore malformed persisted states
+      }
+    });
   }
 
   /**

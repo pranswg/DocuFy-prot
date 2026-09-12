@@ -992,7 +992,7 @@ const initialOrders: Order[] = [
     const status = i % 3 === 0 ? 'Printing' : 'In Queue';
     const hour = 9 + i;
     const minute = (i * 3) % 60;
-    const ts = `2026-09-0${i + 1}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`;
+    const ts = `2026-09-${String(i + 1).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`;
     const isCash = customers[3] === 'Cash';
     return {
       id,
@@ -1071,6 +1071,14 @@ class DataStore {
   private listeners: Set<() => void> = new Set();
 
   constructor() {
+    // Adopt any existing cross-tab snapshot on load, so a freshly-opened tab
+    // (customer OR staff/admin) immediately reflects orders placed in other
+    // tabs instead of starting from the seed rows until the next write.
+    const snap = readOrdersSnapshot();
+    if (snap) {
+      this.orders = snap;
+    }
+
     // Initialize order counter from existing orders
     this.initializeOrderCounter();
 
@@ -1211,6 +1219,15 @@ class DataStore {
 
   // Generate next sequential order ID using centralized counter
   getNextOrderId(): string {
+    // Re-base on the LATEST shared snapshot before minting. A tab that has been
+    // open a while (e.g. the customer tab while staff/admin was placing walk-in
+    // orders in another tab) otherwise holds a stale in-memory counter and could
+    // mint an ID that already exists. initializeFromOrders only ever raised the
+    // sequence, so this is safe against any previously-minted ID.
+    const snap = readOrdersSnapshot();
+    if (snap && snap.length > 0) {
+      orderCounter.initializeFromOrders(snap.map(order => order.id));
+    }
     return orderCounter.getNextOrderId();
   }
 

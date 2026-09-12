@@ -67,6 +67,20 @@ type OrderType = {
 
 type Subscriber = () => void;
 
+// Safely serialize a date field. Malformed/absent timestamps (e.g. a stale
+// stored value that `new Date()` can't parse) become `undefined` instead of
+// throwing — a single bad order must never abort a full queue sync.
+const toIso = (d: unknown): string | undefined =>
+  d instanceof Date && !isNaN(d.getTime()) ? d.toISOString() : undefined;
+
+// Safely parse a date field back into a Date; unparseable values become
+// `undefined` (never an Invalid Date, which would throw on `.toISOString()`).
+const asDate = (v: unknown): Date | undefined => {
+  if (v == null) return undefined;
+  const d = new Date(v as any);
+  return isNaN(d.getTime()) ? undefined : d;
+};
+
 class OrdersStore {
   private orders: OrderType[] = [];
   private subscribers: Set<Subscriber> = new Set();
@@ -150,7 +164,7 @@ class OrdersStore {
         status: this.convertStatus(updatedOrder.status),
         holdReason: updatedOrder.holdReason,
         cancellationReason: updatedOrder.cancellationReason,
-        paymentDeadline: updatedOrder.paymentDeadline?.toISOString(),
+        paymentDeadline: toIso(updatedOrder.paymentDeadline),
         paymentAmountPaid: updatedOrder.paymentAmountPaid,
         paymentVerified: updatedOrder.paymentVerified,
         paymentReferenceNumber: updatedOrder.paymentReferenceNumber,
@@ -165,8 +179,8 @@ class OrdersStore {
         paperDeductedOnCreate: updatedOrder.paperDeductedOnCreate,
         paperConfirmed: updatedOrder.paperConfirmed,
         errorUsage: updatedOrder.errorUsage,
-        statusUpdatedAt: updatedOrder.statusUpdatedAt?.toISOString(),
-        lastUpdatedAt: updatedOrder.lastUpdatedAt?.toISOString(),
+statusUpdatedAt: toIso(updatedOrder.statusUpdatedAt),
+        lastUpdatedAt: toIso(updatedOrder.lastUpdatedAt),
       });
     }
     this.syncing = false;
@@ -209,7 +223,7 @@ class OrdersStore {
       status: this.convertStatus(order.status),
       holdReason: order.holdReason,
       cancellationReason: order.cancellationReason,
-      paymentDeadline: order.paymentDeadline?.toISOString(),
+      paymentDeadline: toIso(order.paymentDeadline),
       paymentAmountPaid: order.paymentAmountPaid,
       paymentVerified: order.paymentVerified,
       paymentReferenceNumber: order.paymentReferenceNumber,
@@ -247,14 +261,15 @@ class OrdersStore {
       paperDeductedOnCreate: order.paperDeductedOnCreate,
       paperConfirmed: order.paperConfirmed,
       errorUsage: order.errorUsage,
-      statusUpdatedAt: order.statusUpdatedAt?.toISOString(),
-      createdAt: order.createdAt?.toISOString(),
-      lastUpdatedAt: order.lastUpdatedAt?.toISOString(),
+      statusUpdatedAt: toIso(order.statusUpdatedAt),
+      createdAt: toIso(order.createdAt),
+      lastUpdatedAt: toIso(order.lastUpdatedAt),
     };
   }
 
   // Convert dataStore Order to OrderType format
   private convertFromDataStore(order: any): OrderType {
+    const submitted = asDate(order.date) ?? new Date(0);
     return {
       id: order.id,
       customer: order.customerName,
@@ -262,13 +277,13 @@ class OrdersStore {
       type: order.printType === 'Colored' ? 'Colored' : 'B&W',
       notes: order.notes || order.holdReason || '',
       status: this.convertStatusReverse(order.status),
-      time: new Date(order.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      time: submitted.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       paperSize: order.paperSize || 'A4',
       copies: order.copies || 1,
-      submittedAt: new Date(order.date),
+      submittedAt: submitted,
       holdReason: order.holdReason,
       cancellationReason: order.cancellationReason,
-      paymentDeadline: order.paymentDeadline ? new Date(order.paymentDeadline) : undefined,
+      paymentDeadline: asDate(order.paymentDeadline),
       paymentAmountPaid: order.paymentAmountPaid,
       attachedFiles: order.attachedFiles || (order.fileName ? [{ name: order.fileName, size: '0 MB', type: 'PDF' }] : []),
       paymentVerified: order.paymentVerified || false,
@@ -298,9 +313,9 @@ class OrdersStore {
       paperDeductedOnCreate: order.paperDeductedOnCreate,
       paperConfirmed: order.paperConfirmed,
       errorUsage: order.errorUsage,
-      statusUpdatedAt: order.statusUpdatedAt ? new Date(order.statusUpdatedAt) : undefined,
-      createdAt: order.createdAt ? new Date(order.createdAt) : undefined,
-      lastUpdatedAt: order.lastUpdatedAt ? new Date(order.lastUpdatedAt) : undefined,
+      statusUpdatedAt: asDate(order.statusUpdatedAt),
+      createdAt: asDate(order.createdAt),
+      lastUpdatedAt: asDate(order.lastUpdatedAt),
       manualTotal: order.manualTotal,
     };
   }
