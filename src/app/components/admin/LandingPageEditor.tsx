@@ -29,12 +29,12 @@ import { logoStore } from "../../utils/logoStore";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 const sectionCards = [
-  { id: "logo", label: "Brand Logo", icon: <Eye className="w-4 h-4" /> },
-  { id: "hero", label: "Hero Section", icon: <Eye className="w-4 h-4" /> },
-  { id: "features", label: "Feature Highlights", icon: <Eye className="w-4 h-4" /> },
-  { id: "services", label: "Services & Pricing Cards", icon: <Eye className="w-4 h-4" /> },
-  { id: "shop-info", label: "Shop Info", icon: <Eye className="w-4 h-4" /> },
-  { id: "about", label: "About Docufy", icon: <Eye className="w-4 h-4" /> },
+  { id: "logo", label: "Logo", icon: <Eye className="w-4 h-4" /> },
+  { id: "hero", label: "Top Section", icon: <Eye className="w-4 h-4" /> },
+  { id: "features", label: "Features", icon: <Eye className="w-4 h-4" /> },
+  { id: "services", label: "Services & Prices", icon: <Eye className="w-4 h-4" /> },
+  { id: "shop-info", label: "Shop Information", icon: <Eye className="w-4 h-4" /> },
+  { id: "about", label: "About Docufy PSMS", icon: <Eye className="w-4 h-4" /> },
 ];
 
 function EditorCard({
@@ -289,7 +289,7 @@ export default function LandingPageEditor() {
             {/* Logo */}
             <div id="logo" className="scroll-mt-28">
               <EditorCard
-                title="Brand Logo"
+                title="Logo"
                 subtitle="The Docufy logo shown across the whole system — sidebar, headers, landing page, login, and footer."
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-lg border border-slate-100 p-4">
@@ -341,25 +341,25 @@ export default function LandingPageEditor() {
               </EditorCard>
             </div>
 
-            {/* Hero */}
+            {/* Top Section */}
             <div id="hero" className="scroll-mt-28">
               <EditorCard
-                title="Hero Section"
-                subtitle="The headline, badge, and intro visitors see first."
+                title="Top Section"
+                subtitle="Edit the main content visitors see when they open the landing page."
               >
                 <Field
-                  label="Hero Title"
+                  label="Main Title"
                   value={content.heroTitle}
                   onChange={(v) => patch({ heroTitle: v })}
                   hint="Use a comma to split into two lines — the part after the comma is highlighted blue."
                 />
                 <Field
-                  label="Hero Subtitle (badge)"
+                  label="Subtitle"
                   value={content.heroSubtitle}
                   onChange={(v) => patch({ heroSubtitle: v })}
                 />
                 <Field
-                  label="Hero Description"
+                  label="Description"
                   value={content.heroDescription}
                   onChange={(v) => patch({ heroDescription: v })}
                   multiline
@@ -370,8 +370,8 @@ export default function LandingPageEditor() {
             {/* Features */}
             <div id="features" className="scroll-mt-28">
               <EditorCard
-                title="Feature Highlights"
-                subtitle="The three benefits shown under the Get Started button."
+                title="Features"
+                subtitle="Add the short features you want visitors to see."
               >
                 {(
                   [
@@ -382,35 +382,38 @@ export default function LandingPageEditor() {
                 ).map(([num, titleKey, subKey]) => (
                   <div
                     key={num}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-3 rounded-lg border border-slate-100 p-3"
+                    className="rounded-lg border border-slate-100 p-3 space-y-3"
                   >
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F2F7FF] text-xs font-semibold text-[#2F6FD6]">
                         {num}
                       </span>
-                      <Input
+                      <span className="text-sm font-semibold text-slate-800">Feature {num}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field
+                        label="Feature Name"
                         value={content[titleKey]}
-                        onChange={(e) => patch({ [titleKey]: e.target.value } as Partial<LandingPageContent>)}
-                        placeholder={`Feature ${num} title`}
-                        className="h-9"
+                        onChange={(v) => patch({ [titleKey]: v } as Partial<LandingPageContent>)}
+                        hint="Short heading for this feature."
+                      />
+                      <Field
+                        label="Feature Description"
+                        value={content[subKey]}
+                        onChange={(v) => patch({ [subKey]: v } as Partial<LandingPageContent>)}
+                        hint="One short line that explains the feature."
                       />
                     </div>
-                    <Input
-                      value={content[subKey]}
-                      onChange={(e) => patch({ [subKey]: e.target.value } as Partial<LandingPageContent>)}
-                      placeholder="Subtitle"
-                      className="h-9"
-                    />
                   </div>
                 ))}
               </EditorCard>
             </div>
 
-            {/* Services cards */}
+            {/* Services & Prices */}
             <div id="services" className="scroll-mt-28">
               <EditorCard
-                title="Services & Pricing Cards"
-                subtitle="The three service cards below the hero. Prices come from Pricing Management; edit the labels and descriptions here."
+                title="Services & Prices"
+                subtitle="Update the printing services and prices shown on the landing page."
               >
                 {content.serviceCards.map((card, index) => (
                   <div key={index} className="rounded-lg border border-slate-100 p-4 space-y-3">
@@ -419,7 +422,7 @@ export default function LandingPageEditor() {
                         {index + 1}
                       </span>
                       <h4 className="text-sm font-semibold text-slate-800">
-                        {card.title || `Service Card ${index + 1}`}
+                        {card.title || `Service ${index + 1}`}
                       </h4>
                       {card.badge && (
                         <span className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[11px] font-semibold text-[#2F6FD6]">
@@ -429,32 +432,37 @@ export default function LandingPageEditor() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Field
-                        label="Card title"
+                        label="Service Name"
                         value={card.title}
                         onChange={(v) => patchServiceCard(index, { title: v })}
+                        hint='e.g. "Black &amp; White Printing"'
                       />
                       <Field
-                        label="Badge (optional)"
+                        label="Tag (optional)"
                         value={card.badge ?? ""}
                         onChange={(v) => patchServiceCard(index, { badge: v })}
+                        hint='e.g. "POPULAR"'
                       />
                     </div>
                     <Field
                       label="Description"
                       value={card.description}
                       onChange={(v) => patchServiceCard(index, { description: v })}
+                      hint="A short sentence explaining this service."
                     />
                     {card.details.map((detail, di) => (
                       <div key={di} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field
-                          label={`Detail label ${di + 1}`}
+                          label="Option Name"
                           value={detail.label}
                           onChange={(v) => patchServiceDetail(index, di, "label", v)}
+                          hint='e.g. "Paper sizes"'
                         />
                         <Field
-                          label={`Detail value ${di + 1}`}
+                          label="Option Details"
                           value={detail.value}
                           onChange={(v) => patchServiceDetail(index, di, "value", v)}
+                          hint='e.g. "Short · A4 · Long"'
                         />
                       </div>
                     ))}
@@ -463,11 +471,11 @@ export default function LandingPageEditor() {
               </EditorCard>
             </div>
 
-            {/* Shop info */}
+            {/* Shop Information */}
             <div id="shop-info" className="scroll-mt-28">
               <EditorCard
-                title="Shop Info"
-                subtitle="Opening hours and the shop's address shown in the Shop Info section and footer."
+                title="Shop Information"
+                subtitle="Update your shop hours and location."
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -478,7 +486,7 @@ export default function LandingPageEditor() {
                       className="h-8 border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF]"
                       onClick={addShopHour}
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add row
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Hours
                     </Button>
                   </div>
                   <div className="space-y-2">
@@ -487,20 +495,20 @@ export default function LandingPageEditor() {
                         <Input
                           value={row.label}
                           onChange={(e) => patchShopHours(i, "label", e.target.value)}
-                          placeholder="Label (e.g. Monday - Friday)"
+                          placeholder="Days (e.g. Monday - Friday)"
                           className="flex-1 h-9"
                         />
                         <Input
                           value={row.hours}
                           onChange={(e) => patchShopHours(i, "hours", e.target.value)}
-                          placeholder="Hours"
+                          placeholder="Hours (e.g. 9:00 AM - 5:00 PM)"
                           className="flex-1 h-9"
                         />
                         <button
                           type="button"
                           onClick={() => removeShopHour(i)}
                           className="shrink-0 p-2 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Remove row"
+                          title="Remove hours"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -515,14 +523,14 @@ export default function LandingPageEditor() {
                 />
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-medium text-slate-700">Location lines</Label>
+                    <Label className="text-sm font-medium text-slate-700">Location</Label>
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-8 border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF]"
                       onClick={addLocationLine}
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add line
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
                     </Button>
                   </div>
                   <div className="space-y-2">
@@ -531,7 +539,7 @@ export default function LandingPageEditor() {
                         <Input
                           value={line}
                           onChange={(e) => patchLocationLine(i, e.target.value)}
-                          placeholder="Address line"
+                          placeholder='e.g. "Room 4, TBI Building"'
                           className="flex-1 h-9"
                         />
                         <button
@@ -549,24 +557,24 @@ export default function LandingPageEditor() {
               </EditorCard>
             </div>
 
-            {/* About */}
+            {/* About Docufy PSMS */}
             <div id="about" className="scroll-mt-28">
               <EditorCard
-                title="About Docufy"
-                subtitle="The about text used in the landing page footer."
+                title="About Docufy PSMS"
+                subtitle="Write a short description about the Printing Services Management System."
               >
                 <Field
-                  label="About title"
+                  label="Title"
                   value={content.aboutTitle}
                   onChange={(v) => patch({ aboutTitle: v })}
                 />
                 <Field
-                  label="About subtitle"
+                  label="Subtitle"
                   value={content.aboutSubtitle}
                   onChange={(v) => patch({ aboutSubtitle: v })}
                 />
                 <Field
-                  label="About body"
+                  label="Description"
                   value={content.aboutBody}
                   onChange={(v) => patch({ aboutBody: v })}
                   multiline

@@ -64,6 +64,9 @@ export default function LandingPage({
   const [showShopPhotos, setShowShopPhotos] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(shopPhotosStore.getPhotos());
+  const [jobsDropdownOpen, setJobsDropdownOpen] = useState(false);
+  const jobsDropdownRef = useRef<HTMLDivElement>(null);
+  const jobsDropdownPresence = usePresence(jobsDropdownOpen, 200);
 
   useEffect(() => {
     const load = () => setShopPhotos(shopPhotosStore.getPhotos());
@@ -86,6 +89,18 @@ export default function LandingPage({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isProfileOpen]);
+
+  // Close the "Join Our Team" jobs dropdown when clicking outside of it.
+  useEffect(() => {
+    if (!jobsDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (jobsDropdownRef.current && !jobsDropdownRef.current.contains(event.target as Node)) {
+        setJobsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [jobsDropdownOpen]);
 
   const [jobs, setJobs] = useState<any[]>(() => jobsStore.getActiveJobs());
   useEffect(() => {
@@ -120,7 +135,7 @@ export default function LandingPage({
 
   // Scroll-spy: highlight the header nav item for the section currently in view.
   useEffect(() => {
-    const sectionIds = ["home", "services", "shop-info", "footer"];
+    const sectionIds = ["home", "services", "shop-info", "jobs"];
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -188,7 +203,7 @@ export default function LandingPage({
     { id: "home", label: "Home" },
     { id: "services", label: "Services & Pricing" },
     { id: "shop-info", label: "Shop Info" },
-    { id: "footer", label: "About Docufy" },
+    { id: "jobs", label: "Join Our Team" },
   ];
 
   return (
@@ -663,87 +678,102 @@ export default function LandingPage({
             <p className="mt-4 text-[clamp(1rem,1.32vw,2.25rem)] text-gray-600">
               Explore current openings at Docufy and start your application today.
             </p>
-            {jobs.length > 0 && (
-              <div className="mt-8">
-                <Button
-                  type="button"
-                  onClick={() => scrollToSection("jobs-list")}
-                  className="h-12 rounded-lg bg-[#1D73EC] px-8 text-white shadow-md shadow-[#1D73EC]/30 transition-all duration-200 hover:bg-[#0f66d9] hover:shadow-lg hover:shadow-[#1D73EC]/35 active:scale-[0.98] active:shadow-sm"
-                >
-                  View Job Openings <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+<div className="relative mt-8" ref={jobsDropdownRef}>
+              <Button
+                type="button"
+                onClick={() => setJobsDropdownOpen((prev) => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={jobsDropdownOpen}
+                className="h-12 rounded-lg bg-[#1D73EC] px-7 text-white shadow-md shadow-[#1D73EC]/30 transition-all duration-200 hover:bg-[#0f66d9] hover:shadow-lg hover:shadow-[#1D73EC]/35 active:scale-[0.98] active:shadow-sm"
+              >
+                {jobs.length > 0 ? "View Job Openings" : "Join Our Team"}
+                <ChevronDown
+                  className={`ml-2 h-4 w-4 transition-transform duration-200 ${
+                    jobsDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
 
-          {jobs.length === 0 ? (
-            <div className="mt-12 rounded-xl border border-blue-200/60 bg-white p-10 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F2F7FF]">
-                <Briefcase className="h-6 w-6 text-[#1D73EC]" />
-              </div>
-              <p className="text-lg font-semibold text-[#1c1f26]">No open positions right now</p>
-              <p className="mt-1 text-sm text-gray-500">
-                Please check back later for new opportunities at Docufy.
-              </p>
-            </div>
-          ) : (
-            <ul id="jobs-list" className="mt-12 scroll-mt-24">
-              {jobs.map((job) => (
-                <li
-                  key={job.id}
-                  className="grid gap-3 border-t border-blue-200/60 py-6 last:border-b sm:grid-cols-[1fr_auto] sm:items-center sm:gap-10 lg:py-7"
+              {jobsDropdownPresence && (
+                <div
+                  className={`absolute left-1/2 top-full z-50 mt-3 w-80 -translate-x-1/2 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-2xl ${
+                    jobsDropdownPresence.isClosing
+                      ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none"
+                      : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
+                  }`}
                 >
-                  <div className="min-w-0">
-                    <h3 className="text-[clamp(1.125rem,1.46vw,2.75rem)] font-semibold text-[#1c1f26]">
-                      {job.title}
-                    </h3>
-                    <p className="mt-1.5 text-sm text-gray-500">
-                      {[
-                        job.type,
-                        job.duration && `Schedule: ${job.duration}`,
-                        job.location && `Location: ${job.location}`,
-                        (job.posted || job.postedDate) && `Posted: ${job.posted || job.postedDate}`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    {job.description && (
-                      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-600">
-                        {job.description}
+                  {jobs.length === 0 ? (
+                    <div className="px-6 py-8 text-center">
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F2F7FF]">
+                        <Briefcase className="h-6 w-6 text-[#1D73EC]" />
+                      </div>
+                      <p className="text-base font-semibold text-[#1c1f26]">
+                        We're not hiring right now
                       </p>
-                    )}
-                  </div>
-                  <Button
-                    onClick={() => navigate(`/signup?jobId=${job.id}`)}
-                    className="h-9 w-full rounded-lg bg-white px-5 text-sm font-semibold text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white sm:h-9 sm:w-auto"
-                  >
-                    Apply Now <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+                      <p className="mt-1.5 text-sm text-gray-500">
+                        No job openings available at the moment. Please check back again soon.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="max-h-80 overflow-y-auto py-1">
+                      {jobs.map((job) => (
+                        <li key={job.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJobsDropdownOpen(false);
+                              navigate(`/signup?jobId=${job.id}`);
+                            }}
+                            className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#F2F7FF]"
+                          >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F2F7FF] transition-colors group-hover:bg-[#1D73EC]/10">
+                              <Briefcase className="h-5 w-5 text-[#1D73EC]" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-[#1c1f26]">
+                                {job.title}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-gray-500">
+                                {[
+                                  job.type,
+                                  job.duration && `Schedule: ${job.duration}`,
+                                  job.location,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" \u00b7 ")}
+                              </span>
+                            </span>
+                            <ArrowRight className="h-4 w-4 shrink-0 text-[#1D73EC] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer id="footer" className="relative z-10 bg-[#1351AE]">
         <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
-          <div className="grid gap-x-10 gap-y-10 py-12 lg:grid-cols-12 lg:gap-x-8 lg:py-14">
+          <div className="grid gap-x-10 gap-y-6 py-6 lg:grid-cols-12 lg:gap-x-8 lg:py-8">
             {/* Brand / About Docufy */}
             <div className="lg:col-span-5">
               <div className="flex items-center gap-3">
                 <img
                   src={logo}
                   alt="Docufy Logo"
-                  className="h-[clamp(2.5rem,3.51vw,6rem)] w-[clamp(2.5rem,3.51vw,6rem)] rounded-full"
+                  className="h-10 w-10 rounded-full sm:h-11 sm:w-11"
                 />
-                <h2 className="text-[clamp(1.125rem,1.32vw,2.5rem)] font-bold text-white">Docufy PSMS</h2>
+                <h2 className="text-lg font-bold text-white sm:text-xl">Docufy PSMS</h2>
               </div>
-              <h3 className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                About Docufy
+              <h3 className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                About Docufy PSMS
               </h3>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-blue-100/90">
+              <p className="mt-2 max-w-md text-sm leading-normal text-blue-100/90">
                 {footerAboutShort}
               </p>
             </div>
@@ -753,12 +783,12 @@ export default function LandingPage({
               <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
                 Quick Links
               </h3>
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-2.5 space-y-1.5">
                 {[
                   { id: "home", label: "Home" },
                   { id: "services", label: "Services & Pricing" },
                   { id: "shop-info", label: "Shop Info" },
-                  { id: "footer", label: "About Us" },
+                  { id: "jobs", label: "Join Our Team" },
                 ].map((link) => (
                   <li key={link.label}>
                     <button
@@ -778,7 +808,7 @@ export default function LandingPage({
               <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
                 Contact / Shop Information
               </h3>
-              <div className="mt-4 space-y-3.5">
+              <div className="mt-2.5 space-y-2">
                 {content.locationLines[0] && (
                   <p className="text-sm text-blue-50/90">
                     {content.locationLines[0]}
@@ -804,7 +834,7 @@ export default function LandingPage({
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-4 border-t border-white/10 py-5 text-xs text-blue-100/80 sm:flex-row sm:justify-between">
+          <div className="flex flex-col items-center gap-2 border-t border-white/10 py-3 text-xs text-blue-100/80 sm:flex-row sm:justify-between sm:py-3.5">
             <p>&copy; 2026 Docufy PSMS. All rights reserved.</p>
             <div className="flex items-center gap-3">
               <button
