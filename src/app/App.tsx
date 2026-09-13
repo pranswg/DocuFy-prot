@@ -25,9 +25,9 @@ import AdminAttendancePage from './components/admin/AdminAttendance';
 import InventoryManagement from './components/admin/InventoryManagement';
 import PaymentMethodsManagement from './components/admin/PaymentMethodsManagement';
 import PricingManagement from './components/admin/PricingManagement';
+import LandingPageEditor from './components/admin/LandingPageEditor';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
-import ContentManagement from './components/admin/ContentManagement';
 import OrderTracking from './components/customer/OrderTracking';
 import JobBoard from './components/customer/JobBoard';
 import JobApplyForm from './components/customer/JobApplyForm';
@@ -208,6 +208,10 @@ const router = createBrowserRouter([
         element: <ProtectedRoute role="admin"><PricingManagement /></ProtectedRoute>,
       },
       {
+        path: 'landing',
+        element: <ProtectedRoute role="admin"><LandingPageEditor /></ProtectedRoute>,
+      },
+      {
         path: 'orders',
         element: <ProtectedRoute role="admin"><AdminOrdersUnified /></ProtectedRoute>,
       },
@@ -230,10 +234,6 @@ const router = createBrowserRouter([
       {
         path: 'job-board',
         element: <ProtectedRoute role="admin"><JobBoardManagement /></ProtectedRoute>,
-      },
-      {
-        path: 'content',
-        element: <ProtectedRoute role="admin"><ContentManagement /></ProtectedRoute>,
       },
       {
         path: 'notifications',

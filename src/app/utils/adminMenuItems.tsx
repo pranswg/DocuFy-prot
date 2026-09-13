@@ -9,10 +9,10 @@ import {
   Boxes,
   Users,
   Briefcase,
-  Settings,
   ShoppingCart,
   Clock,
   BadgeDollarSign,
+  MonitorPlay,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -67,8 +67,8 @@ export const adminMenuItems = [
     icon: <BadgeDollarSign className="w-5 h-5" />,
   },
   {
-    label: "Content Management",
-    path: "/admin/content",
-    icon: <Settings className="w-5 h-5" />,
+    label: "Landing Page",
+    path: "/admin/landing",
+    icon: <MonitorPlay className="w-5 h-5" />,
   },
 ];

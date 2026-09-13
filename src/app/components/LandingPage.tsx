@@ -23,6 +23,7 @@ import { Card } from "./ui/card";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingMatrix } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
+import { landingContentStore, type LandingPageContent } from "../utils/landingContentStore";
 import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
@@ -85,109 +86,16 @@ export default function LandingPage() {
     return jobsStore.subscribe(load);
   }, []);
 
-  // Load landing page content from localStorage or use defaults
-  const getContent = () => {
-    const defaults = {
-      heroTitle: "Print, Track, Succeed",
-      heroSubtitle: "Your Printing Companion",
-      heroDescription:
-        "Upload, print, and track your documents with ease. Professional printing services designed for students and faculty.",
-      feature1: "Upload documents",
-      feature1Sub: "instantly",
-      feature2: "Real-time",
-      feature2Sub: "order tracking",
-      feature3: "Secure payment",
-      feature3Sub: "verification.",
-      bindingPrice: "20",
-      hoursMonFri: "9:00 AM - 5:00 PM",
-      hoursSat: "Closed",
-      hoursSun: "Closed",
-      shopHours: [
-        { label: "Monday - Friday", hours: "9:00 AM - 5:00 PM" },
-        { label: "Saturday - Sunday", hours: "Closed" },
-      ],
-      hoursNote: "No noon break",
-      locationLines: [
-        "Palawan State University - Main Campus",
-        "Room 4, TBI Building",
-        "Puerto Princesa City, 5300 Palawan",
-      ],
-      locationCampus: "Palawan State University - Main Campus",
-      locationRoom: "Room 4, TBI Building",
-      locationBuilding: "Puerto Princesa City, 5300 Palawan",
-      aboutTitle: "About Docufy",
-      aboutSubtitle: "Your printing companion",
-      aboutBody:
-        "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
-    };
-    const saved = localStorage.getItem("landing_content");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const merged = { ...defaults, ...parsed };
-        // Legacy (pre-subtitle) saved content stored the FULL phrase in
-        // feature1/2/3, e.g. "Upload documents instantly". Migrate it by
-        // stripping the subtitle out of the title so words are not doubled.
-        if (typeof parsed.feature1Sub !== "string") {
-          for (const n of [1, 2, 3] as const) {
-            const sub = defaults[`feature${n}Sub`];
-            const match = sub.replace(/\.$/, "");
-            const title = String(merged[`feature${n}`]);
-            merged[`feature${n}`] = title.includes(match)
-              ? title.replace(match, "").trim()
-              : title;
-            merged[`feature${n}Sub`] = sub;
-          }
-        }
-        // Migrate saved shop hours that still carry old values to the
-        // current schedule (9 AM - 5 PM, Monday to Friday, no lunch break).
-        const HOURS_MIGRATION: Record<string, [string, string]> = {
-          hoursMonFri: ["8:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
-          hoursMonFri6: ["9:00 AM - 6:00 PM", "9:00 AM - 5:00 PM"],
-          hoursSat: ["9:00 AM - 4:00 PM", "Closed"],
-          hoursSat6: ["9:00 AM - 6:00 PM", "Closed"],
-        };
-        for (const [key, [oldVal, newVal]] of Object.entries(HOURS_MIGRATION)) {
-          const realKey = key.replace(/6$/, "");
-          if (String(merged[realKey]) === oldVal) merged[realKey] = newVal;
-        }
-        // Structured shop-hours / location fields: build them from legacy
-        // flat values when not yet saved so the landing page reflects them.
-        if (!Array.isArray(merged.shopHours)) {
-          const satSun =
-            String(merged.hoursSat).toLowerCase() ===
-            String(merged.hoursSun).toLowerCase()
-              ? [{ label: "Saturday - Sunday", hours: String(merged.hoursSat || "Closed") }]
-              : [
-                  { label: "Saturday", hours: String(merged.hoursSat || "Closed") },
-                  { label: "Sunday", hours: String(merged.hoursSun || "Closed") },
-                ];
-          merged.shopHours = [
-            { label: "Monday - Friday", hours: String(merged.hoursMonFri || "") },
-            ...satSun,
-          ].filter((row) => row.hours !== "");
-          merged.hoursNote = "No noon break";
-        }
-        if (!Array.isArray(merged.locationLines)) {
-          merged.locationLines = [
-            merged.locationCampus,
-            merged.locationRoom,
-            merged.locationBuilding,
-          ].filter(Boolean);
-        }
-        return merged;
-      } catch {
-        // Fall through to defaults
-      }
-    }
-    return defaults;
-  };
+  const [content, setContent] = useState<LandingPageContent>(() =>
+    landingContentStore.getContent(),
+  );
+  useEffect(() => {
+    const load = () => setContent(landingContentStore.getContent());
+    return landingContentStore.subscribe(load);
+  }, []);
 
-  const content = getContent();
-
-  // Footer About Docufy blurb: the existing About body, trimmed.
-  const footerAboutShort =
-    "Docufy is a printing service designed to make document printing easier for students and faculty.";
+  // Footer About Docufy blurb comes straight from the editable content body.
+  const footerAboutShort = content.aboutBody;
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -516,20 +424,18 @@ export default function LandingPage() {
               </div>
               <div className="mt-6 flex flex-1 flex-col">
                 <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
-                  Black &amp; White Printing
+                  {content.serviceCards[0].title}
                 </h4>
                 <p className="mt-2 text-gray-600">
-                  Standard plain-paper printing for everyday text documents.
+                  {content.serviceCards[0].description}
                 </p>
                 <dl className="mt-5 space-y-2.5 text-sm">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Paper sizes</dt>
-                    <dd className="text-right text-gray-600">Short · A4 · Long</dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Content</dt>
-                    <dd className="text-right text-gray-600">Text · Text + Image · Image</dd>
-                  </div>
+                  {content.serviceCards[0].details.map((detail, di) => (
+                    <div key={di} className="flex items-baseline justify-between gap-4">
+                      <dt className="shrink-0 font-semibold text-[#1c1f26]">{detail.label}</dt>
+                      <dd className="text-right text-gray-600">{detail.value}</dd>
+                    </div>
+                  ))}
                 </dl>
               </div>
               <div className="pt-6 mt-7 border-t border-gray-100">
@@ -550,26 +456,26 @@ export default function LandingPage() {
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
                     <Palette className="w-8 h-8 text-white" />
                   </div>
-                  <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full">
-                    POPULAR
-                  </div>
+                  {content.serviceCards[1].badge && (
+                    <div className="inline-block px-3 py-1 bg-white text-[#1D73EC] text-xs font-bold rounded-full">
+                      {content.serviceCards[1].badge}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-6 flex flex-1 flex-col">
                   <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold">
-                    Color Printing
+                    {content.serviceCards[1].title}
                   </h4>
                   <p className="mt-2 text-white/90">
-                    Full-color plain-paper printing for documents and presentations.
+                    {content.serviceCards[1].description}
                   </p>
                   <dl className="mt-5 space-y-2.5 text-sm">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <dt className="shrink-0 font-semibold text-white/70">Paper sizes</dt>
-                      <dd className="text-right text-white/90">Short · A4 · Long</dd>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <dt className="shrink-0 font-semibold text-white/70">Color modes</dt>
-                      <dd className="text-right text-white/90">Partial · Full</dd>
-                    </div>
+                    {content.serviceCards[1].details.map((detail, di) => (
+                      <div key={di} className="flex items-baseline justify-between gap-4">
+                        <dt className="shrink-0 font-semibold text-white/70">{detail.label}</dt>
+                        <dd className="text-right text-white/90">{detail.value}</dd>
+                      </div>
+                    ))}
                   </dl>
                 </div>
                 <div className="pt-6 mt-7 border-t border-white/15">
@@ -589,20 +495,18 @@ export default function LandingPage() {
               </div>
               <div className="mt-6 flex flex-1 flex-col">
                 <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
-                  Photo, Vellum &amp; Sticker
+                  {content.serviceCards[2].title}
                 </h4>
                 <p className="mt-2 text-gray-600">
-                  Photo prints, vellum paper, and A4 sticker sheets.
+                  {content.serviceCards[2].description}
                 </p>
                 <dl className="mt-5 space-y-2.5 text-sm">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Photo sizes</dt>
-                    <dd className="text-right text-gray-600">2R · 3R · 4R · 5R · 6R · A4</dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="shrink-0 font-semibold text-[#1c1f26]">Materials</dt>
-                    <dd className="text-right text-gray-600">Vellum · Sticker (A4)</dd>
-                  </div>
+                  {content.serviceCards[2].details.map((detail, di) => (
+                    <div key={di} className="flex items-baseline justify-between gap-4">
+                      <dt className="shrink-0 font-semibold text-[#1c1f26]">{detail.label}</dt>
+                      <dd className="text-right text-gray-600">{detail.value}</dd>
+                    </div>
+                  ))}
                 </dl>
               </div>
               <div className="pt-6 mt-7 border-t border-gray-100">
@@ -864,14 +768,20 @@ export default function LandingPage() {
                 Contact / Shop Information
               </h3>
               <div className="mt-4 space-y-3.5">
-                <p className="text-sm text-blue-50/90">
-                  {content.locationLines[0]}
-                </p>
-                <div className="text-sm text-blue-50/90">
-                  <p className="font-medium text-white">{content.shopHours[0].label}</p>
-                  <p>{content.shopHours[0].hours}</p>
-                </div>
-                <p className="text-sm text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
+                {content.locationLines[0] && (
+                  <p className="text-sm text-blue-50/90">
+                    {content.locationLines[0]}
+                  </p>
+                )}
+                {content.shopHours[0] && (
+                  <div className="text-sm text-blue-50/90">
+                    <p className="font-medium text-white">{content.shopHours[0].label}</p>
+                    <p>{content.shopHours[0].hours}</p>
+                  </div>
+                )}
+                {content.shopHours[1] && (
+                  <p className="text-sm text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
+                )}
                 <a
                   href="mailto:support@docufy.com"
                   className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"

@@ -119,7 +119,7 @@ const management = {
     { label: "Staff", path: "/admin/staff" },
     { label: "Payment Methods", path: "/admin/payment-methods" },
     { label: "Pricing Management", path: "/admin/pricing" },
-    { label: "Content Management", path: "/admin/content" },
+    { label: "Landing Page", path: "/admin/landing" },
   ],
 };
 

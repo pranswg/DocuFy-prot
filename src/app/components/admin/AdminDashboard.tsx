@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -39,6 +39,8 @@ import {
   Image,
   Sunrise,
   Sunset,
+  Upload,
+  X,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
@@ -63,6 +65,13 @@ import { inventoryStore, InventoryItem } from "../../utils/inventoryStore";
 import { pricingStore } from "../../utils/pricingStore";
 import ShopStatusControl from "../shared/ShopStatusControl";
 import CreateNotificationCard from "../shared/CreateNotificationCard";
+import { toast } from "sonner";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  shopPhotosStore,
+  MAX_PHOTOS,
+  type ShopPhoto,
+} from "../../utils/shopPhotosStore";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const TABS = ["Overview", "Sales", "Services"] as const;
@@ -563,6 +572,106 @@ function InventorySnapshot({ items, navigate, className = "", inventoryPath = "/
   );
 }
 
+// ─── Shop Photos ───────────────────────────────────────────────────────────────
+const SHOP_PHOTO_FILE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+const MAX_SHOP_PHOTO_MB = 3;
+
+function ShopPhotosCard() {
+  const { user } = useAuth();
+  const shopPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(shopPhotosStore.getPhotos());
+  useEffect(() => {
+    const load = () => setShopPhotos(shopPhotosStore.getPhotos());
+    return shopPhotosStore.subscribe(load);
+  }, []);
+
+  const handleShopPhotoUpload = (file: File | undefined) => {
+    if (!file) return;
+    if (shopPhotos.length >= MAX_PHOTOS) {
+      toast.error(`You can upload up to ${MAX_PHOTOS} photos only.`);
+      return;
+    }
+    if (!SHOP_PHOTO_FILE_TYPES.includes(file.type)) {
+      toast.error("Please upload an image file (PNG, JPG, WebP, or GIF).");
+      return;
+    }
+    if (file.size > MAX_SHOP_PHOTO_MB * 1024 * 1024) {
+      toast.error(`Photo is too large. Please use an image under ${MAX_SHOP_PHOTO_MB} MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const ok = shopPhotosStore.addPhoto(reader.result as string, user?.name || "Admin");
+      if (ok) {
+        toast.success("Shop location photo added.");
+      } else {
+        toast.error(`You can upload up to ${MAX_PHOTOS} photos only.`);
+      }
+    };
+    reader.onerror = () => toast.error("Could not read the photo file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveShopPhoto = (id: string) => {
+    shopPhotosStore.removePhoto(id);
+    toast.success("Shop location photo removed.");
+  };
+
+  return (
+    <SectionCard
+      title="Shop Photos"
+      subtitle="Manage the photos customers see in the Shop Location dialog"
+    >
+      <p className="text-sm text-slate-500 mb-3">
+        Add up to 3 photos of the shop's location so customers can find it
+        easily. ({shopPhotos.length}/{MAX_PHOTOS} added)
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {shopPhotos.map((photo) => (
+          <div
+            key={photo.id}
+            className="relative group rounded-lg overflow-hidden border border-slate-200"
+          >
+            <img
+              src={photo.dataUrl}
+              alt="Shop location"
+              className="w-full h-32 object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => handleRemoveShopPhoto(photo.id)}
+              className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors"
+              title="Remove photo"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+        {shopPhotos.length < MAX_PHOTOS && (
+          <button
+            type="button"
+            onClick={() => shopPhotoInputRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 h-32 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-[#2F6FD6] hover:text-[#2F6FD6] transition-colors"
+          >
+            <Upload className="w-6 h-6" />
+            <span className="text-sm font-medium">Upload Photo</span>
+          </button>
+        )}
+      </div>
+      <input
+        ref={shopPhotoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+        className="hidden"
+        onChange={(e) => {
+          handleShopPhotoUpload(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+    </SectionCard>
+  );
+}
+
 // ─── Date Range Selector (Overview) ───────────────────────────────────────────
 interface DateRangeSelectorProps {
   selectedLabel: string;
@@ -681,6 +790,9 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
 
       {/* Shop Status Control */}
       <ShopStatusControl />
+
+      {/* Shop Photos (admin only — moved from the removed Content Management module) */}
+      {role === "admin" && <ShopPhotosCard />}
 
       {/* Recent Transactions + Inventory Snapshot */}
       <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-4 sm:gap-5">
