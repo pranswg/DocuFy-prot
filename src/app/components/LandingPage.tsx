@@ -124,33 +124,81 @@ export default function LandingPage({
   const footerAboutShort = content.aboutBody;
 
   const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    const element = getSectionEl(id);
+    if (!element) return;
+    const scrollRoot = getScrollRoot();
+    const headerOffset = 80;
+    if (scrollRoot) {
+      const top =
+        element.getBoundingClientRect().top -
+        scrollRoot.getBoundingClientRect().top +
+        scrollRoot.scrollTop -
+        headerOffset;
+      scrollRoot.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    } else {
+      const top = element.getBoundingClientRect().top + window.scrollY - headerOffset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     }
   };
 
+  // Resolve a section element scoped to THIS landing page instance. Scoping to
+  // the root avoids duplicate-ID collisions when the landing page is previewed
+  // inside the admin editor (the editor page has its own #services/#shop-info
+  // anchors that would otherwise be returned by document.getElementById).
+  const getSectionEl = (id: string): HTMLElement | null =>
+    landingRootRef.current?.querySelector(`[id="${id}"]`) ?? null;
+
+  // Find the element that actually scrolls the landing page: the window on the
+  // live page, or the nested overflow-y-auto container when the landing page is
+  // rendered inside the Landing Page editor's preview overlay.
+  const getScrollRoot = (): HTMLElement | null => {
+    let node = landingRootRef.current?.parentElement ?? null;
+    while (node) {
+      const style = getComputedStyle(node);
+      const canScrollY =
+        /(auto|scroll|overlay)/.test(style.overflowY) &&
+        node.scrollHeight > node.clientHeight;
+      if (canScrollY) return node;
+      node = node.parentElement;
+    }
+    return null;
+  };
+
   // Scroll-spy: highlight the header nav item for the section currently in view.
+  // The listener attaches to the actual scroll container so it also works when
+  // the landing page is rendered inside a scrollable preview overlay (the admin
+  // Landing Page editor preview scrolls a nested div, not the window).
+  const landingRootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const sectionIds = ["home", "services", "shop-info", "jobs"];
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        });
-      },
-      { rootMargin: "-30% 0px -60% 0px" },
-    );
-    sectionIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
+
+    const scrollRoot = getScrollRoot();
+
+    const updateActive = () => {
+      const containerTop = scrollRoot
+        ? scrollRoot.getBoundingClientRect().top
+        : 0;
+      const containerHeight = scrollRoot
+        ? scrollRoot.clientHeight
+        : window.innerHeight;
+      const line = containerTop + containerHeight * 0.35;
+      let current = sectionIds[0];
+      for (const id of sectionIds) {
+        const el = getSectionEl(id);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= line) current = id;
+      }
+      setActiveSection(current);
+    };
+
+    updateActive();
+    const target: EventTarget = scrollRoot ?? window;
+    target.addEventListener("scroll", updateActive, { passive: true });
+    window.addEventListener("resize", updateActive);
+    return () => {
+      target.removeEventListener("scroll", updateActive);
+      window.removeEventListener("resize", updateActive);
+    };
   }, []);
 
   // Track the active card in the mobile services carousel from its scroll position.
@@ -207,7 +255,7 @@ export default function LandingPage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F2F7FF] relative overflow-clip">
+    <div ref={landingRootRef} className="min-h-screen bg-[#F2F7FF] relative overflow-clip">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-[#1D73EC] rounded-full opacity-5 blur-3xl -translate-x-48 -translate-y-48 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#10316B] rounded-full opacity-5 blur-3xl translate-x-48 translate-y-48 pointer-events-none" />
