@@ -433,7 +433,7 @@ export default function LandingPage() {
               </div>
 
               {/* Features List */}
-              <div className="mt-6 flex min-w-0 items-center">
+              <div className="mt-6 flex min-w-0 items-center justify-center lg:justify-start">
                 {[
                   {
                     title: content.feature1,
@@ -452,7 +452,7 @@ export default function LandingPage() {
                   },
                 ].map((feature, index) => (
                   <div key={index} className="flex min-w-0 flex-1 items-center">
-                    <div className="flex min-w-0 flex-col items-start gap-1 text-left text-[#1c1f26]">
+                    <div className="flex w-full min-w-0 flex-col items-center gap-1 text-center text-[#1c1f26] sm:w-auto sm:flex-shrink sm:items-start sm:text-left">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-blue-300 bg-[#F2F7FF] sm:h-9 sm:w-9">
                         {React.cloneElement(feature.icon, {
                           className:
@@ -460,10 +460,10 @@ export default function LandingPage() {
                         })}
                       </div>
                       <span className="flex flex-col leading-tight">
-                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                        <span className="text-xs sm:text-sm sm:whitespace-nowrap">
                           {feature.title}
                         </span>
-                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                        <span className="text-xs sm:text-sm sm:whitespace-nowrap">
                           {feature.sub}
                         </span>
                       </span>
