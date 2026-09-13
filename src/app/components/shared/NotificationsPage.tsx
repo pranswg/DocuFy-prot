@@ -676,6 +676,7 @@ export default function NotificationsPage() {
           confirmLabel="Delete Notification"
           cancelLabel="Keep It"
           requirePhrase
+          destructive
         />
       )}
     </Layout>

@@ -450,9 +450,9 @@ export default function StaffProfile() {
           onConfirm={() => { logout(); setShowLogoutConfirm(false); }}
           title="Sign out of Docufy?"
           description="You will be returned to the sign-in page. Your session will be preserved, but sign-in will be required to continue."
-          confirmLabel="Log Out"
+          confirmLabel="Sign Out"
           cancelLabel="Stay Signed In"
-          destructive={true}
+          destructive={false}
         />
       )}
     </Layout>

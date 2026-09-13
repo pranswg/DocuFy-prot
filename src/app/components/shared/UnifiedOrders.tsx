@@ -855,7 +855,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     children: React.ReactNode;
   }) => (
     <th
-      className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
+      className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-[#E7F1FE] transition-colors"
       onClick={() => handleSort(column)}
     >
       <div className="flex items-center gap-1">
@@ -966,19 +966,19 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-10">
+              <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider w-14">
                     #
                   </th>
                   <th
-                    className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider cursor-pointer hover:bg-[#E7F1FE] transition-colors"
                     onClick={() => handleSort("customer")}
                   >
                     <div className="flex items-center gap-1">
                       <div className="flex flex-col leading-tight">
                         Customer
-                        <span className="text-[10px] font-medium text-gray-500 normal-case tracking-normal">
+                        <span className="text-[10px] font-medium text-[#10316B]/60 normal-case tracking-normal">
                           Order ID
                         </span>
                       </div>
@@ -1002,7 +1002,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <SortableHeader column="orderSource">
                     Source
                   </SortableHeader>
-                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Action
                   </th>
                 </tr>

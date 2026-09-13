@@ -547,7 +547,7 @@ export default function LandingPage() {
             <div className="flex flex-col gap-6">
               {/* Shop Hours */}
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-                <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
+                <h3 className="flex items-center gap-3 text-xl font-bold text-[#1c1f26]">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
                     <Clock className="h-4 w-4" />
                   </span>
@@ -559,16 +559,16 @@ export default function LandingPage() {
                       key={index}
                       className="flex items-baseline justify-between gap-6 border-t border-gray-100 py-3.5 first:border-t-0 first:pt-0 last:pb-0"
                     >
-                      <dt className="text-sm font-semibold text-[#1c1f26]">
+                      <dt className="text-lg font-semibold text-[#1c1f26]">
                         {row.label || "Schedule"}
                       </dt>
-                      <dd className="text-right text-sm text-gray-600">{row.hours}</dd>
+                      <dd className="text-right text-lg text-gray-600">{row.hours}</dd>
                     </div>
                   ))}
                 </dl>
                 {content.hoursNote && (
-                  <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#1D73EC]">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <p className="mt-3 flex items-center gap-1.5 text-lg font-medium text-[#1D73EC]">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
                     {content.hoursNote}
                   </p>
                 )}
@@ -577,7 +577,7 @@ export default function LandingPage() {
               {/* Location */}
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="flex items-center gap-3 text-base font-bold text-[#1c1f26]">
+                  <h3 className="flex items-center gap-3 text-xl font-bold text-[#1c1f26]">
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-[#1D73EC]">
                       <MapPin className="h-4 w-4" />
                     </span>
@@ -596,7 +596,7 @@ export default function LandingPage() {
                   {content.locationLines.map((line: string, index: number) => (
                     <p
                       key={index}
-                      className={`text-sm leading-relaxed ${
+                      className={`text-lg leading-relaxed ${
                         index === 0 ? "font-semibold text-[#1c1f26]" : "text-gray-600"
                       }`}
                     >
@@ -1228,9 +1228,9 @@ export default function LandingPage() {
           }}
           title="Sign out of Docufy?"
           description="You will be returned to the sign-in page. Your current session and app data will be preserved, but sign-in will be required to continue."
-          confirmLabel="Log Out"
+          confirmLabel="Sign Out"
           cancelLabel="Stay Signed In"
-          destructive
+          destructive={false}
         />
       )}
     </div>

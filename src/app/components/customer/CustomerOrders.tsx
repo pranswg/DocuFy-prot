@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -8,6 +8,8 @@ import {
   X,
   Calendar,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   ArrowLeft,
   Search,
@@ -86,6 +88,27 @@ export default function CustomerOrders() {
     const matchesDateTo = !dateTo || order.date <= dateTo;
     return matchesStatus && matchesSearch && matchesDateFrom && matchesDateTo;
   });
+
+  // Pagination over the filtered set
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE)),
+    [filteredOrders],
+  );
+  const paginatedOrders = useMemo(
+    () =>
+      filteredOrders.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+      ),
+    [filteredOrders, currentPage],
+  );
+
+  // Reset to page 1 whenever filters change so the user always lands at the start
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatus, searchQuery, dateFrom, dateTo]);
 
   const clearFilters = () => {
     setSelectedStatus("All");
@@ -266,48 +289,34 @@ export default function CustomerOrders() {
                 <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showMoreFilters ? "rotate-180" : ""}`} />
               </button>
             </div>
-
-            <div className="pt-2 border-t border-gray-200">
-              <p className="text-sm text-gray-600">
-                Showing{" "}
-                <span className="font-semibold text-gray-900">
-                  {filteredOrders.length}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-gray-900">
-                  {orders.length}
-                </span>{" "}
-                orders
-              </p>
-            </div>
           </div>
         </Card>
 
         {/* ── Orders Table ───────────────────────────────────── */}
-        <Card className="p-6 bg-white shadow-sm">
+        <Card className="overflow-hidden bg-white shadow-sm gap-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+              <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10">
+                <tr>
+                  <th className="whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Order ID
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Document
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Pages
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="hidden sm:table-cell text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <th className="hidden sm:table-cell whitespace-nowrap px-4 py-2.5 align-middle text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Time
                   </th>
                 </tr>
@@ -323,7 +332,7 @@ export default function CustomerOrders() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order) => (
+                  paginatedOrders.map((order) => (
                     <tr
                       key={order.id}
                       className="cursor-pointer border-b hover:bg-gray-50 transition-colors"
@@ -369,6 +378,56 @@ export default function CustomerOrders() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100 bg-white px-4 sm:px-5 py-4">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-700">
+                {totalPages === 1
+                  ? filteredOrders.length
+                  : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filteredOrders.length)}`}
+              </span>{" "}
+              of <span className="font-semibold text-slate-700">{filteredOrders.length}</span>{" "}
+              order{filteredOrders.length === 1 ? "" : "s"}
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <Button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={
+                      pg === currentPage
+                        ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] rounded-md shadow-sm shadow-[#2F6FD6]/30 h-9 w-9"
+                        : "bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] rounded-md h-9 w-9"
+                    }
+                  >
+                    {pg}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="bg-white text-slate-600 border border-gray-200 hover:bg-[#F2F7FF] hover:text-[#2F6FD6] hover:border-[#2F6FD6] disabled:opacity-40 disabled:pointer-events-none rounded-md px-3 h-9"
+                >
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>

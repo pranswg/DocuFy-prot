@@ -34,7 +34,7 @@ export function ConfirmationDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  destructive = true,
+  destructive = false,
   requirePhrase = false,
   confirmationPhrase = "Docufy",
   loading = false,
@@ -65,9 +65,7 @@ export function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={`sm:max-w-[500px] ${destructive ? "border-t-4 border-t-red-500" : ""}`}
-      >
+      <DialogContent className="sm:max-w-[500px]">
         {/* Wrapping in a form lets the shared dialog Enter handler (which finds a
             submit button) trigger the confirm action consistently with mouse clicks.
             The cancel button is type="button" so it never becomes the primary. */}
@@ -80,11 +78,17 @@ export function ConfirmationDialog({
         >
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
-              {destructive && (
-                <div className="w-10 h-10 rounded-full bg-red-50 ring-1 ring-red-200 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
-                </div>
-              )}
+              <div
+                className={`w-10 h-10 rounded-full ring-1 flex items-center justify-center flex-shrink-0 ${
+                  destructive
+                    ? "bg-red-50 ring-red-200"
+                    : "bg-[#F2F7FF] ring-[#1D73EC]/10"
+                }`}
+              >
+                <AlertTriangle
+                  className={`w-5 h-5 ${destructive ? "text-red-500" : "text-[#1D73EC]"}`}
+                />
+              </div>
               <DialogTitle className="text-xl">{title}</DialogTitle>
             </div>
             <DialogDescription className="text-base">
@@ -136,7 +140,7 @@ export function ConfirmationDialog({
               type="submit"
               variant={destructive ? "destructive" : "default"}
               disabled={!canConfirm || loading}
-              className={destructive ? "bg-red-600 hover:bg-red-700" : undefined}
+              className={destructive ? "bg-red-600 hover:bg-red-700" : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {confirmLabel}
