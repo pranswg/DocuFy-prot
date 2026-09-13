@@ -281,15 +281,15 @@ export default function LandingPage() {
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 border-b border-gray-200 bg-white backdrop-blur-md z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <img
               src={logoImage}
               alt="Docufy Logo"
-              className="h-10 w-10 rounded-full sm:h-12 sm:w-12"
+              className="h-[clamp(2.5rem,3.51vw,6rem)] w-[clamp(2.5rem,3.51vw,6rem)] rounded-full"
             />
             <div>
-              <h1 className="truncate text-base font-bold text-[#1c1f26] sm:text-xl">
+              <h1 className="truncate text-[clamp(1rem,1.46vw,2.25rem)] font-bold text-[#1c1f26]">
                 Docufy PSMS
               </h1>
             </div>
@@ -392,7 +392,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pt-4">
+      <div className="relative z-10 mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6 pt-4">
         <ShopStatusBanner />
       </div>
 
@@ -401,21 +401,21 @@ export default function LandingPage() {
         id="home"
         className="relative z-10 w-full bg-white pb-10 pt-24 sm:pb-20 sm:pt-32 [background-image:radial-gradient(circle_at_top_right,rgba(29,115,236,0.07),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(47,111,214,0.06),transparent_42%),linear-gradient(to_bottom,transparent_78%,#F2F7FF)]"
       >
-        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6">
-          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12">
+        <div className="relative mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
+          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-[3.5vw]">
             <div className="min-w-0 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#1D73EC]/20 text-[#1D73EC] rounded-full text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-[#1D73EC] rounded-full animate-pulse"></span>
                 {content.heroSubtitle}
               </div>
-              <h2 className="mb-5 font-bold leading-tight text-[#1c1f26] text-[clamp(2.25rem,7vw,3rem)] lg:text-[clamp(3rem,5.85vw,3.75rem)]">
+              <h2 className="mb-5 font-bold leading-tight text-[#1c1f26] text-[clamp(2.25rem,7vw,3rem)] lg:text-[clamp(3rem,4.4vw,5rem)]">
                 {content.heroTitle.split(",")[0]?.trim()},
                 <br />
                 <span className="text-[#1D73EC]">
                   {content.heroTitle.split(",")[1]?.trim()}
                 </span>
               </h2>
-              <p className="mb-7 max-w-xl text-gray-600 text-[clamp(1rem,3.125vw,1.25rem)]">
+              <p className="mb-7 max-w-xl text-gray-600 text-[clamp(1rem,1.46vw,2rem)]">
                 {content.heroDescription}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -477,7 +477,7 @@ export default function LandingPage() {
             </div>
 
             <div className="order-first flex w-full items-center justify-center lg:order-none">
-              <div className="flex aspect-square w-[min(12rem,60vw)] items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:w-[min(18rem,50vw)] lg:w-[min(24rem,37.5vw)]">
+              <div className="flex aspect-square w-[min(12rem,60vw)] items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:w-[min(18rem,50vw)] lg:w-[clamp(24rem,28.1vw,48rem)]">
                 <img
                   src={logoImage}
                   alt="Docufy"
@@ -494,15 +494,15 @@ export default function LandingPage() {
         id="services"
         className="bg-[#F2F7FF] w-full py-12 sm:py-16 relative z-10"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
           <div className="mb-12 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
               Services &amp; Pricing
             </p>
-            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+            <h2 className="mt-4 text-[clamp(1.875rem,2.64vw,5rem)] font-bold text-[#1c1f26]">
               What can we print?
             </h2>
-            <p className="mt-4 text-base text-gray-600 sm:text-lg">
+            <p className="mt-4 text-[clamp(1rem,1.32vw,2.25rem)] text-gray-600">
               Quality printing services with clear, affordable pricing.
             </p>
           </div>
@@ -515,7 +515,7 @@ export default function LandingPage() {
                 <Printer className="w-8 h-8 text-[#1D73EC]" />
               </div>
               <div className="mt-6 flex flex-1 flex-col">
-                <h4 className="text-xl font-bold text-[#1c1f26]">
+                <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
                   Black &amp; White Printing
                 </h4>
                 <p className="mt-2 text-gray-600">
@@ -533,7 +533,7 @@ export default function LandingPage() {
                 </dl>
               </div>
               <div className="pt-6 mt-7 border-t border-gray-100">
-                <div className="text-4xl font-bold text-[#1D73EC]">
+                <div className="text-[clamp(2.25rem,2.64vw,5rem)] font-bold text-[#1D73EC]">
                   ₱{matrix.document.text.bw.a4.toFixed(2)}{" "}
                   <span className="text-base font-normal text-gray-500">
                     per page
@@ -555,7 +555,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="mt-6 flex flex-1 flex-col">
-                  <h4 className="text-xl font-bold">
+                  <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold">
                     Color Printing
                   </h4>
                   <p className="mt-2 text-white/90">
@@ -573,7 +573,7 @@ export default function LandingPage() {
                   </dl>
                 </div>
                 <div className="pt-6 mt-7 border-t border-white/15">
-                  <div className="text-4xl font-bold">
+                  <div className="text-[clamp(2.25rem,2.64vw,5rem)] font-bold">
                     ₱{matrix.document.text.full.a4.toFixed(2)}{" "}
                     <span className="text-base font-normal text-white/80">
                       per page
@@ -588,7 +588,7 @@ export default function LandingPage() {
                 <Package className="w-8 h-8 text-[#1D73EC]" />
               </div>
               <div className="mt-6 flex flex-1 flex-col">
-                <h4 className="text-xl font-bold text-[#1c1f26]">
+                <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
                   Photo, Vellum &amp; Sticker
                 </h4>
                 <p className="mt-2 text-gray-600">
@@ -606,7 +606,7 @@ export default function LandingPage() {
                 </dl>
               </div>
               <div className="pt-6 mt-7 border-t border-gray-100">
-                <div className="text-4xl font-bold text-[#1D73EC]">
+                <div className="text-[clamp(2.25rem,2.64vw,5rem)] font-bold text-[#1D73EC]">
                   ₱{Math.min(matrix.vellum.bw.a4, matrix.sticker.bw, matrix.photo["2R"].price).toFixed(2)}{" "}
                   <span className="text-base font-normal text-gray-500">
                     from
@@ -623,15 +623,15 @@ export default function LandingPage() {
         id="shop-info"
         className="bg-white w-full py-16 sm:py-20 relative z-10"
       >
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="relative mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center lg:mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
               Shop Information
             </p>
-            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+            <h2 className="mt-4 text-[clamp(1.875rem,2.64vw,5rem)] font-bold text-[#1c1f26]">
               Visit us on campus.
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-gray-600 sm:text-lg">
+            <p className="mt-4 text-[clamp(1rem,1.32vw,2.25rem)] leading-relaxed text-gray-600 sm:text-lg">
               {content.locationLines?.[0]
                 ? `Docufy is conveniently located at ${content.locationLines[0]}. Drop by during operating hours, or start your order online.`
                 : "Docufy is conveniently located on campus. Drop by during operating hours, or start your order online."}
@@ -737,15 +737,15 @@ export default function LandingPage() {
         id="jobs"
         className="bg-[#F2F7FF] w-full py-16 sm:py-20 relative z-10"
       >
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="relative mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1D73EC]">
               Join Our Team
             </p>
-            <h2 className="mt-4 text-3xl font-bold text-[#1c1f26] sm:text-4xl">
+            <h2 className="mt-4 text-[clamp(1.875rem,2.64vw,5rem)] font-bold text-[#1c1f26]">
               Work with us.
             </h2>
-            <p className="mt-4 text-base text-gray-600 sm:text-lg">
+            <p className="mt-4 text-[clamp(1rem,1.32vw,2.25rem)] text-gray-600">
               Explore current openings at Docufy and start your application today.
             </p>
             {jobs.length > 0 && (
@@ -779,7 +779,7 @@ export default function LandingPage() {
                   className="grid gap-3 border-t border-blue-200/60 py-6 last:border-b sm:grid-cols-[1fr_auto] sm:items-center sm:gap-10 lg:py-7"
                 >
                   <div className="min-w-0">
-                    <h3 className="text-lg font-semibold text-[#1c1f26] lg:text-xl">
+                    <h3 className="text-[clamp(1.125rem,1.46vw,2.75rem)] font-semibold text-[#1c1f26]">
                       {job.title}
                     </h3>
                     <p className="mt-1.5 text-sm text-gray-500">
@@ -813,7 +813,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer id="footer" className="relative z-10 bg-[#1351AE]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
           <div className="grid gap-x-10 gap-y-10 py-12 lg:grid-cols-12 lg:gap-x-8 lg:py-14">
             {/* Brand / About Docufy */}
             <div className="lg:col-span-5">
@@ -821,9 +821,9 @@ export default function LandingPage() {
                 <img
                   src={logoImage}
                   alt="Docufy Logo"
-                  className="h-10 w-10 rounded-full"
+                  className="h-[clamp(2.5rem,3.51vw,6rem)] w-[clamp(2.5rem,3.51vw,6rem)] rounded-full"
                 />
-                <h2 className="text-lg font-bold text-white">Docufy PSMS</h2>
+                <h2 className="text-[clamp(1.125rem,1.32vw,2.5rem)] font-bold text-white">Docufy PSMS</h2>
               </div>
               <h3 className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
                 About Docufy
