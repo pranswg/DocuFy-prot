@@ -953,7 +953,7 @@ export default function Layout({
   return (
     <div
       className={`min-h-screen bg-[#f6f7f9] flex font-poppins ${
-        isMobile ? "overflow-x-hidden" : "overflow-hidden"
+        isMobile ? "overflow-x-clip" : "overflow-hidden"
       }`}
     >
       {!isMobile && (

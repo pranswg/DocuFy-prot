@@ -202,7 +202,7 @@ export default function JobBoard() {
               return (
                 <Card
                   key={job.id}
-                  className={`overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md ${isExpanded ? "gap-0" : ""}`}
+                  className={`overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md gap-0`}
                 >
                   <div className={`p-4 sm:p-6 ${isExpanded ? "pb-2 sm:pb-2" : ""}`}>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -211,7 +211,7 @@ export default function JobBoard() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <h3 className="text-base font-bold text-[#1c1f26] sm:text-lg">{job.title}</h3>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -230,7 +230,7 @@ export default function JobBoard() {
                             </div>
                           </div>
 
-                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                          <div className="order-3 flex w-full flex-col gap-2 sm:order-2 sm:w-auto sm:flex-row sm:items-center">
                             <button
                               onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
                               className="flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
@@ -252,35 +252,39 @@ export default function JobBoard() {
                               </Button>
                             )}
                           </div>
-                        </div>
 
-                        <div className="mt-3 flex flex-col gap-2 text-xs text-gray-500 sm:flex-row sm:items-center sm:gap-5">
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5" /> {job.duration}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" /> Room 4, PSU Main Campus, TBI Building
-                          </span>
+                          <div className="order-2 flex flex-col gap-2 text-xs text-gray-500 sm:order-3 sm:basis-full sm:flex-row sm:items-center sm:gap-5">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5" /> {job.duration}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="h-3.5 w-3.5" /> Room 4, PSU Main Campus, TBI Building
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50/50 px-4 pt-2 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
-                      <p className="text-sm leading-relaxed text-gray-700">{job.description}</p>
-                      {!application && (
-                        <div className="mt-4">
-                          <Button
-                            className="w-full h-11 text-sm bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] sm:w-auto"
-                            onClick={() => navigate(`/customer/job-apply/${job.id}`)}
-                          >
-                            Apply for this Position
-                          </Button>
-                        </div>
-                      )}
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="border-t border-gray-100 bg-gray-50/50 px-4 pt-2 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
+                        <p className="text-sm leading-relaxed text-gray-700">{job.description}</p>
+                        {!application && (
+                          <div className="mt-4">
+                            <Button
+                              className="w-full h-11 text-sm bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] sm:w-auto"
+                              onClick={() => navigate(`/customer/job-apply/${job.id}`)}
+                            >
+                              Apply for this Position
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </Card>
               );
             })}
