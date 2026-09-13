@@ -176,8 +176,17 @@ function read(): LandingPageContent {
 }
 
 function save(content: LandingPageContent) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(content));
+  } catch {
+    // Persisting to localStorage can fail (quota exceeded, private mode,
+    // storage disabled). On failure the in-memory cache is intentionally left
+    // untouched so every reader stays consistent with what is actually stored,
+    // and the error is re-thrown so the caller can surface a real message
+    // instead of the change silently appearing to not apply.
+    throw new Error("Could not persist landing page content to browser storage.");
+  }
   cached = content;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(content));
   notify();
 }
 

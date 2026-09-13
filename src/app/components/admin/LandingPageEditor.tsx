@@ -1,30 +1,35 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   MonitorPlay,
   Save,
   RotateCcw,
   ExternalLink,
+  X,
   Plus,
   Trash2,
   Eye,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
+import LandingPage from "../LandingPage";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { useNavigate } from "react-router";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   landingContentStore,
   type LandingPageContent,
   type ServiceCardContent,
 } from "../../utils/landingContentStore";
+import { useLogo } from "../../hooks/useLogo";
+import { logoStore } from "../../utils/logoStore";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 const sectionCards = [
+  { id: "logo", label: "Brand Logo", icon: <Eye className="w-4 h-4" /> },
   { id: "hero", label: "Hero Section", icon: <Eye className="w-4 h-4" /> },
   { id: "features", label: "Feature Highlights", icon: <Eye className="w-4 h-4" /> },
   { id: "services", label: "Services & Pricing Cards", icon: <Eye className="w-4 h-4" /> },
@@ -88,11 +93,40 @@ function Field({
 }
 
 export default function LandingPageEditor() {
-  const navigate = useNavigate();
   const [content, setContent] = useState<LandingPageContent>(() =>
     landingContentStore.getContent(),
   );
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const logo = useLogo();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [showLogoResetConfirm, setShowLogoResetConfirm] = useState(false);
+
+  const handleLogoUpload = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPG, WebP, SVG, or GIF).");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Logo image is too large. Please use an image under 3 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      logoStore.setLogo(reader.result as string);
+      toast.success("Logo updated. It now appears across the whole system.");
+    };
+    reader.onerror = () => toast.error("Could not read the logo file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoReset = () => {
+    logoStore.resetLogo();
+    setShowLogoResetConfirm(false);
+    toast.success("Logo reset to the default Docufy logo.");
+  };
 
   const patch = (partial: Partial<LandingPageContent>) => {
     setContent((prev) => ({ ...prev, ...partial }));
@@ -170,22 +204,32 @@ export default function LandingPageEditor() {
   };
 
   const handleSave = () => {
-    landingContentStore.saveContent(content);
-    toast.success("Landing page content saved. The public page updates instantly.");
+    setShowSaveConfirm(false);
+    try {
+      landingContentStore.saveContent(content);
+      toast.success("Changes saved successfully. The landing page is now updated.");
+    } catch {
+      toast.error("Could not save your changes to browser storage. Please try again.");
+    }
   };
 
   const handleReset = () => {
-    landingContentStore.resetContent();
-    setContent(landingContentStore.getContent());
-    setShowResetConfirm(false);
-    toast.success("Landing page content reset to defaults.");
+    try {
+      landingContentStore.resetContent();
+      setContent(landingContentStore.getContent());
+      setShowResetConfirm(false);
+      toast.success("Landing page content reset to defaults.");
+    } catch {
+      setShowResetConfirm(false);
+      toast.error("Could not reset landing page content. Please try again.");
+    }
   };
 
   return (
     <Layout menuItems={adminMenuItems} title="Landing Page" showBackButton>
       <div className="space-y-5">
-        {/* Sticky actions header */}
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between sticky top-[64px] z-10 bg-[#F6F7F9]/95 backdrop-blur py-2 rounded-lg">
+        {/* Actions header */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between py-2 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center shrink-0">
               <MonitorPlay className="w-6 h-6" />
@@ -202,9 +246,9 @@ export default function LandingPageEditor() {
             <Button
               variant="outline"
               className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
-              onClick={() => navigate("/")}
+              onClick={() => setShowPreview(true)}
             >
-              <ExternalLink className="w-4 h-4 mr-2" /> Preview
+              <Eye className="w-4 h-4 mr-2" /> Preview
             </Button>
             <Button
               variant="outline"
@@ -214,7 +258,7 @@ export default function LandingPageEditor() {
               <RotateCcw className="w-4 h-4 mr-2" /> Reset
             </Button>
             <Button
-              onClick={handleSave}
+              onClick={() => setShowSaveConfirm(true)}
               className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
             >
               <Save className="w-4 h-4 mr-2" /> Save Changes
@@ -224,7 +268,7 @@ export default function LandingPageEditor() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
           {/* Section nav (desktop) */}
-          <Card className="hidden lg:flex flex-col gap-1 p-3 bg-white self-start sticky top-[140px]">
+          <Card className="hidden lg:flex flex-col gap-1 p-3 bg-white self-start sticky top-6">
             <p className="px-3 pt-1 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               On this page
             </p>
@@ -242,6 +286,61 @@ export default function LandingPageEditor() {
 
           {/* Editor body */}
           <div className="lg:col-span-3 space-y-5">
+            {/* Logo */}
+            <div id="logo" className="scroll-mt-28">
+              <EditorCard
+                title="Brand Logo"
+                subtitle="The Docufy logo shown across the whole system — sidebar, headers, landing page, login, and footer."
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-lg border border-slate-100 p-4">
+                  <div className="w-16 h-16 shrink-0 rounded-full border border-slate-200 bg-white p-1 shadow-sm flex items-center justify-center">
+                    <img
+                      src={logo}
+                      alt="Docufy Logo"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800">
+                      {logoStore.hasCustomLogo() ? "Custom logo in use" : "Default logo in use"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Upload a new logo to apply it everywhere instantly. The default logo is always kept and can be restored anytime.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" /> Upload Logo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 sm:h-10 w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => setShowLogoResetConfirm(true)}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reset Logo
+                  </Button>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/gif"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleLogoUpload(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </EditorCard>
+            </div>
+
             {/* Hero */}
             <div id="hero" className="scroll-mt-28">
               <EditorCard
@@ -475,10 +574,10 @@ export default function LandingPageEditor() {
               </EditorCard>
             </div>
 
-            {/* Footer sticky save */}
-            <div className="sticky bottom-4 flex justify-end rounded-xl border border-slate-200 bg-white/95 backdrop-blur p-3 shadow-md">
+            {/* Footer save */}
+            <div className="flex justify-end rounded-xl border border-slate-200 bg-white p-3 shadow-sm mt-6 mb-2">
               <Button
-                onClick={handleSave}
+                onClick={() => setShowSaveConfirm(true)}
                 className="h-10 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
               >
                 <Save className="w-4 h-4 mr-2" /> Save Changes
@@ -498,6 +597,42 @@ export default function LandingPageEditor() {
         requirePhrase
         destructive
       />
+
+      <ConfirmationDialog
+        open={showSaveConfirm}
+        onOpenChange={setShowSaveConfirm}
+        title="Save changes?"
+        description="This applies your current edits to the public landing page."
+        confirmLabel="Save Changes"
+        onConfirm={handleSave}
+      />
+
+      <ConfirmationDialog
+        open={showLogoResetConfirm}
+        onOpenChange={setShowLogoResetConfirm}
+        title="Reset logo?"
+        description="This restores the default Docufy logo across the whole system. This cannot be undone."
+        confirmLabel="Reset Logo"
+        onConfirm={handleLogoReset}
+        destructive
+      />
+
+      {showPreview && (
+        <div className="fixed inset-0 z-[100] bg-[#F2F7FF]">
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <LandingPage contentOverride={content} />
+          </div>
+          <div className="fixed bottom-4 right-4 z-10 flex gap-2">
+            <Button
+              variant="outline"
+              className="h-11 border-[#2F6FD6]/40 bg-white text-[#2F6FD6] shadow-md hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+              onClick={() => setShowPreview(false)}
+            >
+              <X className="w-4 h-4 mr-2" /> Close Preview
+            </Button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

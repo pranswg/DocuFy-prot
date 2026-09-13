@@ -1,4 +1,4 @@
-import image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+import { useLogo } from "../hooks/useLogo";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -19,6 +19,7 @@ import { PasswordStrengthIndicator, validatePassword } from "./ui/password-stren
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const logo = useLogo();
   const { signup } = useAuth();
   const [formData, setFormData] = useState({
     firstName: "",
@@ -110,9 +111,7 @@ export default function SignUpPage() {
         <div className="relative z-10 p-8 max-w-md text-center flex flex-col items-center">
           <div className="w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-2xl p-1 bg-white">
             <img
-              src={
-                image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c
-              }
+              src={logo}
               alt="Docufy Logo"
               className="w-full h-full object-contain rounded-full"
             />
@@ -148,7 +147,7 @@ export default function SignUpPage() {
             <div className="lg:hidden flex justify-center mb-3">
               <div className="w-16 h-16 rounded-full bg-white p-1 border border-slate-100 shadow-sm flex items-center justify-center">
                 <img
-                  src={image_75a8c7ffb8323b19e5416b93ad0b6211b6413f2c}
+                  src={logo}
                   alt="Docufy Logo"
                   className="w-full h-full object-contain rounded-full"
                 />

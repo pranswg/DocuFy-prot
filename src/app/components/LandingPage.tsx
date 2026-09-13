@@ -35,10 +35,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "./ui/dialog";
-import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
+// System logo is centralized in the logo store so an admin-uploaded logo
+// applies everywhere. `logo` below is the live value (default or override).
+import { useLogo } from "../hooks/useLogo";
 
-export default function LandingPage() {
+export default function LandingPage({
+  contentOverride,
+}: {
+  contentOverride?: LandingPageContent;
+}) {
   const navigate = useNavigate();
+  const logo = useLogo();
   const { user, logout } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -87,12 +94,16 @@ export default function LandingPage() {
   }, []);
 
   const [content, setContent] = useState<LandingPageContent>(() =>
-    landingContentStore.getContent(),
+    contentOverride ?? landingContentStore.getContent(),
   );
   useEffect(() => {
+    if (contentOverride) {
+      setContent(contentOverride);
+      return;
+    }
     const load = () => setContent(landingContentStore.getContent());
     return landingContentStore.subscribe(load);
-  }, []);
+  }, [contentOverride]);
 
   // Footer About Docufy blurb comes straight from the editable content body.
   const footerAboutShort = content.aboutBody;
@@ -192,7 +203,7 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <img
-              src={logoImage}
+              src={logo}
               alt="Docufy Logo"
               className="h-[clamp(2.5rem,3.51vw,6rem)] w-[clamp(2.5rem,3.51vw,6rem)] rounded-full"
             />
@@ -387,7 +398,7 @@ export default function LandingPage() {
             <div className="order-first flex w-full items-center justify-center lg:order-none">
               <div className="flex aspect-square w-[min(12rem,60vw)] items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:w-[min(18rem,50vw)] lg:w-[clamp(24rem,28.1vw,48rem)]">
                 <img
-                  src={logoImage}
+                  src={logo}
                   alt="Docufy"
                   className="h-[66.67%] w-[66.67%] rounded-full"
                 />
@@ -723,7 +734,7 @@ export default function LandingPage() {
             <div className="lg:col-span-5">
               <div className="flex items-center gap-3">
                 <img
-                  src={logoImage}
+                  src={logo}
                   alt="Docufy Logo"
                   className="h-[clamp(2.5rem,3.51vw,6rem)] w-[clamp(2.5rem,3.51vw,6rem)] rounded-full"
                 />
