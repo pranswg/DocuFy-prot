@@ -52,10 +52,10 @@ const defaults: LandingPageContent = {
     "Room 4, TBI Building",
     "Puerto Princesa City, 5300 Palawan",
   ],
-  aboutTitle: "About Docufy",
+  aboutTitle: "About Docufy PSMS",
   aboutSubtitle: "Your printing companion",
   aboutBody:
-    "Docufy is a modern printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
+    "Docufy is an online printing management system designed to make document printing and tracking easier for students, faculty, and staff. With our user-friendly platform, you can upload documents, place print orders, track your requests in real-time, and manage everything from a single dashboard. We're committed to providing fast, reliable, and affordable printing services to the academic community.",
   serviceCards: [
     {
       title: "Black & White Printing",
@@ -140,6 +140,17 @@ function migrateLegacy(parsed: Record<string, any>): Partial<LandingPageContent>
       result.locationRoom,
       result.locationBuilding,
     ].filter(Boolean);
+  }
+
+  // Legacy About blurb said "modern printing management system" — the brand is
+  // an ONLINE service, so rewrite any stored copy that still uses the old wording.
+  if (typeof result.aboutBody === "string" && result.aboutBody.includes("modern")) {
+    result.aboutBody = result.aboutBody
+      .replace(
+        "a modern printing management system",
+        "an online printing management system",
+      )
+      .replace("modern printing", "online printing");
   }
 
   return result;

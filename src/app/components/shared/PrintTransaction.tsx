@@ -3547,7 +3547,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           description={`You have ${files.length} file${files.length === 1 ? "" : "s"} uploaded but have not reached payment verification. Leaving now will discard your progress and reset the form.`}
           confirmLabel="Leave & Reset"
           cancelLabel="Keep Editing"
-          destructive
+          destructive={false}
         />
       )}
 

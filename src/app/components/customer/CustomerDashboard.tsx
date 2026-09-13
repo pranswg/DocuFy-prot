@@ -109,6 +109,10 @@ function getOrderSummary(order: Order): string {
   return parts.join(" \u2022 ") || "Print request";
 }
 
+function compactCount(value: number): string {
+  return value > 99 ? "99+" : String(value);
+}
+
 function formatOrderDate(dateStr?: string): string {
   if (!dateStr) return "";
   try {
@@ -318,7 +322,7 @@ export default function CustomerDashboard() {
                   <card.icon className={`w-4 h-4 ${card.color}`} />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 leading-none">
-                  {card.value}
+                  {compactCount(card.value)}
                 </p>
               </div>
               <p className="sm:hidden text-[10px] text-gray-500 mt-1.5 leading-tight">
@@ -334,7 +338,7 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-2xl font-bold text-gray-900 leading-none">
-                    {card.value}
+                    {compactCount(card.value)}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5 truncate">
                     {card.description}

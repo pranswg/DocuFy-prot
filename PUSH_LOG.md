@@ -791,3 +791,15 @@ New entries are added at the bottom, below the most recent one, so the log reads
 ## September 13, 2026 11:10 PM (PHT) - prans
 - Brand logo upload + reset: the admin can now replace the Docufy logo from a new **Brand Logo** card at the top of the Landing Page editor (/admin/landing). Upload Logo validates an image file (PNG/JPG/WebP/SVG/GIF, <3MB) and applies it instantly system-wide, and Reset Logo (with a confirmation) clears the override and restores the bundled default logo. The override persists through a new logoStore (localStorage `docufy_logo_v1`), shared via a `useLogo()` hook, and every consumer that used to hardcode the asset now renders the same system logo - admin/staff/customer sidebar, mobile nav sheet, landing page (header, hero, footer), Login, Sign Up, Forgot Password, and the public job-application pages.
 - Landing page editor save reliability: Save Changes and Reset now surface browser-storage write failures (quota, private mode, storage disabled) with a clear error toast instead of a change silently not applying; the landingContentStore only updates its in-memory cache after the localStorage write succeeds, so what's shown always matches what's persisted. Typecheck + build pass.
+---
+
+## September 14, 2026 1:28 AM (PHT) - prans
+- Added Join Our Team to the landing page nav + footer: the header toolbar and footer Quick Links now show Join Our Team (scrolls to the hiring section) instead of the old About link, and the Join Our Team section's job list was replaced by an improved dropdown button that shows the available openings (click a job to apply with it preselected) or a friendly We're not hiring right now message when there are no openings.
+- Footer About updated to online wording: the footer heading now reads About Docufy PSMS and the paragraph says Docufy is an online printing management system - the landing content default was updated and any previously stored copy that still said modern is auto-rewritten on load.
+- Landing page footer made compact: the logo and brand text now use fixed moderate sizes instead of the large viewport-scaled sizes, and padding, column gaps, list spacing and the copyright row were tightened so the footer fits its content with far less empty space.
+- Landing page editor terminology simplified: the admin Landing Page editor uses plain everyday labels now - Top Section / Features / Services & Prices / Shop Information / About Docufy PSMS - with simple field names (Main Title, Description, Feature Name, Feature Description, Service Name, Tag, Option Name, Option Details, Title, Subtitle) plus short helpful hints, so a non-technical staff member can edit the page without web jargon. Typecheck + build pass.
+
+---
+
+## September 14, 2026 1:37 AM (PHT) - prans
+- Customer dashboard KPI counts capped at 99+: the Total Orders / In Progress / Ready for Pickup summary cards now display up to 99 and show 99+ once the count exceeds it, so a long order history no longer pushes the card numbers out of place. Typecheck + build pass.

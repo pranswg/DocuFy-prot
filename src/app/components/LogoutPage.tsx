@@ -64,7 +64,7 @@ export default function LogoutPage() {
             <CheckCircle2 size={40} className="text-[#1D73EC]" strokeWidth={2.5} />
           </div>
           
-          <h2 className="text-3xl font-bold text-[#1c1f26] mb-4">You have successfully logged out.</h2>
+          <h2 className="text-3xl font-bold text-[#1c1f26] mb-4">You have successfully signed out.</h2>
           
           <p className="text-gray-500 mb-10 text-lg max-w-sm mx-auto leading-relaxed">
             Thank you for using Docufy. We hope to see you back soon for your next print order!
@@ -75,7 +75,7 @@ export default function LogoutPage() {
               onClick={() => navigate('/login')} 
               className="w-full sm:w-auto h-12 px-8 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white font-medium rounded-xl transition-all group"
             >
-              Log In Again
+              Sign In Again
               <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
             
