@@ -399,26 +399,23 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section
         id="home"
-        className="bg-white w-full pt-24 sm:pt-32 pb-10 sm:pb-20 relative z-10"
+        className="relative z-10 w-full bg-white pb-10 pt-24 sm:pb-20 sm:pt-32 [background-image:radial-gradient(circle_at_top_right,rgba(29,115,236,0.07),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(47,111,214,0.06),transparent_42%),linear-gradient(to_bottom,transparent_78%,#F2F7FF)]"
       >
-        <div className="pointer-events-none absolute -top-32 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#1D73EC]/[0.07] blur-3xl" />
-        <div className="pointer-events-none absolute top-1/2 -left-48 h-96 w-96 rounded-full bg-[#2F6FD6]/[0.06] blur-3xl" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[#F2F7FF]" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12 items-center">
-            <div className="text-center lg:text-left">
+        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6">
+          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12">
+            <div className="min-w-0 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#1D73EC]/20 text-[#1D73EC] rounded-full text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-[#1D73EC] rounded-full animate-pulse"></span>
                 {content.heroSubtitle}
               </div>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1c1f26] mb-5 leading-tight">
+              <h2 className="mb-5 font-bold leading-tight text-[#1c1f26] text-[clamp(2.25rem,7vw,3rem)] lg:text-[clamp(3rem,5.85vw,3.75rem)]">
                 {content.heroTitle.split(",")[0]?.trim()},
                 <br />
                 <span className="text-[#1D73EC]">
                   {content.heroTitle.split(",")[1]?.trim()}
                 </span>
               </h2>
-              <p className="text-base sm:text-xl text-gray-600 mb-7 max-w-xl">
+              <p className="mb-7 max-w-xl text-gray-600 text-[clamp(1rem,3.125vw,1.25rem)]">
                 {content.heroDescription}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -433,7 +430,7 @@ export default function LandingPage() {
               </div>
 
               {/* Features List */}
-              <div className="mt-6 flex min-w-0 items-center">
+              <div className="mt-6 flex w-full min-w-0 items-center justify-center lg:justify-start">
                 {[
                   {
                     title: content.feature1,
@@ -452,7 +449,7 @@ export default function LandingPage() {
                   },
                 ].map((feature, index) => (
                   <div key={index} className="flex min-w-0 flex-1 items-center">
-                    <div className="flex min-w-0 flex-col items-start gap-1 text-left text-[#1c1f26]">
+                    <div className="flex w-full min-w-0 flex-col items-center gap-1 text-center text-[#1c1f26] sm:w-auto sm:flex-shrink sm:items-start sm:text-left">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-blue-300 bg-[#F2F7FF] sm:h-9 sm:w-9">
                         {React.cloneElement(feature.icon, {
                           className:
@@ -460,10 +457,10 @@ export default function LandingPage() {
                         })}
                       </div>
                       <span className="flex flex-col leading-tight">
-                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                        <span className="text-xs sm:text-sm sm:whitespace-nowrap">
                           {feature.title}
                         </span>
-                        <span className="whitespace-nowrap text-xs sm:text-sm">
+                        <span className="text-xs sm:text-sm sm:whitespace-nowrap">
                           {feature.sub}
                         </span>
                       </span>
@@ -479,15 +476,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="order-first flex items-center justify-center lg:order-none lg:flex">
-              <div className="relative">
-                <div className="flex h-48 w-48 items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:h-72 sm:w-72 lg:h-96 lg:w-96">
-                  <img
-                    src={logoImage}
-                    alt="Docufy"
-                    className="h-32 w-32 rounded-full sm:h-48 sm:w-48 lg:h-64 lg:w-64"
-                  />
-                </div>
+            <div className="order-first flex w-full items-center justify-center lg:order-none">
+              <div className="flex aspect-square w-[min(12rem,60vw)] items-center justify-center rounded-full bg-[#1D73EC] shadow-2xl sm:w-[min(18rem,50vw)] lg:w-[min(24rem,37.5vw)]">
+                <img
+                  src={logoImage}
+                  alt="Docufy"
+                  className="h-[66.67%] w-[66.67%] rounded-full"
+                />
               </div>
             </div>
           </div>
