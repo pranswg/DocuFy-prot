@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router';
+import { Toaster } from './components/ui/sonner';
 import { AuthProvider } from './contexts/AuthContext';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
@@ -251,6 +252,7 @@ export default function App() {
         {/* Persistent mobile sidebar — lives outside the router tree so it can
             animate closed while the next page mounts during navigation. */}
         <MobileNavSheet router={router} />
+        <Toaster richColors position="top-center" />
       </MobileNavProvider>
     </AuthProvider>
   );

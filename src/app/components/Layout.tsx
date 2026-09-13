@@ -26,7 +26,7 @@ Home,
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import logoImage from "../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
+import { useLogo } from "../hooks/useLogo";
 import { notificationStore, type Notification } from "../utils/notificationStore";
 import {
   announcementsStore,
@@ -120,6 +120,7 @@ export default function Layout({
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
   const { open: isMobileNavOpen, setOpen: setMobileNavOpen } = useMobileNav();
+  const logo = useLogo();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(
     () => {
@@ -774,7 +775,7 @@ export default function Layout({
             className="group relative absolute top-0 left-4 w-10 h-10 flex items-center rounded-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             <img
-              src={logoImage}
+              src={logo}
               alt=""
               className={`w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0 transition-opacity duration-200 ${showLabels ? "" : "group-hover:opacity-0"}`}
             />

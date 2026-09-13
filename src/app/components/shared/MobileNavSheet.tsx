@@ -23,7 +23,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../ui/sheet";
-import logoImage from "../../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png";
+import { useLogo } from "../../hooks/useLogo";
 import {
   adminSections,
   staffSections,
@@ -76,6 +76,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
   const { open, setOpen } = useMobileNav();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
+  const logo = useLogo();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profilePresence = usePresence(isProfileOpen, 200);
@@ -311,7 +312,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
             <div className="flex items-center justify-between px-4 gap-4">
               <div className="flex items-center gap-3">
                 <img
-                  src={logoImage}
+                  src={logo}
                   alt=""
                   className="w-10 h-10 rounded-full bg-white/10 p-0.5 shadow-lg flex-shrink-0"
                 />

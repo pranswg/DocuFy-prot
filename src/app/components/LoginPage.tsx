@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { ImageWithFallback } from "./shared/ImageWithFallback";
-import logoImage from "../../assets/75a8c7ffb8323b19e5416b93ad0b6211b6413f2c.png";
+import { useLogo } from "../hooks/useLogo";
 import {
   ArrowLeft,
   Printer,
@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const logo = useLogo();
   const { login, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,7 +72,7 @@ export default function LoginPage() {
         <div className="relative z-10 p-8 max-w-md text-center flex flex-col items-center">
           <div className="w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-2xl p-1 bg-white">
             <img
-              src={logoImage}
+              src={logo}
               alt="Docufy Logo"
               className="w-full h-full object-contain rounded-full"
             />
@@ -95,7 +96,7 @@ export default function LoginPage() {
           {/* Mobile Only Header */}
           <div className="lg:hidden mb-8 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={logoImage} alt="Docufy Logo" className="h-12 w-12 object-contain" />
+              <img src={logo} alt="Docufy Logo" className="h-12 w-12 object-contain" />
               <h1 className="truncate text-xl font-bold text-[#1c1f26]">Docufy PSMS</h1>
             </div>
             <button onClick={() => navigate("/")} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#1D73EC]">

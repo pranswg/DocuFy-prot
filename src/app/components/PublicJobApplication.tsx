@@ -8,11 +8,12 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { toast } from 'sonner';
-import logoImage from '../../assets/32cd46dac3d06839e0db69b6c6ad22c9a8ac17a6.png';
+import { useLogo } from "../hooks/useLogo";
 import { jobsStore } from '../utils/jobsStore';
 
 export default function PublicJobApplication() {
   const navigate = useNavigate();
+  const logo = useLogo();
   const { jobId } = useParams();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -72,7 +73,7 @@ export default function PublicJobApplication() {
       <header className="border-b border-gray-200 bg-white backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logoImage} alt="Docufy Logo" className="w-12 h-12 rounded-full" />
+            <img src={logo} alt="Docufy Logo" className="w-12 h-12 rounded-full" />
             <div>
               <h1 className="text-xl font-bold text-[#1c1f26]">Docufy</h1>
               <p className="text-xs text-gray-500">Your Printing Companion</p>
