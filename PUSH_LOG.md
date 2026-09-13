@@ -798,3 +798,8 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Footer About updated to online wording: the footer heading now reads About Docufy PSMS and the paragraph says Docufy is an online printing management system - the landing content default was updated and any previously stored copy that still said modern is auto-rewritten on load.
 - Landing page footer made compact: the logo and brand text now use fixed moderate sizes instead of the large viewport-scaled sizes, and padding, column gaps, list spacing and the copyright row were tightened so the footer fits its content with far less empty space.
 - Landing page editor terminology simplified: the admin Landing Page editor uses plain everyday labels now - Top Section / Features / Services & Prices / Shop Information / About Docufy PSMS - with simple field names (Main Title, Description, Feature Name, Feature Description, Service Name, Tag, Option Name, Option Details, Title, Subtitle) plus short helpful hints, so a non-technical staff member can edit the page without web jargon. Typecheck + build pass.
+
+---
+
+## September 14, 2026 1:37 AM (PHT) - prans
+- Customer dashboard KPI counts capped at 99+: the Total Orders / In Progress / Ready for Pickup summary cards now display up to 99 and show 99+ once the count exceeds it, so a long order history no longer pushes the card numbers out of place. Typecheck + build pass.
