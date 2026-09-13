@@ -762,7 +762,7 @@ export default function Layout({
 
   const navigation = (
     <>
-      <div className="pt-5 pb-3 w-full">
+      <div className="pt-4 pb-2 w-full">
         <div className="relative h-10">
           <button
             type="button"
@@ -822,7 +822,7 @@ export default function Layout({
           hideSidebarTooltip();
         }}
         aria-label="Primary navigation"
-        className="flex-1 py-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
+        className="flex-1 pt-1.5 pb-5 space-y-2 overflow-y-auto custom-scrollbar flex flex-col items-center"
       >
         {showLabels ? (
           <div className="flex flex-col items-stretch w-full">
@@ -831,7 +831,7 @@ export default function Layout({
                 <div key={section.key} className="flex flex-col items-stretch w-full">
                   <div
                     aria-hidden="true"
-                    className="px-6 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-100/70 select-none"
+                    className="px-6 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-100/70 select-none"
                   >
                     {section.label}
                   </div>
