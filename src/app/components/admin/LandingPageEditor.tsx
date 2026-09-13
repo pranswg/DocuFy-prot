@@ -630,7 +630,7 @@ export default function LandingPageEditor() {
           <div className="h-full overflow-y-auto overscroll-contain">
             <LandingPage contentOverride={content} />
           </div>
-          <div className="fixed bottom-4 right-4 z-10 flex gap-2">
+          <div className="fixed top-4 left-1/2 z-[60] -translate-x-1/2 flex gap-2">
             <Button
               variant="outline"
               className="h-11 border-[#2F6FD6]/40 bg-white text-[#2F6FD6] shadow-md hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"

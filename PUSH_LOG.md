@@ -803,3 +803,10 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 ## September 14, 2026 1:37 AM (PHT) - prans
 - Customer dashboard KPI counts capped at 99+: the Total Orders / In Progress / Ready for Pickup summary cards now display up to 99 and show 99+ once the count exceeds it, so a long order history no longer pushes the card numbers out of place. Typecheck + build pass.
+
+---
+
+## September 14, 2026 2:02 AM (PHT) - prans
+- Landing page editor preview nav fixed: clicking the header nav inside the admin Landing Page editor's Preview used to land on the wrong section (Services & Pricing jumped to Shop Info) because the preview shared the page with the editor, whose own Services/Shop Info anchors have the same IDs - document-wide lookups grabbed the editor's anchors instead of the previewed page's sections. The landing page now resolves nav targets scoped to its own root, so Preview nav (Home / Services & Pricing / Shop Info / Join Our Team) scrolls and highlights the correct sections.
+- Shop Photos card removed from the admin dashboard: the Shop Photos upload card (temporarily added to the Dashboard Overview earlier) was removed from the admin dashboard at the user's request, along with its upload/preview/remove UI. The Shop Photos store is untouched, so photos already uploaded and the customer-facing Shop Photos viewer on the landing page/shop location dialogs keep working.
+- Landing editor Close Preview button repositioned: it now sits centered at the very top of the preview (was bottom-right) above other page content, so it's always visible and no longer overlaps the Docufy logo in the landing header. Typecheck + build pass.
