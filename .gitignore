@@ -24,6 +24,10 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Local-only setup/documentation logs (never push)
+PHASE*_LOG*.docx
+~$*.docx
+
 # Project docs / misc files not required for the system
 ATTRIBUTIONS.md
 COMPLETED_FEATURES.md
