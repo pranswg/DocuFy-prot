@@ -23,7 +23,7 @@ import { Card } from "./ui/card";
 import { jobsStore } from "../utils/jobsStore";
 import { pricingStore, type PricingMatrix } from "../utils/pricingStore";
 import { shopPhotosStore, type ShopPhoto } from "../utils/shopPhotosStore";
-import { landingContentStore, type LandingPageContent } from "../utils/landingContentStore";
+import { landingContentStore, DEFAULT_MAP_EMBED, type LandingPageContent } from "../utils/landingContentStore";
 import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
@@ -492,8 +492,15 @@ export default function LandingPage({
             className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0 lg:gap-8"
           >
             <Card data-services-card="0" className="flex w-[85%] shrink-0 snap-center flex-col rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
-              <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
-                <Printer className="w-8 h-8 text-[#1D73EC]" />
+              <div className="flex items-start justify-between">
+                <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
+                  <Printer className="w-8 h-8 text-[#1D73EC]" />
+                </div>
+                {content.serviceCards[0].badge && (
+                  <div className="inline-block px-3 py-1 bg-[#1D73EC] text-white text-xs font-bold rounded-full">
+                    {content.serviceCards[0].badge}
+                  </div>
+                )}
               </div>
               <div className="mt-6 flex flex-1 flex-col">
                 <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
@@ -563,8 +570,15 @@ export default function LandingPage({
             </Card>
 
             <Card data-services-card="2" className="flex w-[85%] shrink-0 snap-center flex-col rounded-2xl border-2 border-[#F2F7FF] bg-white p-8 shadow-lg transition-all duration-200 hover:scale-105 hover:border-[#1D73EC] hover:shadow-2xl md:w-auto">
-              <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
-                <Package className="w-8 h-8 text-[#1D73EC]" />
+              <div className="flex items-start justify-between">
+                <div className="flex w-16 h-16 bg-[#F2F7FF] rounded-2xl items-center justify-center">
+                  <Package className="w-8 h-8 text-[#1D73EC]" />
+                </div>
+                {content.serviceCards[2].badge && (
+                  <div className="inline-block px-3 py-1 bg-[#1D73EC] text-white text-xs font-bold rounded-full">
+                    {content.serviceCards[2].badge}
+                  </div>
+                )}
               </div>
               <div className="mt-6 flex flex-1 flex-col">
                 <h4 className="text-[clamp(1.25rem,1.46vw,2.75rem)] font-bold text-[#1c1f26]">
@@ -680,7 +694,7 @@ export default function LandingPage({
                 <div className="relative mt-4 h-64 w-full overflow-hidden rounded-lg border-0 lg:hidden">
                   <iframe
                     title="Docufy Printing Services - Shop Location (mobile)"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
+                    src={content.mapEmbedUrl || DEFAULT_MAP_EMBED}
                     className="h-full w-full border-0"
                     loading="lazy"
                     allowFullScreen
@@ -696,7 +710,7 @@ export default function LandingPage({
                 <div className="h-full w-full overflow-hidden rounded-lg">
                   <iframe
                     title="Docufy Printing Services - Shop Location"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph"
+                    src={content.mapEmbedUrl || DEFAULT_MAP_EMBED}
                     className="h-full w-full border-0"
                     loading="lazy"
                     allowFullScreen

@@ -464,11 +464,7 @@ export function AttendanceView() {
                           : "bg-gray-100 text-gray-700 border border-gray-200"
                       }
                     >
-                      {roleOf(row.member) === "Admin" ? (
-                        <Shield className="w-3 h-3" />
-                      ) : (
-                        <span className="w-3 h-3" />
-                      )}
+                      {roleOf(row.member) === "Admin" && <Shield className="w-3 h-3" />}
                       {roleOf(row.member)}
                     </Badge>
                   </td>

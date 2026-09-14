@@ -554,6 +554,38 @@ export default function LandingPageEditor() {
                     ))}
                   </div>
                 </div>
+                <Field
+                  label="Google Maps embed link"
+                  value={content.mapEmbedUrl}
+                  onChange={(v) => patch({ mapEmbedUrl: v })}
+                  hint="Shown on the landing page and the customer's Shop Location window."
+                />
+                <div className="rounded-lg border border-blue-100 bg-[#F2F7FF] p-3 text-xs text-slate-600 space-y-1">
+                  <p className="font-semibold text-[#1D73EC]">
+                    How to change the map location:
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-1">
+                    <li>
+                      Open{" "}
+                      <a
+                        href="https://www.google.com/maps"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#1D73EC] underline decoration-[#1D73EC]/30 hover:text-[#10316B]"
+                      >
+                        Google Maps
+                      </a>{" "}
+                      and search for your shop's location (or drop a pin on the map).
+                    </li>
+                    <li>Click <span className="font-medium">Share</span> in the location panel (or right-click the map and choose &quot;Share&quot;).</li>
+                    <li>Switch to the <span className="font-medium">Embed a map</span> tab and click the copy icon to copy the &quot;Embed a map&quot; link.</li>
+                    <li>Paste that link into the field above, then click <span className="font-medium">Save Changes</span>.</li>
+                  </ol>
+                  <p className="pt-1 text-slate-500">
+                    The map preview only shows on the live page and the customer
+                    dashboard — clicking Save applies it everywhere at once.
+                  </p>
+                </div>
               </EditorCard>
             </div>
 

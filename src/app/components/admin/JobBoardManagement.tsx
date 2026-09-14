@@ -405,9 +405,9 @@ export default function JobBoardManagement() {
               return (
               <Card
                 key={job.id}
-                className={`overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md ${isExpanded ? "gap-0" : ""}`}
+                className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md gap-0"
               >
-                <div className={`p-4 sm:p-6 ${isExpanded ? "pb-2 sm:pb-2" : ""}`}>
+                <div className="p-4 sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-[#F2F7FF]">
                       <Briefcase className="h-6 w-6 text-[#1D73EC]" />
