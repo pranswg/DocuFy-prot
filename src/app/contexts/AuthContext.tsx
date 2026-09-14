@@ -17,6 +17,7 @@ export interface AuthContextType {
   signup: (data: any) => boolean;
   registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => { success: boolean; message?: string };
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
+  getStaffAccounts: () => { email: string; name: string; role: string; active?: boolean; isAdminRegistered?: boolean }[];
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
@@ -34,7 +35,18 @@ export const useAuth = () => {
 };
 
 // Test accounts for local UI testing only
-const mockUsers = [
+type MockUser = {
+  email: string;
+  password: string;
+  name: string;
+  role: 'customer' | 'staff' | 'admin';
+  active: boolean;
+  passwordHistory: string[];
+  profileImage?: string;
+  isAdminRegistered?: boolean;
+};
+
+const mockUsers: MockUser[] = [
   {
     email: 'customer@test.com',
     password: 'customer123',
@@ -66,6 +78,47 @@ const mockUsers = [
 
 // Store for password reset codes
 const passwordResetCodes: { [email: string]: string } = {};
+
+// Staff/admin sign-in accounts persist to localStorage so role and status
+// changes made in Staff Management survive a page refresh — otherwise the
+// freshly-updated MockUser list is re-seeded to the defaults on reload and the
+// changed role reverts. Only staff/admin accounts are persisted (customer
+// sign-ups stay in-memory, matching the original prototype behavior).
+const STAFF_ACCOUNTS_KEY = 'docufy_auth_users_v1';
+
+function loadStaffAccounts(): void {
+  try {
+    const raw = localStorage.getItem(STAFF_ACCOUNTS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    for (const acc of parsed) {
+      if (!acc || typeof acc !== 'object') continue;
+      if (!acc.email || !acc.name || !acc.role) continue;
+      const idx = mockUsers.findIndex(u => u.email.toLowerCase() === acc.email.toLowerCase());
+      if (idx >= 0) {
+        mockUsers[idx] = { ...mockUsers[idx], ...acc };
+      } else {
+        mockUsers.push(acc);
+      }
+    }
+  } catch {
+    // storage unavailable — in-memory accounts are enough
+  }
+}
+
+function persistStaffAccounts(): void {
+  try {
+    localStorage.setItem(
+      STAFF_ACCOUNTS_KEY,
+      JSON.stringify(mockUsers.filter(u => u.role !== 'customer')),
+    );
+  } catch {
+    // storage unavailable — accounts stay in-memory for the session
+  }
+}
+
+loadStaffAccounts();
 
 // Persist the logged-in user across page reloads so refreshing while signed in
 // does not bounce the user back to the login page. Uses sessionStorage (NOT
@@ -179,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdminRegistered: true,
     };
     mockUsers.push(newStaff);
+    persistStaffAccounts();
     return { success: true };
   };
 
@@ -202,8 +256,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof updates.name === 'string') mockUsers[userIndex].name = updates.name;
     if (updates.role === 'staff' || updates.role === 'admin') mockUsers[userIndex].role = updates.role;
     if (typeof updates.active === 'boolean') mockUsers[userIndex].active = updates.active;
+    persistStaffAccounts();
     return true;
   };
+
+  const getStaffAccounts = () =>
+    mockUsers
+      .filter(u => u.role !== 'customer')
+      .map(u => ({
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        active: u.active,
+        isAdminRegistered: u.isAdminRegistered,
+      }));
 
   const updateProfile = (data: Partial<User> & { profileImage?: string | null }) => {
     setUser((current) => {
@@ -271,6 +337,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Password updated successfully');
       console.log('New password is now:', mockUsers[userIndex].password);
 
+      if (mockUsers[userIndex].role !== 'customer') persistStaffAccounts();
+
       // Update the current user's session state if they're logged in
       if (user && user.email === email) {
         setUser({ ...user, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage });
@@ -304,6 +372,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Password updated successfully');
 
+      if (mockUsers[userIndex].role !== 'customer') persistStaffAccounts();
+
       // Clear the used reset code so it cannot be reused
       delete passwordResetCodes[email];
 
@@ -327,6 +397,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signup,
         registerStaff,
         updateStaffAccount,
+        getStaffAccounts,
         updateProfile,
         logout,
         resetPassword,

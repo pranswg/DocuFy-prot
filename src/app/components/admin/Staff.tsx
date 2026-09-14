@@ -8,6 +8,9 @@ import {
   Clock,
   UserCheck,
   Edit2,
+  CalendarDays,
+  Wallet,
+  History,
   Eye,
   EyeOff,
   Search,
@@ -37,237 +40,15 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 import { useSearchParams } from "react-router";
 import { AttendanceView } from "./AdminAttendance";
+import { staffStore, type Staff } from "../../utils/staffStore";
+import { salaryStore } from "../../utils/salaryStore";
+import { attendanceStore, sessionTotalMs, hasActiveSession, formatPHT, nowPHT } from "../../utils/attendanceStore";
+import { formatCurrency, formatNumber } from "../../utils/formatNumber";
 
 import { adminMenuItems } from "../../utils/adminMenuItems";
-import { formatPHDate, todayPHTKey } from "../../utils/pht";
+import { formatPHDate, formatPHDateTime, todayPHTKey } from "../../utils/pht";
 
 const menuItems = adminMenuItems;
-
-interface Staff {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  status: "Active" | "Inactive";
-  joinDate: string;
-  skillsMessage: string;
-  portfolioLink: string;
-  performanceNotes: {
-    date: string;
-    note: string;
-    rating: number;
-  }[];
-  salary: number;
-  allowances: { type: string; amount: number }[];
-  paymentHistory: {
-    date: string;
-    amount: number;
-    type: string;
-  }[];
-  permissions: string[];
-  tasks: {
-    id: string;
-    title: string;
-    status: string;
-    priority: string;
-    dueDate: string;
-  }[];
-}
-
-const staffData: Staff[] = [
-  {
-    id: "EMP-001",
-    name: "Heaven Rica",
-    email: "staff@test.com",
-    phone: "0912 345 6789",
-    role: "Staff",
-    status: "Active",
-    joinDate: "2025-09-01",
-    skillsMessage: "I have extensive experience in managing daily print operations, quality control, equipment maintenance, color management, and providing excellent customer service. Certified Print Professional with proven track record.",
-    portfolioLink: "https://drive.google.com/heavenrica-portfolio",
-    performanceNotes: [
-      {
-        date: "2026-04-01",
-        note: "Excellent performance, handled rush orders efficiently",
-        rating: 5,
-      },
-      {
-        date: "2026-03-01",
-        note: "Successfully trained 2 new staffs",
-        rating: 5,
-      },
-      {
-        date: "2026-02-01",
-        note: "Improved print quality standards",
-        rating: 4,
-      },
-    ],
-    salary: 18000,
-    allowances: [
-      { type: "Transportation", amount: 2000 },
-      { type: "Meal", amount: 1500 },
-    ],
-    paymentHistory: [
-      {
-        date: "2026-04-15",
-        amount: 21500,
-        type: "Monthly Salary",
-      },
-      {
-        date: "2026-03-15",
-        amount: 21500,
-        type: "Monthly Salary",
-      },
-      {
-        date: "2026-02-15",
-        amount: 21500,
-        type: "Monthly Salary",
-      },
-    ],
-    permissions: [
-      "view_orders",
-      "edit_orders",
-      "view_reports",
-    ],
-    tasks: [
-      {
-        id: "TSK-001",
-        title: "Quality check for color prints",
-        status: "Completed",
-        priority: "High",
-        dueDate: "2026-04-20",
-      },
-      {
-        id: "TSK-002",
-        title: "Train new staff on binding",
-        status: "In Progress",
-        priority: "Medium",
-        dueDate: "2026-04-25",
-      },
-      {
-        id: "TSK-003",
-        title: "Printer toner check",
-        status: "Pending",
-        priority: "Low",
-        dueDate: "2026-04-30",
-      },
-    ],
-  },
-  {
-    id: "EMP-002",
-    name: "Robert Chen",
-    email: "robert.chen@docufy.com",
-    phone: "0923 456 7890",
-    role: "Staff",
-    status: "Active",
-    joinDate: "2025-10-15",
-    skillsMessage: "Proficient in printing operations, equipment setup, document binding, and customer support. Quick learner with attention to detail.",
-    portfolioLink: "https://linkedin.com/in/robertchen",
-    performanceNotes: [
-      {
-        date: "2026-04-01",
-        note: "Good attendance and punctuality",
-        rating: 4,
-      },
-      {
-        date: "2026-03-01",
-        note: "Needs improvement in color matching",
-        rating: 3,
-      },
-    ],
-    salary: 15000,
-    allowances: [{ type: "Transportation", amount: 1500 }],
-    paymentHistory: [
-      {
-        date: "2026-04-15",
-        amount: 16500,
-        type: "Monthly Salary",
-      },
-      {
-        date: "2026-03-15",
-        amount: 16500,
-        type: "Monthly Salary",
-      },
-    ],
-    permissions: ["view_orders", "edit_orders"],
-    tasks: [
-      {
-        id: "TSK-004",
-        title: "Process customer orders",
-        status: "Completed",
-        priority: "High",
-        dueDate: "2026-04-21",
-      },
-      {
-        id: "TSK-005",
-        title: "Clean and maintain printers",
-        status: "Completed",
-        priority: "Medium",
-        dueDate: "2026-04-22",
-      },
-    ],
-  },
-  {
-    id: "EMP-003",
-    name: "Katie Perry",
-    email: "katie.perry@docufy.com",
-    phone: "0934 567 8901",
-    role: "Staff",
-    status: "Active",
-    joinDate: "2026-01-10",
-    skillsMessage: "Excellent customer service skills, experienced in payment processing, order management, and professional communication.",
-    portfolioLink: "",
-    performanceNotes: [
-      {
-        date: "2026-04-01",
-        note: "Excellent customer service skills",
-        rating: 5,
-      },
-      {
-        date: "2026-03-01",
-        note: "Quick learner, adapting well to role",
-        rating: 4,
-      },
-    ],
-    salary: 14000,
-    allowances: [{ type: "Meal", amount: 1000 }],
-    paymentHistory: [
-      {
-        date: "2026-04-15",
-        amount: 15000,
-        type: "Monthly Salary",
-      },
-      {
-        date: "2026-03-15",
-        amount: 15000,
-        type: "Monthly Salary",
-      },
-      {
-        date: "2026-02-15",
-        amount: 15000,
-        type: "Monthly Salary",
-      },
-    ],
-    permissions: ["view_orders", "verify_payments"],
-    tasks: [
-      {
-        id: "TSK-006",
-        title: "Verify payment receipts",
-        status: "In Progress",
-        priority: "High",
-        dueDate: "2026-04-22",
-      },
-      {
-        id: "TSK-007",
-        title: "Update customer database",
-        status: "Pending",
-        priority: "Low",
-        dueDate: "2026-04-28",
-      },
-    ],
-  },
-];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -288,14 +69,55 @@ function formatDate(iso: string) {
 }
 
 export default function Staff() {
-  const { registerStaff, updateStaffAccount } = useAuth();
+  const { registerStaff, updateStaffAccount, getStaffAccounts, user } = useAuth();
   const [searchParams] = useSearchParams();
+
+  const buildStaffList = () => {
+    const merged = staffStore.getStaff();
+    const byEmail = new Map<string, Staff>();
+    for (const r of merged) byEmail.set(r.email.toLowerCase(), r);
+
+    // Auth accounts are the source of truth for role/status: the display must
+    // always match the real login permission, so registered staff accounts
+    // (created via Register New Staff) that somehow lack a roster row are added
+    // back, and any matching row is synced to the account's role/status.
+    for (const acc of getStaffAccounts()) {
+      const existing = byEmail.get(acc.email.toLowerCase());
+      if (existing) {
+        existing.name = acc.name || existing.name;
+        existing.email = acc.email;
+        existing.role = acc.role === "admin" ? "Admin" : "Staff";
+        existing.status = acc.active === false ? "Inactive" : "Active";
+      } else if (acc.isAdminRegistered) {
+        const row: Staff = {
+          id: `EMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          name: acc.name || acc.email,
+          email: acc.email,
+          phone: "Not set",
+          role: acc.role === "admin" ? "Admin" : "Staff",
+          status: acc.active === false ? "Inactive" : "Active",
+          joinDate: todayPHTKey(),
+          skillsMessage: "",
+          portfolioLink: "",
+          performanceNotes: [],
+          salary: 0,
+          allowances: [],
+          paymentHistory: [],
+          permissions: ["view_orders", "edit_orders"],
+          tasks: [],
+        };
+        merged.push(row);
+        byEmail.set(row.email.toLowerCase(), row);
+      }
+    }
+    return merged;
+  };
 
   const [activeTab, setActiveTab] = useState<string>(
     searchParams.get("tab") === "attendance" ? "attendance" : "staff",
   );
 
-  const [staff, setStaff] = useState<Staff[]>(staffData);
+  const [staff, setStaff] = useState<Staff[]>(() => buildStaffList());
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -348,6 +170,27 @@ export default function Staff() {
     setShowPassword(false);
     setShowConfirmPassword(false);
   };
+
+  const applyStaffList = (next: Staff[]) => {
+    staffStore.setStaff(next);
+    setStaff(next);
+  };
+
+  // ── Salary settings + per-staff salary view state ─────────────────────
+  const [showRateDialog, setShowRateDialog] = useState(false);
+  const [rateInput, setRateInput] = useState(String(salaryStore.getHourlyRate()));
+  const [salaryView, setSalaryView] = useState<Staff | null>(null);
+  const [releasing, setReleasing] = useState<Staff | null>(null);
+  const [, setDataTick] = useState(0);
+
+  React.useEffect(() => {
+    const unsubSalary = salaryStore.subscribe(() => setDataTick((t) => t + 1));
+    const unsubAtt = attendanceStore.subscribe(() => setDataTick((t) => t + 1));
+    return () => {
+      unsubSalary();
+      unsubAtt();
+    };
+  }, []);
 
   const handleAddStaff = () => {
     const name = newStaff.fullName.trim();
@@ -412,7 +255,7 @@ export default function Staff() {
       tasks: [],
     };
 
-    setStaff([staffMember, ...staff]);
+    applyStaffList([staffMember, ...staff]);
     resetAddForm();
     setShowAddDialog(false);
     toast.success("Staff account created successfully", {
@@ -477,7 +320,7 @@ export default function Staff() {
       active: editForm.status !== editingStaff.status ? editForm.status === "Active" : undefined,
     });
 
-    setStaff(staff.map((s) => (s.id === updated.id ? updated : s)));
+    applyStaffList(staff.map((s) => (s.id === updated.id ? updated : s)));
     setEditingStaff(null);
     setEditForm(null);
     toast.success(
@@ -488,7 +331,7 @@ export default function Staff() {
   };
 
   const confirmActivate = (member: Staff) => {
-    setStaff(
+    applyStaffList(
       staff.map((s) =>
         s.id === member.id ? { ...s, status: "Active" as const } : s,
       ),
@@ -499,7 +342,7 @@ export default function Staff() {
   };
 
   const confirmDeactivate = (member: Staff) => {
-    setStaff(
+    applyStaffList(
       staff.map((s) =>
         s.id === member.id ? { ...s, status: "Inactive" as const } : s,
       ),
@@ -540,6 +383,44 @@ export default function Staff() {
           </TabsList>
 
           <TabsContent value="staff" className="mt-0 flex flex-col gap-6">
+            {/* Salary Settings */}
+            <Card className="p-4 border border-slate-100 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#1D73EC]/10 text-[#1D73EC] flex items-center justify-center shrink-0">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 leading-tight">
+                      Salary Settings
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Hourly rate used to compute each staff member's salary from their attendance hours.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Hourly Rate</p>
+                    <p className="text-xl font-semibold text-[#1D73EC] leading-tight">
+                      ₱{formatNumber(salaryStore.getHourlyRate(), 2)} / hour
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-9 whitespace-nowrap border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+                    onClick={() => {
+                      setRateInput(String(salaryStore.getHourlyRate()));
+                      setShowRateDialog(true);
+                    }}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit Rate
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
             {/* Search and Filters */}
             <Card className="p-4 border border-slate-100 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-end gap-4">
@@ -669,6 +550,15 @@ export default function Staff() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="View attendance & salary"
+                          className="group"
+                          onClick={() => setSalaryView(member)}
+                        >
+                          <CalendarDays className="w-4 h-4 text-green-600 group-hover:text-white" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1035,6 +925,278 @@ export default function Staff() {
         cancelLabel="Go Back"
         destructive={false}
       />
+
+      {/* Edit Hourly Rate Dialog */}
+      <Dialog
+        open={showRateDialog}
+        onOpenChange={(open) => {
+          setShowRateDialog(open);
+          if (!open) setRateInput(String(salaryStore.getHourlyRate()));
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">Edit Hourly Rate</DialogTitle>
+            <DialogDescription>
+              Set the hourly rate used to compute every staff member's current
+              salary from their attendance hours.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="hourlyRate">Hourly Rate (₱ per hour) <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₱</span>
+              <Input
+                id="hourlyRate"
+                type="number"
+                min={0}
+                step={0.01}
+                value={rateInput}
+                onChange={(e) => setRateInput(e.target.value)}
+                placeholder="50"
+                className="h-11 pl-8 bg-white text-sm"
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+                Salary = Total Approved Working Hours × Hourly Rate.
+              </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setShowRateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              data-primary-action
+              className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => {
+                const rate = Number(rateInput);
+                if (Number.isNaN(rate) || rate < 0) {
+                  toast.error("Please enter a valid hourly rate");
+                  return;
+                }
+                salaryStore.setHourlyRate(rate);
+                setShowRateDialog(false);
+                toast.success("Hourly rate updated successfully", {
+                  description: `Salary computations now use ₱${formatNumber(rate, 2)} / hour.`,
+                });
+              }}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              Save Rate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Release Salary Confirmation */}
+      <ConfirmationDialog
+        open={!!releasing}
+        onOpenChange={(open) => {
+          if (!open) setReleasing(null);
+        }}
+        onConfirm={() => {
+          if (!releasing) return;
+          const rec = salaryStore.releaseSalary(releasing.email, releasing.name, user?.name || "Admin");
+          toast.success("Salary released successfully", {
+            description: `${rec.staffName} earned ${formatCurrency(rec.amount)} (${formatNumber(rec.totalHours, 2)} hrs × ₱${formatNumber(rec.hourlyRate, 2)}/hr). A new salary period has started.`,
+          });
+          setReleasing(null);
+        }}
+        title="Release Salary?"
+        description={
+          releasing
+            ? `This will mark the current salary period as paid and reset salary tracking. Attendance records are kept. Staff: ${releasing.name} · Current Salary: ${formatCurrency(
+                salaryStore.getStaffSummary(releasing.email).amount,
+              )}`
+            : ""
+        }
+        confirmLabel="Confirm Release"
+        cancelLabel="Go Back"
+        destructive={false}
+      />
+
+      {/* View Attendance & Salary Dialog */}
+      <Dialog
+        open={!!salaryView}
+        onOpenChange={(open) => {
+          if (!open) setSalaryView(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B]">
+              View Attendance & Salary
+            </DialogTitle>
+            <DialogDescription>
+              {salaryView?.name} · {salaryView?.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          {salaryView &&
+            (() => {
+              const summary = salaryStore.getStaffSummary(salaryView.email);
+              const records = salaryStore.getPeriodAttendance(salaryView.email);
+              const history = salaryStore.getSalaryHistory(salaryView.email);
+              const periodLabel = `${formatPHDate(summary.periodStart, "short")} — ${formatPHDate(summary.periodEnd, "short")}`;
+
+              return (
+                <div className="py-2 space-y-4">
+                  {/* Staff Attendance Summary */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                      Staff Attendance Summary
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3">
+                      <div>
+                        <p className="text-[11px] text-gray-500">Staff</p>
+                        <p className="text-sm font-semibold text-gray-900 truncate">{salaryView.name}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[11px] text-gray-500">Period</p>
+                        <p className="text-sm font-semibold text-gray-900">{periodLabel}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500">Total Hours Worked</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatNumber(summary.totalHours, 2)} hrs</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500">Hourly Rate</p>
+                        <p className="text-sm font-semibold text-gray-900">₱{formatNumber(summary.hourlyRate, 2)} / hr</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500">Current Salary</p>
+                        <p className="text-base font-bold text-[#1D73EC]">{formatCurrency(summary.amount)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attendance records within the period */}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gray-50/70">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                        Attendance Records · Current Period
+                      </p>
+                      <span className="text-xs text-gray-500">{records.length} day{records.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {records.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No attendance records in the current period.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50/60">
+                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Date</th>
+                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Clock In</th>
+                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Clock Out</th>
+                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Hours</th>
+                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {records.map((r) => {
+                              const hours = sessionTotalMs(r, nowPHT()) / 3_600_000;
+                              const status = hasActiveSession(r) ? "Active" : r.timeIn && r.timeOut ? (r.exceeded ? "Exceeded" : "Complete") : "Incomplete";
+                              return (
+                                <tr key={r.id} className="hover:bg-gray-50/70">
+                                  <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{formatPHDate(r.date, "short")}</td>
+                                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{formatPHT(r.timeIn)}</td>
+                                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                                    {r.timeOut ? formatPHT(r.timeOut) : <span className="text-green-600 font-medium">On Clock</span>}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{formatNumber(hours, 2)} hrs</td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge className={
+                                      status === "Complete"
+                                        ? "bg-green-50 text-green-700 border border-green-200"
+                                        : status === "Active"
+                                        ? "bg-blue-50 text-[#1D73EC] border border-blue-200"
+                                        : status === "Exceeded"
+                                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                        : "bg-gray-100 text-gray-600 border border-gray-200"
+                                    }>
+                                      {status}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Release Salary */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Current Salary: {formatCurrency(summary.amount)}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Releasing pays this period and starts a new tracking period. Attendance history is kept.
+                      </p>
+                    </div>
+                    <Button
+                      className="h-10 w-full sm:w-auto bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+                      onClick={() => setReleasing(salaryView)}
+                    >
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Release Salary
+                    </Button>
+                  </div>
+
+                  {/* Salary History */}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gray-50/70">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                        <History className="w-3.5 h-3.5" />
+                        Salary History
+                      </p>
+                      <span className="text-xs text-gray-500">{history.length} release{history.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {history.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <p className="text-sm text-gray-500">No releases yet for this staff member.</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 space-y-3">
+                        {history.map((h) => (
+                          <div key={h.id} className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {formatPHDate(h.periodStart, "short")} - {formatPHDate(h.periodEnd, "short")}
+                              </p>
+                              <p className="text-sm font-bold text-[#1D73EC]">{formatCurrency(h.amount)}</p>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div>
+                                <p className="text-gray-500">Hours Worked</p>
+                                <p className="font-medium text-gray-800">{formatNumber(h.totalHours, 2)} hrs</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Rate</p>
+                                <p className="font-medium text-gray-800">₱{formatNumber(h.hourlyRate, 2)}/hr</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Release Date</p>
+                                <p className="font-medium text-gray-800">{formatPHDateTime(h.releasedAt)}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Released By</p>
+                                <p className="font-medium text-gray-800">{h.releasedBy}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
