@@ -64,7 +64,9 @@ export function LegalBody({
     <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
       {sections.map((section, i) => (
         <section key={i}>
-          <h3 className="font-semibold text-[#10316B] mb-2">{section.title}</h3>
+          <h3 className="font-semibold text-[#10316B] mb-2">
+            {i + 1}. {section.title}
+          </h3>
           {renderLegalBody(section.body)}
         </section>
       ))}

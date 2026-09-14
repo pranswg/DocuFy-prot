@@ -10,6 +10,7 @@ import {
   Eye,
   Upload,
   MapPin,
+  LogIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -39,6 +40,7 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 
 const sectionCards = [
   { id: "logo", label: "Logo", icon: <Eye className="w-4 h-4" /> },
+  { id: "auth", label: "Login & Registration", icon: <LogIn className="w-4 h-4" /> },
   { id: "hero", label: "Top Section", icon: <Eye className="w-4 h-4" /> },
   { id: "features", label: "Features", icon: <Eye className="w-4 h-4" /> },
   { id: "services", label: "Services & Prices", icon: <Eye className="w-4 h-4" /> },
@@ -56,12 +58,12 @@ function EditorCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4">
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
-      </div>
-      <div className="space-y-4 px-5 py-5">{children}</div>
+    <div className="rounded-lg border border-slate-100 bg-white p-4">
+      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+      {subtitle && (
+        <p className="mt-0.5 text-sm text-slate-500 mb-3">{subtitle}</p>
+      )}
+      <div className="mt-1 space-y-4">{children}</div>
     </div>
   );
 }
@@ -108,10 +110,13 @@ export default function LandingPageEditor() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showMapPreview, setShowMapPreview] = useState(false);
+  const [showAuthBgPreview, setShowAuthBgPreview] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const logo = useLogo();
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const authBgInputRef = useRef<HTMLInputElement>(null);
   const [showLogoResetConfirm, setShowLogoResetConfirm] = useState(false);
+  const [showAuthBgResetConfirm, setShowAuthBgResetConfirm] = useState(false);
 
   const handleLogoUpload = (file: File | undefined) => {
     if (!file) return;
@@ -136,6 +141,31 @@ export default function LandingPageEditor() {
     logoStore.resetLogo();
     setShowLogoResetConfirm(false);
     toast.success("Logo reset to the default Docufy logo.");
+  };
+
+  const handleAuthBgUpload = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPG, or WebP).");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Image is too large. Please use an image under 3 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      patch({ authBackgroundUrl: reader.result as string });
+      toast.success("Background photo set. Click Save Changes to apply it.");
+    };
+    reader.onerror = () => toast.error("Could not read the image file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleAuthBgReset = () => {
+    patch({ authBackgroundUrl: "" });
+    setShowAuthBgResetConfirm(false);
+    toast.success("Background reset to default. Save Changes to apply it.");
   };
 
   const patch = (partial: Partial<LandingPageContent>) => {
@@ -344,6 +374,81 @@ export default function LandingPageEditor() {
                     className="hidden"
                     onChange={(e) => {
                       handleLogoUpload(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </EditorCard>
+            </div>
+
+            {/* Login & Registration */}
+            <div id="auth" className="scroll-mt-28">
+              <EditorCard
+                title="Login & Registration"
+                subtitle="The photo background shown on the Log in and Create account pages."
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-lg border border-slate-100 p-4">
+                  <div className="w-28 h-16 shrink-0 rounded-lg border border-slate-200 bg-[#1c1f26] overflow-hidden flex items-center justify-center">
+                    {content.authBackgroundUrl ? (
+                      <img
+                        src={content.authBackgroundUrl}
+                        alt="Login background"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[11px] font-medium text-white/70">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800">
+                      {content.authBackgroundUrl
+                        ? "Custom photo in use"
+                        : "Default photo in use"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Shown on the Log in and Create account pages. A dark shade
+                      is added over custom photos so the text stays readable.
+                      Changes apply once you click Save Changes.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+                    onClick={() => authBgInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" /> Upload Photo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+                    onClick={() => setShowAuthBgPreview(true)}
+                  >
+                    <Eye className="w-4 h-4 mr-2" /> Preview
+                  </Button>
+                  {content.authBackgroundUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 sm:h-10 w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                      onClick={() => setShowAuthBgResetConfirm(true)}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" /> Reset to Default
+                    </Button>
+                  )}
+                  <input
+                    ref={authBgInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleAuthBgUpload(e.target.files?.[0]);
                       e.target.value = "";
                     }}
                   />
@@ -661,7 +766,7 @@ export default function LandingPageEditor() {
             </div>
 
             {/* Footer save */}
-            <div className="flex justify-end rounded-xl border border-slate-200 bg-white p-3 shadow-sm mt-6 mb-2">
+            <div className="flex justify-end rounded-lg border border-slate-100 bg-white p-3 mt-6 mb-2">
               <Button
                 onClick={() => setShowSaveConfirm(true)}
                 className="h-10 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
@@ -702,6 +807,98 @@ export default function LandingPageEditor() {
         onConfirm={handleLogoReset}
         destructive
       />
+
+      <ConfirmationDialog
+        open={showAuthBgResetConfirm}
+        onOpenChange={setShowAuthBgResetConfirm}
+        title="Reset the login background photo?"
+        description="This restores the default photo on the Log in and Create account pages. Save Changes still needs to be clicked to apply it."
+        confirmLabel="Reset Photo"
+        onConfirm={handleAuthBgReset}
+        destructive
+      />
+
+      <Dialog open={showAuthBgPreview} onOpenChange={setShowAuthBgPreview}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="w-5 h-5 text-[#2F6FD6]" /> Login &amp; Registration Preview
+            </DialogTitle>
+            <DialogDescription>
+              The photo below appears on the darker side of the Log in and
+              Create account pages. Save Changes to apply it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 overflow-hidden grid grid-cols-1 sm:grid-cols-2 min-h-[280px]">
+              <div className="relative bg-[#1c1f26] flex items-center justify-center p-6 min-h-[200px]">
+                {content.authBackgroundUrl ? (
+                  <>
+                    <img
+                      src={content.authBackgroundUrl}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/45" />
+                  </>
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#1c1f26] to-[#2F3B4F] opacity-90" />
+                )}
+                <div className="relative z-10 text-center">
+                  <div className="w-16 h-16 rounded-full bg-white p-1 mx-auto mb-3 flex items-center justify-center">
+                    <img
+                      src={logo}
+                      alt="Docufy Logo"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                  <p className="text-white font-bold text-lg">Log in</p>
+                  <p className="text-white/70 text-xs">Docufy PSMS</p>
+                </div>
+              </div>
+              <div className="bg-white flex items-center justify-center p-6">
+                <p className="text-xs text-slate-400 text-center">
+                  This side shows the Log in form and its fields.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 overflow-hidden grid grid-cols-1 sm:grid-cols-2 min-h-[280px]">
+              <div className="relative bg-[#10316B] flex items-center justify-center p-6 min-h-[200px]">
+                {content.authBackgroundUrl ? (
+                  <>
+                    <img
+                      src={content.authBackgroundUrl}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/45" />
+                  </>
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#10316B] to-[#2F6FD6] opacity-90" />
+                )}
+                <div className="relative z-10 text-center">
+                  <div className="w-16 h-16 rounded-full bg-white p-1 mx-auto mb-3 flex items-center justify-center">
+                    <img
+                      src={logo}
+                      alt="Docufy Logo"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                  <p className="text-white font-bold text-lg">Create account</p>
+                  <p className="text-white/70 text-xs">Docufy PSMS</p>
+                </div>
+              </div>
+              <div className="bg-white flex items-center justify-center p-6">
+                <p className="text-xs text-slate-400 text-center">
+                  This side shows the registration form and its fields.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showMapPreview} onOpenChange={setShowMapPreview}>
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">

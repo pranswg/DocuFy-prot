@@ -3,7 +3,15 @@
 // shown on the landing footer, sign up, and checkout.
 
 import React, { useState } from "react";
-import { ScrollText, Save, RotateCcw, Plus, Trash2 } from "lucide-react";
+import {
+  ScrollText,
+  Save,
+  RotateCcw,
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Button } from "../ui/button";
@@ -13,6 +21,7 @@ import { Textarea } from "../ui/textarea";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   legalContentStore,
+  stripSectionNumber,
   type LegalContent,
   type LegalSection,
 } from "../../utils/legalContentStore";
@@ -27,14 +36,17 @@ function PolicyCard({
   title,
   lastUpdated,
   sections,
+  field,
   onTitleChange,
   onLastUpdatedChange,
   onSectionChange,
   onAdd,
   onRemove,
+  onMove,
 }: {
   heading: string;
   hint: string;
+  field: SectionField;
   title: string;
   lastUpdated: string;
   sections: LegalSection[];
@@ -43,6 +55,7 @@ function PolicyCard({
   onSectionChange: (index: number, partial: Partial<LegalSection>) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onMove: (index: number, direction: -1 | 1) => void;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -72,6 +85,9 @@ function PolicyCard({
               placeholder='e.g. "April 27, 2026"'
               className="mt-1.5"
             />
+            <p className="mt-1 text-xs text-slate-500">
+              Set automatically to today's date when you click Save Changes.
+            </p>
           </div>
         </div>
 
@@ -81,6 +97,10 @@ function PolicyCard({
             Separate paragraphs with a blank line. To make a bulleted list,
             put each item on its own line starting with <span className="font-medium text-slate-700">"- "</span> (dash + space).
           </p>
+          <p className="mt-1">
+            Sections are numbered automatically in order — don't type the
+            number into the title, and use the arrows to reorder them.
+          </p>
         </div>
 
         <div className="flex items-center justify-between">
@@ -89,7 +109,7 @@ function PolicyCard({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+            className="h-8 border-[#2F6FD6]/40 text-[#2F6FD6]"
             onClick={onAdd}
           >
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Section
@@ -100,7 +120,8 @@ function PolicyCard({
           {sections.map((section, i) => (
             <div
               key={i}
-              className="rounded-lg border border-slate-100 p-3 space-y-3"
+              id={`legal-section-${field}-${i}`}
+              className="rounded-lg border border-slate-100 p-3 space-y-3 scroll-mt-28"
             >
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F2F7FF] text-xs font-semibold text-[#2F6FD6]">
@@ -109,11 +130,31 @@ function PolicyCard({
                 <Input
                   value={section.title}
                   onChange={(e) =>
-                    onSectionChange(i, { title: e.target.value })
+                    onSectionChange(i, {
+                      title: stripSectionNumber(e.target.value),
+                    })
                   }
-                  placeholder='e.g. "1. Acceptance of Terms"'
+                  placeholder='e.g. "Acceptance of Terms"'
                   className="h-9 flex-1"
                 />
+                <button
+                  type="button"
+                  onClick={() => onMove(i, -1)}
+                  disabled={i === 0}
+                  className="shrink-0 p-1.5 text-slate-400 hover:text-[#2F6FD6] hover:bg-[#F2F7FF] rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                  title="Move section up"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMove(i, 1)}
+                  disabled={i === sections.length - 1}
+                  className="shrink-0 p-1.5 text-slate-400 hover:text-[#2F6FD6] hover:bg-[#F2F7FF] rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                  title="Move section down"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
@@ -160,10 +201,26 @@ export default function LegalManagement() {
   };
 
   const addSection = (field: SectionField) => {
-    setContent((prev) => ({
-      ...prev,
-      [field]: [...prev[field], { title: "", body: "" }],
-    }));
+    setContent((prev) => {
+      const next = [...prev[field], { title: "", body: "" }];
+      const newIndex = next.length - 1;
+      window.setTimeout(() => {
+        document
+          .getElementById(`legal-section-${field}-${newIndex}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+      return { ...prev, [field]: next };
+    });
+  };
+
+  const moveSection = (field: SectionField, index: number, direction: -1 | 1) => {
+    setContent((prev) => {
+      const arr = [...prev[field]];
+      const target = index + direction;
+      if (target < 0 || target >= arr.length) return prev;
+      [arr[index], arr[target]] = [arr[target], arr[index]];
+      return { ...prev, [field]: arr };
+    });
   };
 
   const removeSection = (field: SectionField, index: number) => {
@@ -176,7 +233,19 @@ export default function LegalManagement() {
   const handleSave = () => {
     setShowSaveConfirm(false);
     try {
-      legalContentStore.saveContent(content);
+      const today = new Date().toLocaleDateString("en-US", {
+        timeZone: "Asia/Manila",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      const withDates: LegalContent = {
+        ...content,
+        termsLastUpdated: today,
+        privacyLastUpdated: today,
+      };
+      legalContentStore.saveContent(withDates);
+      setContent(withDates);
       toast.success("Terms and policies saved. They are now updated everywhere.");
     } catch {
       toast.error("Could not save your changes to browser storage. Please try again.");
@@ -239,6 +308,7 @@ export default function LegalManagement() {
           <PolicyCard
             heading="Terms & Conditions"
             hint="Appears under the 'Terms & Condition' link on the landing page footer, sign up, and checkout."
+            field="termsSections"
             title={content.termsTitle}
             lastUpdated={content.termsLastUpdated}
             sections={content.termsSections}
@@ -247,10 +317,12 @@ export default function LegalManagement() {
             onSectionChange={(i, p) => patchSection("termsSections", i, p)}
             onAdd={() => addSection("termsSections")}
             onRemove={(i) => removeSection("termsSections", i)}
+            onMove={(i, dir) => moveSection("termsSections", i, dir)}
           />
           <PolicyCard
             heading="Privacy Policy"
             hint="Appears under the 'Privacy Policy' link on the landing page footer, sign up, and checkout."
+            field="privacySections"
             title={content.privacyTitle}
             lastUpdated={content.privacyLastUpdated}
             sections={content.privacySections}
@@ -259,6 +331,7 @@ export default function LegalManagement() {
             onSectionChange={(i, p) => patchSection("privacySections", i, p)}
             onAdd={() => addSection("privacySections")}
             onRemove={(i) => removeSection("privacySections", i)}
+            onMove={(i, dir) => moveSection("privacySections", i, dir)}
           />
         </div>
 

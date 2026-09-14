@@ -30,6 +30,7 @@ export interface LandingPageContent {
   aboutSubtitle: string;
   aboutBody: string;
   serviceCards: ServiceCardContent[];
+  authBackgroundUrl: string;
 }
 
 const STORAGE_KEY = "landing_content";
@@ -92,6 +93,7 @@ const defaults: LandingPageContent = {
       ],
     },
   ],
+  authBackgroundUrl: "",
 };
 
 // ─── Migration helpers ────────────────────────────────────────────────────────

@@ -15,11 +15,13 @@ import { Checkbox } from "./ui/checkbox";
 import LegalPolicyDialog from "./shared/LegalPolicyDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { ImageWithFallback } from "./shared/ImageWithFallback";
+import { useAuthBackgroundUrl } from "../hooks/useAuthBackgroundUrl";
 import { PasswordStrengthIndicator, validatePassword } from "./ui/password-strength-indicator";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
   const logo = useLogo();
+  const authBg = useAuthBackgroundUrl();
   const { signup } = useAuth();
   const [formData, setFormData] = useState({
     firstName: "",
@@ -95,11 +97,22 @@ export default function SignUpPage() {
     <div className="min-h-[100dvh] flex flex-col lg:flex-row font-poppins bg-white lg:h-screen lg:overflow-hidden max-lg:overflow-x-hidden">
       {/* Left Side - Logo & Illustration (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#10316B] items-center justify-center">
-        <ImageWithFallback
-          src="https://images.unsplash.com/photo-1758518725921-1eb74ed293be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidXNpbmVzcyUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzc1ODI4NTk2fDA&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="Modern Printing Services"
-          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
-        />
+        {authBg ? (
+          <>
+            <img
+              src={authBg}
+              alt="Docufy background"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/45" />
+          </>
+        ) : (
+          <ImageWithFallback
+            src="https://images.unsplash.com/photo-1758518725921-1eb74ed293be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidXNpbmVzcyUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzc1ODI4NTk2fDA&ixlib=rb-4.1.0&q=80&w=1080"
+            alt="Modern Printing Services"
+            className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
+          />
+        )}
 
         <button
           onClick={() => navigate("/")}

@@ -18,6 +18,20 @@ export interface LegalContent {
 
 const STORAGE_KEY = "docufy_legal_content_v1";
 
+// Sections are numbered automatically by their position (1, 2, 3…), so the
+// stored title never needs a "N. " prefix typed into it. If a value sneaks a
+// leading number in (legacy data, manual edit), strip it so it does not
+// double up with the auto number when rendered.
+export function stripSectionNumber(title: string): string {
+  return title.replace(/^\s*\d+\s*[.)-]?\s+/, "").trim();
+}
+
+function sanitizeSections(
+  sections: { title: string; body: string }[],
+): LegalSection[] {
+  return sections.map((s) => ({ ...s, title: stripSectionNumber(s.title) }));
+}
+
 // Body text uses a small plain-text format:
 //   * paragraphs separated by a blank line
 //   * a line starting with "- " becomes a bullet list item
@@ -132,19 +146,23 @@ function read(): LegalContent {
         ...parsed,
         termsSections:
           Array.isArray(parsed.termsSections) && parsed.termsSections.length > 0
-            ? parsed.termsSections
-            : structuredClone(defaults.termsSections),
+            ? sanitizeSections(parsed.termsSections)
+            : sanitizeSections(structuredClone(defaults.termsSections)),
         privacySections:
           Array.isArray(parsed.privacySections) && parsed.privacySections.length > 0
-            ? parsed.privacySections
-            : structuredClone(defaults.privacySections),
+            ? sanitizeSections(parsed.privacySections)
+            : sanitizeSections(structuredClone(defaults.privacySections)),
       } as LegalContent;
       return cached;
     }
   } catch {
     // fall through
   }
-  return structuredClone(defaults);
+  return {
+    ...structuredClone(defaults),
+    termsSections: sanitizeSections(structuredClone(defaults.termsSections)),
+    privacySections: sanitizeSections(structuredClone(defaults.privacySections)),
+  };
 }
 
 function save(content: LegalContent) {
@@ -173,9 +191,21 @@ function subscribe(fn: Listener): () => void {
 }
 
 export const legalContentStore = {
-  getDefaults: () => structuredClone(defaults),
+  getDefaults: () =>
+    ({
+      ...structuredClone(defaults),
+      termsSections: sanitizeSections(structuredClone(defaults.termsSections)),
+      privacySections: sanitizeSections(structuredClone(defaults.privacySections)),
+    } as LegalContent),
   getContent: read,
   saveContent: save,
-  resetContent: () => save(structuredClone(defaults)),
+  resetContent: () =>
+    save(
+      {
+        ...structuredClone(defaults),
+        termsSections: sanitizeSections(structuredClone(defaults.termsSections)),
+        privacySections: sanitizeSections(structuredClone(defaults.privacySections)),
+      } as LegalContent,
+    ),
   subscribe,
 };
