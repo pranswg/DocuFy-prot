@@ -121,8 +121,8 @@ const DEFAULT_MATRIX: PricingMatrix = {
     "3R": { price: 15, minQty: 4 },
     "4R": { price: 20, minQty: 4 },
     "5R": { price: 30, minQty: 2 },
-    "6R": { price: 40, minQty: 0 },
-    A4photo: { price: 60, minQty: 0 },
+    "6R": { price: 40, minQty: 1 },
+    A4photo: { price: 60, minQty: 1 },
   },
 };
 
@@ -367,7 +367,7 @@ function normalizeMatrix(raw: unknown): PricingMatrix {
         const minQty = convertToNumber(item.minQty);
         photo[k] = {
           price: Number.isNaN(price) ? DEFAULT_MATRIX.photo[k].price : price,
-          minQty: Number.isNaN(minQty) ? DEFAULT_MATRIX.photo[k].minQty : Math.max(0, minQty),
+          minQty: Number.isNaN(minQty) ? DEFAULT_MATRIX.photo[k].minQty : Math.max(1, minQty),
         };
       }
     });
@@ -497,7 +497,7 @@ class PricingStore {
         const [size, field] = path as [PhotoSizeKey, 'price' | 'minQty'];
         if (!m.photo[size]) return false;
         if (field === 'price') m.photo[size].price = value;
-        else m.photo[size].minQty = Math.max(0, Math.floor(value));
+        else m.photo[size].minQty = Math.max(1, Math.floor(value));
       }
     } catch {
       return false;

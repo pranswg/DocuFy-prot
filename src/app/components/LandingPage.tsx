@@ -66,7 +66,6 @@ export default function LandingPage({
   const [shopPhotos, setShopPhotos] = useState<ShopPhoto[]>(shopPhotosStore.getPhotos());
   const [jobsDropdownOpen, setJobsDropdownOpen] = useState(false);
   const jobsDropdownRef = useRef<HTMLDivElement>(null);
-  const jobsDropdownPresence = usePresence(jobsDropdownOpen, 200);
 
   useEffect(() => {
     const load = () => setShopPhotos(shopPhotosStore.getPhotos());
@@ -730,7 +729,6 @@ export default function LandingPage({
               <Button
                 type="button"
                 onClick={() => setJobsDropdownOpen((prev) => !prev)}
-                aria-haspopup="menu"
                 aria-expanded={jobsDropdownOpen}
                 className="h-12 rounded-lg bg-[#1D73EC] px-7 text-white shadow-md shadow-[#1D73EC]/30 transition-all duration-200 hover:bg-[#0f66d9] hover:shadow-lg hover:shadow-[#1D73EC]/35 active:scale-[0.98] active:shadow-sm"
               >
@@ -742,14 +740,13 @@ export default function LandingPage({
                 />
               </Button>
 
-              {jobsDropdownPresence && (
-                <div
-                  className={`absolute left-1/2 top-full z-50 mt-3 w-80 -translate-x-1/2 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-2xl ${
-                    jobsDropdownPresence.isClosing
-                      ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none"
-                      : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
-                  }`}
-                >
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  jobsDropdownOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="mt-3 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-xl">
                   {jobs.length === 0 ? (
                     <div className="px-6 py-8 text-center">
                       <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F2F7FF]">
@@ -798,7 +795,8 @@ export default function LandingPage({
                     </ul>
                   )}
                 </div>
-              )}
+              </div>
+            </div>
             </div>
           </div>
         </div>

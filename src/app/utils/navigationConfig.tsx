@@ -1,9 +1,9 @@
 // Sectioned navigation model for the EXISTING single sidebar.
-// The sidebar stays one component; its items are grouped under three section
-// headings (MAIN / OPERATIONS / MANAGEMENT). The OPERATIONS and MANAGEMENT
-// sections each contain a single expandable parent row (Operations,
-// Management) whose children render inline underneath it inside this same
-// sidebar — never in a second panel. Customers keep the legacy flat menu.
+// The sidebar stays one component; its items are grouped under section
+// headings (MAIN / MANAGEMENT). The MANAGEMENT section contains a single
+// expandable parent row (Management) whose children render inline underneath
+// it inside this same sidebar — never in a second panel. Customers keep the
+// legacy flat menu.
 import React from "react";
 import {
   LayoutDashboard,
@@ -11,7 +11,7 @@ import {
   CreditCard,
   ShoppingCart,
   Boxes,
-  ClipboardList,
+  Briefcase,
   SlidersHorizontal,
   Clock,
 } from "lucide-react";
@@ -99,15 +99,10 @@ const inventory = {
   icon: <Boxes className="w-5 h-5" />,
 };
 
-// OPERATIONS (expandable parent, children render inline in the same sidebar).
-const operations = {
-  label: "Operations",
-  path: "/admin/attendance",
-  icon: <ClipboardList className="w-5 h-5" />,
-  children: [
-    { label: "Attendance", path: "/admin/attendance" },
-    { label: "Job Board", path: "/admin/job-board" },
-  ],
+const jobBoard = {
+  label: "Job Board",
+  path: "/admin/job-board",
+  icon: <Briefcase className="w-5 h-5" />,
 };
 
 // MANAGEMENT (expandable parent, children render inline in the same sidebar).
@@ -116,7 +111,7 @@ const management = {
   path: "/admin/staff",
   icon: <SlidersHorizontal className="w-5 h-5" />,
   children: [
-    { label: "Staff", path: "/admin/staff" },
+    { label: "Staff Management", path: "/admin/staff" },
     { label: "Payment Methods", path: "/admin/payment-methods" },
     { label: "Pricing Management", path: "/admin/pricing" },
     { label: "Landing Page", path: "/admin/landing" },
@@ -127,9 +122,8 @@ export const adminSections: NavSection[] = [
   {
     key: "main",
     label: "MAIN",
-    items: [dashboard, orders, paymentVerification, walkIn, inventory],
+    items: [dashboard, orders, paymentVerification, walkIn, inventory, jobBoard],
   },
-  { key: "operations", label: "OPERATIONS", items: [operations] },
   { key: "management", label: "MANAGEMENT", items: [management] },
 ];
 

@@ -22,7 +22,6 @@ import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
 import Staff from './components/admin/Staff';
-import AdminAttendancePage from './components/admin/AdminAttendance';
 import InventoryManagement from './components/admin/InventoryManagement';
 import PaymentMethodsManagement from './components/admin/PaymentMethodsManagement';
 import PricingManagement from './components/admin/PricingManagement';
@@ -226,7 +225,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'attendance',
-        element: <ProtectedRoute role="admin"><AdminAttendancePage /></ProtectedRoute>,
+        element: <Navigate to="/admin/staff?tab=attendance" replace />,
       },
       {
         path: 'jobs',

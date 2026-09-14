@@ -641,6 +641,7 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
   return (
     <div className="space-y-5">
       {/* Tab header */}
+      {(role === "admin" || dateSelector) && (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {role === "admin" && (
           <div>
@@ -652,6 +653,7 @@ function OverviewTab({ metrics, navigate, items, role = "admin", dateSelector }:
           {dateSelector}
         </div>
       </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 @min-[1040px]:grid-cols-4">
@@ -1453,11 +1455,12 @@ export default function AdminDashboard({
     <Layout menuItems={menuItems} title={role === "admin" ? "Admin Dashboard" : "Staff Dashboard"}>
       <div className="space-y-5 pb-8">
         {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
             <p className="text-sm text-slate-500 mt-1">Welcome back, {userName || "admin"}! Here's what's happening with Docufy today.</p>
           </div>
+          {role === "staff" && overviewDateSelector}
         </div>
 
         {/* Tabs (admin only — staff get a single Overview page) */}
@@ -1485,7 +1488,7 @@ export default function AdminDashboard({
             {activeTab === "Services" && <ServicesTab navigate={navigate} />}
           </>
         ) : (
-          <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} role="staff" dateSelector={overviewDateSelector} />
+          <OverviewTab metrics={metrics} navigate={navigate} items={inventoryItems} role="staff" />
         )}
       </div>
     </Layout>

@@ -10,7 +10,6 @@ import {
   Users,
   Briefcase,
   ShoppingCart,
-  Clock,
   BadgeDollarSign,
   MonitorPlay,
 } from "lucide-react";
@@ -47,19 +46,14 @@ export const adminMenuItems = [
     icon: <Boxes className="w-5 h-5" />,
   },
   {
-    label: "Attendance",
-    path: "/admin/attendance",
-    icon: <Clock className="w-5 h-5" />,
-  },
-  {
-    label: "Staff",
-    path: "/admin/staff",
-    icon: <Users className="w-5 h-5" />,
-  },
-  {
     label: "Job Board",
     path: "/admin/job-board",
     icon: <Briefcase className="w-5 h-5" />,
+  },
+  {
+    label: "Staff Management",
+    path: "/admin/staff",
+    icon: <Users className="w-5 h-5" />,
   },
   {
     label: "Pricing Management",

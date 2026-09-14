@@ -971,6 +971,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   // default to a down payment with the full option available on the next page.
   const cashDisabled = isFullTier;
 
+  // No in-stock paper means document/vellum/sticker files can't be printed at all.
+  const hasPaperStock = availablePaperSizes.some((s) => s.inStock);
+
   // Keep the payment method consistent when the order must be paid online.
   useEffect(() => {
     if (cashDisabled && paymentMethod === "cash") {
@@ -1996,12 +1999,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             onChange={(value) => {
                               updateFileOption(fileData.id, "photoSize", value);
                               const item = pricingStore.getMatrix().photo[value as PhotoSizeKey];
-                              if (item && fileData.photoQty < item.minQty) {
-                                updateFileOption(
-                                  fileData.id,
-                                  "photoQty",
-                                  Math.max(1, item.minQty),
-                                );
+                              const minQty = item ? Math.max(1, item.minQty) : 1;
+                              if (fileData.photoQty < minQty) {
+                                updateFileOption(fileData.id, "photoQty", minQty);
                               }
                             }}
                             placeholder="Select photo size"
@@ -2016,7 +2016,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               <Label className="text-sm font-medium">Quantity</Label>
                               {(() => {
                                 const item = pricingStore.getMatrix().photo[fileData.photoSize];
-                                const minQty = item ? item.minQty : 1;
+                                const minQty = item ? Math.max(1, item.minQty) : 1;
                                 return (
                                   <>
                                     <NumberStepper
@@ -2025,7 +2025,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                       onCommit={(n) => updateFileOption(fileData.id, "photoQty", n)}
                                     />
                                     <p className="text-xs text-gray-500">
-                                      {minQty > 1 ? `Minimum order: ${minQty} pcs. ` : ""}Price: {formatPrice(item?.price || 0)} each.
+                                      {minQty > 0 ? `Minimum order: ${minQty} ${minQty === 1 ? "pc" : "pcs"}. ` : ""}Price: {formatPrice(item?.price || 0)} each.
                                     </p>
                                   </>
                                 );
@@ -2123,22 +2123,26 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                 label: option.label,
                               }))}
                             />
-                            <p className="text-xs text-gray-500">
-                              {fileData.colorMode === "bw"
-                                ? `${formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed in grayscale`
-                                : "The document analyzer prices each page by its detected color percentage."}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setBreakdownFileId(fileData.id);
-                                setShowColorPricing(true);
-                              }}
-                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
-                            >
-                              <Info className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
-                              See Pricing Breakdown
-                            </button>
+                            {hasPaperStock && (
+                              <>
+                                <p className="text-xs text-gray-500">
+                                  {fileData.colorMode === "bw"
+                                    ? `${formatPrice(matrixRatesFor(fileData).bw)} per page — all pages printed in grayscale`
+                                    : "The document analyzer prices each page by its detected color percentage."}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setBreakdownFileId(fileData.id);
+                                    setShowColorPricing(true);
+                                  }}
+                                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                                >
+                                  <Info className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
+                                  See Pricing Breakdown
+                                </button>
+                              </>
+                            )}
                           </div>
 
                           <div className="space-y-2">
@@ -2197,14 +2201,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             </div>
                           </div>
 
-                          <div className="pt-3 mt-3 border-t border-gray-300">
-                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                              <span className="text-sm font-medium text-gray-700">Subtotal for this file:</span>
-                              <span className="shrink-0 whitespace-nowrap text-lg font-semibold text-[#2F6FD6]">
-                                {formatCurrency(calculateFileTotal(fileData))}
-                              </span>
+                          {hasPaperStock && (
+                            <div className="pt-3 mt-3 border-t border-gray-300">
+                              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                                <span className="text-sm font-medium text-gray-700">Subtotal for this file:</span>
+                                <span className="shrink-0 whitespace-nowrap text-lg font-semibold text-[#2F6FD6]">
+                                  {formatCurrency(calculateFileTotal(fileData))}
+                                </span>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {files.length > 1 && (
                             <div className="pt-3 mt-3 border-t border-gray-200">
@@ -3171,6 +3177,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 disabled={
                   (currentStep === 1 && !isPhotocopy && files.length === 0) ||
                   (currentStep === 2 && !isPhotocopy && (files.length === 0 || !files.every((f) => f.printType))) ||
+                  (currentStep === 2 && !isPhotocopy && !hasPaperStock && files.some((f) => f.printType !== "photo")) ||
+                  (currentStep === 2 && isPhotocopy && !hasPaperStock) ||
                   analyzingFileId !== null
                 }
               >

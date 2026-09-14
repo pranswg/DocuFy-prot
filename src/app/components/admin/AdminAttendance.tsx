@@ -195,7 +195,7 @@ const initialsOf = (name: string): string =>
 
 type AdjustTarget = { row: AdminRow; field: "timeIn" | "timeOut" } | null;
 
-export default function AdminAttendancePage() {
+export function AttendanceView() {
   const todayKey = toDateKey();
   const [now, setNow] = useState(new Date());
   const [version, setVersion] = useState(0);
@@ -530,9 +530,8 @@ export default function AdminAttendancePage() {
   );
 
   return (
-    <Layout menuItems={adminMenuItems} title="Attendance & Staff Monitoring">
-      <div className="space-y-5 pb-10">
-        {/* Header */}
+    <div className="space-y-5 pb-10">
+      {/* Header */}
         <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
           <p className="text-gray-600">
             Monitor staff clock-ins, attendance status, schedules, and time-off records.
@@ -846,7 +845,17 @@ export default function AdminAttendancePage() {
             requirePhrase
           />
         )}
-      </div>
+    </div>
+  );
+}
+
+// Standalone page wrapper — kept for backwards compatibility so any code that
+// still imports the default `<AdminAttendancePage />` (e.g. a legacy route)
+// keeps rendering the full Layout shell.
+export default function AdminAttendancePage() {
+  return (
+    <Layout menuItems={adminMenuItems} title="Attendance & Staff Monitoring">
+      <AttendanceView />
     </Layout>
   );
 }

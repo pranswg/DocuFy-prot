@@ -3,7 +3,9 @@ import {
   UserPlus,
   Shield,
   User,
+  Users,
   Ban,
+  Clock,
   UserCheck,
   Edit2,
   Eye,
@@ -32,6 +34,9 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { useSearchParams } from "react-router";
+import { AttendanceView } from "./AdminAttendance";
 
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import { formatPHDate, todayPHTKey } from "../../utils/pht";
@@ -284,6 +289,11 @@ function formatDate(iso: string) {
 
 export default function Staff() {
   const { registerStaff, updateStaffAccount } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  const [activeTab, setActiveTab] = useState<string>(
+    searchParams.get("tab") === "attendance" ? "attendance" : "staff",
+  );
 
   const [staff, setStaff] = useState<Staff[]>(staffData);
   const [searchQuery, setSearchQuery] = useState("");
@@ -516,8 +526,22 @@ export default function Staff() {
           </Button>
         </div>
 
-        {/* Search and Filters */}
-        <Card className="p-4 border border-slate-100 shadow-sm">
+        {/* Tabs: Staff List | Attendance (merged staff management & attendance) */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="h-auto w-fit gap-1.5 p-1.5 sm:h-11">
+            <TabsTrigger value="staff" className="gap-2 px-4">
+              <Users className="w-4 h-4" />
+              Staff List
+            </TabsTrigger>
+            <TabsTrigger value="attendance" className="gap-2 px-4">
+              <Clock className="w-4 h-4" />
+              Attendance
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="staff" className="mt-0 flex flex-col gap-6">
+            {/* Search and Filters */}
+            <Card className="p-4 border border-slate-100 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-end gap-4">
             <div className="w-full sm:max-w-xs">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
@@ -701,6 +725,12 @@ export default function Staff() {
             </span>
           </div>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="attendance" className="mt-0">
+            <AttendanceView />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Register New Staff Dialog */}
