@@ -331,8 +331,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     setShowDialog(true);
 
     // Claim the session lock for actionable orders (the modal opens as "ours").
-    // NOTE (Supabase later): write this claim to the shared session_locks
-    // table / broadcast over Realtime so OTHER machines see it too.
+    // NOTE (backend later): write this claim to the shared session_locks
+    // table / broadcast over realtime so OTHER machines see it too.
     if (isActionableStatus(order.status) && !isPhotocopyOrder(order)) {
       const existing = getLock(order.id);
       if (existing && existing.heldBy !== myName) {
@@ -577,7 +577,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     // ===== SESSION LOCK GUARD =====
     // Re-check ownership at the FINAL confirm moment — a second tab might have
     // claimed the order after we opened the modal. Only the lock holder may act.
-    // NOTE (Supabase later): make this a transactional conditional update
+    // NOTE (backend later): make this a transactional conditional update
     // (WHERE id = ? AND held_by = ?) on the shared table, not a localStorage read.
     // Photocopy orders are never session-locked, so the final-reconfirm lock
     // guard only applies to regular (printing) orders.

@@ -74,7 +74,19 @@ class SalaryStore {
 
   constructor() {
     this.restore();
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", this.onStorage);
+    }
   }
+
+  // Cross-tab live sync: when another tab writes salary state (release, rate,
+  // period starts), reload from localStorage and notify subscribers.
+  private onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      this.restore();
+      this.notify();
+    }
+  };
 
   private restore(): void {
     try {
@@ -125,7 +137,14 @@ class SalaryStore {
   // ── Salary period ──────────────────────────────────────────────────────
   getPeriodStart(email: string): string {
     const key = (email || "").toLowerCase();
-    return this.state.periodStarts[key] ?? defaultPeriodStart();
+    const start = this.state.periodStarts[key] ?? defaultPeriodStart();
+    const today = todayPHT();
+    // After a release the next period starts the day AFTER the release day; on
+    // the release day itself that start is still "tomorrow", which would make
+    // the current-period window [tomorrow → today] inverted/empty and hide the
+    // staff's same-day clock-ins ("0 days"). Clamp to today so the window is
+    // never inverted and today's records always appear.
+    return start > today ? today : start;
   }
 
   private recordsFor(staffEmail: string, startKey: string, endKey: string) {

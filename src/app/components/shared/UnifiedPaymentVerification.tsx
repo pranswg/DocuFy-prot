@@ -411,7 +411,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       // ===== SESSION LOCK GUARD =====
       // Re-check ownership at the FINAL confirm moment (a second tab might have
       // claimed the order after we opened the modal). Only the lock holder may
-      // act. NOTE (Supabase later): this check must be a transactional
+      // act. NOTE (backend later): this check must be a transactional
       // conditional update (WHERE id = ? AND held_by = ?) on the shared table,
       // not a client-side localStorage read.
       if (!stillHoldsLock(selectedPayment.orderId, myName)) {
@@ -516,8 +516,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
       setVerifyAmountChoice(payment.downPaymentRequired ? "down" : "full");
     }
     // Auto-claim the lock when opening the details (only for actionable rows).
-    // NOTE (Supabase later): this claim must be written to the shared
-    // session_locks table / broadcast over Realtime so OTHER machines see it,
+    // NOTE (backend later): this claim must be written to the shared
+    // session_locks table / broadcast over realtime so OTHER machines see it,
     // not just this tab's localStorage.
     const existing = getLock(payment.orderId);
     if (payment.status === "pending" || payment.status === "rejected") {

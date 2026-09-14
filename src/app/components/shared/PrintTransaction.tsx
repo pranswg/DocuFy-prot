@@ -974,6 +974,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   // No in-stock paper means document/vellum/sticker files can't be printed at all.
   const hasPaperStock = availablePaperSizes.some((s) => s.inStock);
 
+  // No in-stock photo paper means photo files can't be printed at all.
+  const hasPhotoPaperStock = availablePaperSizes.some(
+    (s) =>
+      s.inStock &&
+      (["2R", "3R", "4R", "5R", "6R", "A4photo"] as string[]).includes(s.name),
+  );
+
   // Keep the payment method consistent when the order must be paid online.
   useEffect(() => {
     if (cashDisabled && paymentMethod === "cash") {
@@ -1073,6 +1080,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     if (files.length > 0 && files.some((f) => f.printType !== "photo") && !hasPaperInStock) {
       toast.error(
         "No paper stock available for printing right now. Please check back later or contact the shop.",
+      );
+      return;
+    }
+
+    if (files.length > 0 && files.some((f) => f.printType === "photo") && !hasPhotoPaperStock) {
+      toast.error(
+        "No photo paper in stock for photo printing right now. Please check back later or contact the shop.",
       );
       return;
     }
@@ -1182,6 +1196,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     ) {
       toast.error(
         "No paper stock available for printing right now. Please check back later or contact the shop.",
+      );
+      return;
+    }
+
+    if (
+      files.some((f) => f.printType === "photo") &&
+      !hasPhotoPaperStock
+    ) {
+      toast.error(
+        "No photo paper in stock for photo printing right now. Please check back later or contact the shop.",
       );
       return;
     }
@@ -1980,13 +2004,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       </div>
                       {fileData.printType === "photo" ? (
                         <div className="space-y-4">
-                          {!availablePaperSizes.some(
-                            (s) =>
-                              s.inStock &&
-                              (["2R", "3R", "4R", "5R", "6R", "A4photo"] as string[]).includes(
-                                s.name,
-                              ),
-                          ) && (
+                          {!hasPhotoPaperStock && (
                             <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
                               No photo paper in stock
                             </span>
@@ -3178,6 +3196,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                   (currentStep === 1 && !isPhotocopy && files.length === 0) ||
                   (currentStep === 2 && !isPhotocopy && (files.length === 0 || !files.every((f) => f.printType))) ||
                   (currentStep === 2 && !isPhotocopy && !hasPaperStock && files.some((f) => f.printType !== "photo")) ||
+                  (currentStep === 2 && !isPhotocopy && !hasPhotoPaperStock && files.some((f) => f.printType === "photo")) ||
                   (currentStep === 2 && isPhotocopy && !hasPaperStock) ||
                   analyzingFileId !== null
                 }

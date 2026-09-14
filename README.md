@@ -88,4 +88,4 @@ This prototype runs entirely in the browser:
 - **`localStorage`** persists data like jobs and orders *per browser*.
 - File uploads (e.g., portfolio/attachments) are **in-memory only** — they are not shared across sessions or devices.
 
-Real multi-device sharing and durability require connecting a backend (e.g., Supabase) and moving the stores (`ordersStore`, `jobsStore`, `inventoryStore`, etc.) to database tables plus storage for uploaded files.
+Real multi-device sharing and durability require connecting a backend and moving the stores (`ordersStore`, `jobsStore`, `inventoryStore`, etc.) to database tables plus storage for uploaded files.

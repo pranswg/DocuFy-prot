@@ -179,3 +179,21 @@ export const formatPHDateTime = (
   if (!date) return "—";
   return `${formatPHDate(date, "short")} · ${formatPHTime(date, { includeSeconds: false })}`;
 };
+
+// Value for an <input type="datetime-local"> expressed in the Manila wall-clock,
+// so the box always shows what the system reports in regardless of device TZ.
+export const toPHTInputValue = (d: Date | string | number | null | undefined): string => {
+  const date = toDate(d);
+  if (!date) return "";
+  const p = partsOf(date);
+  return `${p.y}-${pad(p.mo + 1)}-${pad(p.day)}T${pad(p.h)}:${pad(p.m)}`;
+};
+
+// Reverse of toPHTInputValue — treat the picked "YYYY-MM-DDTHH:MM" string as a
+// Manila wall-clock time and return the real UTC instant (device-independent).
+export const fromPHTInputValue = (iso: string): Date => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return new Date(iso);
+  const [, y, mo, d, h, mi] = m.map(Number);
+  return new Date(Date.UTC(y, mo - 1, d, h - 8, mi, 0));
+};

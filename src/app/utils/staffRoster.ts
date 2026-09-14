@@ -61,10 +61,11 @@ export const getStaffRoster = (): StaffMember[] => {
 export const seedDemoAttendance = (): void => {
   const today = toDateKey();
   // Times are expressed as PHT wall-clock times (seeded demo mirrors PH shift).
+  // Build the real UTC instant whose Manila wall-clock equals (today, h:m) — done
+  // via Date.UTC with the −8h offset so it is correct on ANY device timezone.
   const at = (h: number, m: number): Date => {
     const base = nowPHT();
-    const phtWallClock = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
-    return new Date(phtWallClock.getTime() - 8 * 60 * 60 * 1000);
+    return new Date(Date.UTC(base.getFullYear(), base.getMonth(), base.getDate(), h - 8, m, 0, 0));
   };
 
   const seedDay = (member: StaffMember, timeIn: Date, timeOut: Date) => {

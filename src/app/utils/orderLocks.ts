@@ -9,12 +9,12 @@
 // simulate two separate PCs. The `storage` event fires across tabs, so tab B
 // hears tab A claim/release an order live.
 //
-// ❗ SUPABASE IMPLEMENTATION COMES LATER — do NOT rely on localStorage for the
+// ❗ A REAL BACKEND IMPLEMENTATION COMES LATER — do NOT rely on localStorage for the
 // real product. On a real backend this module's read/write must be replaced
 // with:
 //   - a `session_locks` table (order_id, held_by, held_at) as the AUTHORITATIVE
 //     single source of truth shared across ALL machines, and/or
-//   - Supabase Realtime channel `order:{id}` to broadcast presence
+//   - a realtime channel per order `order:{id}` to broadcast presence
 //     ("viewing"/"verified"/"released") to every connected client.
 // The rest of the UI (banners, disabled buttons, guard) stays exactly the same.
 //

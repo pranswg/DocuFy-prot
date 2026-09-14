@@ -230,7 +230,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'attendance',
-        element: <Navigate to="/admin/staff?tab=attendance" replace />,
+        element: <Navigate to="/admin/staff" replace />,
       },
       {
         path: 'jobs',

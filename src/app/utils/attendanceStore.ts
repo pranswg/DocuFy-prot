@@ -114,14 +114,29 @@ export const getWeekStartKey = (d: Date = nowPHT()): string => {
 };
 
 // Elapsed ms across a record's sessions (main + any extra); an active (not yet
-// clocked-out) session counts up to `until` so live totals keep ticking.
+// clocked-out) session counts up to `until` so live totals keep ticking — but
+// never past the end of that record's PHT day, so a session that was never
+// clocked out cannot grow across days (e.g. days-old demo seeds inflating to
+// 70+ hours).
+
+// Real UTC instant of the instant the record's PHT day ends (00:00 Manila of
+// the following day = 16:00 UTC of the record date, since Manila is UTC+8).
+const endOfPHTDayMs = (date: string): number => {
+  const [y, m, d] = date.split("-").map(Number);
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return Number.POSITIVE_INFINITY;
+  return Date.UTC(y, m - 1, d, 16, 0, 0);
+};
+
 export const sessionTotalMs = (record: DailyAttendanceRecord, until: Date = new Date()): number => {
+  const cap = endOfPHTDayMs(record.date);
+  const endMs = (clockedOut?: Date): number =>
+    clockedOut ? clockedOut.getTime() : Math.min(until.getTime(), cap);
   let total = 0;
   if (record.timeIn) {
-    total += Math.max(0, (record.timeOut ?? until).getTime() - record.timeIn.getTime());
+    total += Math.max(0, endMs(record.timeOut) - record.timeIn.getTime());
   }
   for (const s of record.extraSessions ?? []) {
-    if (s.timeIn) total += Math.max(0, (s.timeOut ?? until).getTime() - s.timeIn.getTime());
+    if (s.timeIn) total += Math.max(0, endMs(s.timeOut) - s.timeIn.getTime());
   }
   return total;
 };
@@ -166,7 +181,22 @@ class AttendanceStore {
   constructor() {
     this.restore();
     this.restoreAbsences();
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", this.onStorage);
+    }
   }
+
+  // Cross-tab live sync: when another tab writes attendance/absences, reload
+  // from localStorage and notify subscribers (staff detail, monitoring, timesheet).
+  private onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      this.restore();
+      this.notify();
+    } else if (e.key === ABSENCE_KEY) {
+      this.restoreAbsences();
+      this.notify();
+    }
+  };
 
   // ── Persistence (demo: per-browser localStorage) ──────────────────────
   private serialize(): StoredRecord[] {
@@ -279,7 +309,8 @@ class AttendanceStore {
     role: 'admin' | 'staff',
   ): DailyAttendanceRecord {
     const today = toDateKey(nowPHT());
-    let record = this.records.find(r => r.userId === userId && r.date === today);
+    const key = (userId || '').toLowerCase();
+    let record = this.records.find(r => r.userId.toLowerCase() === key && r.date === today);
     if (!record) {
       record = {
         id: `ATT-${Date.now()}`,
@@ -297,7 +328,8 @@ class AttendanceStore {
   // ── Determine next action for user ────────────────────────────────────
   getNextAction(userId: string): NextAction {
     const today = toDateKey(nowPHT());
-    const record = this.records.find(r => r.userId === userId && r.date === today);
+    const key = (userId || '').toLowerCase();
+    const record = this.records.find(r => r.userId.toLowerCase() === key && r.date === today);
     if (!record || !record.timeIn) return 'time-in';
     if (hasActiveSession(record)) return 'time-out';
     return 'complete';
@@ -331,7 +363,8 @@ class AttendanceStore {
   // Closes whichever session is currently open (primary or an extra one).
   timeOut(userId: string): DailyAttendanceRecord {
     const today = toDateKey(nowPHT());
-    const record = this.records.find(r => r.userId === userId && r.date === today);
+    const key = (userId || '').toLowerCase();
+    const record = this.records.find(r => r.userId.toLowerCase() === key && r.date === today);
 
     if (!record || !record.timeIn) {
       throw new Error('No attendance record found for today. Please Time In first.');
@@ -354,21 +387,24 @@ class AttendanceStore {
   // ── Today's record for a user ─────────────────────────────────────────
   getTodayRecord(userId: string): DailyAttendanceRecord | null {
     const today = toDateKey(nowPHT());
-    return this.records.find(r => r.userId === userId && r.date === today) ?? null;
+    const key = (userId || '').toLowerCase();
+    return this.records.find(r => r.userId.toLowerCase() === key && r.date === today) ?? null;
   }
 
   // ── All records for a user (newest date first) ───────────────────────
   getUserLogs(userId: string): DailyAttendanceRecord[] {
+    const key = (userId || '').toLowerCase();
     return this.records
-      .filter(r => r.userId === userId)
+      .filter(r => r.userId.toLowerCase() === key)
       .sort((a, b) => b.date.localeCompare(a.date));
   }
 
   // ── This week's records for a user (oldest date first) ───────────────
   getWeekRecords(userId: string): DailyAttendanceRecord[] {
     const start = getWeekStartKey();
+    const key = (userId || '').toLowerCase();
     return this.records
-      .filter(r => r.userId === userId && r.date >= start)
+      .filter(r => r.userId.toLowerCase() === key && r.date >= start)
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
@@ -379,7 +415,8 @@ class AttendanceStore {
 
   // ── Get a record for a specific user + date ───────────────────────────
   getRecord(userId: string, date: string): DailyAttendanceRecord | null {
-    return this.records.find(r => r.userId === userId && r.date === date) ?? null;
+    const key = (userId || '').toLowerCase();
+    return this.records.find(r => r.userId.toLowerCase() === key && r.date === date) ?? null;
   }
 
   // ── Manual adjustment (admin monitoring) ──────────────────────────────
@@ -488,7 +525,8 @@ class AttendanceStore {
   // ── Backward-compat: getCurrentSession for existing consumers ─────────
   getCurrentSession(userId: string): AttendanceLog | null {
     const today = toDateKey(nowPHT());
-    const record = this.records.find(r => r.userId === userId && r.date === today);
+    const key = (userId || '').toLowerCase();
+    const record = this.records.find(r => r.userId.toLowerCase() === key && r.date === today);
     if (!record || !hasActiveSession(record)) return null;
 
     const activeTimeIn =

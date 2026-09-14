@@ -1041,9 +1041,9 @@ const initialOrders: Order[] = [
 // tabs updating different orders can't silently revert each other), then saves
 // and notifies; every OTHER tab hears the storage event, reloads the snapshot,
 // and re-renders LIVE — no page refresh needed.
-// NOTE (Supabase later): replace this mirror with real shared state (a
-// Postgres table + Realtime broadcasts). This only emulates that behavior
-// locally so the multi-PC demo works in two tabs.
+// NOTE (backend later): replace this mirror with real shared state
+// (a database table + realtime broadcasts). This only emulates that
+// behavior locally so the multi-PC demo works in two tabs.
 const ORDERS_SYNC_KEY = 'docufy_orders_sync_v1';
 
 function readOrdersSnapshot(): Order[] | null {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   UserPlus,
   Shield,
@@ -7,8 +7,11 @@ import {
   Ban,
   Clock,
   UserCheck,
+  AlarmClock,
+  LogOut,
+  UserX,
+  MinusCircle,
   Edit2,
-  CalendarDays,
   Wallet,
   History,
   Eye,
@@ -17,6 +20,14 @@ import {
   Filter,
   Mail,
   X,
+  Banknote,
+  Briefcase,
+  CalendarDays,
+  CalendarRange,
+  CalendarClock,
+  ChevronDown,
+  Sun,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -37,20 +48,66 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import { useSearchParams } from "react-router";
-import { AttendanceView } from "./AdminAttendance";
+import { SummaryCard } from "../ui/summary-card";
 import { staffStore, type Staff } from "../../utils/staffStore";
 import { salaryStore } from "../../utils/salaryStore";
-import { attendanceStore, sessionTotalMs, hasActiveSession, formatPHT, nowPHT } from "../../utils/attendanceStore";
+import { attendanceStore, sessionTotalMs, hasActiveSession, nowPHT, getWeekStartKey } from "../../utils/attendanceStore";
 import { formatCurrency, formatNumber } from "../../utils/formatNumber";
+import { getStaffRoster, DEFAULT_STAFF_SHIFT } from "../../utils/staffRoster";
+import type { StaffMember } from "../../utils/staffRoster";
+import {
+  buildRow,
+  buildMemberRangeRows,
+  useTodaySnapshot,
+  fmtHms,
+  fmtTime12,
+  fmtLongDay,
+  fmtDay,
+  roleOf,
+  scheduleOf,
+  MS_PER_HOUR,
+} from "../../utils/attendanceView";
+import type { AdminRow } from "../../utils/attendanceView";
+import { AttendanceDayModal } from "./AttendanceDayModal";
+import { AttendanceHistoryModal } from "./AttendanceHistoryModal";
+import { AttendanceStatusBadges, todayStatusInfo } from "./AttendanceBadges";
 
 import { adminMenuItems } from "../../utils/adminMenuItems";
-import { formatPHDate, formatPHDateTime, todayPHTKey } from "../../utils/pht";
+import { formatPHDate, formatPHDateTime, todayPHTKey, toPHTKey } from "../../utils/pht";
 
 const menuItems = adminMenuItems;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type TodayFilter = "all" | "on-time" | "late" | "on-clock" | "on-leave" | "absent" | "no-clock-in";
+
+const matchesTodayFilter = (row: AdminRow | undefined, filter: TodayFilter): boolean => {
+  switch (filter) {
+    case "all":
+      return true;
+    case "on-time":
+      return !!row && row.presence === "present" && row.onTime;
+    case "late":
+      return !!row && row.presence === "present" && row.late;
+    case "on-clock":
+      return !!row && row.isLive;
+    case "on-leave":
+      return !!row && row.presence === "on-leave";
+    case "absent":
+      return !!row && row.presence === "absent";
+    case "no-clock-in":
+      return !!row && row.presence === "no-clock-in";
+    default:
+      return true;
+  }
+};
+
+const addDaysKey = (key: string, days: number): string => {
+  const [y, m, d] = key.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+};
 
 function getInitials(name: string) {
   return name
@@ -68,9 +125,35 @@ function formatDate(iso: string) {
   return formatPHDate(date, "short");
 }
 
+// Salary period split into "September" (month on top) + "15 - 16, 2026" (dates below).
+function formatSalaryPeriodStack(start: string, end: string): { month: string; dates: string } {
+  const parse = (s: string) => {
+    const d = new Date(`${s}T00:00:00`);
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      day: d.getDate(),
+      monthLong: d.toLocaleString("en-US", { month: "long" }),
+      monthShort: d.toLocaleString("en-US", { month: "short" }),
+    };
+  };
+  const a = parse(start);
+  const b = parse(end);
+  const sameMonth = a.year === b.year && a.month === b.month;
+  if (sameMonth) {
+    return { month: a.monthLong, dates: `${a.day} - ${b.day}, ${a.year}` };
+  }
+  const sameYear = a.year === b.year;
+  return {
+    month: sameYear
+      ? `${a.monthLong} - ${b.monthLong}, ${a.year}`
+      : `${a.monthShort} ${a.year} - ${b.monthShort} ${b.year}`,
+    dates: `${a.day} - ${b.day}`,
+  };
+}
+
 export default function Staff() {
   const { registerStaff, updateStaffAccount, getStaffAccounts, user } = useAuth();
-  const [searchParams] = useSearchParams();
 
   const buildStaffList = () => {
     const merged = staffStore.getStaff();
@@ -113,13 +196,28 @@ export default function Staff() {
     return merged;
   };
 
-  const [activeTab, setActiveTab] = useState<string>(
-    searchParams.get("tab") === "attendance" ? "attendance" : "staff",
-  );
-
   const [staff, setStaff] = useState<Staff[]>(() => buildStaffList());
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+
+  // ── Merged staff + attendance state ───────────────────────────────────────
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [todayFilter, setTodayFilter] = useState<TodayFilter>("all");
+  const [detailPeriod, setDetailPeriod] = useState<"today" | "week" | "range">("today");
+  const [detailFrom, setDetailFrom] = useState(() => addDaysKey(todayPHTKey(), -6));
+  const [detailTo, setDetailTo] = useState(todayPHTKey());
+  const [dayTarget, setDayTarget] = useState<{ email: string; date: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+
+  useEffect(() => {
+    setShowAllHistory(false);
+    setHistoryFrom("");
+    setHistoryTo("");
+  }, [selectedStaff?.email]);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newStaff, setNewStaff] = useState({
@@ -148,16 +246,93 @@ export default function Staff() {
   const activeCount = staff.filter((s) => s.status === "Active").length;
   const inactiveCount = staff.length - activeCount;
 
-  const filteredStaff = staff.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      filterStatus === "all" ||
-      emp.status.toLowerCase() === filterStatus.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
+  // ── Attendance snapshot (live, derives from the directory as single master) ──
+  // The directory is the roster of record; attendance metadata (shifts, etc.)
+  // is picked up from the seeded roster when available, and any log-only staff
+  // (clocked in but not in the list) are appended so nothing is missed.
+  const attendanceMembers = useMemo((): StaffMember[] => {
+    const seedByEmail = new Map(getStaffRoster().map((m) => [m.email.toLowerCase(), m]));
+    const merged: StaffMember[] = [];
+    const seen = new Set<string>();
+    for (const s of staff) {
+      const seeded = seedByEmail.get(s.email.toLowerCase());
+      merged.push(seeded ?? {
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        position: "Staff",
+        role: s.role === "Admin" ? "Admin" : "Staff",
+        shift: DEFAULT_STAFF_SHIFT,
+      });
+      seen.add(s.email.toLowerCase());
+    }
+    for (const m of getStaffRoster()) {
+      if (!seen.has(m.email.toLowerCase())) {
+        merged.push(m);
+        seen.add(m.email.toLowerCase());
+      }
+    }
+    return merged;
+  }, [staff]);
+
+  const { todayKey, now, kpis, liveRows, todayRowByEmail } = useTodaySnapshot(attendanceMembers);
+
+  const filteredStaff = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return staff.filter((emp) => {
+      const matchesSearch =
+        !q ||
+        emp.name.toLowerCase().includes(q) ||
+        emp.email.toLowerCase().includes(q) ||
+        emp.id.toLowerCase().includes(q);
+      const matchesStatus =
+        filterStatus === "all" ||
+        emp.status.toLowerCase() === filterStatus.toLowerCase();
+      const matchesToday = matchesTodayFilter(
+        todayRowByEmail.get(emp.email.toLowerCase()),
+        todayFilter,
+      );
+      return matchesSearch && matchesStatus && matchesToday;
+    });
+  }, [staff, searchQuery, filterStatus, todayFilter, todayRowByEmail]);
+
+  // Right-hand detail pane — the selected staff's attendance for the chosen period.
+  const selectedMember = selectedStaff
+    ? attendanceMembers.find(
+        (m) => m.email.toLowerCase() === selectedStaff.email.toLowerCase(),
+      ) ?? null
+    : null;
+
+  const detailRows: AdminRow[] = (() => {
+    if (!selectedMember) return [];
+    if (detailPeriod === "today") return [buildRow(selectedMember, todayKey, now)];
+    if (detailPeriod === "week")
+      return buildMemberRangeRows(selectedMember, getWeekStartKey(), todayKey, now);
+    return buildMemberRangeRows(selectedMember, detailFrom, detailTo, now);
+  })();
+
+  const detailTotalMs = detailRows.reduce((sum, r) => sum + r.totalMs, 0);
+  const detailRate = salaryStore.getHourlyRate();
+  const detailSalary = (detailTotalMs / MS_PER_HOUR) * detailRate;
+
+  // The day modal is derived fresh each render so it stays live through actions.
+  const dayMember = dayTarget
+    ? attendanceMembers.find(
+        (m) => m.email.toLowerCase() === dayTarget.email.toLowerCase(),
+      ) ?? null
+    : null;
+  const dayRow: AdminRow | null =
+    dayMember && dayTarget ? buildRow(dayMember, dayTarget.date, now) : null;
+
+  const handleRowSelect = (member: Staff) => {
+    // Mobile fast path: tapping a row opens today's day modal directly.
+    if (!window.matchMedia("(min-width: 1024px)").matches) {
+      setDayTarget({ email: member.email, date: todayKey });
+      return;
+    }
+    // Desktop: open the staff's attendance detail in a dialog.
+    setSelectedStaff(member);
+  };
 
   const resetAddForm = () => {
     setNewStaff({
@@ -179,7 +354,7 @@ export default function Staff() {
   // ── Salary settings + per-staff salary view state ─────────────────────
   const [showRateDialog, setShowRateDialog] = useState(false);
   const [rateInput, setRateInput] = useState(String(salaryStore.getHourlyRate()));
-  const [salaryView, setSalaryView] = useState<Staff | null>(null);
+  const [showSalarySettings, setShowSalarySettings] = useState(false);
   const [releasing, setReleasing] = useState<Staff | null>(null);
   const [, setDataTick] = useState(0);
 
@@ -353,76 +528,131 @@ export default function Staff() {
   };
 
   return (
-    <Layout menuItems={menuItems} title="Staff Management" showBackButton>
-      <div className="space-y-6">
+    <Layout
+      menuItems={menuItems}
+      title={
+        selectedStaff
+          ? `${selectedStaff.name} — Attendance & Salary`
+          : "Staff Management"
+      }
+      showBackButton
+    >
+      {selectedStaff && selectedMember ? null : (
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <p className="text-gray-600 mt-1">
             Manage staff accounts, roles, and access permissions.
           </p>
-          <Button
-            className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
-            onClick={() => setShowAddDialog(true)}
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Add Staff
-          </Button>
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:items-center w-full sm:w-auto">
+            <Button
+              className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => setShowSalarySettings(true)}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              Salary Settings
+            </Button>
+            <Button
+              className="h-11 sm:h-10 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              onClick={() => setShowAddDialog(true)}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Staff
+            </Button>
+          </div>
         </div>
 
-        {/* Tabs: Staff List | Attendance (merged staff management & attendance) */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="h-auto w-fit gap-1.5 p-1.5 sm:h-11">
-            <TabsTrigger value="staff" className="gap-2 px-4">
-              <Users className="w-4 h-4" />
-              Staff List
-            </TabsTrigger>
-            <TabsTrigger value="attendance" className="gap-2 px-4">
-              <Clock className="w-4 h-4" />
-              Attendance
-            </TabsTrigger>
-          </TabsList>
+        {/* Today's attendance — dashboard-style KPI cards; click to filter the directory */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          {[
+            { value: "all", label: "All", count: kpis.total, icon: Users, iconBg: "bg-blue-50", iconColor: "text-[#2F6FD6]", pulse: false },
+            { value: "on-time", label: "On Time", count: kpis.onTime, icon: UserCheck, iconBg: "bg-green-50", iconColor: "text-green-600", pulse: false },
+            { value: "late", label: "Late", count: kpis.late, icon: AlarmClock, iconBg: "bg-amber-50", iconColor: "text-amber-500", pulse: false },
+            { value: "on-clock", label: "On Clock", count: kpis.onClock, icon: Clock, iconBg: "bg-green-50", iconColor: "text-green-600", pulse: true },
+            { value: "on-leave", label: "On Leave", count: kpis.away, icon: LogOut, iconBg: "bg-orange-50", iconColor: "text-orange-500", pulse: false },
+            { value: "absent", label: "Absent", count: kpis.absent, icon: UserX, iconBg: "bg-red-50", iconColor: "text-red-600", pulse: false },
+            { value: "no-clock-in", label: "No Clock-In", count: kpis.noClock, icon: MinusCircle, iconBg: "bg-gray-100", iconColor: "text-gray-500", pulse: false },
+          ].map((card) => {
+            const active = todayFilter === card.value;
+            return (
+              <SummaryCard
+                key={card.value}
+                label={card.label}
+                value={card.count}
+                icon={card.icon}
+                iconBg={card.iconBg}
+                iconColor={card.iconColor}
+                chipClassName={card.pulse ? "animate-pulse" : undefined}
+                active={active}
+                onClick={() =>
+                  setTodayFilter(active ? "all" : (card.value as TodayFilter))
+                }
+              />
+            );
+          })}
+        </div>
 
-          <TabsContent value="staff" className="mt-0 flex flex-col gap-6">
-            {/* Salary Settings */}
-            <Card className="p-4 border border-slate-100 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#1D73EC]/10 text-[#1D73EC] flex items-center justify-center shrink-0">
-                    <Wallet className="w-5 h-5" />
+        {/* Currently Working — live strip of staff on the clock now */}
+        <Card className="gap-0 overflow-hidden border border-slate-100 shadow-sm">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+              </span>
+              <p className="text-sm font-semibold text-gray-900">Currently Working</p>
+            </div>
+            {kpis.onClock > 0 && (
+              <Badge className="bg-green-50 text-green-700 border border-green-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
+                {kpis.onClock} on clock now
+              </Badge>
+            )}
+          </div>
+          {liveRows.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">Nobody is on the clock right now.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 p-4">
+              {liveRows.map((row) => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={() => setDayTarget({ email: row.member.email, date: todayKey })}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-white p-3 hover:border-green-300 hover:bg-green-50/40 text-left cursor-pointer transition-colors"
+                >
+                  <div className="relative shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-[#1D73EC] text-white flex items-center justify-center text-xs font-bold">
+                      {getInitials(row.member.name)}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 leading-tight">
-                      Salary Settings
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {row.member.name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Hourly rate used to compute each staff member's salary from their attendance hours.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Hourly Rate</p>
-                    <p className="text-xl font-semibold text-[#1D73EC] leading-tight">
-                      ₱{formatNumber(salaryStore.getHourlyRate(), 2)} / hour
+                    <p className="text-xs text-gray-500 truncate">
+                      {row.member.role || "Staff"} &middot; Clocked In{" "}
+                      {row.clockIn ? fmtTime12(row.clockIn) : "\u2014"}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="h-9 whitespace-nowrap border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
-                    onClick={() => {
-                      setRateInput(String(salaryStore.getHourlyRate()));
-                      setShowRateDialog(true);
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    Edit Rate
-                  </Button>
-                </div>
-              </div>
-            </Card>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-semibold text-green-700 tabular-nums">
+                      {fmtHms(row.totalMs)}
+                    </p>
+                    <p className="text-[10px] text-gray-400">working</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
 
-            {/* Search and Filters */}
-            <Card className="p-4 border border-slate-100 shadow-sm">
+        {/* Directory */}
+        <Card className="gap-0 overflow-hidden border border-slate-100 shadow-sm">
+          <div className="p-4 border-b border-gray-100 shrink-0">
           <div className="flex flex-col lg:flex-row lg:items-end gap-4">
             <div className="w-full sm:max-w-xs">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Search</Label>
@@ -461,14 +691,11 @@ export default function Staff() {
               Clear
             </Button>
           </div>
-        </Card>
-
-        {/* Staff Table */}
-        <Card className="overflow-hidden">
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[820px]">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/70">
+                <tr className="border-b border-gray-100 bg-gray-50/70 sticky top-0 z-10">
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                     Staff
                   </th>
@@ -477,6 +704,9 @@ export default function Staff() {
                   </th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                     Role
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Status
                   </th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                     Account Status
@@ -490,10 +720,20 @@ export default function Staff() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredStaff.map((member) => (
+                {filteredStaff.map((member) => {
+                const todayRow = todayRowByEmail.get(member.email.toLowerCase());
+                const statusInfo = todayRow ? todayStatusInfo(todayRow) : null;
+                const isSelected = selectedStaff?.id === member.id;
+                return (
                   <tr
                     key={member.id}
-                    className="hover:bg-gray-50/70 transition-colors"
+                    onClick={() => handleRowSelect(member)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View ${member.name}'s attendance`}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected ? "bg-blue-50" : "hover:bg-gray-50/70"
+                    }`}
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -531,6 +771,17 @@ export default function Staff() {
                       </Badge>
                     </td>
                     <td className="px-5 py-4">
+                      {statusInfo ? (
+                        <Badge className={statusInfo.className}>
+                          {statusInfo.label}
+                        </Badge>
+                      ) : (
+                        <Badge className="border border-gray-200 bg-gray-100 text-gray-500">
+                          No Clock-In
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
                       {member.status === "Active" ? (
                         <Badge className="bg-green-50 text-green-700 border border-green-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
@@ -549,16 +800,7 @@ export default function Staff() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="View attendance & salary"
-                          className="group"
-                          onClick={() => setSalaryView(member)}
-                        >
-                          <CalendarDays className="w-4 h-4 text-green-600 group-hover:text-white" />
-                        </Button>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -592,7 +834,8 @@ export default function Staff() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
@@ -606,7 +849,7 @@ export default function Staff() {
             </div>
           )}
 
-          <div className="px-5 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-xs text-gray-500">
+          <div className="px-5 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-xs text-gray-500 shrink-0">
             <span>
               Showing {filteredStaff.length} of {staff.length} staff members
             </span>
@@ -615,13 +858,697 @@ export default function Staff() {
             </span>
           </div>
         </Card>
-          </TabsContent>
 
-          <TabsContent value="attendance" className="mt-0">
-            <AttendanceView />
-          </TabsContent>
-        </Tabs>
       </div>
+      )}
+
+        {/* Day modal */}
+        {dayRow && (
+          <AttendanceDayModal
+            row={dayRow}
+            open={!!dayTarget}
+            onOpenChange={(open) => {
+              if (!open) setDayTarget(null);
+            }}
+          />
+        )}
+
+        {/* All attendance history modal */}
+        {selectedStaff && historyOpen && (
+          <AttendanceHistoryModal
+            member={{ name: selectedStaff.name, email: selectedStaff.email }}
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            onOpenDay={(date) => setDayTarget({ email: selectedStaff.email, date })}
+          />
+        )}
+
+        {/* Staff attendance detail — in-page view (click a directory row) */}
+        {selectedStaff && selectedMember && (
+          <div className="mx-auto w-full max-w-6xl pb-8">
+            <div className="px-6 sm:px-8 pt-6">
+              <button
+                type="button"
+                onClick={() => setSelectedStaff(null)}
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-[#54606E] transition-all hover:-translate-y-0.5 hover:border-[#1677F2]/60 hover:bg-[#1677F2]/5 hover:text-[#1677F2] hover:shadow-md"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Staff Management
+              </button>
+            </div>
+                <h2 className="sr-only">
+                  {selectedStaff.name} — Attendance &amp; Salary
+                </h2>
+                <p className="sr-only">
+                  Attendance and salary details for {selectedStaff.name}.
+                </p>
+
+                {/* ── 1. Staff profile header ── */}
+                <div className="pt-4 sm:pt-5 px-6 sm:px-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                      <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#1677F2] to-[#1D73EC] text-white flex items-center justify-center text-2xl sm:text-[28px] font-bold shrink-0 shadow-[0_10px_24px_-8px_rgba(22,119,242,0.6)]">
+                        {getInitials(selectedStaff.name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-xl sm:text-2xl font-bold text-[#14213D] tracking-tight truncate">
+                            {selectedStaff.name}
+                          </h2>
+                          <Badge className="bg-[#1677F2]/10 text-[#1677F2] border border-[#1677F2]/25">
+                            {selectedStaff.role === "Admin" ? (
+                              <Shield className="w-3 h-3" />
+                            ) : (
+                              <User className="w-3 h-3" />
+                            )}
+                            {selectedStaff.role}
+                          </Badge>
+                        </div>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-[#5C5D6E]">
+                          <span className="inline-flex items-center gap-1.5 min-w-0">
+                            <Mail className="w-3.5 h-3.5 text-[#1677F2] shrink-0" />
+                            <span className="truncate">{selectedStaff.email}</span>
+                          </span>
+                          <span className="hidden sm:inline text-[#CBD6E7]">·</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-[#1677F2] shrink-0" />
+                            {scheduleOf(selectedMember)}
+                          </span>
+                          <span className="hidden sm:inline text-[#CBD6E7]">·</span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-[#14213D]">
+                            {selectedStaff.id}
+                          </span>
+                        </div>
+                        {(() => {
+                          const todayInfo = todayRowByEmail.get(
+                            selectedStaff.email.toLowerCase(),
+                          );
+                          return todayInfo ? (
+                            <div className="mt-3">
+                              {todayInfo.isLive ? (
+                                <Badge className="bg-green-50 text-green-700 border-green-200">
+                                  <span className="relative flex h-1.5 w-1.5 mr-1">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                                  </span>
+                                  On Clock
+                                </Badge>
+                              ) : (
+                                <Badge className={todayStatusInfo(todayInfo).className}>
+                                  {todayStatusInfo(todayInfo).label}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Secondary info — right side */}
+                    <div className="sm:border-l sm:border-[#E5EDF9] sm:pl-6 flex sm:flex-col gap-4 sm:gap-5 sm:min-w-[190px] shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#1677F2]/10 flex items-center justify-center shrink-0">
+                          <CalendarDays className="w-4 h-4 text-[#1677F2]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">
+                            Date Hired
+                          </p>
+                          <p className="text-sm font-semibold text-[#14213D]">
+                            {formatDate(selectedStaff.joinDate)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#1677F2]/10 flex items-center justify-center shrink-0">
+                          <Briefcase className="w-4 h-4 text-[#1677F2]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">
+                            Position
+                          </p>
+                          <p className="text-sm font-semibold text-[#14213D]">
+                            {selectedStaff.role}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── 2. Attendance period navigation ── */}
+                <div className="mt-7 px-6 sm:px-8">
+                  <div className="grid grid-cols-3 gap-1 rounded-2xl bg-[#EAF2FF] p-1.5">
+                    {[
+                      { v: "today", l: "Today", Icon: Sun },
+                      { v: "week", l: "This Week", Icon: CalendarRange },
+                      { v: "range", l: "Date Range", Icon: CalendarDays },
+                    ].map((opt) => {
+                      const Icon = opt.Icon;
+                      return (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() =>
+                            setDetailPeriod(opt.v as "today" | "week" | "range")
+                          }
+                          className={`flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                            detailPeriod === opt.v
+                              ? "bg-[#1677F2] text-white shadow-[0_6px_16px_-6px_rgba(22,119,242,0.6)]"
+                              : "text-[#14213D] hover:bg-[#1677F2]/10"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {opt.l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {detailPeriod === "range" && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <Input
+                        type="date"
+                        value={detailFrom}
+                        max={detailTo}
+                        onChange={(e) => setDetailFrom(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                      <Input
+                        type="date"
+                        value={detailTo}
+                        min={detailFrom}
+                        max={todayKey}
+                        onChange={(e) => setDetailTo(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* ── 3. Attendance Period card ── */}
+                <div className="mt-6 px-6 sm:px-8">
+                  <div className="rounded-2xl border border-[#E5EDF9] bg-white">
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 pt-5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="w-4 h-4 text-[#1677F2]" />
+                          <p className="text-sm font-semibold text-[#14213D]">
+                            Attendance Period
+                          </p>
+                        </div>
+                        <p className="mt-0.5 text-xs text-[#5C5D6E]">
+                          {detailPeriod === "today" && <>Today's attendance and working hours.</>}
+                          {detailPeriod === "week" && <>This week's attendance and working hours.</>}
+                          {detailPeriod === "range" && <>Selected range attendance and working hours.</>}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setDayTarget({ email: selectedStaff.email, date: todayKey })
+                        }
+                        className="h-9 gap-2 rounded-lg px-3 text-xs font-semibold text-[#14213D] hover:bg-[#1677F2]/5 hover:text-[#14213D] hover:border-[#1677F2]/60"
+                      >
+                        <CalendarClock className="h-4 w-4 text-[#1677F2]" />
+                        View Day Records
+                      </Button>
+                    </div>
+
+                    {/* Metrics */}
+                    <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-[#EEF3FA]">
+                      {[
+                        {
+                          label: "Total Hours",
+                          value: fmtHms(detailTotalMs),
+                          icon: Clock,
+                          money: false,
+                        },
+                        {
+                          label: "Hourly Rate",
+                          value: `₱${formatNumber(detailRate, 2)}`,
+                          icon: Wallet,
+                          money: true,
+                        },
+                        {
+                          label: "Salary",
+                          value: formatCurrency(detailSalary),
+                          icon: Banknote,
+                          money: true,
+                        },
+                        {
+                          label: "Position",
+                          value: selectedStaff.role,
+                          icon: Briefcase,
+                          money: false,
+                        },
+                      ].map((m) => {
+                        const Icon = m.icon;
+                        return (
+                          <div
+                            key={m.label}
+                            className="flex items-center gap-3 px-5 sm:px-6 py-4"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-[#EBF3FF] flex items-center justify-center shrink-0">
+                              <Icon className="w-4 h-4 text-[#1677F2]" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">
+                                {m.label}
+                              </p>
+                              <p
+                                className={`text-base font-bold tabular-nums ${
+                                  m.money ? "text-[#1677F2]" : "text-[#14213D]"
+                                }`}
+                              >
+                                {m.value}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Period records list */}
+                    <div className="border-t border-[#EEF3FA]">
+                      <div className="px-5 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">
+                          {detailPeriod === "today" && <>Today · {fmtLongDay(todayKey)}</>}
+                          {detailPeriod === "week" && (
+                            <>
+                              This Week · {fmtLongDay(getWeekStartKey())} – {fmtLongDay(todayKey)}
+                            </>
+                          )}
+                          {detailPeriod === "range" && (
+                            <>
+                              {fmtLongDay(detailFrom)} – {fmtLongDay(detailTo)}
+                            </>
+                          )}
+                        </p>
+                        <span className="text-xs text-[#5C5D6E]">
+                          {detailRows.length} record{detailRows.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {detailRows.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <Clock className="w-8 h-8 text-[#C9D4E4] mx-auto mb-2" />
+                          <p className="text-sm text-[#8A94A6]">No records for this period.</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-[#EEF3FA]">
+                          {detailRows.map((row) => {
+                            const rInfo = todayStatusInfo(row);
+                            return (
+                              <div
+                                key={row.key}
+                                className="w-full flex items-center justify-between gap-3 px-5 sm:px-6 py-3 text-left"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[#14213D]">
+                                    {fmtDay(row.date)}
+                                  </p>
+                                  <p className="text-xs text-[#5C5D6E] truncate">
+                                    {row.clockIn ? `In ${fmtTime12(row.clockIn)}` : "—"}
+                                    {" → "}
+                                    {row.isLive
+                                      ? "On Clock"
+                                      : row.clockOut
+                                        ? `Out ${fmtTime12(row.clockOut)}`
+                                        : "—"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className="text-sm font-semibold text-[#14213D] tabular-nums">
+                                    {row.totalMs > 0 ? fmtHms(row.totalMs) : "—"}
+                                  </span>
+                                  <Badge className={rInfo.className}>{rInfo.label}</Badge>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── 4. Staff Attendance Summary ── */}
+                {(() => {
+                  const summary = salaryStore.getStaffSummary(selectedStaff.email);
+                  const salaryRecords = salaryStore.getPeriodAttendance(selectedStaff.email);
+                  const history = salaryStore.getSalaryHistory(selectedStaff.email);
+                  const filteredHistory = history.filter((h) => {
+                    const key = toPHTKey(h.releasedAt);
+                    if (historyFrom && key < historyFrom) return false;
+                    if (historyTo && key > historyTo) return false;
+                    return true;
+                  });
+                  const visibleHistory = showAllHistory
+                    ? filteredHistory
+                    : filteredHistory.slice(0, 3);
+                  const hasHistory = history.length > 0;
+                  const salaryRange = formatSalaryPeriodStack(summary.periodStart, summary.periodEnd);
+                  return (
+                    <>
+                      <div className="mt-6 px-6 sm:px-8">
+                        <div className="rounded-2xl border border-[#DCEBFF] bg-[#F4F9FF]">
+                          <div className="px-5 sm:px-6 pt-5">
+                            <p className="text-sm font-semibold text-[#14213D]">
+                              Staff Attendance Summary
+                            </p>
+                          </div>
+                          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-[#DCEBFF]">
+                            {[
+                              {
+                                label: "Salary Period",
+                                value: salaryRange.month,
+                                sub: salaryRange.dates,
+                                icon: CalendarDays,
+                              },
+                              {
+                                label: "Hours Worked",
+                                value: `${formatNumber(summary.totalHours, 2)} hrs`,
+                                icon: Clock,
+                              },
+                              {
+                                label: "Hourly Rate",
+                                value: `₱${formatNumber(summary.hourlyRate, 2)} / hr`,
+                                icon: Wallet,
+                              },
+                              {
+                                label: "Current Salary",
+                                value: formatCurrency(summary.amount),
+                                icon: Banknote,
+                              },
+                            ].map((m) => {
+                              const Icon = m.icon;
+                              return (
+                                <div
+                                  key={m.label}
+                                  className="flex items-center gap-3 px-5 sm:px-6 py-4"
+                                >
+                                  <div className="w-9 h-9 rounded-full bg-white border border-[#DCEBFF] flex items-center justify-center shrink-0">
+                                    <Icon className="w-4 h-4 text-[#1677F2]" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">
+                                      {m.label}
+                                    </p>
+                                    <p
+                                      className={`text-sm font-bold tabular-nums ${
+                                        m.label === "Current Salary"
+                                          ? "text-[#1677F2]"
+                                          : "text-[#14213D]"
+                                      }`}
+                                    >
+                                      {m.value}
+                                    </p>
+                                    {m.sub && (
+                                      <p className="text-xs font-semibold text-[#14213D] tabular-nums -mt-0.5">
+                                        {m.sub}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── 5. Attendance Records (current period) ── */}
+                      <div className="mt-6 px-6 sm:px-8">
+                        <div className="rounded-2xl border border-[#E5EDF9] bg-white overflow-hidden">
+<div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#EEF3FA]">
+            <p className="text-sm font-semibold text-[#14213D] flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-[#1677F2]" />
+              Attendance Records
+            </p>
+            <span className="flex items-center gap-3">
+              <span className="text-xs text-[#5C5D6E]">
+                {salaryRecords.length} day{salaryRecords.length === 1 ? "" : "s"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border-2 border-blue-400 bg-white px-3 py-2 text-xs font-semibold text-[#14213D] transition-all hover:-translate-y-0.5 hover:border-[#1677F2]/60 hover:bg-[#1677F2]/5 hover:shadow-md"
+              >
+                <History className="h-4 w-4 text-[#1677F2]" />
+                View All Attendance History
+              </button>
+            </span>
+          </div>
+                          {salaryRecords.length === 0 ? (
+                            <div className="py-14 text-center">
+                              <Clock className="w-10 h-10 text-[#C9D4E4] mx-auto mb-3" />
+                              <p className="text-sm font-medium text-[#54606E]">
+                                No attendance records in the current period.
+                              </p>
+                              <p className="mt-1 text-xs text-[#8A94A6]">
+                                Records appear here once the staff member clocks in.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-[#EEF3FA] bg-[#FBFDFE]">
+                                    <th className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">Date</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">Clock In</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">Clock Out</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">Hours</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A94A6]">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#EEF3FA]">
+                                  {salaryRecords.map((r) => {
+                                    const hours = sessionTotalMs(r, nowPHT()) / 3_600_000;
+                                    const status = hasActiveSession(r) ? "Active" : r.timeIn && r.timeOut ? (r.exceeded ? "Exceeded" : "Complete") : "Incomplete";
+                                    return (
+                                      <tr key={r.id} className="hover:bg-[#F7FAFF]">
+                                        <td className="px-5 py-2.5 text-[#14213D] whitespace-nowrap font-medium">{formatPHDate(r.date, "short")}</td>
+                                        <td className="px-4 py-2.5 text-[#5C5D6E] whitespace-nowrap">{fmtTime12(r.timeIn)}</td>
+                                        <td className="px-4 py-2.5 text-[#5C5D6E] whitespace-nowrap">
+                                          {r.timeOut ? fmtTime12(r.timeOut) : <span className="text-green-600 font-medium">On Clock</span>}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-[#14213D] whitespace-nowrap font-medium">{formatNumber(hours, 2)} hrs</td>
+                                        <td className="px-4 py-2.5">
+                                          <Badge className={
+                                            status === "Complete"
+                                              ? "bg-green-50 text-green-700 border border-green-200"
+                                              : status === "Active"
+                                              ? "bg-blue-50 text-[#1677F2] border border-blue-200"
+                                              : status === "Exceeded"
+                                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                              : "bg-gray-100 text-gray-600 border border-gray-200"
+                                          }>
+                                            {status}
+                                          </Badge>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── 6. Release Salary ── */}
+                      <div className="mt-6 px-6 sm:px-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#CFE3FF] bg-[#F0F6FF] p-5">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white border border-[#CFE3FF] flex items-center justify-center shrink-0">
+                              <Banknote className="w-5 h-5 text-[#1677F2]" />
+                            </div>
+                            <div>
+                              <p className="text-[15px] font-semibold text-[#14213D]">
+                                Current Salary:{" "}
+                                <span className="text-[#1677F2]">{formatCurrency(summary.amount)}</span>
+                              </p>
+                              <p className="mt-0.5 text-xs text-[#54606E] max-w-sm">
+                                Releasing pays this period and starts a new tracking period. Attendance history is kept.
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            className="h-10 sm:h-11 min-w-[180px] rounded-lg bg-[#1677F2] text-white hover:bg-[#0E63D8] shadow-[0_10px_20px_-8px_rgba(22,119,242,0.6)]"
+                            onClick={() => setReleasing(selectedStaff)}
+                          >
+                            <Wallet className="w-4 h-4 mr-2" />
+                            Release Salary
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* ── 7. Salary History ── */}
+                      <div className="mt-6 px-6 sm:px-8">
+                        <div className="rounded-2xl border border-[#E5EDF9] bg-white overflow-hidden">
+                          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#EEF3FA]">
+                            <p className="text-sm font-semibold text-[#14213D] flex items-center gap-2">
+                              <History className="w-4 h-4 text-[#1677F2]" />
+                              Salary History
+                            </p>
+                            <span className="text-xs text-[#5C5D6E] flex items-center gap-1">
+                              {filteredHistory.length} release{filteredHistory.length === 1 ? "" : "s"}
+                              {historyFrom || historyTo ? ` of ${history.length}` : ""}
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                          {history.length === 0 ? (
+                            <div className="py-12 text-center">
+                              <History className="w-8 h-8 text-[#C9D4E4] mx-auto mb-2" />
+                              <p className="text-sm text-[#54606E]">No releases yet for this staff member.</p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 sm:px-6 py-3 border-b border-[#EEF3FA]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-[#54606E]">From</span>
+                                <input
+                                  type="date"
+                                  value={historyFrom}
+                                  onChange={(e) => setHistoryFrom(e.target.value)}
+                                  className="h-8 rounded-lg border border-[#E5EDF9] bg-[#FBFDFF] px-2 text-xs text-[#14213D] focus:outline-none focus:ring-2 focus:ring-[#1677F2]/30"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-[#54606E]">To</span>
+                                <input
+                                  type="date"
+                                  value={historyTo}
+                                  onChange={(e) => setHistoryTo(e.target.value)}
+                                  className="h-8 rounded-lg border border-[#E5EDF9] bg-[#FBFDFF] px-2 text-xs text-[#14213D] focus:outline-none focus:ring-2 focus:ring-[#1677F2]/30"
+                                />
+                              </div>
+                              {(historyFrom || historyTo) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHistoryFrom("");
+                                    setHistoryTo("");
+                                  }}
+                                  className="text-xs font-semibold text-[#1677F2] hover:underline"
+                                >
+                                  Clear Dates
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {hasHistory && visibleHistory.length === 0 ? (
+                            <div className="py-12 text-center">
+                              <History className="w-8 h-8 text-[#C9D4E4] mx-auto mb-2" />
+                              <p className="text-sm text-[#54606E]">
+                                No releases match the selected date range.
+                              </p>
+                            </div>
+                          ) : hasHistory ? (
+                            <div className="p-4 sm:p-5 space-y-3">
+                              {visibleHistory.map((h) => (
+                                <div
+                                  key={h.id}
+                                  className="rounded-xl border border-[#EEF3FA] bg-white p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                                >
+                                  <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-0 sm:divide-x sm:divide-[#EEF3FA]">
+                                    <div className="sm:pr-4">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Salary Period</p>
+                                      {(() => {
+                                        const sp = formatSalaryPeriodStack(h.periodStart, h.periodEnd);
+                                        return (
+                                          <>
+                                            <p className="mt-0.5 text-[13px] font-semibold text-[#14213D]">{sp.month}</p>
+                                            <p className="text-xs font-semibold text-[#14213D] tabular-nums">{sp.dates}</p>
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                    <div className="sm:px-4">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Hours Worked</p>
+                                      <p className="mt-0.5 text-[13px] font-semibold text-[#14213D] tabular-nums">{formatNumber(h.totalHours, 2)} hrs</p>
+                                    </div>
+                                    <div className="sm:px-4">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Rate</p>
+                                      <p className="mt-0.5 text-[13px] font-semibold text-[#14213D] tabular-nums">₱{formatNumber(h.hourlyRate, 2)}/hr</p>
+                                    </div>
+                                    <div className="sm:px-4">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Release</p>
+                                      <p className="mt-0.5 text-[13px] font-semibold text-[#14213D]">{formatPHDateTime(h.releasedAt)}</p>
+                                      <p className="text-xs text-[#8A94A6]">by {h.releasedBy}</p>
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 rounded-xl border border-[#DCEBFF] bg-[#F0F6FF] px-4 py-2.5 text-right">
+                                    <p className="text-base sm:text-lg font-bold text-[#1677F2] tabular-nums">{formatCurrency(h.amount)}</p>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Total Salary</p>
+                                  </div>
+                                </div>
+                              ))}
+                              {filteredHistory.length > 3 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllHistory((v) => !v)}
+                                  className="mx-auto flex items-center gap-1.5 rounded-lg border border-[#DCEBFF] bg-[#F0F6FF] px-3 py-1.5 text-xs font-semibold text-[#1677F2] hover:bg-[#E3EEFF] transition-colors"
+                                >
+                                  {showAllHistory ? "Show Less" : `Show All (${filteredHistory.length})`}
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 transition-transform ${showAllHistory ? "rotate-180" : ""}`}
+                                  />
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+        {/* Salary Settings dialog */}
+        <Dialog open={showSalarySettings} onOpenChange={setShowSalarySettings}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-[#10316B]">Salary Settings</DialogTitle>
+              <DialogDescription>
+                Hourly rate used to compute each staff member's salary from their
+                attendance hours.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-white p-4">
+                <div className="w-11 h-11 rounded-xl bg-[#1D73EC]/10 text-[#1D73EC] flex items-center justify-center shrink-0">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-600">Hourly Rate</p>
+                  <p className="text-xl font-semibold text-slate-900 leading-tight tabular-nums">
+                    ₱{formatNumber(salaryStore.getHourlyRate(), 2)}
+                    <span className="text-xs font-normal text-gray-500">
+                      {" "}/ hour
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                The rate is applied to each staff member's total attendance hours
+                to compute their current salary in the attendance detail and
+                salary views.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                className="w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+                onClick={() => {
+                  setRateInput(String(salaryStore.getHourlyRate()));
+                  setShowSalarySettings(false);
+                  setShowRateDialog(true);
+                }}
+              >
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit Rate
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       {/* Register New Staff Dialog */}
       <Dialog
@@ -1014,189 +1941,6 @@ export default function Staff() {
         cancelLabel="Go Back"
         destructive={false}
       />
-
-      {/* View Attendance & Salary Dialog */}
-      <Dialog
-        open={!!salaryView}
-        onOpenChange={(open) => {
-          if (!open) setSalaryView(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B]">
-              View Attendance & Salary
-            </DialogTitle>
-            <DialogDescription>
-              {salaryView?.name} · {salaryView?.email}
-            </DialogDescription>
-          </DialogHeader>
-
-          {salaryView &&
-            (() => {
-              const summary = salaryStore.getStaffSummary(salaryView.email);
-              const records = salaryStore.getPeriodAttendance(salaryView.email);
-              const history = salaryStore.getSalaryHistory(salaryView.email);
-              const periodLabel = `${formatPHDate(summary.periodStart, "short")} — ${formatPHDate(summary.periodEnd, "short")}`;
-
-              return (
-                <div className="py-2 space-y-4">
-                  {/* Staff Attendance Summary */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-3">
-                      Staff Attendance Summary
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3">
-                      <div>
-                        <p className="text-[11px] text-gray-500">Staff</p>
-                        <p className="text-sm font-semibold text-gray-900 truncate">{salaryView.name}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-[11px] text-gray-500">Period</p>
-                        <p className="text-sm font-semibold text-gray-900">{periodLabel}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-gray-500">Total Hours Worked</p>
-                        <p className="text-sm font-semibold text-gray-900">{formatNumber(summary.totalHours, 2)} hrs</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-gray-500">Hourly Rate</p>
-                        <p className="text-sm font-semibold text-gray-900">₱{formatNumber(summary.hourlyRate, 2)} / hr</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-gray-500">Current Salary</p>
-                        <p className="text-base font-bold text-[#1D73EC]">{formatCurrency(summary.amount)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attendance records within the period */}
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gray-50/70">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                        Attendance Records · Current Period
-                      </p>
-                      <span className="text-xs text-gray-500">{records.length} day{records.length === 1 ? "" : "s"}</span>
-                    </div>
-                    {records.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">No attendance records in the current period.</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50/60">
-                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Date</th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Clock In</th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Clock Out</th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Hours</th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {records.map((r) => {
-                              const hours = sessionTotalMs(r, nowPHT()) / 3_600_000;
-                              const status = hasActiveSession(r) ? "Active" : r.timeIn && r.timeOut ? (r.exceeded ? "Exceeded" : "Complete") : "Incomplete";
-                              return (
-                                <tr key={r.id} className="hover:bg-gray-50/70">
-                                  <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{formatPHDate(r.date, "short")}</td>
-                                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{formatPHT(r.timeIn)}</td>
-                                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
-                                    {r.timeOut ? formatPHT(r.timeOut) : <span className="text-green-600 font-medium">On Clock</span>}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{formatNumber(hours, 2)} hrs</td>
-                                  <td className="px-4 py-2.5">
-                                    <Badge className={
-                                      status === "Complete"
-                                        ? "bg-green-50 text-green-700 border border-green-200"
-                                        : status === "Active"
-                                        ? "bg-blue-50 text-[#1D73EC] border border-blue-200"
-                                        : status === "Exceeded"
-                                        ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                        : "bg-gray-100 text-gray-600 border border-gray-200"
-                                    }>
-                                      {status}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Release Salary */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Current Salary: {formatCurrency(summary.amount)}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Releasing pays this period and starts a new tracking period. Attendance history is kept.
-                      </p>
-                    </div>
-                    <Button
-                      className="h-10 w-full sm:w-auto bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                      onClick={() => setReleasing(salaryView)}
-                    >
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Release Salary
-                    </Button>
-                  </div>
-
-                  {/* Salary History */}
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gray-50/70">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-                        <History className="w-3.5 h-3.5" />
-                        Salary History
-                      </p>
-                      <span className="text-xs text-gray-500">{history.length} release{history.length === 1 ? "" : "s"}</span>
-                    </div>
-                    {history.length === 0 ? (
-                      <div className="py-6 text-center">
-                        <p className="text-sm text-gray-500">No releases yet for this staff member.</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 space-y-3">
-                        {history.map((h) => (
-                          <div key={h.id} className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-gray-900">
-                                {formatPHDate(h.periodStart, "short")} - {formatPHDate(h.periodEnd, "short")}
-                              </p>
-                              <p className="text-sm font-bold text-[#1D73EC]">{formatCurrency(h.amount)}</p>
-                            </div>
-                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                              <div>
-                                <p className="text-gray-500">Hours Worked</p>
-                                <p className="font-medium text-gray-800">{formatNumber(h.totalHours, 2)} hrs</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-500">Rate</p>
-                                <p className="font-medium text-gray-800">₱{formatNumber(h.hourlyRate, 2)}/hr</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-500">Release Date</p>
-                                <p className="font-medium text-gray-800">{formatPHDateTime(h.releasedAt)}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-500">Released By</p>
-                                <p className="font-medium text-gray-800">{h.releasedBy}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }
