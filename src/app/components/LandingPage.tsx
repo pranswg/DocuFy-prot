@@ -15,6 +15,7 @@ import {
   User,
   LogOut,
   Mail,
+  Phone,
   ChevronDown,
   X,
 } from "lucide-react";
@@ -28,12 +29,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { usePresence } from "./ui/use-presence";
 import { ConfirmationDialog } from "./ui/confirmation-dialog";
 import ShopStatusBanner from "./shared/ShopStatusBanner";
+import LegalPolicyDialog from "./shared/LegalPolicyDialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "./ui/dialog";
 // System logo is centralized in the logo store so an admin-uploaded logo
 // applies everywhere. `logo` below is the live value (default or override).
@@ -390,11 +391,20 @@ export default function LandingPage({
                 {content.heroSubtitle}
               </div>
               <h2 className="mb-5 font-bold leading-tight text-[#1c1f26] text-[clamp(2.25rem,7vw,3rem)] lg:text-[clamp(3rem,4.4vw,5rem)]">
-                {content.heroTitle.split(",")[0]?.trim()},
-                <br />
-                <span className="text-[#1D73EC]">
-                  {content.heroTitle.split(",")[1]?.trim()}
-                </span>
+                {content.heroTitle
+                  .split(",")
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .map((line, i) => (
+                    <span
+                      key={i}
+                      className={`block ${
+                        line.includes("#b") ? "text-[#1D73EC]" : ""
+                      }`}
+                    >
+                      {line.replace(/#b/gi, "").trim()}
+                    </span>
+                  ))}
               </h2>
               <p className="mb-7 max-w-xl text-gray-600 text-[clamp(1rem,1.46vw,2rem)]">
                 {content.heroDescription}
@@ -883,13 +893,24 @@ export default function LandingPage({
                 {content.shopHours[1] && (
                   <p className="text-sm text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
                 )}
-                <a
-                  href="mailto:support@docufy.com"
-                  className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
-                >
-                  <Mail className="h-4 w-4" />
-                  support@docufy.com
-                </a>
+                {content.contactEmail && (
+                  <a
+                    href={`mailto:${content.contactEmail}`}
+                    className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
+                  >
+                    <Mail className="h-4 w-4" />
+                    {content.contactEmail}
+                  </a>
+                )}
+                {content.contactPhone && (
+                  <a
+                    href={`tel:${content.contactPhone.replace(/[^+\d]/g, "")}`}
+                    className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
+                  >
+                    <Phone className="h-4 w-4" />
+                    {content.contactPhone}
+                  </a>
+                )}
               </div>
             </div>
           </div>
@@ -917,333 +938,16 @@ export default function LandingPage({
         </div>
       </footer>
 
-      {/* Terms and Conditions Modal */}
-      <Dialog open={showTerms} onOpenChange={setShowTerms}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#10316B]">
-              Terms and Conditions
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Last updated: April 27, 2026
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                1. Acceptance of Terms
-              </h3>
-              <p>
-                By accessing and using Docufy PSMS (Print Shop
-                Management System), you accept and agree to be
-                bound by the terms and provision of this
-                agreement. If you do not agree to abide by the
-                above, please do not use this service.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                2. Use License
-              </h3>
-              <p>
-                Permission is granted to use Docufy PSMS for
-                personal and academic purposes within Palawan
-                State University. This license shall
-                automatically terminate if you violate any of
-                these restrictions and may be terminated by
-                Docufy at any time.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                3. Service Description
-              </h3>
-              <p>
-                Docufy PSMS provides printing services for
-                students and faculty of Palawan State
-                University. Services include document printing,
-                color printing, binding, and related print shop
-                services. We reserve the right to modify,
-                suspend, or discontinue any aspect of the
-                service at any time.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                4. User Accounts
-              </h3>
-              <p>
-                You are responsible for maintaining the
-                confidentiality of your account credentials. You
-                agree to accept responsibility for all
-                activities that occur under your account. You
-                must notify us immediately of any unauthorized
-                use of your account.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                5. Payment Terms
-              </h3>
-              <p>
-                All payments must be made through the approved
-                payment methods (online payment methods or
-                Cash on Pickup).
-                Prices are subject to change without notice.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                6. Content Restrictions
-              </h3>
-              <p>
-                Users may not upload, print, or distribute
-                content that is illegal, offensive, defamatory,
-                or infringes on intellectual property rights.
-                Docufy reserves the right to refuse service for
-                any content deemed inappropriate.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                7. Limitation of Liability
-              </h3>
-              <p>
-                Docufy PSMS shall not be liable for any damages
-                arising from the use or inability to use the
-                service, including but not limited to printing
-                errors, delays, or data loss.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                8. Modifications to Terms
-              </h3>
-              <p>
-                Docufy reserves the right to revise these terms
-                at any time. Continued use of the service
-                following any changes constitutes acceptance of
-                those changes.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                9. Contact Information
-              </h3>
-              <p>
-                For questions about these Terms and Conditions,
-                please contact us at support@docufy.com or visit
-                our office at Room 4, Palawan State University -
-                Main Campus, TBI Building, Puerto Princesa City,
-                5300 Palawan.
-              </p>
-            </section>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Privacy Policy Modal */}
-      <Dialog open={showPrivacy} onOpenChange={setShowPrivacy}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#10316B]">
-              Privacy Policy
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Last updated: April 27, 2026
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                1. Information We Collect
-              </h3>
-              <p>
-                We collect information that you provide directly
-                to us, including:
-              </p>
-              <ul className="list-disc ml-6 mt-2 space-y-1">
-                <li>
-                  Name, email address, and contact information
-                </li>
-                <li>University identification details</li>
-                <li>
-                  Payment information and transaction history
-                </li>
-                <li>Documents uploaded for printing</li>
-                <li>Order history and preferences</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                2. How We Use Your Information
-              </h3>
-              <p>We use the information we collect to:</p>
-              <ul className="list-disc ml-6 mt-2 space-y-1">
-                <li>Process and fulfill your print orders</li>
-                <li>Send order confirmations and updates</li>
-                <li>Process payments and prevent fraud</li>
-                <li>
-                  Improve our services and user experience
-                </li>
-                <li>Comply with legal obligations</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                3. Data Security
-              </h3>
-              <p>
-                We implement appropriate technical and
-                organizational measures to protect your personal
-                information against unauthorized access,
-                alteration, disclosure, or destruction. However,
-                no method of transmission over the internet is
-                100% secure.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                4. Document Handling
-              </h3>
-              <p>Documents uploaded to our system are:</p>
-              <ul className="list-disc ml-6 mt-2 space-y-1">
-                <li>
-                  Stored securely and accessed only by
-                  authorized staff
-                </li>
-                <li>
-                  Automatically deleted 30 days after order
-                  completion
-                </li>
-                <li>
-                  Never shared with third parties without your
-                  consent
-                </li>
-                <li>
-                  Processed only for the purpose of fulfilling
-                  your order
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                5. Cookies and Tracking
-              </h3>
-              <p>
-                We use cookies and similar tracking technologies
-                to track activity on our service and hold
-                certain information. You can instruct your
-                browser to refuse all cookies or to indicate
-                when a cookie is being sent.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                6. Information Sharing
-              </h3>
-              <p>
-                We do not sell, trade, or rent your personal
-                information to third parties. We may share your
-                information only in the following circumstances:
-              </p>
-              <ul className="list-disc ml-6 mt-2 space-y-1">
-                <li>With your explicit consent</li>
-                <li>To comply with legal obligations</li>
-                <li>To protect our rights and prevent fraud</li>
-                <li>
-                  With service providers who assist in our
-                  operations
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                7. Your Rights
-              </h3>
-              <p>You have the right to:</p>
-              <ul className="list-disc ml-6 mt-2 space-y-1">
-                <li>Access your personal information</li>
-                <li>Correct inaccurate data</li>
-                <li>Request deletion of your data</li>
-                <li>
-                  Object to processing of your information
-                </li>
-                <li>Export your data in a portable format</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                8. Data Retention
-              </h3>
-              <p>
-                We retain your personal information only for as
-                long as necessary to fulfill the purposes
-                outlined in this privacy policy, unless a longer
-                retention period is required by law.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                9. Children's Privacy
-              </h3>
-              <p>
-                Our service is intended for university students
-                and faculty. We do not knowingly collect
-                personal information from individuals under 18
-                years of age without parental consent.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                10. Changes to This Policy
-              </h3>
-              <p>
-                We may update our Privacy Policy from time to
-                time. We will notify you of any changes by
-                posting the new Privacy Policy on this page and
-                updating the "Last updated" date.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">
-                11. Contact Us
-              </h3>
-              <p>
-                If you have any questions about this Privacy
-                Policy, please contact us at:
-              </p>
-              <ul className="list-none ml-0 mt-2 space-y-1">
-                <li>Email: support@docufy.com</li>
-                <li>Phone: +63 123 456 7890</li>
-                <li>
-                  Address: Palawan State University - Main
-                  Campus, TBI Building, Room 4, Puerto Princesa
-                  City, 5300 Palawan
-                </li>
-              </ul>
-            </section>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LegalPolicyDialog
+        open={showTerms}
+        onOpenChange={setShowTerms}
+        initialTab="terms"
+      />
+      <LegalPolicyDialog
+        open={showPrivacy}
+        onOpenChange={setShowPrivacy}
+        initialTab="privacy"
+      />
 
       {shopLocationOpen && (
         <Dialog open={shopLocationOpen} onOpenChange={setShopLocationOpen}>

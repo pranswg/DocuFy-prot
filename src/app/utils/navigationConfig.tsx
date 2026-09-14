@@ -115,6 +115,7 @@ const management = {
     { label: "Payment Methods", path: "/admin/payment-methods" },
     { label: "Pricing Management", path: "/admin/pricing" },
     { label: "Landing Page", path: "/admin/landing" },
+    { label: "Terms & Privacy", path: "/admin/legal" },
   ],
 };
 

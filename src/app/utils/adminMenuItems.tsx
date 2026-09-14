@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   BadgeDollarSign,
   MonitorPlay,
+  ScrollText,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -64,5 +65,10 @@ export const adminMenuItems = [
     label: "Landing Page",
     path: "/admin/landing",
     icon: <MonitorPlay className="w-5 h-5" />,
+  },
+  {
+    label: "Terms & Privacy",
+    path: "/admin/legal",
+    icon: <ScrollText className="w-5 h-5" />,
   },
 ];

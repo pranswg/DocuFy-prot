@@ -9,6 +9,7 @@ import {
   Trash2,
   Eye,
   Upload,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -18,9 +19,17 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   landingContentStore,
+  DEFAULT_MAP_EMBED,
   type LandingPageContent,
   type ServiceCardContent,
 } from "../../utils/landingContentStore";
@@ -98,6 +107,7 @@ export default function LandingPageEditor() {
   );
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showMapPreview, setShowMapPreview] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const logo = useLogo();
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -351,7 +361,7 @@ export default function LandingPageEditor() {
                   label="Main Title"
                   value={content.heroTitle}
                   onChange={(v) => patch({ heroTitle: v })}
-                  hint="Use a comma to split into two lines — the part after the comma is highlighted blue."
+                  hint='Each comma starts a new line. Append "#b" to the line you want highlighted blue — e.g. "Print, Track #b, Succeed".'
                 />
                 <Field
                   label="Subtitle"
@@ -554,12 +564,48 @@ export default function LandingPageEditor() {
                     ))}
                   </div>
                 </div>
-                <Field
-                  label="Google Maps embed link"
-                  value={content.mapEmbedUrl}
-                  onChange={(v) => patch({ mapEmbedUrl: v })}
-                  hint="Shown on the landing page and the customer's Shop Location window."
-                />
+                <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Google Maps embed link
+                    </Label>
+                    <Input
+                      value={content.mapEmbedUrl}
+                      onChange={(e) => patch({ mapEmbedUrl: e.target.value })}
+                      placeholder="Paste the Google Maps 'Embed a map' link here…"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div className="sm:mt-[26px] shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+                      onClick={() => setShowMapPreview(true)}
+                    >
+                      <MapPin className="w-4 h-4 mr-2" /> Preview Map
+                    </Button>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Shown on the landing page and the customer's Shop Location window.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field
+                    label="Contact Email"
+                    value={content.contactEmail}
+                    onChange={(v) => patch({ contactEmail: v })}
+                    hint='e.g. "support@docufy.com" — shown in the landing page footer.'
+                  />
+                  <Field
+                    label="Contact Phone"
+                    value={content.contactPhone}
+                    onChange={(v) => patch({ contactPhone: v })}
+                    hint='e.g. "+63 912 345 6789" — shown in the landing page footer.'
+                  />
+                </div>
+
                 <div className="rounded-lg border border-blue-100 bg-[#F2F7FF] p-3 text-xs text-slate-600 space-y-1">
                   <p className="font-semibold text-[#1D73EC]">
                     How to change the map location:
@@ -656,6 +702,30 @@ export default function LandingPageEditor() {
         onConfirm={handleLogoReset}
         destructive
       />
+
+      <Dialog open={showMapPreview} onOpenChange={setShowMapPreview}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#2F6FD6]" /> Map Preview
+            </DialogTitle>
+            <DialogDescription>
+              This is how the embed link above appears to visitors. Save
+              Changes to apply it to the landing page and customer Shop Location window.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-slate-200 overflow-hidden">
+            <iframe
+              src={content.mapEmbedUrl || DEFAULT_MAP_EMBED}
+              title="Google Maps preview"
+              className="w-full h-[380px] sm:h-[480px]"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showPreview && (
         <div className="fixed inset-0 z-[100] bg-[#F2F7FF]">

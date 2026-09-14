@@ -12,7 +12,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
+import LegalPolicyDialog from "./shared/LegalPolicyDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { ImageWithFallback } from "./shared/ImageWithFallback";
 import { PasswordStrengthIndicator, validatePassword } from "./ui/password-strength-indicator";
@@ -478,80 +478,11 @@ export default function SignUpPage() {
       </div>
 
       {/* Terms and Conditions Modal */}
-      <Dialog open={showTerms} onOpenChange={setShowTerms}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#10316B]">Terms and Conditions</DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Last updated: August 26, 2026
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">1. Acceptance of Terms</h3>
-              <p>
-                By accessing and using Docufy PSMS (Print Shop Management System), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">2. Use License</h3>
-              <p>
-                Permission is granted to use Docufy PSMS for personal and academic purposes within Palawan State University. This license shall automatically terminate if you violate any of these restrictions and may be terminated by Docufy at any time.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">3. Service Description</h3>
-              <p>
-                Docufy PSMS provides printing services for students and faculty of Palawan State University. Services include document printing, color printing, binding, and related print shop services. We reserve the right to modify, suspend, or discontinue any aspect of the service at any time.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">4. User Accounts</h3>
-              <p>
-                You are responsible for maintaining the confidentiality of your account credentials. You agree to accept responsibility for all activities that occur under your account. You must notify us immediately of any unauthorized use of your account.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">5. Payment Terms</h3>
-              <p>
-                All payments must be made through the approved payment methods (online payment methods or Cash on Pickup). Prices are subject to change without notice.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">6. Content Restrictions</h3>
-              <p>
-                Users may not upload, print, or distribute content that is illegal, offensive, defamatory, or infringes on intellectual property rights. Docufy reserves the right to refuse service for any content deemed inappropriate.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">7. File Retention Policy</h3>
-              <p>
-                Documents uploaded to our system are stored securely and automatically deleted 30 days after order completion. We do not share your documents with third parties without your consent.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">8. Limitation of Liability</h3>
-              <p>
-                Docufy PSMS shall not be liable for any damages arising from the use or inability to use the service, including but not limited to printing errors, delays, or data loss.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-[#10316B] mb-2">9. Contact Information</h3>
-              <p>
-                For questions about these Terms and Conditions, please contact us at support@docufy.com or visit our office at Palawan State University - Main Campus, TBI Building, Room 4.
-              </p>
-            </section>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LegalPolicyDialog
+        open={showTerms}
+        onOpenChange={setShowTerms}
+        initialTab="terms"
+      />
     </div>
   );
 }

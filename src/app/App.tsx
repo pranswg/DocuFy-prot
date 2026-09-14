@@ -26,6 +26,7 @@ import InventoryManagement from './components/admin/InventoryManagement';
 import PaymentMethodsManagement from './components/admin/PaymentMethodsManagement';
 import PricingManagement from './components/admin/PricingManagement';
 import LandingPageEditor from './components/admin/LandingPageEditor';
+import LegalManagement from './components/admin/LegalManagement';
 import JobBoardManagement from './components/admin/JobBoardManagement';
 import AdminWalkInTransactions from './components/admin/WalkInTransactions';
 import OrderTracking from './components/customer/OrderTracking';
@@ -210,6 +211,10 @@ const router = createBrowserRouter([
       {
         path: 'landing',
         element: <ProtectedRoute role="admin"><LandingPageEditor /></ProtectedRoute>,
+      },
+      {
+        path: 'legal',
+        element: <ProtectedRoute role="admin"><LegalManagement /></ProtectedRoute>,
       },
       {
         path: 'orders',

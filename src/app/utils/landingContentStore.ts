@@ -24,6 +24,8 @@ export interface LandingPageContent {
   hoursNote: string;
   locationLines: string[];
   mapEmbedUrl: string;
+  contactEmail: string;
+  contactPhone: string;
   aboutTitle: string;
   aboutSubtitle: string;
   aboutBody: string;
@@ -36,7 +38,7 @@ export const DEFAULT_MAP_EMBED =
   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.8605234742895!2d118.7358141!3d9.777867299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b5632f84660cb3%3A0x6c411581676a62cf!2sDocufy%20Printing%20Services!5e0!3m2!1sen!2sph!4v1788133073002!5m2!1sen!2sph";
 
 const defaults: LandingPageContent = {
-  heroTitle: "Print, Track, Succeed",
+  heroTitle: "Print, Track #b, Succeed",
   heroSubtitle: "Your Printing Companion",
   heroDescription:
     "Upload, print, and track your documents with ease. Professional printing services designed for students and faculty.",
@@ -57,6 +59,8 @@ const defaults: LandingPageContent = {
     "Puerto Princesa City, 5300 Palawan",
   ],
   mapEmbedUrl: DEFAULT_MAP_EMBED,
+  contactEmail: "support@docufy.com",
+  contactPhone: "+63 912 345 6789",
   aboutTitle: "About Docufy PSMS",
   aboutSubtitle: "Your printing companion",
   aboutBody:

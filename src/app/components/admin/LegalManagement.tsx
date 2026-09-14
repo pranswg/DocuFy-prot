@@ -1,0 +1,303 @@
+// Admin Terms & Conditions / Privacy Policy editor.
+// Management -> Terms & Privacy (/admin/legal). Edits the shared legal content
+// shown on the landing footer, sign up, and checkout.
+
+import React, { useState } from "react";
+import { ScrollText, Save, RotateCcw, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import Layout from "../Layout";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { adminMenuItems } from "../../utils/adminMenuItems";
+import {
+  legalContentStore,
+  type LegalContent,
+  type LegalSection,
+} from "../../utils/legalContentStore";
+import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import LegalPolicyDialog from "../shared/LegalPolicyDialog";
+
+type SectionField = "termsSections" | "privacySections";
+
+function PolicyCard({
+  heading,
+  hint,
+  title,
+  lastUpdated,
+  sections,
+  onTitleChange,
+  onLastUpdatedChange,
+  onSectionChange,
+  onAdd,
+  onRemove,
+}: {
+  heading: string;
+  hint: string;
+  title: string;
+  lastUpdated: string;
+  sections: LegalSection[];
+  onTitleChange: (v: string) => void;
+  onLastUpdatedChange: (v: string) => void;
+  onSectionChange: (index: number, partial: Partial<LegalSection>) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">{heading}</h3>
+          <p className="mt-0.5 text-sm text-slate-500">{hint}</p>
+        </div>
+      </div>
+      <div className="space-y-4 px-5 py-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Heading</Label>
+            <Input
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium text-slate-700">
+              Last updated
+            </Label>
+            <Input
+              value={lastUpdated}
+              onChange={(e) => onLastUpdatedChange(e.target.value)}
+              placeholder='e.g. "April 27, 2026"'
+              className="mt-1.5"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-blue-100 bg-[#F2F7FF] p-3 text-xs text-slate-600">
+          <p className="font-semibold text-[#1D73EC]">Writing format</p>
+          <p className="mt-1">
+            Separate paragraphs with a blank line. To make a bulleted list,
+            put each item on its own line starting with <span className="font-medium text-slate-700">"- "</span> (dash + space).
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium text-slate-700">Sections</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF]"
+            onClick={onAdd}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Section
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {sections.map((section, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-slate-100 p-3 space-y-3"
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F2F7FF] text-xs font-semibold text-[#2F6FD6]">
+                  {i + 1}
+                </span>
+                <Input
+                  value={section.title}
+                  onChange={(e) =>
+                    onSectionChange(i, { title: e.target.value })
+                  }
+                  placeholder='e.g. "1. Acceptance of Terms"'
+                  className="h-9 flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemove(i)}
+                  className="shrink-0 p-2 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                  title="Remove section"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <Textarea
+                value={section.body}
+                onChange={(e) => onSectionChange(i, { body: e.target.value })}
+                rows={5}
+                placeholder="Write the section content here…"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LegalManagement() {
+  const [content, setContent] = useState<LegalContent>(() =>
+    legalContentStore.getContent(),
+  );
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const patch = (partial: Partial<LegalContent>) =>
+    setContent((prev) => ({ ...prev, ...partial }));
+
+  const patchSection = (
+    field: SectionField,
+    index: number,
+    partial: Partial<LegalSection>,
+  ) => {
+    setContent((prev) => ({
+      ...prev,
+      [field]: prev[field].map((s, i) => (i === index ? { ...s, ...partial } : s)),
+    }));
+  };
+
+  const addSection = (field: SectionField) => {
+    setContent((prev) => ({
+      ...prev,
+      [field]: [...prev[field], { title: "", body: "" }],
+    }));
+  };
+
+  const removeSection = (field: SectionField, index: number) => {
+    setContent((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSave = () => {
+    setShowSaveConfirm(false);
+    try {
+      legalContentStore.saveContent(content);
+      toast.success("Terms and policies saved. They are now updated everywhere.");
+    } catch {
+      toast.error("Could not save your changes to browser storage. Please try again.");
+    }
+  };
+
+  const handleReset = () => {
+    try {
+      legalContentStore.resetContent();
+      setContent(legalContentStore.getContent());
+      setShowResetConfirm(false);
+      toast.success("Terms and privacy content reset to defaults.");
+    } catch {
+      setShowResetConfirm(false);
+      toast.error("Could not reset the legal content. Please try again.");
+    }
+  };
+
+  return (
+    <Layout menuItems={adminMenuItems} title="Terms & Privacy" showBackButton>
+      <div className="space-y-5">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between py-2 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#F2F7FF] text-[#1D73EC] flex items-center justify-center shrink-0">
+              <ScrollText className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#10316B]">Terms &amp; Privacy</h2>
+              <p className="text-gray-600 mt-1">
+                Edit the Terms &amp; Conditions and Privacy Policy shown on the
+                landing page, sign up, and checkout. Changes apply as soon as you save.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-11 sm:h-10 w-full sm:w-auto border-[#2F6FD6]/40 text-[#2F6FD6] hover:bg-[#F2F7FF] hover:text-[#2F6FD6]"
+              onClick={() => setShowPreview(true)}
+            >
+              Preview
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 sm:h-10 w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setShowResetConfirm(true)}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" /> Reset
+            </Button>
+            <Button
+              onClick={() => setShowSaveConfirm(true)}
+              className="h-11 sm:h-10 w-full sm:w-auto bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+            >
+              <Save className="w-4 h-4 mr-2" /> Save Changes
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <PolicyCard
+            heading="Terms & Conditions"
+            hint="Appears under the 'Terms & Condition' link on the landing page footer, sign up, and checkout."
+            title={content.termsTitle}
+            lastUpdated={content.termsLastUpdated}
+            sections={content.termsSections}
+            onTitleChange={(v) => patch({ termsTitle: v })}
+            onLastUpdatedChange={(v) => patch({ termsLastUpdated: v })}
+            onSectionChange={(i, p) => patchSection("termsSections", i, p)}
+            onAdd={() => addSection("termsSections")}
+            onRemove={(i) => removeSection("termsSections", i)}
+          />
+          <PolicyCard
+            heading="Privacy Policy"
+            hint="Appears under the 'Privacy Policy' link on the landing page footer, sign up, and checkout."
+            title={content.privacyTitle}
+            lastUpdated={content.privacyLastUpdated}
+            sections={content.privacySections}
+            onTitleChange={(v) => patch({ privacyTitle: v })}
+            onLastUpdatedChange={(v) => patch({ privacyLastUpdated: v })}
+            onSectionChange={(i, p) => patchSection("privacySections", i, p)}
+            onAdd={() => addSection("privacySections")}
+            onRemove={(i) => removeSection("privacySections", i)}
+          />
+        </div>
+
+        <div className="flex justify-end rounded-xl border border-slate-200 bg-white p-3 shadow-sm mt-6 mb-2">
+          <Button
+            onClick={() => setShowSaveConfirm(true)}
+            className="h-10 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+          >
+            <Save className="w-4 h-4 mr-2" /> Save Changes
+          </Button>
+        </div>
+      </div>
+
+      <ConfirmationDialog
+        open={showSaveConfirm}
+        onOpenChange={setShowSaveConfirm}
+        title="Save changes?"
+        description="This applies your current edits to the Terms & Conditions and Privacy Policy shown across the system."
+        confirmLabel="Save Changes"
+        onConfirm={handleSave}
+      />
+
+      <ConfirmationDialog
+        open={showResetConfirm}
+        onOpenChange={setShowResetConfirm}
+        title="Reset Terms & Privacy content?"
+        description="This restores the default Terms & Conditions and Privacy Policy text. This action cannot be undone."
+        confirmLabel="Reset Content"
+        onConfirm={handleReset}
+        requirePhrase
+        destructive
+      />
+
+      <LegalPolicyDialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        contentOverride={content}
+        initialTab="terms"
+      />
+    </Layout>
+  );
+}
