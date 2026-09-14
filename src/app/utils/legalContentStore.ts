@@ -74,7 +74,7 @@ const defaults: LegalContent = {
     },
     {
       title: "9. Contact Information",
-      body: "For questions about these Terms and Conditions, please contact us at support@docufy.com or visit our office at Room 4, Palawan State University - Main Campus, TBI Building, Puerto Princesa City, 5300 Palawan.",
+      body: "For questions about these Terms and Conditions, please contact us at printwithdocufy@gmail.com or visit our office at Room 4, Palawan State University - Main Campus, TBI Building, Puerto Princesa City, 5300 Palawan.",
     },
   ],
   privacyTitle: "Privacy Policy",
@@ -122,7 +122,7 @@ const defaults: LegalContent = {
     },
     {
       title: "11. Contact Us",
-      body: "If you have any questions about this Privacy Policy, please contact us at support@docufy.com.",
+      body: "If you have any questions about this Privacy Policy, please contact us at printwithdocufy@gmail.com.",
     },
   ],
 };

@@ -701,13 +701,33 @@ export default function LandingPageEditor() {
                     label="Contact Email"
                     value={content.contactEmail}
                     onChange={(v) => patch({ contactEmail: v })}
-                    hint='e.g. "support@docufy.com" — shown in the landing page footer.'
+                    hint='e.g. "printwithdocufy@gmail.com" — shown in the landing page footer.'
                   />
                   <Field
-                    label="Contact Phone"
-                    value={content.contactPhone}
-                    onChange={(v) => patch({ contactPhone: v })}
-                    hint='e.g. "+63 912 345 6789" — shown in the landing page footer.'
+                    label="Facebook Page Name"
+                    value={content.facebookPage}
+                    onChange={(v) => patch({ facebookPage: v })}
+                    hint='e.g. "Docufy" — shown in the landing page footer.'
+                  />
+                </div>
+                <Field
+                  label="Facebook Page Link"
+                  value={content.facebookPageUrl}
+                  onChange={(v) => patch({ facebookPageUrl: v })}
+                  hint='e.g. "https://www.facebook.com/Docufy" — where the page name links to.'
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field
+                    label="Facebook Account / Messenger Name"
+                    value={content.facebookMessenger}
+                    onChange={(v) => patch({ facebookMessenger: v })}
+                    hint='e.g. "Docufy Printing" — shown in the landing page footer.'
+                  />
+                  <Field
+                    label="Messenger Link"
+                    value={content.facebookMessengerUrl}
+                    onChange={(v) => patch({ facebookMessengerUrl: v })}
+                    hint='e.g. "https://m.me/DocufyPrinting" — where the account links to.'
                   />
                 </div>
 

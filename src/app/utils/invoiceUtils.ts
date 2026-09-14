@@ -290,7 +290,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData): string {
 
   <div class="footer">
     <p>Thank you for choosing Docufy!</p>
-    <p>For inquiries, please contact us at support@docufy.com</p>
+    <p>For inquiries, please contact us at printwithdocufy@gmail.com</p>
     <p style="margin-top: 15px; font-size: 10px;">Generated on ${new Date().toLocaleString()}</p>
   </div>
 </body>

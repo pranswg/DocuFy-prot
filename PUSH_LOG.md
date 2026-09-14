@@ -874,3 +874,11 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Implemented Salary Settings for admins: a Salary Settings card at the top of the Staff List shows the current Hourly Rate (default P50/hour) with an Edit Rate dialog, stored persistently via a new salaryStore so changes survive refresh.
 - Implemented Release Salary flow: releasing pays the current period, records a history entry (staff, period, hours, rate, amount, release date, released by admin), and starts a fresh tracking period without deleting attendance history.
 - Fixed staff role change reverting after refresh: the roster was kept in page state while the real role lived in in-memory auth accounts, so a Staff-to-Admin change looked like it reverted even though the account was already admin. The roster now persists (staffStore) alongside the sign-in accounts (AuthContext persists staff/admin accounts and exposes getStaffAccounts); the displayed role always matches the actual login permission now.
+
+---
+
+## September 14, 2026 11:30 PM (PHT) - prans
+- Removed the Quick Links column from the landing footer: the footer links (Home, Services & Pricing, Shop Info, Join Our Team, Contact) just repeated the page's own navigation, so the column was removed and the footer's three remaining sections were rebalanced into Brand/About, Shop Information, and Contact Us.
+- Reworked the landing footer contact section into Facebook Page + Messenger: the old Contact Phone row was replaced with a Facebook Page link and a Messenger link, both admin-editable in the Landing editor (Facebook Page Name + Link, and Facebook Account/Messenger Name + Link fields). Each contact row shows an icon label with its link underneath, and on mobile the links no longer take an extra indent.
+- Made the landing footer compact on mobile: the footer previously stacked all sections full-width, taking a lot of vertical space on phones. Now on mobile the Brand/About block spans full width while Shop Information and Contact Us sit side-by-side in two columns with tighter spacing, so the footer is much shorter while staying readable; desktop layout is unchanged.
+- Updated the support email from support@docufy.com to printwithdocufy@gmail.com everywhere: replaced in the landing footer defaults, the order-tracking and admin-order receipts, and the Terms & Privacy default contact text.

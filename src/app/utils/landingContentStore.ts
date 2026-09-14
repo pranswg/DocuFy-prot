@@ -25,7 +25,10 @@ export interface LandingPageContent {
   locationLines: string[];
   mapEmbedUrl: string;
   contactEmail: string;
-  contactPhone: string;
+  facebookPage: string;
+  facebookPageUrl: string;
+  facebookMessenger: string;
+  facebookMessengerUrl: string;
   aboutTitle: string;
   aboutSubtitle: string;
   aboutBody: string;
@@ -60,8 +63,11 @@ const defaults: LandingPageContent = {
     "Puerto Princesa City, 5300 Palawan",
   ],
   mapEmbedUrl: DEFAULT_MAP_EMBED,
-  contactEmail: "support@docufy.com",
-  contactPhone: "+63 912 345 6789",
+  contactEmail: "printwithdocufy@gmail.com",
+  facebookPage: "Docufy",
+  facebookPageUrl: "https://www.facebook.com/Docufy",
+  facebookMessenger: "Docufy Printing",
+  facebookMessengerUrl: "https://m.me/DocufyPrinting",
   aboutTitle: "About Docufy PSMS",
   aboutSubtitle: "Your printing companion",
   aboutBody:
