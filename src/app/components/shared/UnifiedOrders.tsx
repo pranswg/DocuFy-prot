@@ -2210,7 +2210,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <p>Thank you for choosing Docufy!</p>
                   <p>
                     For inquiries, please contact us at
-                    support@docufy.com
+                    printwithdocufy@gmail.com
                   </p>
                 </div>
               </>

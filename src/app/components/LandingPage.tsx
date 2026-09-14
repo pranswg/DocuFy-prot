@@ -15,7 +15,8 @@ import {
   User,
   LogOut,
   Mail,
-  Phone,
+  Facebook,
+  MessageCircle,
   ChevronDown,
   X,
 } from "lucide-react";
@@ -170,7 +171,7 @@ export default function LandingPage({
   // Landing Page editor preview scrolls a nested div, not the window).
   const landingRootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const sectionIds = ["home", "services", "shop-info", "jobs"];
+    const sectionIds = ["home", "services", "shop-info", "jobs", "footer"];
 
     const scrollRoot = getScrollRoot();
 
@@ -252,6 +253,7 @@ export default function LandingPage({
     { id: "services", label: "Services & Pricing" },
     { id: "shop-info", label: "Shop Info" },
     { id: "jobs", label: "Join Our Team" },
+    { id: "footer", label: "Contact" },
   ];
 
   return (
@@ -829,9 +831,9 @@ export default function LandingPage({
       {/* Footer */}
       <footer id="footer" className="relative z-10 bg-[#1351AE]">
         <div className="mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6">
-          <div className="grid gap-x-10 gap-y-6 py-6 lg:grid-cols-12 lg:gap-x-8 lg:py-8">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-6 py-6 lg:grid-cols-12 lg:gap-x-8 lg:py-8">
             {/* Brand / About Docufy */}
-            <div className="lg:col-span-5">
+            <div className="col-span-2 lg:col-span-6">
               <div className="flex items-center gap-3">
                 <img
                   src={logo}
@@ -848,74 +850,83 @@ export default function LandingPage({
               </p>
             </div>
 
-            {/* Quick Links */}
-            <nav className="lg:col-span-3 lg:pl-4" aria-label="Footer">
+            {/* Shop Information */}
+            <div className="lg:col-span-3">
               <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
-                Quick Links
+                Shop Information
               </h3>
-              <ul className="mt-2.5 space-y-1.5">
-                {[
-                  { id: "home", label: "Home" },
-                  { id: "services", label: "Services & Pricing" },
-                  { id: "shop-info", label: "Shop Info" },
-                  { id: "jobs", label: "Join Our Team" },
-                ].map((link) => (
-                  <li key={link.label}>
-                    <button
-                      type="button"
-                      onClick={() => scrollToSection(link.id)}
-                      className="text-sm text-blue-50/90 transition-colors hover:text-white"
-                    >
-                      {link.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            {/* Contact / Shop Information */}
-            <div className="lg:col-span-4">
-              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
-                Contact / Shop Information
-              </h3>
-              <div className="mt-2.5 space-y-2">
+              <div className="mt-2.5 space-y-3">
                 {content.locationLines[0] && (
-                  <p className="text-sm text-blue-50/90">
+                  <p className="text-sm leading-normal text-blue-50/90">
                     {content.locationLines[0]}
                   </p>
                 )}
                 {content.shopHours[0] && (
                   <div className="text-sm text-blue-50/90">
-                    <p className="font-medium text-white">{content.shopHours[0].label}</p>
-                    <p>{content.shopHours[0].hours}</p>
+                    <p className="font-medium leading-normal text-white">{content.shopHours[0].label}</p>
+                    <p className="leading-normal">{content.shopHours[0].hours}</p>
                   </div>
                 )}
                 {content.shopHours[1] && (
-                  <p className="text-sm text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
+                  <p className="text-sm leading-normal text-blue-50/90">{content.shopHours[1].label} - {content.shopHours[1].hours}</p>
                 )}
+              </div>
+            </div>
+
+            {/* Contact Us */}
+            <div className="lg:col-span-3">
+              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
+                Contact Us
+              </h3>
+              <div className="mt-2.5 space-y-3">
                 {content.contactEmail && (
-                  <a
-                    href={`mailto:${content.contactEmail}`}
-                    className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {content.contactEmail}
-                  </a>
+                  <div className="text-sm text-blue-50/90">
+                    <p className="flex items-center gap-2 font-medium text-white">
+                      <Mail className="h-4 w-4 shrink-0" /> Email
+                    </p>
+                    <a
+                      href={`mailto:${content.contactEmail}`}
+                      className="block break-all leading-normal transition-colors hover:text-white"
+                    >
+                      {content.contactEmail}
+                    </a>
+                  </div>
                 )}
-                {content.contactPhone && (
-                  <a
-                    href={`tel:${content.contactPhone.replace(/[^+\d]/g, "")}`}
-                    className="inline-flex items-center gap-2 text-sm text-blue-50/90 transition-colors hover:text-white"
-                  >
-                    <Phone className="h-4 w-4" />
-                    {content.contactPhone}
-                  </a>
+                {content.facebookPage && (
+                  <div className="text-sm text-blue-50/90">
+                    <p className="flex items-center gap-2 font-medium text-white">
+                      <Facebook className="h-4 w-4 shrink-0" /> Facebook Page
+                    </p>
+                    <a
+                      href={content.facebookPageUrl || "https://www.facebook.com"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all leading-normal transition-colors hover:text-white"
+                    >
+                      {content.facebookPage}
+                    </a>
+                  </div>
+                )}
+                {content.facebookMessenger && (
+                  <div className="text-sm text-blue-50/90">
+                    <p className="flex items-center gap-2 font-medium text-white">
+                      <MessageCircle className="h-4 w-4 shrink-0" /> Messenger
+                    </p>
+                    <a
+                      href={content.facebookMessengerUrl || "https://www.facebook.com"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all leading-normal transition-colors hover:text-white"
+                    >
+                      {content.facebookMessenger}
+                    </a>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-2 border-t border-white/10 py-3 text-xs text-blue-100/80 sm:flex-row sm:justify-between sm:py-3.5">
+          <div className="flex flex-col items-center gap-2 border-t border-white/10 py-2.5 text-xs text-blue-100/80 sm:flex-row sm:justify-between sm:py-3.5">
             <p>&copy; 2026 Docufy PSMS. All rights reserved.</p>
             <div className="flex items-center gap-3">
               <button

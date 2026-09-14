@@ -1,7 +1,7 @@
 // Docufy Contact Information and Constants
 
 export const DOCUFY_ADDRESS = "Room 4, Palawan State University - Main Campus, TBI Building, Puerto Princesa City, 5300 Palawan";
-export const DOCUFY_EMAIL = "support@docufy.com";
+export const DOCUFY_EMAIL = "printwithdocufy@gmail.com";
 export const DOCUFY_PHONE = "+63 123 456 7890";
 
 export const SHOP_HOURS = {
