@@ -56,7 +56,16 @@ export function buildRow(
   override?: DailyAttendanceRecord | null,
 ): AdminRow {
   const rec = override ?? attendanceStore.getRecord(member.email, dateKey);
-  const absence = attendanceStore.getAbsence(member.email, dateKey);
+  // A staff member's persistent attendance status (set by the admin on the
+  // Staff Management page) is authoritative and applies to every day until the
+  // admin changes it. Today the only status an admin can set is "on-leave"
+  // (with a reason); "absent" is NOT a stored status — anyone who doesn't
+  // clock in shows as Absent automatically. Day-specific absence marks (from
+  // the day modal) only apply when the persistent status is "active".
+  const persistent: AbsenceType | null =
+    member.attendanceStatus === "on-leave" ? "on-leave" : null;
+  const absence: AbsenceType | null =
+    persistent ?? attendanceStore.getAbsence(member.email, dateKey);
 
   const clockIn = rec?.timeIn;
   const clockOut = rec?.timeOut;
@@ -78,7 +87,8 @@ export function buildRow(
   const late = !!clockIn && !onTime;
   const overtime = totalMs > STANDARD_DAILY_HOURS * MS_PER_HOUR;
 
-  let presence: Presence = "no-clock-in";
+  // A staff member who has not clocked in for the day is automatically Absent.
+  let presence: Presence = "absent";
   if (absence === "on-leave") presence = "on-leave";
   else if (absence === "absent") presence = "absent";
   else if (clockIn) presence = "present";
@@ -197,8 +207,10 @@ export function useTodaySnapshot(members: StaffMember[], tickMs = 30_000) {
 
   const todayRows = useMemo(
     () => buildDayRows(members, todayKey, now),
+    // `version` bumps on every attendanceStore change (absences, clock edits,
+    // resets), so the rows must rebuild to reflect it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [members, now],
+    [members, now, version],
   );
 
   const kpis = useMemo(() => {

@@ -5,8 +5,8 @@ import type { AdminRow } from "../../utils/attendanceView";
 
 // A single compact today-status pill for the directory "Status" column / the
 // KPI filter in the right-hand detail pane header. Colors mirror the badges
-// used across the monitoring views (On Leave orange, Absent red, No Clock-In
-// gray, present states green/amber).
+// used across the monitoring views (On Leave orange, Absent red, present
+// states green/amber). A staff member who hasn't clocked in shows as Absent.
 export function todayStatusInfo(row: AdminRow): {
   label: string;
   className: string;
@@ -15,9 +15,7 @@ export function todayStatusInfo(row: AdminRow): {
   if (row.presence !== "present") {
     if (row.presence === "on-leave")
       return { label: "On Leave", className: "border border-orange-200 bg-orange-100 text-orange-700" };
-    if (row.presence === "absent")
-      return { label: "Absent", className: "border border-red-200 bg-red-100 text-red-700" };
-    return { label: "No Clock-In", className: "border border-gray-200 bg-gray-100 text-gray-500" };
+    return { label: "Absent", className: "border border-red-200 bg-red-100 text-red-700" };
   }
   if (row.isLive)
     return {

@@ -14,6 +14,8 @@ export interface Staff {
   phone: string;
   role: string;
   status: "Active" | "Inactive";
+  attendanceStatus: "active" | "on-leave";
+  onLeaveReason: string;
   joinDate: string;
   skillsMessage: string;
   portfolioLink: string;
@@ -49,6 +51,8 @@ export const DEFAULT_STAFF: Staff[] = [
     phone: "0912 345 6789",
     role: "Staff",
     status: "Active",
+    attendanceStatus: "on-leave",
+    onLeaveReason: "On scheduled annual leave",
     joinDate: "2025-09-01",
     skillsMessage: "I have extensive experience in managing daily print operations, quality control, equipment maintenance, color management, and providing excellent customer service. Certified Print Professional with proven track record.",
     portfolioLink: "https://drive.google.com/heavenrica-portfolio",
@@ -127,6 +131,8 @@ export const DEFAULT_STAFF: Staff[] = [
     phone: "0923 456 7890",
     role: "Staff",
     status: "Active",
+    attendanceStatus: "active",
+    onLeaveReason: "",
     joinDate: "2025-10-15",
     skillsMessage: "Proficient in printing operations, equipment setup, document binding, and customer support. Quick learner with attention to detail.",
     portfolioLink: "https://linkedin.com/in/robertchen",
@@ -181,6 +187,8 @@ export const DEFAULT_STAFF: Staff[] = [
     phone: "0934 567 8901",
     role: "Staff",
     status: "Active",
+    attendanceStatus: "active",
+    onLeaveReason: "",
     joinDate: "2026-01-10",
     skillsMessage: "Excellent customer service skills, experienced in payment processing, order management, and professional communication.",
     portfolioLink: "",
@@ -237,6 +245,27 @@ export const DEFAULT_STAFF: Staff[] = [
 
 type Subscriber = () => void;
 
+// Backfills any missing fields on records loaded from storage so older data
+// (saved before a field existed) still behaves correctly. "absent" is no
+// longer a stored status — a staff member who doesn't clock in is simply
+// shown as Absent automatically, so any legacy "absent" value converts to
+// "active". Demo staff inherit their seeded on-leave status when the field
+// has never been set; once the admin picks a status it is stored and honored
+// from then on.
+const DEMO_ATTENDANCE_STATUS: Record<string, "on-leave"> = {
+  "staff@test.com": "on-leave",
+};
+
+function normalizeStaff(s: Staff): Staff {
+  const stored = s.attendanceStatus;
+  const onLeave = stored === "on-leave" || (stored !== "active" && stored !== "absent" && DEMO_ATTENDANCE_STATUS[s.email.toLowerCase()] === "on-leave");
+  return {
+    ...s,
+    attendanceStatus: onLeave ? "on-leave" : "active",
+    onLeaveReason: onLeave ? (s.onLeaveReason?.trim() ? s.onLeaveReason : "Not specified") : "",
+  };
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 class StaffStore {
   private list: Staff[] = DEFAULT_STAFF;
@@ -264,7 +293,7 @@ class StaffStore {
       if (!Array.isArray(parsed)) return;
       this.list = parsed.filter(
         (s) => s && typeof s === "object" && typeof s.email === "string" && typeof s.name === "string",
-      );
+      ).map(normalizeStaff);
       if (this.list.length === 0) this.list = DEFAULT_STAFF;
     } catch {
       this.list = DEFAULT_STAFF;
@@ -284,7 +313,7 @@ class StaffStore {
   }
 
   setStaff(next: Staff[]): void {
-    this.list = next.map((s) => ({ ...s }));
+    this.list = next.map((s) => normalizeStaff({ ...s }));
     this.persist();
     this.notify();
   }

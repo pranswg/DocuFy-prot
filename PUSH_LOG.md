@@ -900,3 +900,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Removed the page's own notification bell / clock / avatar header cluster: the app layout header already provides those, so the page no longer duplicates them.
 - Timesheet rows now highlight the date instead of the weekday: the row's bold text is the date (e.g. "Sep 15, 2026") with the weekday in muted small text below.
 - Session timer shows --:--:-- until the staff clocks in: the big live clock only starts counting once on the clock (previously it hid the timer entirely).
+
+---
+
+## September 15, 2026 ~8:57 PM (PHT) - prans
+- Implemented persistent admin-editable attendance status on Staff Management: the Edit Staff dialog gained an Attendance Status control (Active - normal shift / On Leave) that stays on the staff record until an admin changes it again, so the status badge (e.g. On Leave) no longer resets each day or gets overridden by the demo seed. Only On Leave is settable now - anyone who does not clock in for the day is shown as Absent automatically (the manual Absent option and the separate No Clock-In badge, KPI chip, and filter were removed).
+- On Leave requires a reason: choosing On Leave reveals a Reason for leave box, and the Save Changes button stays disabled (grayed out) until a reason is typed.
+- On Leave pill opens the reason: clicking the On Leave badge in the staff list or the staff detail pane opens a small dialog showing why that staff member is on leave.
+- Pencil shortcut on the detail pane status: a pencil icon beside the status badge in the staff detail pane header opens that staff's Edit dialog for quick status changes.
+- Staff Time-In lockout panel redesigned: the staff lockout modal now uses a compact layout (icon + title side-by-side, two-column locked-actions grid, 12-hour live clock), shows a disabled "On Leave" / "Marked Absent" state when the staff member has an on-leave or absent mark so they can't clock in, and adds a Return to Dashboard action alongside Open Clock-In & Timesheet.

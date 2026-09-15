@@ -13,6 +13,8 @@ export type StaffMember = {
   position: string;
   role?: "Staff" | "Admin";
   shift?: string;
+  attendanceStatus?: "active" | "on-leave";
+  onLeaveReason?: string;
 };
 
 export const DEFAULT_STAFF_SHIFT = "8:00 AM - 5:00 PM";
@@ -23,7 +25,7 @@ export const toDateKey = (d: Date = nowPHT()): string =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 const SEEDED_STAFF: StaffMember[] = [
-  { id: "EMP-001", name: "Heaven Rica", email: "staff@test.com", position: "Print Operator", role: "Staff", shift: "8:00 AM - 5:00 PM" },
+  { id: "EMP-001", name: "Heaven Rica", email: "staff@test.com", position: "Print Operator", role: "Staff", shift: "8:00 AM - 5:00 PM", attendanceStatus: "on-leave", onLeaveReason: "On scheduled annual leave" },
   { id: "EMP-002", name: "Robert Chen", email: "robert.chen@docufy.com", position: "Print Operator", role: "Staff", shift: "8:00 AM - 5:00 PM" },
   { id: "EMP-003", name: "Katie Perry", email: "katie.perry@docufy.com", position: "Front Desk", role: "Staff", shift: "9:00 AM - 6:00 PM" },
   { id: "EMP-004", name: "Miguel Santos", email: "miguel.santos@docufy.com", position: "Bindery Lead", role: "Staff", shift: "8:00 AM - 6:00 PM" },
@@ -55,9 +57,10 @@ export const getStaffRoster = (): StaffMember[] => {
 
 // ── Demo seed (today only, idempotent) ──────────────────────────────────────
 // Paints a realistic monitoring snapshot on first load so the dashboard is not
-// empty: one staff On Leave, one Absent, one Overtime, and two still on the
-// clock (so the "Currently Working" strip has live rows).
-// Skips staff@test.com (the staff test account) — leaving that flow untouched.
+// empty: one staff On Leave (Heaven — persistent on-leave status), one Automatically
+// Absent (Ana — no clock-in), one Overtime, and two still on the clock (so the
+// "Currently Working" strip has live rows).
+// Skips staff@test.com (the staff test account)'s clock flow — leaving that untouched.
 export const seedDemoAttendance = (): void => {
   const today = toDateKey();
   // Times are expressed as PHT wall-clock times (seeded demo mirrors PH shift).
@@ -80,11 +83,6 @@ export const seedDemoAttendance = (): void => {
     attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn);
   };
 
-  // Heaven Rica — On Leave (never touch her clock flow)
-  if (!attendanceStore.getAbsence("staff@test.com", today)) {
-    attendanceStore.setAbsence("staff@test.com", today, "on-leave");
-  }
-
   // Robert Chen — Present, On Time, still on the clock (8:00 start)
   seedLive(SEEDED_STAFF[1], at(8, 0));
 
@@ -94,8 +92,7 @@ export const seedDemoAttendance = (): void => {
   // Miguel Santos — Present, Overtime (8:05 start, 10h total, clocked out)
   seedDay(SEEDED_STAFF[3], at(8, 5), at(18, 5));
 
-  // Ana Dela Cruz — Absent
-  if (!attendanceStore.getAbsence("ana.delacruz@docufy.com", today)) {
-    attendanceStore.setAbsence("ana.delacruz@docufy.com", today, "absent");
-  }
+  // Heaven Rica is On Leave via her persistent roster status; Ana Dela Cruz
+  // has no clock-in, so she shows as Absent automatically. No per-day absence
+  // mark is seeded here — an admin's Edit-dialog choice is never overwritten.
 };

@@ -10,7 +10,6 @@ import {
   AlarmClock,
   LogOut,
   UserX,
-  MinusCircle,
   Edit2,
   Wallet,
   History,
@@ -52,6 +51,7 @@ import { SummaryCard } from "../ui/summary-card";
 import { staffStore, type Staff } from "../../utils/staffStore";
 import { salaryStore } from "../../utils/salaryStore";
 import { attendanceStore, sessionTotalMs, hasActiveSession, nowPHT, getWeekStartKey } from "../../utils/attendanceStore";
+
 import { formatCurrency, formatNumber } from "../../utils/formatNumber";
 import { getStaffRoster, DEFAULT_STAFF_SHIFT } from "../../utils/staffRoster";
 import type { StaffMember } from "../../utils/staffRoster";
@@ -79,7 +79,7 @@ const menuItems = adminMenuItems;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type TodayFilter = "all" | "on-time" | "late" | "on-clock" | "on-leave" | "absent" | "no-clock-in";
+type TodayFilter = "all" | "on-time" | "late" | "on-clock" | "on-leave" | "absent";
 
 const matchesTodayFilter = (row: AdminRow | undefined, filter: TodayFilter): boolean => {
   switch (filter) {
@@ -95,8 +95,6 @@ const matchesTodayFilter = (row: AdminRow | undefined, filter: TodayFilter): boo
       return !!row && row.presence === "on-leave";
     case "absent":
       return !!row && row.presence === "absent";
-    case "no-clock-in":
-      return !!row && row.presence === "no-clock-in";
     default:
       return true;
   }
@@ -179,6 +177,8 @@ export default function Staff() {
           phone: "Not set",
           role: acc.role === "admin" ? "Admin" : "Staff",
           status: acc.active === false ? "Inactive" : "Active",
+          attendanceStatus: "active",
+          onLeaveReason: "",
           joinDate: todayPHTKey(),
           skillsMessage: "",
           portfolioLink: "",
@@ -236,12 +236,15 @@ export default function Staff() {
     email: string;
     role: "Staff" | "Admin";
     status: "Active" | "Inactive";
+    attendanceStatus: "active" | "on-leave";
+    onLeaveReason: string;
   } | null>(null);
 
   const [activating, setActivating] = useState<Staff | null>(null);
   const [deactivating, setDeactivating] = useState<Staff | null>(null);
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
+  const [onLeaveInfo, setOnLeaveInfo] = useState<Staff | null>(null);
 
   const activeCount = staff.filter((s) => s.status === "Active").length;
   const inactiveCount = staff.length - activeCount;
@@ -256,13 +259,16 @@ export default function Staff() {
     const seen = new Set<string>();
     for (const s of staff) {
       const seeded = seedByEmail.get(s.email.toLowerCase());
-      merged.push(seeded ?? {
-        id: s.id,
-        name: s.name,
-        email: s.email,
-        position: "Staff",
-        role: s.role === "Admin" ? "Admin" : "Staff",
-        shift: DEFAULT_STAFF_SHIFT,
+      merged.push({
+        ...(seeded ?? {
+          id: s.id,
+          name: s.name,
+          email: s.email,
+          position: "Staff",
+          role: s.role === "Admin" ? "Admin" : "Staff",
+          shift: DEFAULT_STAFF_SHIFT,
+        }),
+        attendanceStatus: s.attendanceStatus ?? "active",
       });
       seen.add(s.email.toLowerCase());
     }
@@ -419,6 +425,8 @@ export default function Staff() {
       phone: "Not set",
       role: role === "admin" ? "Admin" : "Staff",
       status: "Active",
+      attendanceStatus: "active",
+      onLeaveReason: "",
       joinDate: todayPHTKey(),
       skillsMessage: "",
       portfolioLink: "",
@@ -445,6 +453,8 @@ export default function Staff() {
       email: member.email,
       role: member.role === "Admin" ? "Admin" : "Staff",
       status: member.status,
+      attendanceStatus: member.attendanceStatus === "on-leave" ? "on-leave" : "active",
+      onLeaveReason: member.onLeaveReason ?? "",
     });
   };
 
@@ -486,7 +496,15 @@ export default function Staff() {
       email: email.toLowerCase(),
       role: editForm.role,
       status: editForm.status,
+      attendanceStatus: editForm.attendanceStatus,
+      onLeaveReason:
+        editForm.attendanceStatus === "on-leave" ? editForm.onLeaveReason.trim() : "",
     };
+
+    if (updated.attendanceStatus === "on-leave" && !updated.onLeaveReason) {
+      toast.error("Please state the reason this staff member is on leave");
+      return;
+    }
 
     const accountUpdated = updateStaffAccount(editingStaff.email, {
       email: email.toLowerCase() !== editingStaff.email.toLowerCase() ? email.toLowerCase() : undefined,
@@ -496,6 +514,18 @@ export default function Staff() {
     });
 
     applyStaffList(staff.map((s) => (s.id === updated.id ? updated : s)));
+
+    // Make the new attendance status take effect immediately: clear or set
+    // today's day-specific absence so the status badge reflects the choice
+    // right away (and no leftover demo/day mark lingers).
+    if (updated.attendanceStatus !== (editingStaff.attendanceStatus === "on-leave" ? "on-leave" : "active")) {
+      attendanceStore.setAbsence(
+        updated.email,
+        todayKey,
+        updated.attendanceStatus === "active" ? null : "on-leave",
+      );
+    }
+
     setEditingStaff(null);
     setEditForm(null);
     toast.success(
@@ -571,7 +601,6 @@ export default function Staff() {
             { value: "on-clock", label: "On Clock", count: kpis.onClock, icon: Clock, iconBg: "bg-green-50", iconColor: "text-green-600", pulse: true },
             { value: "on-leave", label: "On Leave", count: kpis.away, icon: LogOut, iconBg: "bg-orange-50", iconColor: "text-orange-500", pulse: false },
             { value: "absent", label: "Absent", count: kpis.absent, icon: UserX, iconBg: "bg-red-50", iconColor: "text-red-600", pulse: false },
-            { value: "no-clock-in", label: "No Clock-In", count: kpis.noClock, icon: MinusCircle, iconBg: "bg-gray-100", iconColor: "text-gray-500", pulse: false },
           ].map((card) => {
             const active = todayFilter === card.value;
             return (
@@ -772,12 +801,29 @@ export default function Staff() {
                     </td>
                     <td className="px-5 py-4">
                       {statusInfo ? (
-                        <Badge className={statusInfo.className}>
-                          {statusInfo.label}
-                        </Badge>
+                        member.attendanceStatus === "on-leave" ? (
+                          <button
+                            type="button"
+                            title="View reason for leave"
+                            aria-label={`View reason for leave — ${member.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOnLeaveInfo(member);
+                            }}
+                            className="transition-transform hover:scale-105"
+                          >
+                            <Badge className={statusInfo.className}>
+                              {statusInfo.label}
+                            </Badge>
+                          </button>
+                        ) : (
+                          <Badge className={statusInfo.className}>
+                            {statusInfo.label}
+                          </Badge>
+                        )
                       ) : (
-                        <Badge className="border border-gray-200 bg-gray-100 text-gray-500">
-                          No Clock-In
+                        <Badge className="border border-red-200 bg-red-100 text-red-700">
+                          Absent
                         </Badge>
                       )}
                     </td>
@@ -886,7 +932,7 @@ export default function Staff() {
         {/* Staff attendance detail — in-page view (click a directory row) */}
         {selectedStaff && selectedMember && (
           <div className="mx-auto w-full max-w-6xl pb-8">
-            <div className="px-6 sm:px-8 pt-6">
+            <div className="px-6 sm:px-8">
               <button
                 type="button"
                 onClick={() => setSelectedStaff(null)}
@@ -945,19 +991,44 @@ export default function Staff() {
                           );
                           return todayInfo ? (
                             <div className="mt-3">
-                              {todayInfo.isLive ? (
-                                <Badge className="bg-green-50 text-green-700 border-green-200">
-                                  <span className="relative flex h-1.5 w-1.5 mr-1">
-                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
-                                  </span>
-                                  On Clock
-                                </Badge>
-                              ) : (
-                                <Badge className={todayStatusInfo(todayInfo).className}>
-                                  {todayStatusInfo(todayInfo).label}
-                                </Badge>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {todayInfo.isLive ? (
+                                  <Badge className="bg-green-50 text-green-700 border-green-200">
+                                    <span className="relative flex h-1.5 w-1.5 mr-1">
+                                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                                    </span>
+                                    On Clock
+                                  </Badge>
+                                ) : (
+                                  selectedStaff.attendanceStatus === "on-leave" ? (
+                                    <button
+                                      type="button"
+                                      title="View reason for leave"
+                                      aria-label={`View reason for leave — ${selectedStaff.name}`}
+                                      onClick={() => setOnLeaveInfo(selectedStaff)}
+                                      className="transition-transform hover:scale-105"
+                                    >
+                                      <Badge className={todayStatusInfo(todayInfo).className}>
+                                        {todayStatusInfo(todayInfo).label}
+                                      </Badge>
+                                    </button>
+                                  ) : (
+                                    <Badge className={todayStatusInfo(todayInfo).className}>
+                                      {todayStatusInfo(todayInfo).label}
+                                    </Badge>
+                                  )
+                                )}
+                                <button
+                                  type="button"
+                                  title="Edit attendance status"
+                                  aria-label={`Edit attendance status for ${selectedStaff.name}`}
+                                  onClick={() => openEdit(selectedStaff)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-[#2F6FD6] hover:bg-blue-50 transition-colors"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ) : null;
                         })()}
@@ -1709,7 +1780,7 @@ export default function Staff() {
             </DialogTitle>
             <DialogDescription>
               Update {editingStaff?.name || "this staff member"}'s details,
-              role, and account status.
+              role, account status, and attendance status.
             </DialogDescription>
           </DialogHeader>
           {editForm && (
@@ -1774,6 +1845,48 @@ export default function Staff() {
                   />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label>Attendance Status</Label>
+                <ZoomSafeDropdown
+                  value={editForm.attendanceStatus}
+                  onChange={(value) =>
+                    setEditForm({
+                      ...editForm,
+                      attendanceStatus: value as "active" | "on-leave",
+                    })
+                  }
+                  placeholder="Select attendance status"
+                  triggerClassName="h-11 bg-white"
+                  options={[
+                    { value: "active", label: "Active — normal shift" },
+                    { value: "on-leave", label: "On Leave" },
+                  ]}
+                />
+                {editForm.attendanceStatus === "on-leave" ? (
+                  <div className="space-y-2 pt-1">
+                    <Label>Reason for leave</Label>
+                    <textarea
+                      value={editForm.onLeaveReason}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, onLeaveReason: e.target.value })
+                      }
+                      placeholder="State why this staff member is on leave…"
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#2F6FD6] focus:ring-1 focus:ring-[#2F6FD6] outline-none resize-none"
+                    />
+                    <p className="text-xs text-gray-500">
+                      The reason is shown next to the On Leave badge until the
+                      status is changed again.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Active staff clock in as usual — anyone who doesn't clock in
+                    for the day is shown as Absent automatically.
+                  </p>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter className="gap-2">
@@ -1790,6 +1903,11 @@ export default function Staff() {
             <Button
               data-primary-action
               className="h-11 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white"
+              disabled={
+                !editForm ||
+                (editForm.attendanceStatus === "on-leave" &&
+                  !editForm.onLeaveReason.trim())
+              }
               onClick={() => setShowEditConfirm(true)}
             >
               Save Changes
@@ -1941,6 +2059,40 @@ export default function Staff() {
         cancelLabel="Go Back"
         destructive={false}
       />
+
+      {/* On Leave — reason dialog */}
+      <Dialog
+        open={!!onLeaveInfo}
+        onOpenChange={(open) => {
+          if (!open) setOnLeaveInfo(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#10316B] flex items-center gap-2">
+              <Badge className="border border-orange-200 bg-orange-100 text-orange-700">
+                On Leave
+              </Badge>
+            </DialogTitle>
+            <DialogDescription>
+              Why {onLeaveInfo?.name} is on leave.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <div className="rounded-xl border border-orange-100 bg-orange-50/60 px-4 py-4">
+              <p className="text-sm text-orange-900">
+                {onLeaveInfo?.onLeaveReason?.trim()
+                  ? onLeaveInfo.onLeaveReason.trim()
+                  : "Reason not specified"}
+              </p>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              This status and reason apply until an admin changes them in the
+              Edit Staff dialog.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

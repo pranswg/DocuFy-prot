@@ -10,12 +10,13 @@ import {
   ShoppingCart,
   Boxes,
   ArrowRight,
+  LayoutDashboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
-import { attendanceStore, formatPHT } from "../../utils/attendanceStore";
+import { attendanceStore, todayPHTKey } from "../../utils/attendanceStore";
 import type { NextAction } from "../../utils/attendanceStore";
-import { internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
+import { formatPHTime, internetUtcMs, subscribeInternetTime, toPHT } from "../../utils/pht";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
@@ -50,6 +51,13 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
   // Currently "on the clock" only while a session is active.
   const locked = !!staffUser && nextAction !== "time-out";
 
+  // On-leave / absent staff can't clock in — the gate still shows, but the
+  // action is disabled (mirrors the Clock-In & Timesheet page).
+  const absence = staffUser
+    ? attendanceStore.getAbsence(staffUser.email, todayPHTKey())
+    : null;
+  const primaryDisabled = absence === "on-leave" || absence === "absent";
+
   // Live clock (internet GMT+8) — tick only while a lockout panel is visible.
   useEffect(() => {
     if (!locked) return;
@@ -83,7 +91,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
       toast.success(
         nextAction === "complete"
           ? "Time In Again recorded — today is logged as exceeded."
-          : `Time In recorded at ${formatPHT(new Date(internetUtcMs()), true)}. Staff functions unlocked!`,
+          : `Time In recorded at ${formatPHTime(new Date(internetUtcMs()), { hour12: true, includeSeconds: true })}. Staff functions unlocked!`,
       );
     } catch (err) {
       if (err instanceof Error) toast.error(err.message);
@@ -91,6 +99,7 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
   };
 
   const handleTimeIn = () => {
+    if (primaryDisabled) return;
     if (nextAction === "complete") {
       setShowExtraConfirm(true);
       return;
@@ -110,43 +119,43 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
         className="fixed inset-0 z-50 overflow-y-auto bg-[#1D73EC]/25 backdrop-blur-[3px]"
       >
         <div className="flex min-h-full w-full items-center justify-center p-3 sm:p-6">
-          <Card className="w-full max-w-md border-slate-100 bg-white p-5 shadow-xl sm:p-8">
-            {/* Header icon */}
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2F7FF] sm:h-16 sm:w-16">
-              <Lock className="h-7 w-7 text-[#1D73EC] sm:h-8 sm:w-8" />
+          <Card className="w-full max-w-2xl border-slate-100 bg-white p-6 shadow-xl sm:p-8">
+            {/* Horizontal header — icon left, title/description right */}
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F2F7FF] sm:h-16 sm:w-16">
+                <Lock className="h-7 w-7 text-[#1D73EC] sm:h-8 sm:w-8" />
+              </div>
+              <div className="min-w-0">
+                <h2
+                  id="staff-lockout-title"
+                  className="text-lg font-bold text-[#1c1f26] sm:text-xl"
+                >
+                  Time In to Unlock Staff Functions
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                  You're not currently clocked in. Please record your time-in to start your
+                  shift and unlock staff actions.
+                </p>
+              </div>
             </div>
 
-            {/* Title / description */}
-            <div className="text-center">
-              <h2
-                id="staff-lockout-title"
-                className="text-lg font-bold text-[#1c1f26] sm:text-xl"
-              >
-                Time In to Unlock Staff Functions
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                You're not currently clocked in. Please record your time-in to start your shift
-                and unlock staff actions.
-              </p>
-            </div>
-
-            {/* Live date / time */}
+            {/* Live date / time — 12-hour clock with AM/PM */}
             <div className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-slate-100 bg-[#f0f4f8] px-4 py-3">
               <CalendarDays className="h-4 w-4 flex-shrink-0 text-[#1D73EC]" />
               <span className="text-xs font-semibold text-slate-600 sm:text-sm">
                 {phtNow.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
               </span>
               <span className="ml-auto font-mono text-sm font-bold text-[#1D73EC] sm:text-base">
-                {formatPHT(now, true)}
+                {formatPHTime(now, { hour12: true, includeSeconds: true })}
               </span>
             </div>
 
-            {/* Locked actions */}
+            {/* Locked actions — 2-column grid keeps the panel compact */}
             <div className="mt-5">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500">
                 Locked until you time in
               </p>
-              <ul className="space-y-2">
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {LOCKED_ACTIONS.map(({ icon: Icon, label }) => (
                   <li
                     key={label}
@@ -162,37 +171,50 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
               </ul>
             </div>
 
-            {/* Time-in button */}
+            {/* Time-in button — primary blue, same as the Clock-In & Timesheet page */}
             <Button
               onClick={handleTimeIn}
-              className={`mt-6 h-12 w-full text-sm font-bold transition-all ${
-                nextAction === "complete"
-                  ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-                  : "bg-[#1D73EC] hover:bg-[#1659c4] text-white"
-              }`}
+              disabled={primaryDisabled}
+              className="mt-4 h-[56px] w-full rounded-xl text-base font-bold transition-all bg-[#1D73EC] text-white hover:bg-[#1659c4] border border-white/10 shadow-[0_10px_20px_-8px_rgba(29,115,236,0.55)] hover:translate-y-0 hover:shadow-[0_10px_20px_-8px_rgba(29,115,236,0.55)] disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
             >
-              {nextAction === "complete" ? (
+              {primaryDisabled ? (
                 <>
-                  <LogIn className="h-4 w-4 mr-2" />
+                  <Lock className="size-5" />
+                  {absence === "on-leave" ? "On Leave" : "Marked Absent"}
+                </>
+              ) : nextAction === "complete" ? (
+                <>
+                  <LogIn className="size-5" />
                   Time In Again (Extra)
                 </>
               ) : (
                 <>
-                  <LogIn className="h-4 w-4 mr-2" />
+                  <LogIn className="size-5" />
                   Time In — Start Shift
                 </>
               )}
             </Button>
 
-            {/* Secondary link */}
-            <button
-              type="button"
-              onClick={() => navigate("/staff/timesheet")}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-[#1D73EC] transition-colors hover:bg-[#F2F7FF]"
-            >
-              Open Clock-In & Timesheet
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            {/* Secondary links — compact Details-style group */}
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/staff/timesheet")}
+                className="w-full text-xs border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-medium transition-colors"
+              >
+                Open Clock-In & Timesheet
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/staff/dashboard")}
+                className="w-full text-xs border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#1D73EC] hover:text-white font-medium transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Return to Dashboard
+              </Button>
+            </div>
           </Card>
         </div>
       </div>
