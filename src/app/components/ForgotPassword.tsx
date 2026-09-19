@@ -13,20 +13,20 @@ import { useLogo } from "../hooks/useLogo";
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const logo = useLogo();
-  const { sendPasswordResetCode, verifyResetCode, resetForgottenPassword } = useAuth();
+  const { requestPasswordReset } = useAuth();
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSendCode = (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (sendPasswordResetCode(email)) {
-      setStep('code');
-    } else {
-      toast.error('Email not found');
-    }
+    const sent = await requestPasswordReset(email);
+    if (sent) {
+      toast.success('Password reset instructions sent. Check your email.');
+      navigate('/login');
+    } else toast.error('Unable to send password reset instructions.');
   };
 
   const handleVerifyCode = (e: React.FormEvent) => {

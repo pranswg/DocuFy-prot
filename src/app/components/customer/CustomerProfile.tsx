@@ -197,7 +197,7 @@ export default function CustomerProfile() {
     toast.success('Profile updated successfully.');
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     console.log('Change password clicked');
 
     if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
@@ -226,7 +226,7 @@ export default function CustomerProfile() {
     console.log('All validations passed, calling resetPassword');
 
     // Use the resetPassword function from AuthContext (with user email)
-    if (user && resetPassword(user.email, passwordData.currentPassword, passwordData.newPassword)) {
+    if (user && await resetPassword(user.email, passwordData.currentPassword, passwordData.newPassword)) {
       console.log('Password reset successful');
       toast.success('Password changed successfully!');
       setShowChangePasswordDialog(false);

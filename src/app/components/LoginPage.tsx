@@ -40,10 +40,10 @@ export default function LoginPage() {
     }
   }, [user, navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const result = login(email, password);
+    const result = await login(email, password);
     if (!result.success) {
       setError(
         result.reason === "inactive"

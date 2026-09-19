@@ -1,6 +1,7 @@
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { sessionManager } from '../utils/sessionManager';
+import { supabase } from '../../lib/supabaseClient';
 
 // Auth Types
 export interface User {
@@ -13,15 +14,17 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => { success: boolean; reason?: 'inactive' };
-  signup: (data: any) => boolean;
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; reason?: 'inactive' }>;
+  signup: (data: any) => Promise<boolean>;
   registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => { success: boolean; message?: string };
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
   getStaffAccounts: () => { email: string; name: string; role: string; active?: boolean; isAdminRegistered?: boolean }[];
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   logout: () => void;
-  resetPassword: (email: string, currentPassword: string, newPassword: string) => boolean;
-  resetForgottenPassword: (email: string, newPassword: string) => boolean;
+  resetPassword: (email: string, currentPassword: string, newPassword: string) => Promise<boolean>;
+  resetForgottenPassword: (email: string, newPassword: string) => Promise<boolean>;
+  requestPasswordReset: (email: string) => Promise<boolean>;
   sendPasswordResetCode: (email: string) => boolean;
   verifyResetCode: (email: string, code: string) => boolean;
 }
@@ -141,7 +144,76 @@ function readStoredUser(): User | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(readStoredUser);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const loadProfile = async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) => {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('full_name, email, role, phone, profile_image_path, active, suspended')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to load user profile:', error);
+    }
+
+    // If the profile has no phone yet but the signup put one in user_metadata
+    // (covers the email-confirmation-ON path where signup has no session),
+    // backfill the phone column so it ends up stored in the profiles table.
+    const metadataPhone =
+      typeof authUser.user_metadata?.phone === 'string' ? authUser.user_metadata.phone : '';
+
+    if (profile && !profile.phone && metadataPhone) {
+      await supabase
+        .from('profiles')
+        .update({ phone: metadataPhone })
+        .eq('id', authUser.id);
+      profile.phone = metadataPhone;
+    }
+
+    const role = profile?.role === 'admin' || profile?.role === 'staff'
+      ? profile.role
+      : 'customer';
+
+    setUser({
+      name: profile?.full_name || String(authUser.user_metadata?.full_name || authUser.email || 'User'),
+      email: profile?.email || authUser.email || '',
+      role,
+      profileImage: profile?.profile_image_path || undefined,
+      active: profile?.active !== false && profile?.suspended !== true,
+    });
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) console.error('Failed to restore Supabase session:', error);
+      if (mounted && data.session?.user) {
+        await loadProfile(data.session.user);
+      }
+      if (mounted) setAuthLoading(false);
+    };
+
+    void initializeAuth();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      if (session?.user) {
+        void loadProfile(session.user);
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -167,46 +239,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  const login = (email: string, password: string) => {
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    if (foundUser) {
-      if (foundUser.active === false) {
-        return { success: false, reason: 'inactive' as const };
-      }
-      setUser({
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role,
-        profileImage: foundUser.profileImage,
-      });
-      return { success: true };
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      return { success: false };
     }
-    return { success: false };
+
+    await loadProfile(data.user);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('active, suspended')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profile?.active === false || profile?.suspended === true) {
+      await supabase.auth.signOut();
+      return { success: false, reason: 'inactive' as const };
+    }
+
+    return { success: true };
   };
 
-  const signup = (data: any) => {
+  const signup = async (data: any) => {
     // Combine firstName and lastName to create full name
     const fullName = data.firstName && data.lastName
       ? `${data.firstName} ${data.lastName}`.trim()
       : data.fullName || data.name || 'User';
 
-    const newUser = {
+    const { data: result, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      name: fullName,
-      role: 'customer' as const,
-      active: true,
-      passwordHistory: [] as string[],
-      profileImage: data.profileImage || undefined,
-    };
-    mockUsers.push(newUser);
-    setUser({
-      name: fullName,
-      email: data.email,
-      role: 'customer',
-      profileImage: data.profileImage || undefined,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: data.contactNumber,
+        },
+      },
     });
-    toast.success('Account created! You can now log in with your email and password.');
+
+    if (error || !result.user) {
+      toast.error(error?.message || 'Unable to create account.');
+      return false;
+    }
+
+    if (result.session) {
+      if (data.contactNumber) {
+        await supabase
+          .from('profiles')
+          .update({ phone: data.contactNumber })
+          .eq('id', result.user.id);
+      }
+      await loadProfile(result.user);
+    }
+
+    toast.success(
+      result.session
+        ? 'Account created successfully.'
+        : 'Account created. Check your email to confirm your account.',
+    );
     return true;
   };
 
@@ -287,6 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     sessionManager.destroy();
+    void supabase.auth.signOut();
   };
 
   const sendPasswordResetCode = (email: string) => {
@@ -305,94 +396,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return passwordResetCodes[email] === code;
   };
 
-  const resetPassword = (email: string, currentPassword: string, newPassword: string) => {
-    console.log('resetPassword called for:', email);
-    console.log('Current user in mockUsers:', mockUsers.find(u => u.email === email));
+  const resetPassword = async (email: string, currentPassword: string, newPassword: string) => {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+    if (signInError) return false;
 
-    const userIndex = mockUsers.findIndex(
-      u => u.email === email && u.password === currentPassword
-    );
-
-    console.log('User index found:', userIndex);
-
-    if (userIndex !== -1) {
-      const user = mockUsers[userIndex];
-
-      // Check password reuse - prevent using any of the last 5 passwords
-      const passwordHistory = user.passwordHistory || [];
-      const recentPasswords = [user.password, ...passwordHistory].slice(0, 5);
-
-      console.log('Recent passwords:', recentPasswords);
-      console.log('New password:', newPassword);
-
-      if (recentPasswords.includes(newPassword)) {
-        console.log('Password reuse detected');
-        return false; // Error will be shown by the calling component
-      }
-
-      // Update password history
-      mockUsers[userIndex].passwordHistory = [user.password, ...passwordHistory].slice(0, 5);
-      mockUsers[userIndex].password = newPassword;
-
-      console.log('Password updated successfully');
-      console.log('New password is now:', mockUsers[userIndex].password);
-
-      if (mockUsers[userIndex].role !== 'customer') persistStaffAccounts();
-
-      // Update the current user's session state if they're logged in
-      if (user && user.email === email) {
-        setUser({ ...user, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage });
-      }
-
-      return true; // Success will be shown by the calling component
-    }
-
-    console.log('User not found or current password incorrect');
-    return false;
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return !error;
   };
 
-  const resetForgottenPassword = (email: string, newPassword: string) => {
-    const userIndex = mockUsers.findIndex(u => u.email === email);
+  const resetForgottenPassword = async (_email: string, newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return false;
 
-    if (userIndex !== -1) {
-      const user = mockUsers[userIndex];
+    // The password-recovery link logs the user in with a recovery session.
+    // Without signing out, that lingering session makes LoginPage's "already
+    // signed in" effect redirect straight to /<role>/dashboard instead of
+    // showing the login form the user needs after resetting their password.
+    await supabase.auth.signOut();
+    return true;
+  };
 
-      // Check password reuse - prevent using any of the last 5 passwords
-      const passwordHistory = user.passwordHistory || [];
-      const recentPasswords = [user.password, ...passwordHistory].slice(0, 5);
-
-      if (recentPasswords.includes(newPassword)) {
-        console.log('Password reuse detected');
-        return false; // Error will be shown by the calling component
-      }
-
-      // Update password history
-      mockUsers[userIndex].passwordHistory = [user.password, ...passwordHistory].slice(0, 5);
-      mockUsers[userIndex].password = newPassword;
-
-      console.log('Password updated successfully');
-
-      if (mockUsers[userIndex].role !== 'customer') persistStaffAccounts();
-
-      // Clear the used reset code so it cannot be reused
-      delete passwordResetCodes[email];
-
-      // Update the current user's session state if they're logged in
-      if (user && user.email === email) {
-        setUser({ ...user, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage });
-      }
-
-      return true; // Success will be shown by the calling component
-    }
-
-    console.log('User not found');
-    return false;
+  const requestPasswordReset = async (email: string) => {
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    return !error;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        authLoading,
         login,
         signup,
         registerStaff,
@@ -402,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         resetPassword,
         resetForgottenPassword,
+        requestPasswordReset,
         sendPasswordResetCode,
         verifyResetCode,
       }}

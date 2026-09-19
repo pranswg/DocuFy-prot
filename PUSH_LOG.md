@@ -909,3 +909,10 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - On Leave pill opens the reason: clicking the On Leave badge in the staff list or the staff detail pane opens a small dialog showing why that staff member is on leave.
 - Pencil shortcut on the detail pane status: a pencil icon beside the status badge in the staff detail pane header opens that staff's Edit dialog for quick status changes.
 - Staff Time-In lockout panel redesigned: the staff lockout modal now uses a compact layout (icon + title side-by-side, two-column locked-actions grid, 12-hour live clock), shows a disabled "On Leave" / "Marked Absent" state when the staff member has an on-leave or absent mark so they can't clock in, and adds a Return to Dashboard action alongside Open Clock-In & Timesheet.
+
+---
+
+## September 19, 2026 11:21 PM (PHT) - ethanestoya
+- `fix: customer-auth` — ported the Supabase customer-auth integration from testbranch2 (commits 6f8820e6 + 37428a80) onto backend-latest and fixed two auth bugs. Customer/staff/admin logins now run against Supabase (`signInWithPassword`, session restore, `profiles`-table role/active/suspended gating) instead of mock users.
+- Signup contact number is now stored in Supabase: the phone the customer types at signup was dropped entirely (only `full_name` was sent, so `profiles.phone` stayed NULL). The phone is now sent in the signup user_metadata (so it is never lost), written straight to `profiles.phone` when the signup returns a session, and backfilled on first login if the profile row still has no phone (covers the email-confirmation path).
+- Password reset no longer bounces to the dashboard: after resetting a forgotten password on the recovery-link page, the lingering password-recovery session made the login page instantly redirect the user to /customer/dashboard. The reset now signs the user out after a successful update so the login form actually renders and they can sign back in with the new password.

@@ -54,7 +54,7 @@ export default function SignUpPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -77,11 +77,9 @@ export default function SignUpPage() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      signup({ ...formData, profileImage: profileImage ?? undefined });
-      toast.success("Account created successfully!");
-      navigate("/customer/dashboard");
-    }, 600);
+    const success = await signup({ ...formData, profileImage: profileImage ?? undefined });
+    setIsSubmitting(false);
+    if (success) navigate("/customer/dashboard");
   };
 
   const handleChange = (field: string, value: any) => {

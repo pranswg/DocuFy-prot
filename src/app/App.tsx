@@ -5,6 +5,7 @@ import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import ForgotPassword from './components/ForgotPassword';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import CustomerDashboard from './components/customer/CustomerDashboard';
 import CustomerProfile from './components/customer/CustomerProfile';
 import NewPrintRequest from './components/customer/NewPrintRequest';
@@ -74,6 +75,11 @@ const router = createBrowserRouter([
   {
     path: '/forgot-password',
     element: <ForgotPassword />,
+    errorElement: <ErrorBoundary />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPasswordPage />,
     errorElement: <ErrorBoundary />,
   },
   {
