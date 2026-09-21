@@ -52,7 +52,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
-  const { user, resetPassword, updateProfile, logout } = useAuth();
+  const { user, resetPassword, updateProfile, updateProfileImage, logout } = useAuth();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
@@ -181,7 +181,7 @@ export default function CustomerProfile() {
     setShowSaveDialog(true);
   };
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
@@ -190,11 +190,27 @@ export default function CustomerProfile() {
     } else {
       localStorage.removeItem('customer_profile_image');
     }
-    updateProfile({ name: displayName, profileImage: profileImage ?? undefined });
+    // Persist the picture to Supabase Storage + the profiles table; the local
+    // storage write above stays as the offline/mock fallback.
+    let synced = false;
+    try {
+      synced = await updateProfileImage(profileImage ?? null);
+    } catch {
+      synced = false;
+    }
+    if (synced) {
+      updateProfile({ name: displayName });
+    } else {
+      updateProfile({ name: displayName, profileImage: profileImage ?? undefined });
+    }
     setIsEditing(false);
     setShowSaveDialog(false);
     setIsSaving(false);
-    toast.success('Profile updated successfully.');
+    toast.success(
+      synced
+        ? 'Profile updated successfully.'
+        : 'Profile saved locally — avatar sync to the server failed. Please try again.',
+    );
   };
 
   const handleChangePassword = async () => {

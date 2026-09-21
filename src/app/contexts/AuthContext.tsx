@@ -2,6 +2,13 @@ import React, { useState, createContext, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { sessionManager } from '../utils/sessionManager';
 import { supabase } from '../../lib/supabaseClient';
+import {
+  uploadAvatar,
+  getAvatarPublicUrl,
+  deleteAvatar,
+  isDataUrl,
+  isSupabaseAvatarUrl,
+} from '../utils/supabaseAvatar';
 
 // Auth Types
 export interface User {
@@ -21,6 +28,7 @@ export interface AuthContextType {
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
   getStaffAccounts: () => { email: string; name: string; role: string; active?: boolean; isAdminRegistered?: boolean }[];
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
+  updateProfileImage: (image: string | null) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   resetForgottenPassword: (email: string, newPassword: string) => Promise<boolean>;
@@ -283,10 +291,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (result.session) {
+      const profileUpdates: Record<string, string> = {};
       if (data.contactNumber) {
+        profileUpdates.phone = data.contactNumber;
+      }
+      if (data.profileImage && isDataUrl(data.profileImage)) {
+        try {
+          // Upload the picture to Supabase Storage and keep the public URL in
+          // the profiles table so the avatar survives across devices/sessions.
+          const path = await uploadAvatar(result.user.id, data.profileImage);
+          profileUpdates.profile_image_path = getAvatarPublicUrl(path);
+        } catch (uploadError) {
+          console.warn('Failed to upload profile image during signup:', uploadError);
+        }
+      }
+      if (Object.keys(profileUpdates).length > 0) {
         await supabase
           .from('profiles')
-          .update({ phone: data.contactNumber })
+          .update(profileUpdates)
           .eq('id', result.user.id);
       }
       await loadProfile(result.user);
@@ -374,6 +396,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Persist a profile picture to Supabase Storage + the profiles table.
+  // - image (base64 data URL): uploads a new avatar and stores its public URL.
+  // - image (already-public URL): no change, nothing to do.
+  // - image === null: clears the stored avatar.
+  // Returns true when Supabase was updated; false when it fell back to
+  // local-only (no session, offline, or a storage error) so callers can warn.
+  const updateProfileImage = async (image: string | null): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const authUserId = authData.user?.id;
+      if (!authUserId) return false;
+
+      if (image && !isDataUrl(image)) {
+        // Already a persisted URL (unchanged picture) — nothing to upload.
+        return true;
+      }
+
+      const previous = user.profileImage;
+      if (image) {
+        const path = await uploadAvatar(authUserId, image);
+        const url = getAvatarPublicUrl(path);
+        await supabase
+          .from('profiles')
+          .update({ profile_image_path: url })
+          .eq('id', authUserId);
+        updateProfile({ profileImage: url });
+        if (previous && previous !== url && isSupabaseAvatarUrl(previous)) {
+          void deleteAvatar(previous);
+        }
+      } else {
+        await supabase
+          .from('profiles')
+          .update({ profile_image_path: null })
+          .eq('id', authUserId);
+        updateProfile({ profileImage: undefined });
+        if (previous && isSupabaseAvatarUrl(previous)) {
+          void deleteAvatar(previous);
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('Supabase avatar persistence failed — keeping local fallback:', err);
+      return false;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     sessionManager.destroy();
@@ -436,6 +505,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateStaffAccount,
         getStaffAccounts,
         updateProfile,
+        updateProfileImage,
         logout,
         resetPassword,
         resetForgottenPassword,

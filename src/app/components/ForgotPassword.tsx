@@ -13,7 +13,7 @@ import { useLogo } from "../hooks/useLogo";
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const logo = useLogo();
-  const { requestPasswordReset } = useAuth();
+  const { requestPasswordReset, verifyResetCode, resetForgottenPassword } = useAuth();
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
@@ -39,7 +39,7 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate password strength
@@ -54,7 +54,7 @@ export default function ForgotPassword() {
       return;
     }
 
-    if (resetForgottenPassword(email, newPassword)) {
+    if (await resetForgottenPassword(email, newPassword)) {
       toast.success('Password reset successful! Please login.');
       navigate('/login');
     } else {

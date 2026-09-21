@@ -36,7 +36,7 @@ const defaultProfileData = {
 
 export default function StaffProfile() {
   const navigate = useNavigate();
-  const { user, resetPassword, updateProfile, logout } = useAuth();
+  const { user, resetPassword, updateProfile, updateProfileImage, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
@@ -138,13 +138,28 @@ export default function StaffProfile() {
     }
   }, [user]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     localStorage.setItem('staff_profile_image', profileImage || '');
-    updateProfile({ profileImage: profileImage ?? undefined });
+    // Persist the picture to Supabase Storage + the profiles table; the local
+    // storage write above stays as the offline/mock fallback.
+    let synced = false;
+    try {
+      synced = await updateProfileImage(profileImage ?? null);
+    } catch {
+      synced = false;
+    }
+    if (synced) {
+      updateProfile({});
+    } else {
+      updateProfile({ profileImage: profileImage ?? undefined });
+    }
     setIsEditing(false);
     setShowSavedMessage(true);
     setTimeout(() => setShowSavedMessage(false), 3000);
+    if (!synced) {
+      toast.error('Profile picture saved locally only — avatar sync to the server failed. Please try again.');
+    }
   };
 
   const handleChangePassword = async () => {
