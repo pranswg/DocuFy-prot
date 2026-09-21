@@ -88,7 +88,7 @@ export type PricingMatrix = {
   photo: PhotoMatrix;
 };
 
-const DEFAULT_MATRIX: PricingMatrix = {
+export const DEFAULT_MATRIX: PricingMatrix = {
   document: {
     text: {
       bw: { short: 2, a4: 2, long: 2 },

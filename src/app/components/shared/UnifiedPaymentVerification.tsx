@@ -42,6 +42,8 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
+import { verifyPayment, rejectPayment, confirmCashPayment } from "../../../lib/db/paymentsRepo";
+import { showDbError } from "../../../lib/db/errors";
 import { pricingStore } from "../../utils/pricingStore";
 import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
 import { formatCurrency } from "../../utils/formatNumber";
@@ -165,6 +167,9 @@ type PaymentType = {
   // auto-queued at checkout, so it shows as "Pending Payment · In Queue" with
   // no reference number / proof of payment to review.
   isLowValueCash?: boolean;
+  // The DB `payments` row id for this order's latest submission (present for
+  // online/down payments the customer submitted; absent for cash at the shop).
+  rowId?: string;
 };
 
 function parseOrderTotal(order: {
@@ -254,6 +259,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
       return {
         id: order.id,
         orderId: order.id,
+        rowId: order.paymentRowId,
         customer: order.customerName,
         amount: totalAmount,
         method: paymentMethod,
@@ -404,9 +410,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     }
   }, [payments, searchParams, myName]);
 
-  const handleVerifyPayment = (
+  const handleVerifyPayment = async (
     status: "verified" | "rejected",
-  ) => {
+  ): Promise<boolean> => {
     if (selectedPayment) {
       // ===== SESSION LOCK GUARD =====
       // Re-check ownership at the FINAL confirm moment (a second tab might have
@@ -419,7 +425,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         toast.error(other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available", {
           description: "Only the current reviewer can verify. Refresh to see the latest status.",
         });
-        return;
+        return false;
       }
 
       // ===== CONFLICT GUARD (Option B) =====
@@ -435,7 +441,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         });
         releaseLock(selectedPayment.orderId, myName);
         setShowDialog(false);
-        return;
+        return false;
       }
 
       const targetOrder = orderRecords.find(
@@ -487,6 +493,50 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
           : {}),
       });
 
+      // ===== PAYMENTS TABLE WRITE =====
+      // Record the outcome in the `payments` table (audit + reporting).
+      // Online/down orders already have a customer-submitted PENDING row, so
+      // we flip it to verified/rejected. Cash-at-the-shop orders have no row,
+      // so verification creates a VERIFIED cash payment record.
+      try {
+        if (status === "verified") {
+          if (selectedPayment.rowId) {
+            await verifyPayment({
+              paymentId: selectedPayment.rowId,
+              orderId: selectedPayment.orderId,
+              verifiedBy: user?.id ?? null,
+            });
+          } else {
+            const collected = isCashDown
+              ? !paidFull
+                ? (selectedPayment.downPaymentAmount ?? selectedPayment.totalAmount * 0.5)
+                : selectedPayment.totalAmount
+              : selectedPayment.totalAmount;
+            await confirmCashPayment({
+              orderId: selectedPayment.orderId,
+              methodName: "Cash",
+              amount: collected,
+              verifiedBy: user?.id ?? null,
+              note: isCashDown
+                ? paidFull
+                  ? "Paid full amount at the shop"
+                  : "Paid 50% down at the shop"
+                : "Cash collected at the shop",
+            });
+          }
+        } else if (selectedPayment.rowId) {
+          await rejectPayment({
+            paymentId: selectedPayment.rowId,
+            rejectedBy: user?.id ?? null,
+            reason: rejectionReason.trim() || "Rejected",
+          });
+        }
+      } catch (err) {
+        showDbError("saving the verification", err);
+        // Keep the dialog open + keep our lock so the reviewer can retry.
+        return false;
+      }
+
       // The order is processed — release our hold so it's free for anyone.
       releaseLock(selectedPayment.orderId, myName);
 
@@ -504,7 +554,9 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
       // Close dialog after verification
       setShowDialog(false);
+      return true;
     }
+    return false;
   };
 
   const handleOpenDetails = (payment: PaymentType) => {
@@ -1573,10 +1625,12 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
         <ConfirmationDialog
           open
           onOpenChange={() => setPendingVerifyAction(null)}
-          onConfirm={() => {
-            handleVerifyPayment("verified");
-            setShowDialog(false);
-            setPendingVerifyAction(null);
+          onConfirm={async () => {
+            const ok = await handleVerifyPayment("verified");
+            if (ok) {
+              setShowDialog(false);
+              setPendingVerifyAction(null);
+            }
           }}
           title="Verify Payment?"
           description="Confirm that this payment has been reviewed and approved."
@@ -1589,11 +1643,13 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
         <ConfirmationDialog
           open
           onOpenChange={() => setPendingVerifyAction(null)}
-          onConfirm={() => {
-            handleVerifyPayment("rejected");
-            setShowRejectDialog(false);
-            setRejectionReason("");
-            setPendingVerifyAction(null);
+          onConfirm={async () => {
+            const ok = await handleVerifyPayment("rejected");
+            if (ok) {
+              setShowRejectDialog(false);
+              setRejectionReason("");
+              setPendingVerifyAction(null);
+            }
           }}
           title="Reject Payment?"
           description={`Confirm that this payment should be rejected${

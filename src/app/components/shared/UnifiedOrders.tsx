@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
+import { showDbError } from "../../../lib/db/errors";
 import { notificationStore } from "../../utils/notificationStore";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
 import { shopStatusStore } from "../../utils/shopStatusStore";
@@ -149,9 +150,6 @@ type OrderType = {
   createdAt?: Date;
   lastUpdatedAt?: Date;
 };
-
-
-const initialOrders: OrderType[] = [];
 
 // Avatar component for initials
 const Avatar = ({ name }: { name: string }) => {
@@ -299,12 +297,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const openedOrderIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
 
-  // Initialize and subscribe to orders store
+  // Initialize and subscribe to orders store (Supabase-backed via dataStore)
   useEffect(() => {
-    // Initialize store with initial orders if empty
-    if (ordersStore.getOrders().length === 0) {
-      ordersStore.setOrders(initialOrders);
-    }
     setOrders(ordersStore.getOrders());
 
     // Subscribe to changes
@@ -568,7 +562,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     });
   };
 
-  const confirmStatusUpdate = (paperData?: {
+  const confirmStatusUpdate = async (paperData?: {
     paperConfirmed: boolean;
     errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
   }) => {
@@ -598,21 +592,23 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       extraOrder = { ...paperData };
     }
 
-    // Update the status with form data (including cancellation reason if applicable).
-    // NOTE: we update ONLY the selected order through the store — setOrders() is
-    // O(n): it re-pushes the ENTIRE order list to the shared snapshot one order at
-    // a time (each step = a full localStorage read+write + a storage event to every
-    // other tab), which is what made status updates feel delayed. updateOrder()
-    // writes just this one order to the snapshot in a single pass.
-    ordersStore.updateOrder(selectedOrder.id, {
-      ...extraOrder,
-      status: pendingStatus,
-      cancellationReason:
-        pendingStatus === "canceled"
-          ? statusFormData.cancellationReason
-          : selectedOrder.cancellationReason,
-      statusUpdatedAt: new Date(), // Update timestamp
-    });
+    // Persist the status change through the store (Supabase-backed). A single
+    // row update — not a full-list rewrite — so status changes stay fast.
+    try {
+      await ordersStore.updateOrder(selectedOrder.id, {
+        ...extraOrder,
+        status: pendingStatus,
+        cancellationReason:
+          pendingStatus === "canceled"
+            ? statusFormData.cancellationReason
+            : selectedOrder.cancellationReason,
+        statusUpdatedAt: new Date(), // Update timestamp
+      });
+    } catch (err) {
+      showDbError("updating the order status", err);
+      // Keep the form open so the user can retry.
+      return;
+    }
 
     const updatedSelectedOrder = {
       ...selectedOrder,

@@ -45,6 +45,13 @@ import {
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore, type Order as DataStoreOrder } from "../../utils/dataStore";
 import { notificationStore } from "../../utils/notificationStore";
+import { useAuth } from "../../contexts/AuthContext";
+import { showDbError } from "../../../lib/db/errors";
+import { submitPayment } from "../../../lib/db/paymentsRepo";
+import {
+  BUCKETS,
+  uploadObjectAndGetPath,
+} from "../../../lib/db/storage";
 import { formatCurrency } from "../../utils/formatNumber";
 import { formatPHDateTime } from "../../utils/pht";
 import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
@@ -55,33 +62,6 @@ import {
 import PaymentMethodQRPanel from "../shared/PaymentMethodQR";
 import { CashOnPickupAcknowledgement } from "../shared/CashOnPickupAcknowledgement";
 import Tesseract from "tesseract.js";
-
-const PENDING_ORDER_KEY = "docufy_pending_online_order";
-const PRINT_DRAFT_KEY = "docufy_print_draft";
-
-function readPendingOrder(): (Record<string, unknown> & { id?: string }) | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function clearPendingFlow(orderId: string) {
-  sessionStorage.removeItem(PENDING_ORDER_KEY);
-  try {
-    const draft = sessionStorage.getItem(PRINT_DRAFT_KEY);
-    if (draft) {
-      const parsed = JSON.parse(draft) as { orderId?: string };
-      if (parsed.orderId === orderId) {
-        sessionStorage.removeItem(PRINT_DRAFT_KEY);
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 let ocrWorkerPromise: Promise<Tesseract.Worker> | null = null;
 
@@ -180,6 +160,7 @@ export default function PaymentVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const { orderId } = useParams();
+  const { user } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState<
     string
   >(""); // method name or "cash"
@@ -218,14 +199,9 @@ export default function PaymentVerification() {
     return unsubscribe;
   }, [orderId]);
 
-  // An online order is HELD in sessionStorage until the customer submits their
-  // reference — the dataStore has no row for it yet. Fall back to the held
-  // payload so the amounts / deadline / partial-full choices render right away
-  // instead of the page reading as an empty order.
-  const heldPending = readPendingOrder();
-  const displayOrder: DataStoreOrder | null = order ?? (heldPending && heldPending.id === orderId
-    ? (heldPending as unknown as DataStoreOrder)
-    : null);
+  // Order rows are now created in Supabase at checkout for every flow (this
+  // uuid is the real order id), so the loaded order is authoritative.
+  const displayOrder = order;
 
   const isOnline = paymentMethod !== "" && paymentMethod !== "cash";
 
@@ -385,7 +361,7 @@ export default function PaymentVerification() {
     setFileError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (paymentMethod !== "cash") {
@@ -409,11 +385,7 @@ export default function PaymentVerification() {
         return;
       }
 
-      // The order only enters the system NOW (on Submit Reference). For online
-      // payments the order is withheld earlier; we materialize it here from the
-      // held payload so backing out never leaves a phantom order in the queue.
-      const pendingOrder = readPendingOrder();
-      const existingOrder = dataStore.getOrders().find((o) => o.id === orderId);
+      const existingOrder = dataStore.getOrderById(orderId!);
 
       // Sync the down/full requirement flags to the Partial/Full choice so
       // staff/admin see the correct payment type: Partial keeps the 50% down
@@ -441,42 +413,52 @@ export default function PaymentVerification() {
             }
         : null;
 
-      if (pendingOrder && pendingOrder.id === orderId) {
-        dataStore.addOrder({
-          ...(pendingOrder as unknown as object),
-          paymentReferenceNumber: referenceNumber,
-          // Once the reference is submitted the order waits on staff
-          // verification — clear the checkout deadline so it is never
-          // auto-canceled as expired while awaiting review.
+      try {
+        // Upload the proof to Supabase Storage, then record a PENDING payment
+        // row (the source of truth staff/admin verify on).
+        const proofStoragePath = proofFile
+          ? await uploadObjectAndGetPath({
+              bucket: BUCKETS.paymentProofs,
+              folder: `${user?.id ?? "anonymous"}/proofs/${orderId}`,
+              file: proofFile,
+              fileName: proofFile.name,
+            })
+          : null;
+
+        await submitPayment({
+          orderId: orderId!,
+          methodId: selectedMethod?.id ?? null,
+          methodName: selectedMethod?.name ?? paymentMethod,
+          amount: paid,
+          referenceNumber,
+          proofStoragePath,
+          submittedBy: user?.id ?? null,
+        });
+
+        // Clear the checkout deadline (the order now waits on staff
+        // verification — it must not auto-expire) and persist the down/full
+        // choice + amount paid on the order row.
+        await dataStore.updateOrder(orderId!, {
           paymentDeadline: undefined,
-          paymentVerified: false,
-          paymentProofUrl: imagePreviewUrl || undefined,
-          paymentAmountPaid: paid,
-          ...(downSync || {}),
-        } as DataStoreOrder);
-        clearPendingFlow(orderId!);
-      } else if (existingOrder) {
-        dataStore.updateOrder(orderId!, {
-          paymentReferenceNumber: referenceNumber,
-          paymentDeadline: undefined,
-          paymentVerified: false,
-          paymentProofUrl: imagePreviewUrl || undefined,
           paymentAmountPaid: paid,
           ...(downSync || {}),
         });
+      } catch (err) {
+        showDbError("submitting your payment", err);
+        return;
       }
 
-      if (existingOrder || pendingOrder?.id === orderId) {
+      if (existingOrder) {
         notificationStore.addNotification(
           "order",
           "New Order — Payment Verification Pending",
-          `New order #${orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
+          `New order #${existingOrder.displayId ?? orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
           { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
         );
         notificationStore.addNotification(
           "order",
           "New Order — Payment Verification Pending",
-          `New order #${orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
+          `New order #${existingOrder.displayId ?? orderId} from the customer is awaiting ${paymentMethod} payment verification. Received reference: ${referenceNumber}.`,
           { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
         );
       }
@@ -497,36 +479,31 @@ export default function PaymentVerification() {
     setPaymentChoice("partial");
   };
 
-  const handleCancelOrder = () => {
+  const handleCancelOrder = async () => {
     if (!orderId) return;
     const reason = "Canceled by customer before payment.";
-    const pendingOrder = readPendingOrder();
     const existingOrder = dataStore.getOrderById(orderId);
-    if (pendingOrder && pendingOrder.id === orderId && !existingOrder) {
-      // The customer never submitted their reference, so the order was never
-      // really placed — just discard the held pending request. No Canceled
-      // record is created and it never appears in any order list.
-      clearPendingFlow(orderId);
-    } else {
-      // The order was already submitted/materialized — this is a real
-      // cancellation.
-      dataStore.updateOrder(orderId, {
+    try {
+      await dataStore.updateOrder(orderId, {
         status: "Canceled",
         cancellationReason: reason,
       });
-      notificationStore.addNotification(
-        "order",
-        "Order Canceled by Customer",
-        `Order #${orderId} was canceled by the customer before payment verification.`,
-        { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
-      );
-      notificationStore.addNotification(
-        "order",
-        "Order Canceled by Customer",
-        `Order #${orderId} was canceled by the customer before payment verification.`,
-        { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
-      );
+    } catch (err) {
+      showDbError("canceling the order", err);
+      return;
     }
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${existingOrder?.displayId ?? orderId} was canceled by the customer before payment verification.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
+    );
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${existingOrder?.displayId ?? orderId} was canceled by the customer before payment verification.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
+    );
     try {
       localStorage.removeItem(`order_${orderId}`);
     } catch {
@@ -554,7 +531,7 @@ export default function PaymentVerification() {
               Payment Verification
             </h1>
             <p className="text-gray-500 mt-1">
-              Order ID: {orderId}
+              Order ID: {displayOrder?.displayId ?? orderId}
             </p>
           </div>
           <Card className="p-6 bg-red-50 border border-red-200">
@@ -565,7 +542,7 @@ export default function PaymentVerification() {
                   This order has been canceled
                 </h3>
                 <p className="text-sm text-red-700">
-                  Order #{orderId} was canceled before payment was
+                  Order #{displayOrder?.displayId ?? orderId} was canceled before payment was
                   verified, so there is no payment to confirm. The order will
                   no longer be processed.
                   {order.cancellationReason
@@ -640,7 +617,7 @@ export default function PaymentVerification() {
             Payment Verification
           </h1>
           <p className="text-gray-500 mt-1">
-            Order ID: {orderId}
+            Order ID: {displayOrder?.displayId ?? orderId}
           </p>
         </div>
 
@@ -1265,7 +1242,7 @@ export default function PaymentVerification() {
           description={
             paymentMethod === "cash"
               ? "Your Cash on Pickup order cannot be confirmed online — visit the shop to pay in cash before the payment deadline. The staff will confirm your payment and queue your order."
-              : `Submit a payment of ₱${amountPaid || "0.00"} with reference ${referenceNumber.trim() || "number"}${imagePreviewUrl ? " and payment proof" : ""} for ${selectedMethod?.name || "online"} payment for order ${orderId}? Once submitted, your payment will be queued for admin/staff verification and the order will not print until approved.`
+              : `Submit a payment of ₱${amountPaid || "0.00"} with reference ${referenceNumber.trim() || "number"}${imagePreviewUrl ? " and payment proof" : ""} for ${selectedMethod?.name || "online"} payment for order ${displayOrder?.displayId ?? orderId}? Once submitted, your payment will be queued for admin/staff verification and the order will not print until approved.`
           }
           confirmLabel={paymentMethod === "cash" ? "Confirm Order" : "Submit Reference"}
           cancelLabel="Go Back"
@@ -1282,7 +1259,7 @@ export default function PaymentVerification() {
           title="Cancel Order?"
           description={
             order
-              ? `Are you sure you want to cancel order #${orderId}? This will permanently cancel the order and it can no longer be processed.`
+              ? `Are you sure you want to cancel order #${displayOrder?.displayId ?? orderId}? This will permanently cancel the order and it can no longer be processed.`
               : `This order has not been submitted yet — canceling will just discard the unsent request. It will not be recorded and will not appear in your orders.`
           }
           confirmLabel="Cancel Order"

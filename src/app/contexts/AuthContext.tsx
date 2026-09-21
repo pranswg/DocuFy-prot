@@ -2,6 +2,7 @@ import React, { useState, createContext, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { sessionManager } from '../utils/sessionManager';
 import { supabase } from '../../lib/supabaseClient';
+import type { Database } from '../../lib/database.types';
 import {
   uploadAvatar,
   getAvatarPublicUrl,
@@ -17,6 +18,9 @@ export interface User {
   role: 'customer' | 'staff' | 'admin';
   profileImage?: string;
   active?: boolean;
+  // Supabase auth uid (set when a real Supabase session is loaded; absent for
+  // local mock accounts).
+  id?: string;
 }
 
 export interface AuthContextType {
@@ -190,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       profileImage: profile?.profile_image_path || undefined,
       active: profile?.active !== false && profile?.suspended !== true,
+      id: authUser.id,
     });
   };
 
@@ -291,7 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (result.session) {
-      const profileUpdates: Record<string, string> = {};
+      const profileUpdates: Database['public']['Tables']['profiles']['Update'] = {};
       if (data.contactNumber) {
         profileUpdates.phone = data.contactNumber;
       }

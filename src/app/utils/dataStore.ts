@@ -1,6 +1,28 @@
-// Centralized data store for orders
-// This ensures all dashboards show consistent data
-import { orderCounter } from './orderCounter';
+// Centralized data store for orders.
+//
+// Supabase-backed facade: keeps the legacy synchronous read API
+// (getOrders / getOrdersByCustomer / getOrderById / getOrderStats / subscribe)
+// that every dashboard reads, hydrates once from the orders tables, refreshes
+// on realtime changes (`orders` + `payments` publication), and performs ALL
+// writes through the DB repos. The in-memory cache is mutated ONLY after a
+// successful write, so a failed RLS/network write is never silently reflected
+// in the UI (callers get an error to toast).
+import {
+  fetchOrders,
+  fetchOrderById,
+  createOrder,
+  insertOrderFiles,
+  insertOrderAddons,
+  upsertCostBreakdown,
+  insertStatusHistory,
+  updateOrder as dbUpdateOrder,
+  subscribeOrderChanges,
+  type CreateOrderInput,
+} from '../../lib/db/ordersRepo';
+import { hasVerifiedPayment } from '../../lib/db/paymentsRepo';
+import { resolveStorageUrl, BUCKETS } from '../../lib/db/storage';
+import { formatOrderNumber } from '../../lib/db/types';
+import type { OrderDto, OrderFileDto } from '../../lib/db/types';
 
 export interface AttachedFile {
   name: string;
@@ -10,6 +32,7 @@ export interface AttachedFile {
   uploadedAt?: string;
   paperSize?: string;
   orientation?: string;
+  printType?: string;
   copies?: number;
   twoSided?: string;
   pagesPerSheet?: string;
@@ -24,6 +47,9 @@ export interface AttachedFile {
 
 export interface Order {
   id: string;
+  // DB sequence number (identity) and its human-facing ORD-0001 form.
+  orderNumber?: number;
+  displayId?: string;
   customerId: string;
   customerName: string;
   customerEmail: string;
@@ -40,8 +66,7 @@ export interface Order {
   // must be paid at the shop, online orders must be submitted + verified,
   // before this time or the order is auto-cancelled as expired.
   paymentDeadline?: string;
-  // Amount the customer reports having paid (online submissions) — used for
-  // Full/Partial Payment + Remaining Balance displays in verification.
+  // Amount the customer reports having paid (online submissions).
   paymentAmountPaid?: number;
   total: string;
   date: string;
@@ -54,6 +79,9 @@ export interface Order {
   paymentReferenceNumber?: string;
   paymentVerified?: boolean;
   paymentProofUrl?: string;
+  // DB payments row id for the order's latest payment (used by staff/admin to
+  // mark the customer-submitted row verified/rejected).
+  paymentRowId?: string;
   fileName?: string;
   pages?: number;
   attachedFiles?: AttachedFile[];
@@ -106,1076 +134,431 @@ export interface Notification {
   orderId?: string;
 }
 
-// Mock customers for UI checking (seeded on every fresh load).
-// Customer A: online GCash order still awaiting payment verification ->
-//   shows as PENDING in Payment Verification, and is EXCLUDED from the Orders/queue
-//   list (status 'Awaiting Payment' is filtered out by queueOrders).
-// Customer B: online GCash order already payment-verified and waiting in queue ->
-//   shows on the Orders/queue list as 'In Queue', and shows as VERIFIED in Payment Verification.
-const initialOrders: Order[] = [
-  {
-    id: 'ORD-2026-0001',
-    customerId: 'cust-maria',
-    customerName: 'Maria Santos',
-    customerEmail: 'maria.santos@example.com',
-    status: 'Awaiting Payment',
-    total: '₱75.00',
-    date: '2026-09-01T01:15:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: false,
-    paymentReferenceNumber: 'GCS-2026-000123',
-    // Demo online payment awaiting staff verification
-    paymentDeadline: '2026-09-30T23:59:00+08:00',
-    fileName: 'research-report.pdf',
-    pages: 5,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Waiting for GCash payment verification.',
-    attachedFiles: [
-      {
-        name: 'research-report.pdf',
-        size: '1.2 MB',
-        type: 'PDF',
-        pageCount: 5,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 75, addonsCost: 0, total: 75 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-01T01:15:00+08:00',
-    createdAt: '2026-09-01T01:15:00+08:00',
-    lastUpdatedAt: '2026-09-01T01:15:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0002',
-    customerId: 'cust-john',
-    customerName: 'John Dela Cruz',
-    customerEmail: 'john.delacruz@example.com',
-    status: 'Printing',
-    total: '₱120.00',
-    date: '2026-09-06T08:30:00+08:00',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 2,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    fileName: 'thesis-chapter-1.pdf',
-    pages: 6,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Walk-in order paid at the shop, currently being printed.',
-    attachedFiles: [
-      {
-        name: 'thesis-chapter-1.pdf',
-        size: '2.4 MB',
-        type: 'PDF',
-        pageCount: 6,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 2,
-      },
-    ],
-    costBreakdown: { printingCost: 120, addonsCost: 0, total: 120 },
-    orderSource: 'walkin',
-    statusUpdatedAt: '2026-09-06T08:30:00+08:00',
-    createdAt: '2026-09-06T08:30:00+08:00',
-    lastUpdatedAt: '2026-09-06T08:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0003',
-    customerId: 'cust-ana',
-    customerName: 'Ana Reyes',
-    customerEmail: 'ana.reyes@example.com',
-    status: 'In Queue',
-    total: '₱150.00',
-    date: '2026-09-06T09:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    paymentReferenceNumber: 'GCS-2026-000124',
-    fileName: 'brochure-final.pdf',
-    pages: 10,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Queued and ready for printing.',
-    attachedFiles: [
-      {
-        name: 'brochure-final.pdf',
-        size: '3.1 MB',
-        type: 'PDF',
-        pageCount: 10,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 150, addonsCost: 0, total: 150 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-06T09:00:00+08:00',
-    createdAt: '2026-09-06T09:00:00+08:00',
-    lastUpdatedAt: '2026-09-06T09:00:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0004',
-    customerId: 'cust-jose',
-    customerName: 'Jose Ramirez',
-    customerEmail: 'jose.ramirez@example.com',
-    status: 'In Queue',
-    total: '₱40.00',
-    date: '2026-09-06T10:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Short',
-    printType: 'Black & White',
-    copies: 20,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    fileName: 'id-forms.pdf',
-    pages: 2,
-    colorMode: 'bw',
-    pageRange: 'all',
-    notes: 'Queued and ready for printing.',
-    attachedFiles: [
-      {
-        name: 'id-forms.pdf',
-        size: '0.4 MB',
-        type: 'PDF',
-        pageCount: 2,
-        colorMode: 'bw',
-        pageRange: 'all',
-        copies: 20,
-      },
-    ],
-    costBreakdown: { printingCost: 40, addonsCost: 0, total: 40 },
-    orderSource: 'walkin',
-    statusUpdatedAt: '2026-09-06T10:00:00+08:00',
-    createdAt: '2026-09-06T10:00:00+08:00',
-    lastUpdatedAt: '2026-09-06T10:00:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0005',
-    customerId: 'cust-liza',
-    customerName: 'Liza Mendoza',
-    customerEmail: 'liza.mendoza@example.com',
-    status: 'Completed',
-    total: '₱95.00',
-    date: '2026-09-02T11:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Black & White',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    paymentReferenceNumber: 'GCS-2026-000210',
-    fileName: 'manuscript-v3.docx',
-    pages: 95,
-    colorMode: 'bw',
-    pageRange: 'all',
-    notes: 'Printing done, awaiting pickup.',
-    attachedFiles: [
-      {
-        name: 'manuscript-v3.docx',
-        size: '0.9 MB',
-        type: 'Document',
-        pageCount: 95,
-        colorMode: 'bw',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 95, addonsCost: 0, total: 95 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-02T11:40:00+08:00',
-    createdAt: '2026-09-02T11:00:00+08:00',
-    lastUpdatedAt: '2026-09-02T11:40:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0006',
-    customerId: 'cust-karlo',
-    customerName: 'Karlo Garcia',
-    customerEmail: 'karlo.garcia@example.com',
-    status: 'Awaiting Payment',
-    total: '₱60.00',
-    date: '2026-09-02T13:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Long',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Cash',
-    paymentVerified: false,
-    fileName: 'poster-design.pdf',
-    pages: 2,
-    colorMode: 'colored',
-    pageRange: 'all',
-    // Cash-on-pickup awaiting in-shop payment confirmation (demo pending row)
-    paymentDeadline: '2026-09-30T23:59:00+08:00',
-    notes: 'Awaiting in-shop cash payment confirmation before printing.',
-    addons: [
-      { name: 'Sketch Pad', quantity: 1, price: 25 },
-      { name: 'Ballpen', quantity: 1, price: 12 },
-    ],
-    attachedFiles: [
-      {
-        name: 'poster-design.pdf',
-        size: '1.8 MB',
-        type: 'PDF',
-        pageCount: 2,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 23, addonsCost: 37, total: 60 },
-    orderSource: 'walkin',
-    statusUpdatedAt: '2026-09-02T13:30:00+08:00',
-    createdAt: '2026-09-02T13:00:00+08:00',
-    lastUpdatedAt: '2026-09-02T13:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0007',
-    customerId: 'cust-rosa',
-    customerName: 'Rosa Villanueva',
-    customerEmail: 'rosa.villanueva@example.com',
-    status: 'Released',
-    total: '₱85.00',
-    date: '2026-09-02T14:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    paymentReferenceNumber: 'GCS-2026-000315',
-    fileName: 'invitation-card.pdf',
-    pages: 8,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Released to customer.',
-    attachedFiles: [
-      {
-        name: 'invitation-card.pdf',
-        size: '2.2 MB',
-        type: 'PDF',
-        pageCount: 8,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 85, addonsCost: 0, total: 85 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-02T14:30:00+08:00',
-    createdAt: '2026-09-02T14:00:00+08:00',
-    lastUpdatedAt: '2026-09-02T14:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0008',
-    customerId: 'cust-bea',
-    customerName: 'Bea Torres',
-    customerEmail: 'bea.torres@example.com',
-    status: 'Canceled',
-    total: '₱55.00',
-    date: '2026-09-02T15:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: false,
-    paymentReferenceNumber: 'GCS-2026-000376',
-    fileName: 'event-program.pdf',
-    pages: 6,
-    colorMode: 'colored',
-    pageRange: 'all',
-    cancellationReason: 'Customer no longer needs the printout.',
-    attachedFiles: [
-      {
-        name: 'event-program.pdf',
-        size: '1.5 MB',
-        type: 'PDF',
-        pageCount: 6,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 55, addonsCost: 0, total: 55 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-02T15:30:00+08:00',
-    createdAt: '2026-09-02T15:00:00+08:00',
-    lastUpdatedAt: '2026-09-02T15:30:00+08:00',
-  },
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
-  // ── Extra recent demo orders (Sep 2026) spanning every status so the Orders
-  // ── list and Payment Verification have enough rows to show pagination.
-  {
-    id: 'ORD-2026-0009',
-    customerId: 'cust-miguel',
-    customerName: 'Miguel Fernandez',
-    customerEmail: 'miguel.fernandez@example.com',
-    status: 'Awaiting Payment',
-    total: '₱85.00',
-    date: '2026-09-06T11:30:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: false,
-    paymentReferenceNumber: 'MAY-2026-000442',
-    paymentDeadline: '2026-09-30T23:59:00+08:00',
-    fileName: 'certificate-stock.pdf',
-    pages: 10,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Waiting for Maya payment verification.',
-    attachedFiles: [
-      {
-        name: 'certificate-stock.pdf',
-        size: '1.1 MB',
-        type: 'PDF',
-        pageCount: 10,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 85, addonsCost: 0, total: 85 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-06T11:30:00+08:00',
-    createdAt: '2026-09-06T11:30:00+08:00',
-    lastUpdatedAt: '2026-09-06T11:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0010',
-    customerId: 'cust-elena',
-    customerName: 'Elena Navarro',
-    customerEmail: 'elena.navarro@example.com',
-    status: 'Awaiting Payment',
-    total: '₱75.00',
-    date: '2026-09-06T13:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: false,
-    paymentReferenceNumber: 'GCS-2026-000501',
-    paymentDeadline: '2026-09-30T23:59:00+08:00',
-    fileName: 'events-invitation.pdf',
-    pages: 8,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Waiting for GCash payment verification.',
-    attachedFiles: [
-      {
-        name: 'events-invitation.pdf',
-        size: '1.6 MB',
-        type: 'PDF',
-        pageCount: 8,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 75, addonsCost: 0, total: 75 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-06T13:00:00+08:00',
-    createdAt: '2026-09-06T13:00:00+08:00',
-    lastUpdatedAt: '2026-09-06T13:00:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0011',
-    customerId: 'cust-omar',
-    customerName: 'Omar Bautista',
-    customerEmail: 'omar.bautista@example.com',
-    status: 'In Queue',
-    total: '₱64.00',
-    date: '2026-09-06T14:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Short',
-    printType: 'Black & White',
-    copies: 8,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    paymentReferenceNumber: 'GCS-2026-000512',
-    fileName: 'school-module.pdf',
-    pages: 8,
-    colorMode: 'bw',
-    pageRange: 'all',
-    notes: 'Queued and ready for printing.',
-    attachedFiles: [
-      {
-        name: 'school-module.pdf',
-        size: '0.7 MB',
-        type: 'PDF',
-        pageCount: 8,
-        colorMode: 'bw',
-        pageRange: 'all',
-        copies: 8,
-      },
-    ],
-    costBreakdown: { printingCost: 64, addonsCost: 0, total: 64 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-06T14:00:00+08:00',
-    createdAt: '2026-09-06T14:00:00+08:00',
-    lastUpdatedAt: '2026-09-06T14:00:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0012',
-    customerId: 'cust-pia',
-    customerName: 'Pia Salvacion',
-    customerEmail: 'pia.salvacion@example.com',
-    status: 'Printing',
-    total: '₱128.00',
-    date: '2026-09-06T15:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: true,
-    paymentReferenceNumber: 'MAY-2026-000520',
-    fileName: 'game-day-flyer.pdf',
-    pages: 16,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Currently being printed.',
-    attachedFiles: [
-      {
-        name: 'game-day-flyer.pdf',
-        size: '2.0 MB',
-        type: 'PDF',
-        pageCount: 16,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 128, addonsCost: 0, total: 128 },
-    orderSource: 'online',
-    statusUpdatedAt: '2026-09-06T15:00:00+08:00',
-    createdAt: '2026-09-06T15:00:00+08:00',
-    lastUpdatedAt: '2026-09-06T15:00:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0013',
-    customerId: 'cust-luis',
-    customerName: 'Luis Jimenez',
-    customerEmail: 'luis.jimenez@example.com',
-    status: 'Completed',
-    total: '₱110.00',
-    date: '2026-09-04T10:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    fileName: 'yearbook-page.pdf',
-    pages: 12,
-    colorMode: 'colored',
-    pageRange: 'all',
-    notes: 'Walk-in order, printing done.',
-    attachedFiles: [
-      {
-        name: 'yearbook-page.pdf',
-        size: '2.3 MB',
-        type: 'PDF',
-        pageCount: 12,
-        colorMode: 'colored',
-        pageRange: 'all',
-        copies: 1,
-      },
-    ],
-    costBreakdown: { printingCost: 110, addonsCost: 0, total: 110 },
-    orderSource: 'walkin',
-    statusUpdatedAt: '2026-09-04T10:30:00+08:00',
-    createdAt: '2026-09-04T10:00:00+08:00',
-    lastUpdatedAt: '2026-09-04T10:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0014',
-    customerId: 'cust-thea',
-    customerName: 'Thea Domingo',
-    customerEmail: 'thea.domingo@example.com',
-    status: 'Released',
-    total: '₱35.00',
-    date: '2026-09-03T09:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Short',
-    printType: 'Black & White',
-    copies: 5,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    fileName: 'printout-final.pdf',
-    pages: 5,
-    colorMode: 'bw',
-    pageRange: 'all',
-    notes: 'Released to customer.',
-    attachedFiles: [
-      {
-        name: 'printout-final.pdf',
-        size: '0.5 MB',
-        type: 'PDF',
-        pageCount: 5,
-        colorMode: 'bw',
-        pageRange: 'all',
-        copies: 5,
-      },
-    ],
-    costBreakdown: { printingCost: 35, addonsCost: 0, total: 35 },
-    orderSource: 'walkin',
-    statusUpdatedAt: '2026-09-03T09:20:00+08:00',
-    createdAt: '2026-09-03T09:00:00+08:00',
-    lastUpdatedAt: '2026-09-03T09:20:00+08:00',
-  },
+const money = (n: number): string => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // ── Mock historical orders (Apr…, back 12 months) so the Admin Dashboard
-  // ── Sales Trend area chart has a real multi-month line to render. All are
-  // ── payment-verified and Completed/Released, so they never appear as Pending
-  // ── in Payment Verification, never join the queue, and only feed the sales
-  // ── charts/KPIs + order history.
-  {
-    id: 'ORD-2026-0015',
-    customerId: 'cust-ron',
-    customerName: 'Ron Del Rosario',
-    customerEmail: 'ron.delrosario@example.com',
-    status: 'Released',
-    total: '₱1,050.00',
-    date: '2025-10-15T10:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'marketing-brochure.pdf',
-    pages: 12,
-    costBreakdown: { printingCost: 1050, addonsCost: 0, total: 1050 },
-    statusUpdatedAt: '2025-10-15T10:05:00+08:00',
-    createdAt: '2025-10-15T10:00:00+08:00',
-    lastUpdatedAt: '2025-10-15T10:05:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0016',
-    customerId: 'cust-tricia',
-    customerName: 'Tricia Villanueva',
-    customerEmail: 'tricia.villanueva@example.com',
-    status: 'Released',
-    total: '₱1,320.00',
-    date: '2025-11-14T11:30:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'B&W',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'modules-textbook.pdf',
-    pages: 220,
-    costBreakdown: { printingCost: 1320, addonsCost: 0, total: 1320 },
-    statusUpdatedAt: '2025-11-14T11:35:00+08:00',
-    createdAt: '2025-11-14T11:30:00+08:00',
-    lastUpdatedAt: '2025-11-14T11:35:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0017',
-    customerId: 'cust-mark',
-    customerName: 'Mark Aquino',
-    customerEmail: 'mark.aquino@example.com',
-    status: 'Released',
-    total: '₱2,100.00',
-    date: '2025-12-18T09:00:00+08:00',
-    paperType: 'Vellum',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'christmas-program.pdf',
-    pages: 48,
-    costBreakdown: { printingCost: 2100, addonsCost: 0, total: 2100 },
-    statusUpdatedAt: '2025-12-18T09:10:00+08:00',
-    createdAt: '2025-12-18T09:00:00+08:00',
-    lastUpdatedAt: '2025-12-18T09:10:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0018',
-    customerId: 'cust-sarah',
-    customerName: 'Sarah Lim',
-    customerEmail: 'sarah.lim@example.com',
-    status: 'Completed',
-    total: '₱1,450.00',
-    date: '2026-01-16T14:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    orderSource: 'walkin',
-    fileName: 'yearbook-pages.pdf',
-    pages: 90,
-    costBreakdown: { printingCost: 1450, addonsCost: 0, total: 1450 },
-    statusUpdatedAt: '2026-01-16T14:20:00+08:00',
-    createdAt: '2026-01-16T14:00:00+08:00',
-    lastUpdatedAt: '2026-01-16T14:20:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0019',
-    customerId: 'cust-carlo',
-    customerName: 'Carlo Mendoza',
-    customerEmail: 'carlo.mendoza@example.com',
-    status: 'Completed',
-    total: '₱1,680.00',
-    date: '2026-02-13T13:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Short',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'thesis-final.pdf',
-    pages: 150,
-    costBreakdown: { printingCost: 1680, addonsCost: 0, total: 1680 },
-    statusUpdatedAt: '2026-02-13T13:15:00+08:00',
-    createdAt: '2026-02-13T13:00:00+08:00',
-    lastUpdatedAt: '2026-02-13T13:15:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0020',
-    customerId: 'cust-nina',
-    customerName: 'Nina Ramirez',
-    customerEmail: 'nina.ramirez@example.com',
-    status: 'Released',
-    total: '₱1,220.00',
-    date: '2026-03-20T15:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'B&W',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'business-report.pdf',
-    pages: 200,
-    costBreakdown: { printingCost: 1220, addonsCost: 0, total: 1220 },
-    statusUpdatedAt: '2026-03-20T15:10:00+08:00',
-    createdAt: '2026-03-20T15:00:00+08:00',
-    lastUpdatedAt: '2026-03-20T15:10:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0021',
-    customerId: 'cust-paolo',
-    customerName: 'Paolo Cruz',
-    customerEmail: 'paolo.cruz@example.com',
-    status: 'Released',
-    total: '₱1,860.00',
-    date: '2026-04-17T10:30:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'photobook.pdf',
-    pages: 40,
-    costBreakdown: { printingCost: 1860, addonsCost: 0, total: 1860 },
-    statusUpdatedAt: '2026-04-17T10:40:00+08:00',
-    createdAt: '2026-04-17T10:30:00+08:00',
-    lastUpdatedAt: '2026-04-17T10:40:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0022',
-    customerId: 'cust-bella',
-    customerName: 'Bella Garcia',
-    customerEmail: 'bella.garcia@example.com',
-    status: 'Completed',
-    total: '₱2,150.00',
-    date: '2026-05-15T11:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'Legal',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Cash',
-    paymentVerified: true,
-    orderSource: 'walkin',
-    fileName: 'brochures-pack.pdf',
-    pages: 75,
-    costBreakdown: { printingCost: 2150, addonsCost: 0, total: 2150 },
-    statusUpdatedAt: '2026-05-15T11:30:00+08:00',
-    createdAt: '2026-05-15T11:00:00+08:00',
-    lastUpdatedAt: '2026-05-15T11:30:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0023',
-    customerId: 'cust-josh',
-    customerName: 'Josh Reyes',
-    customerEmail: 'josh.reyes@example.com',
-    status: 'Completed',
-    total: '₱1,940.00',
-    date: '2026-06-19T16:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'B&W',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'reviewer-bundle.pdf',
-    pages: 320,
-    costBreakdown: { printingCost: 1940, addonsCost: 0, total: 1940 },
-    statusUpdatedAt: '2026-06-19T16:15:00+08:00',
-    createdAt: '2026-06-19T16:00:00+08:00',
-    lastUpdatedAt: '2026-06-19T16:15:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0024',
-    customerId: 'cust-angel',
-    customerName: 'Angel Santos',
-    customerEmail: 'angel.santos@example.com',
-    status: 'Released',
-    total: '₱2,480.00',
-    date: '2026-07-17T09:30:00+08:00',
-    paperType: 'Vellum',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'wedding-invites.pdf',
-    pages: 60,
-    costBreakdown: { printingCost: 2480, addonsCost: 0, total: 2480 },
-    statusUpdatedAt: '2026-07-17T09:45:00+08:00',
-    createdAt: '2026-07-17T09:30:00+08:00',
-    lastUpdatedAt: '2026-07-17T09:45:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0025',
-    customerId: 'cust-david',
-    customerName: 'David Tan',
-    customerEmail: 'david.tan@example.com',
-    status: 'Released',
-    total: '₱2,760.00',
-    date: '2026-08-21T12:00:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'GCash',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'campaign-materials.pdf',
-    pages: 110,
-    costBreakdown: { printingCost: 2760, addonsCost: 0, total: 2760 },
-    statusUpdatedAt: '2026-08-21T12:20:00+08:00',
-    createdAt: '2026-08-21T12:00:00+08:00',
-    lastUpdatedAt: '2026-08-21T12:20:00+08:00',
-  },
-  {
-    id: 'ORD-2026-0026',
-    customerId: 'cust-karen',
-    customerName: 'Karen Lim',
-    customerEmail: 'karen.lim@example.com',
-    status: 'Completed',
-    total: '₱890.00',
-    date: '2026-09-03T14:30:00+08:00',
-    paperType: 'Bond Paper',
-    paperSize: 'A4',
-    printType: 'Colored',
-    copies: 1,
-    paymentMethod: 'Maya',
-    paymentVerified: true,
-    orderSource: 'online',
-    fileName: 'poster-set.pdf',
-    pages: 18,
-    costBreakdown: { printingCost: 890, addonsCost: 0, total: 890 },
-    statusUpdatedAt: '2026-09-03T14:45:00+08:00',
-    createdAt: '2026-09-03T14:30:00+08:00',
-    lastUpdatedAt: '2026-09-03T14:45:00+08:00',
-  },
+const SIZE_KEY_MAP: Record<string, string> = {
+  a4: 'A4',
+  short: 'Short',
+  long: 'Long',
+  folio: 'Folio',
+  legal: 'Legal',
+  a3: 'A3',
+};
 
-  // ── Extra Awaiting-Payment demo orders (Sep 2026) so Payment Verification's
-  // ── default Pending list has enough rows to show pagination.
-  ...Array.from({ length: 10 }, (_, i) => {
-    const n = 27 + i;
-    const id = `ORD-2026-00${n}`;
-    const customers = [
-      ['cust-franco', 'Franco Mercado', 'franco.mercado@example.com', 'GCash', 'GCS-2026-0006' + String(10 + i)],
-      ['cust-gina', 'Gina Reyes', 'gina.reyes@example.com', 'Maya', 'MAY-2026-0007' + String(10 + i)],
-      ['cust-henri', 'Henri Go', 'henri.go@example.com', 'GCash', 'GCS-2026-0008' + String(10 + i)],
-      ['cust-irma', 'Irma Salazar', 'irma.salazar@example.com', 'Cash', ''],
-      ['cust-joel', 'Joel Ramos', 'joel.ramos@example.com', 'Maya', 'MAY-2026-0009' + String(10 + i)],
-      ['cust-kyla', 'Kyla Tan', 'kyla.tan@example.com', 'GCash', 'GCS-2026-0010' + String(10 + i)],
-      ['cust-leo', 'Leo Domingo', 'leo.domingo@example.com', 'Cash', ''],
-      ['cust-marie', 'Marie Cruz', 'marie.cruz@example.com', 'GCash', 'GCS-2026-0011' + String(10 + i)],
-      ['cust-nico', 'Nico Villar', 'nico.villar@example.com', 'Maya', 'MAY-2026-0012' + String(10 + i)],
-      ['cust-orna', 'Orna Santos', 'orna.santos@example.com', 'Cash', ''],
-    ][i];
-    const hour = (0b10 + i) % 17 + 8; // 10:00 .. 17:00 staggered
-    const minute = (i * 7) % 60;
-    const ts = `2026-09-0${(i % 5) + 4}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`;
-    const isCash = customers[3] === 'Cash';
-    return {
-      id,
-      customerId: customers[0],
-      customerName: customers[1],
-      customerEmail: customers[2],
-      status: 'Awaiting Payment',
-      total: `₱${55 + i * 3}.00`,
-      date: ts,
-      paperType: 'Bond Paper',
-      paperSize: 'A4',
-      printType: 'Colored',
-      copies: 1,
-      paymentMethod: customers[3],
-      paymentVerified: false,
-      ...(customers[4] ? { paymentReferenceNumber: customers[4] } : {}),
-      paymentDeadline: '2026-09-30T23:59:00+08:00',
-      fileName: `pending-doc-${n}.pdf`,
-      pages: 4 + (i % 6),
-      colorMode: 'colored',
-      pageRange: 'all',
-      notes: isCash
-        ? 'Awaiting in-shop cash payment confirmation before printing.'
-        : `Waiting for ${customers[3]} payment verification.`,
-      attachedFiles: [
-        {
-          name: `pending-doc-${n}.pdf`,
-          size: `${(i % 4) + 1}.0 MB`,
-          type: 'PDF',
-          pageCount: 4 + (i % 6),
-          colorMode: 'colored',
-          pageRange: 'all',
-          copies: 1,
-        },
-      ],
-      costBreakdown: { printingCost: 55 + i * 3, addonsCost: 0, total: 55 + i * 3 },
-      orderSource: 'online',
-      statusUpdatedAt: ts,
-      createdAt: ts,
-      lastUpdatedAt: ts,
-    } as Order;
-  }),
+const fileSizeLabel = (bytes: number | null): string => {
+  if (bytes == null) return '0 MB';
+  const mb = bytes / 1024 / 1024;
+  return mb >= 0.01 ? `${mb.toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
 
-  // ── Extra In Queue / Printing demo orders (Sep 2026) so the Orders/queue page
-  // ── default view has enough rows to show pagination.
-  ...Array.from({ length: 10 }, (_, i) => {
-    const n = 37 + i;
-    const id = `ORD-2026-00${n}`;
-    const customers = [
-      ['cust-paolo-b', 'Paolo Bautista', 'paolo.bautista@example.com', 'GCash', 'GCS-2026-0013' + String(i)],
-      ['cust-quinn', 'Quinn Lim', 'quinn.lim@example.com', 'Maya', 'MAY-2026-0014' + String(i)],
-      ['cust-rico', 'Rico Dela Pena', 'rico.delapena@example.com', 'Cash', ''],
-      ['cust-sienna', 'Sienna Cruz', 'sienna.cruz@example.com', 'GCash', 'GCS-2026-0015' + String(i)],
-      ['cust-tomas', 'Tomas Aquino', 'tomas.aquino@example.com', 'Maya', 'MAY-2026-0016' + String(i)],
-      ['cust-urna', 'Urna Reyes', 'urna.reyes@example.com', 'Cash', ''],
-      ['cust-victor', 'Victor Santos', 'victor.santos@example.com', 'GCash', 'GCS-2026-0017' + String(i)],
-      ['cust-wina', 'Wina Garcia', 'wina.garcia@example.com', 'Maya', 'MAY-2026-0018' + String(i)],
-      ['cust-xander', 'Xander Villanueva', 'xander.villanueva@example.com', 'GCash', 'GCS-2026-0019' + String(i)],
-      ['cust-yana', 'Yana Mercado', 'yana.mercado@example.com', 'Cash', ''],
-    ][i];
-    const status = i % 3 === 0 ? 'Printing' : 'In Queue';
-    const hour = 9 + i;
-    const minute = (i * 3) % 60;
-    const ts = `2026-09-${String(i + 1).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`;
-    const isCash = customers[3] === 'Cash';
-    return {
-      id,
-      customerId: customers[0],
-      customerName: customers[1],
-      customerEmail: customers[2],
-      status,
-      total: `₱${45 + i * 7}.00`,
-      date: ts,
-      paperType: 'Bond Paper',
-      paperSize: 'A4',
-      printType: 'Colored',
-      copies: 1,
-      paymentMethod: customers[3],
-      paymentVerified: true,
-      ...(customers[4] && !isCash ? { paymentReferenceNumber: customers[4] } : {}),
-      fileName: `queue-doc-${n}.pdf`,
-      pages: 3 + (i % 5),
-      colorMode: 'colored',
-      pageRange: 'all',
-      notes: status === 'Printing' ? 'Currently being printed.' : 'Queued and ready for printing.',
-      attachedFiles: [
-        {
-          name: `queue-doc-${n}.pdf`,
-          size: `${(i % 3) + 1}.0 MB`,
-          type: 'PDF',
-          pageCount: 3 + (i % 5),
-          colorMode: 'colored',
-          pageRange: 'all',
-          copies: 1,
-        },
-      ],
-      costBreakdown: { printingCost: 45 + i * 7, addonsCost: 0, total: 45 + i * 7 },
-      orderSource: customers[3] === 'Cash' ? 'walkin' : 'online',
-      statusUpdatedAt: ts,
-      createdAt: ts,
-      lastUpdatedAt: ts,
-    } as Order;
-  }),
-];
+const fileTypeLabel = (mime: string | null, fallback: string | null): string => {
+  const src = mime || '';
+  if (src.includes('pdf')) return 'PDF';
+  if (src.includes('word') || src.includes('document')) return 'Document';
+  if (src.includes('powerpoint') || src.includes('presentation')) return 'PowerPoint';
+  if (src.includes('excel') || src.includes('spreadsheet')) return 'Excel';
+  if (src.includes('image')) return 'Image';
+  return fallback || 'Document';
+};
 
-// ─── Cross-tab order sync ──────────────────────────────────────────────────
-// Orders live across every open tab (staff/admin/queue/dashboards) via a
-// localStorage snapshot used as the shared channel, synced through the browser
-// `storage` event. Writing any order first re-bases on the LATEST snapshot (so
-// tabs updating different orders can't silently revert each other), then saves
-// and notifies; every OTHER tab hears the storage event, reloads the snapshot,
-// and re-renders LIVE — no page refresh needed.
-// NOTE (backend later): replace this mirror with real shared state
-// (a database table + realtime broadcasts). This only emulates that
-// behavior locally so the multi-PC demo works in two tabs.
-const ORDERS_SYNC_KEY = 'docufy_orders_sync_v1';
-
-function readOrdersSnapshot(): Order[] | null {
-  try {
-    const raw = localStorage.getItem(ORDERS_SYNC_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Order[]) : null;
-  } catch {
-    return null;
-  }
+function toAttachedFile(f: OrderFileDto): AttachedFile {
+  return {
+    name: f.originalName,
+    size: fileSizeLabel(f.sizeBytes),
+    type: fileTypeLabel(f.mimeType, f.printType),
+    url: resolveStorageUrl(BUCKETS.orderFiles, f.storagePath) || undefined,
+    uploadedAt: f.createdAt.toISOString(),
+    paperSize: f.paperSize || undefined,
+    orientation: f.orientation || undefined,
+    copies: f.copies,
+    twoSided: f.twoSided || undefined,
+    pagesPerSheet: f.pagesPerSheet || undefined,
+    colorMode: f.colorMode || undefined,
+    pageRange: f.pageRange || undefined,
+    specificPages: f.specificPages || undefined,
+    margins: f.margins || undefined,
+    scale: f.scale || undefined,
+    customScale: f.customScale ?? undefined,
+    pageCount: f.pageCount ?? undefined,
+  };
 }
 
-function writeOrdersSnapshot(orders: Order[]) {
-  try {
-    localStorage.setItem(ORDERS_SYNC_KEY, JSON.stringify(orders));
-  } catch {
-    // quota / private-mode errors are non-fatal for the mock store
-  }
+// Map a DB OrderDto back into the legacy app Order shape that all consumers
+// read. Payment-derived fields (verified flag, reference, proof, method) come
+// from the order's payments rows.
+export function orderDtoToApp(dto: OrderDto): Order {
+  const verifiedPayments = dto.payments.filter((p) => p.status === 'verified').sort((a, b) => b.verifiedAt?.getTime()! - a.verifiedAt?.getTime()! || b.submittedAt.getTime() - a.submittedAt.getTime());
+  const latestPayment = dto.payments
+    .slice()
+    .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())[0];
+  const vp = verifiedPayments[0];
+  const firstFile = dto.files[0];
+  const pages = dto.files.reduce((sum, f) => sum + (f.pageCount ?? 0) * f.copies, 0);
+  const total = dto.manualTotal ?? dto.total;
+
+  return {
+    id: dto.id,
+    orderNumber: dto.orderNumber,
+    displayId: formatOrderNumber(dto.orderNumber),
+    customerId: dto.customerId ?? dto.customerEmail,
+    customerName: dto.customerName,
+    customerEmail: dto.customerEmail,
+    status: dto.status,
+    holdReason: dto.holdReason ?? undefined,
+    cancellationReason: dto.cancellationReason ?? undefined,
+    paymentDeadline: dto.paymentDeadline?.toISOString(),
+    paymentAmountPaid: dto.paymentAmountPaid,
+    total: money(total),
+    date: dto.createdAt.toISOString(),
+    paperType: firstFile?.printType || undefined,
+    paperSize: firstFile?.paperSize ? (SIZE_KEY_MAP[firstFile.paperSize] ?? firstFile.paperSize) : undefined,
+    printType: dto.files.some((f) => f.colorMode && f.colorMode !== 'bw')
+      ? 'Colored'
+      : 'Black & White',
+    copies: firstFile?.copies || undefined,
+    paymentMethod:
+      vp?.methodName ??
+      latestPayment?.methodName ??
+      (dto.orderSource === 'walkin' ? 'Cash' :
+       // Customer cash-on-pickup orders have no payment row; the holdReason is
+       // the tell ("Cash on Pickup: …").
+       dto.holdReason?.includes('Cash on Pickup') ? 'Cash' : undefined),
+    paymentProof: undefined,
+    paymentRowId: latestPayment?.id,
+    paymentReferenceNumber: vp?.referenceNumber ?? undefined,
+    paymentVerified: hasVerifiedPayment(dto.payments.map((p) => p.status)),
+    paymentProofUrl: resolveStorageUrl(BUCKETS.paymentProofs, vp?.proofStoragePath ?? null) || undefined,
+    fileName: firstFile?.originalName,
+    pages: pages || firstFile?.pageCount || undefined,
+    attachedFiles: dto.files.map(toAttachedFile),
+    orientation: firstFile?.orientation || undefined,
+    twoSided: firstFile?.twoSided || undefined,
+    pagesPerSheet: firstFile?.pagesPerSheet || undefined,
+    margins: firstFile?.margins || undefined,
+    scale: firstFile?.scale || undefined,
+    customScale: firstFile?.customScale ?? undefined,
+    colorMode: firstFile?.colorMode || undefined,
+    pageRange: firstFile?.pageRange || undefined,
+    specificPages: firstFile?.specificPages || undefined,
+    notes: dto.notes ?? undefined,
+    addons: dto.addons.map((a) => ({ name: a.name, quantity: a.quantity, price: a.unitPrice })),
+    costBreakdown: dto.costBreakdown ?? undefined,
+    orderSource: dto.orderSource,
+    customerType: (dto.customerType as Order['customerType']) || undefined,
+    manualTotal: dto.manualTotal ?? undefined,
+    downPaymentRequired: dto.downPaymentRequired,
+    downPaymentAmount: dto.downPaymentAmount ?? undefined,
+    downPaymentVerified: dto.downPaymentVerified,
+    fullPaymentRequired: dto.fullPaymentRequired,
+    fullPaymentAmount: dto.fullPaymentAmount ?? undefined,
+    fullPaymentVerified: dto.fullPaymentVerified,
+    expectedPaperUsage: dto.expectedPaperUsage ?? undefined,
+    paperDeductedOnCreate: dto.paperDeductedOnCreate,
+    paperConfirmed: dto.paperConfirmed,
+    errorUsage: dto.errorUsage ?? undefined,
+    statusUpdatedAt: dto.statusUpdatedAt.toISOString(),
+    createdAt: dto.createdAt.toISOString(),
+    lastUpdatedAt: dto.updatedAt.toISOString(),
+  };
 }
 
-// In-memory store with event listeners
+// Input accepted by addOrder — deliberately loose: it accepts BOTH the
+// customer-flow app Order (minus its pre-minted display id) and the walk-in
+// ordersStore shape (lowercase `customer`, legacy lowercase status).
+export type OrderInput = Partial<Order> &
+  Pick<Order, 'notes'> & {
+    id?: string;
+    customer?: string;
+    submittedAt?: Date;
+    // Real Supabase auth uid of whoever is creating the order (customer for the
+    // checkout flow, staff/admin for walk-ins). Used for status-history actor.
+    actorId?: string | null;
+    status?:
+      | Order['status']
+      | 'inQueue'
+      | 'printing'
+      | 'completed'
+      | 'released'
+      | 'canceled'
+      | 'awaitingPayment';
+  };
+
+const STATUS_MAP: Record<string, Order['status']> = {
+  'Awaiting Payment': 'Awaiting Payment',
+  awaitingPayment: 'Awaiting Payment',
+  'In Queue': 'In Queue',
+  inQueue: 'In Queue',
+  Printing: 'Printing',
+  printing: 'Printing',
+  Completed: 'Completed',
+  completed: 'Completed',
+  Released: 'Released',
+  released: 'Released',
+  Canceled: 'Canceled',
+  canceled: 'Canceled',
+  Received: 'In Queue',
+  'On Hold': 'In Queue',
+};
+
+function parseMoney(v: string | number | undefined, fallback: number): number {
+  if (typeof v === 'number') return isNaN(v) ? fallback : v;
+  if (v == null) return fallback;
+  const n = parseFloat(String(v).replace(/[₱,]/g, ''));
+  return isNaN(n) ? fallback : n;
+}
+
+// ─── Store ──────────────────────────────────────────────────────────────────
+
 class DataStore {
-  private orders: Order[] = [...initialOrders];
+  private orders: Order[] = [];
   private listeners: Set<() => void> = new Set();
+  private initialized = false;
+  private lastRefreshAt = 0;
 
   constructor() {
-    // Adopt any existing cross-tab snapshot on load, so a freshly-opened tab
-    // (customer OR staff/admin) immediately reflects orders placed in other
-    // tabs instead of starting from the seed rows until the next write.
-    const snap = readOrdersSnapshot();
-    if (snap) {
-      this.orders = snap;
-    }
+    this.hydrate();
+    this.initialized = true;
 
-    // Initialize order counter from existing orders
-    this.initializeOrderCounter();
-
-    // Cross-tab sync: whenever another tab writes the shared snapshot, adopt
-    // it into memory and re-render every subscriber live (no refresh needed).
-    window.addEventListener('storage', (e) => {
-      if (e.key !== ORDERS_SYNC_KEY || e.newValue == null) return;
-      try {
-        const incoming = JSON.parse(e.newValue);
-        if (Array.isArray(incoming)) {
-          this.orders = incoming as Order[];
-          this.notify();
-        }
-      } catch {
-        // ignore malformed snapshots
-      }
+    subscribeOrderChanges(() => {
+      void this.refresh();
     });
+  }
+
+  private notify() {
+    this.listeners.forEach((l) => l());
+  }
+
+  // Full re-read from Supabase (used on initial load + realtime events). A
+  // failed fetch keeps the previous cache so transient RLS/network errors do
+  // not blank the UI.
+  private async refresh(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastRefreshAt < 400) return; // cheap re-entry guard
+    this.lastRefreshAt = now;
+    try {
+      const dtos = await fetchOrders();
+      this.orders = dtos.map(orderDtoToApp);
+      this.notify();
+    } catch (err) {
+      console.warn('[dataStore] order refresh failed (stale cache retained)', err);
+    }
+  }
+
+  async hydrate(): Promise<void> {
+    try {
+      const dtos = await fetchOrders();
+      this.orders = dtos.map(orderDtoToApp);
+    } catch (err) {
+      console.warn('[dataStore] initial order hydrate failed', err);
+    }
+    this.notify();
   }
 
   subscribe(listener: () => void) {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
-  private notify() {
-    this.listeners.forEach(listener => listener());
-  }
-
-  // Order methods
+  // Order read methods (sync — these power every dashboard/list)
   getOrders(): Order[] {
     return [...this.orders];
   }
 
   getOrdersByCustomer(customerEmail: string): Order[] {
-    return this.orders.filter(order => order.customerEmail === customerEmail);
+    return this.orders.filter((o) => o.customerEmail === customerEmail);
   }
 
   getOrderById(id: string): Order | undefined {
-    return this.orders.find(order => order.id === id);
+    return this.orders.find((o) => o.id === id);
   }
 
-  addOrder(order: Order) {
-    // Re-base on the latest shared snapshot so changes made in other tabs
-    // (that we haven't received yet) aren't clobbered by this write.
-    const base = readOrdersSnapshot();
-    const working = base ?? this.orders;
-    // Automatically add timestamp when creating a new order
-    const now = new Date().toISOString();
-    const orderWithTimestamps = {
-      ...order,
-      createdAt: order.createdAt || now,
-      statusUpdatedAt: order.statusUpdatedAt || now,
-      lastUpdatedAt: now
-    };
-    const updated = [orderWithTimestamps, ...working];
-    this.orders = updated;
-    writeOrdersSnapshot(updated);
-    this.notify();
-  }
-
-  updateOrder(id: string, updates: Partial<Order>) {
-    const base = readOrdersSnapshot();
-    const working = base ?? this.orders;
-    const index = working.findIndex(order => order.id === id);
-    if (index !== -1) {
-      const now = new Date().toISOString();
-      const previousStatus = working[index].status;
-
-      // Automatically update timestamps
-      const timestampedUpdates = {
-        ...updates,
-        lastUpdatedAt: now,
-        // Update statusUpdatedAt only if status is actually changing
-        ...(updates.status && updates.status !== previousStatus
-          ? { statusUpdatedAt: now }
-          : {})
-      };
-
-      const updated = working.map((order, i) =>
-        i === index ? { ...order, ...timestampedUpdates } : order
-      );
-      this.orders = updated;
-      writeOrdersSnapshot(updated);
-      this.notify();
+  async getOrderByIdAsync(id: string): Promise<Order | undefined> {
+    const cached = this.orders.find((o) => o.id === id);
+    if (cached) return cached;
+    try {
+      const dto = await fetchOrderById(id);
+      if (!dto) return undefined;
+      const app = orderDtoToApp(dto);
+      this.orders = [app, ...this.orders];
+      return app;
+    } catch (err) {
+      console.warn('[dataStore] fetch by id failed', err);
+      return undefined;
     }
   }
 
-  updateOrderStatus(id: string, status: Order['status'], holdReason?: string) {
-    this.updateOrder(id, { status, holdReason });
+  // Create an order in Supabase (plus its files/addons/cost breakdown/history),
+  // then adopt the result locally. Returns the created app Order — its `id` is
+  // the DB uuid and `displayId` is the ORD-0001 form. The input's pre-minted
+  // display `id` (legacy counter) is ignored.
+  async addOrder(input: OrderInput): Promise<Order> {
+    const status = STATUS_MAP[input.status ?? 'Awaiting Payment'] ?? 'Awaiting Payment';
+    const total = parseMoney(input.total, 0);
+    const printingCost = input.costBreakdown?.printingCost ?? total - (input.costBreakdown?.addonsCost ?? 0);
+    const addonsCost = input.addons?.reduce((s, a) => s + a.price * a.quantity, 0) ?? input.costBreakdown?.addonsCost ?? Math.max(0, total - printingCost);
+
+    const isWalkin = input.orderSource === 'walkin';
+    const suppliedCustomerId = input.customerId ?? (isWalkin ? null : input.customerEmail);
+    const customerId =
+      isWalkin
+        ? null
+        : typeof suppliedCustomerId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(suppliedCustomerId)
+          ? suppliedCustomerId
+          : input.actorId ?? null;
+
+    const row: CreateOrderInput = {
+      customerId,
+      customerName: input.customerName ?? input.customer ?? 'Customer',
+      customerEmail: input.customerEmail ?? `${(input.customerName ?? 'customer').toLowerCase().replace(/[^a-z0-9]+/g, '.')}@example.com`,
+      status,
+      orderSource: input.orderSource ?? 'online',
+      customerType: input.customerType ?? null,
+      subtotal: printingCost,
+      addonsTotal: addonsCost,
+      total,
+      manualTotal: input.manualTotal ?? null,
+      holdReason: input.holdReason ?? null,
+      cancellationReason: input.cancellationReason ?? null,
+      paymentDeadline: input.paymentDeadline ? new Date(input.paymentDeadline) : null,
+      paymentAmountPaid: input.paymentAmountPaid ?? 0,
+      downPaymentRequired: input.downPaymentRequired ?? false,
+      downPaymentAmount: input.downPaymentAmount ?? null,
+      downPaymentVerified: input.downPaymentVerified ?? false,
+      fullPaymentRequired: input.fullPaymentRequired ?? false,
+      fullPaymentAmount: input.fullPaymentAmount ?? null,
+      fullPaymentVerified: input.fullPaymentVerified ?? false,
+      expectedPaperUsage: input.expectedPaperUsage ?? null,
+      paperDeductedOnCreate: input.paperDeductedOnCreate ?? false,
+      paperConfirmed: input.paperConfirmed ?? false,
+      errorUsage: input.errorUsage ?? null,
+      notes: input.notes ?? '',
+    };
+
+    const createdById = input.actorId ?? null;
+
+    const { id, orderNumber } = await createOrder(row);
+
+    const files = input.attachedFiles ?? [];
+    if (files.length > 0) {
+      await insertOrderFiles(
+        id,
+        files.map((f) => ({
+          storagePath: null,
+          originalName: f.name,
+          mimeType: f.type,
+          sizeBytes: null,
+          pageCount: f.pageCount ?? null,
+          printType: f.printType ?? null,
+          contentType: null,
+          paperSize: f.paperSize ?? null,
+          copies: f.copies ?? 1,
+          colorMode: f.colorMode ?? null,
+          pageRange: f.pageRange ?? null,
+          specificPages: f.specificPages ?? null,
+          pagesPerSheet: f.pagesPerSheet ?? null,
+          orientation: f.orientation ?? null,
+          twoSided: f.twoSided ?? null,
+          margins: f.margins ?? null,
+          scale: f.scale ?? null,
+          customScale: f.customScale ?? null,
+          photoSize: null,
+          photoQuantity: null,
+          notes: null,
+        })),
+      );
+    }
+
+    if (input.addons && input.addons.length > 0) {
+      await insertOrderAddons(
+        id,
+        input.addons.map((a) => ({ name: a.name, quantity: a.quantity, unitPrice: a.price })),
+      );
+    }
+
+    if (input.costBreakdown) {
+      await upsertCostBreakdown(id, {
+        printingCost: input.costBreakdown.printingCost,
+        addonsCost: input.costBreakdown.addonsCost,
+        total: input.costBreakdown.total,
+      });
+    }
+
+    await insertStatusHistory(id, {
+      oldStatus: null,
+      newStatus: status,
+      reason: input.holdReason ?? null,
+      changedBy: createdById,
+    }).catch((err) => console.warn('[dataStore] initial history write failed', err));
+
+    const dto = await fetchOrderById(id);
+    if (!dto) throw new Error('Order was created but could not be reloaded.');
+    const app = orderDtoToApp(dto);
+    this.orders = [app, ...this.orders];
+    this.notify();
+    return app;
   }
 
-  deleteOrder(id: string) {
-    const base = readOrdersSnapshot();
-    const working = base ?? this.orders;
-    const updated = working.filter(order => order.id !== id);
-    this.orders = updated;
-    writeOrdersSnapshot(updated);
+  // DB-backed partial update. Persists, then mutates cache only on success.
+  async updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
+    const current = this.orders.find((o) => o.id === id);
+
+    const patch: Parameters<typeof dbUpdateOrder>[1] = {};
+    if ('status' in updates && updates.status) patch.status = updates.status;
+    if ('holdReason' in updates) patch.holdReason = updates.holdReason ?? null;
+    if ('cancellationReason' in updates) patch.cancellationReason = updates.cancellationReason ?? null;
+    if ('paymentDeadline' in updates)
+      patch.paymentDeadline = updates.paymentDeadline ? new Date(updates.paymentDeadline) : null;
+    if ('paymentAmountPaid' in updates && updates.paymentAmountPaid != null)
+      patch.paymentAmountPaid = updates.paymentAmountPaid;
+    if ('downPaymentRequired' in updates) patch.downPaymentRequired = updates.downPaymentRequired;
+    if ('downPaymentAmount' in updates) patch.downPaymentAmount = updates.downPaymentAmount ?? null;
+    if ('downPaymentVerified' in updates) patch.downPaymentVerified = updates.downPaymentVerified;
+    if ('fullPaymentRequired' in updates) patch.fullPaymentRequired = updates.fullPaymentRequired;
+    if ('fullPaymentAmount' in updates) patch.fullPaymentAmount = updates.fullPaymentAmount ?? null;
+    if ('fullPaymentVerified' in updates) patch.fullPaymentVerified = updates.fullPaymentVerified;
+    if ('expectedPaperUsage' in updates) patch.expectedPaperUsage = updates.expectedPaperUsage ?? null;
+    if ('paperDeductedOnCreate' in updates) patch.paperDeductedOnCreate = updates.paperDeductedOnCreate;
+    if ('paperConfirmed' in updates) patch.paperConfirmed = updates.paperConfirmed;
+    if ('errorUsage' in updates) patch.errorUsage = updates.errorUsage ?? null;
+    if ('notes' in updates) patch.notes = updates.notes ?? null;
+    if ('manualTotal' in updates) patch.manualTotal = updates.manualTotal ?? null;
+    if ('customerName' in updates) patch.customerName = updates.customerName;
+    if ('customerEmail' in updates) patch.customerEmail = updates.customerEmail;
+
+    const oldStatus = current?.status ?? null;
+    const newStatus = patch.status ?? oldStatus;
+
+    await dbUpdateOrder(id, patch);
+    if (patch.status && newStatus && newStatus !== oldStatus) {
+      await insertStatusHistory(id, {
+        oldStatus,
+        newStatus,
+        reason: patch.cancellationReason ?? null,
+        changedBy: null,
+      }).catch((err) => console.warn('[dataStore] status history write failed', err));
+    }
+
+    // Re-read the fresh row so order_number + payments stay consistent.
+    const fresh = await fetchOrderById(id);
+    if (fresh) {
+      const app = orderDtoToApp(fresh);
+      this.orders = [app, ...this.orders.filter((o) => o.id !== id)];
+      this.notify();
+      return app;
+    }
+    return undefined;
+  }
+
+  updateOrderStatus(id: string, status: Order['status'], holdReason?: string) {
+    return this.updateOrder(id, { status, holdReason });
+  }
+
+  async deleteOrder(id: string): Promise<void> {
+    this.orders = this.orders.filter((o) => o.id !== id);
     this.notify();
   }
 
@@ -1184,12 +567,12 @@ class DataStore {
       ? this.getOrdersByCustomer(customerEmail)
       : this.orders;
 
-    const awaitingPayment = orders.filter(o => o.status === 'Awaiting Payment').length;
-    const inQueue   = orders.filter(o => o.status === 'In Queue').length;
-    const printing  = orders.filter(o => o.status === 'Printing').length;
-    const completed = orders.filter(o => o.status === 'Completed').length;
-    const released  = orders.filter(o => o.status === 'Released').length;
-    const canceled  = orders.filter(o => o.status === 'Canceled').length;
+    const awaitingPayment = orders.filter((o) => o.status === 'Awaiting Payment').length;
+    const inQueue = orders.filter((o) => o.status === 'In Queue').length;
+    const printing = orders.filter((o) => o.status === 'Printing').length;
+    const completed = orders.filter((o) => o.status === 'Completed').length;
+    const released = orders.filter((o) => o.status === 'Released').length;
+    const canceled = orders.filter((o) => o.status === 'Canceled').length;
 
     // "In Progress" = orders actively being printed (queued + printing)
     const inProgress = inQueue + printing;
@@ -1199,42 +582,22 @@ class DataStore {
     const allActive = inQueue + printing + awaitingPayment;
     // "Finished" = completed + released (alias)
     const allFinished = allCompleted;
-    // Total = awaitingPayment + inProgress + allCompleted (no canceled) — matches sum of status cards
+    // Total = awaitingPayment + inProgress + allCompleted (no canceled)
     const total = awaitingPayment + inProgress + allCompleted;
 
     return {
-      total,          // = awaitingPayment + inProgress + allCompleted (consistent with dashboard cards)
+      total,
       awaitingPayment,
       inQueue,
       printing,
       completed,
       released,
       canceled,
-      inProgress,     // inQueue + printing
-      allCompleted,   // completed + released
-      allActive,      // inQueue + printing + awaitingPayment
-      allFinished,    // completed + released
+      inProgress,
+      allCompleted,
+      allActive,
+      allFinished,
     };
-  }
-
-  // Generate next sequential order ID using centralized counter
-  getNextOrderId(): string {
-    // Re-base on the LATEST shared snapshot before minting. A tab that has been
-    // open a while (e.g. the customer tab while staff/admin was placing walk-in
-    // orders in another tab) otherwise holds a stale in-memory counter and could
-    // mint an ID that already exists. initializeFromOrders only ever raised the
-    // sequence, so this is safe against any previously-minted ID.
-    const snap = readOrdersSnapshot();
-    if (snap && snap.length > 0) {
-      orderCounter.initializeFromOrders(snap.map(order => order.id));
-    }
-    return orderCounter.getNextOrderId();
-  }
-
-  // Initialize the order counter from existing orders (call once on app start)
-  initializeOrderCounter(): void {
-    const orderIds = this.orders.map(order => order.id);
-    orderCounter.initializeFromOrders(orderIds);
   }
 }
 

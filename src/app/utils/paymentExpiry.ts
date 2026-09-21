@@ -36,7 +36,7 @@ export function isOrderExpired(order: Order, now: Date = new Date()): boolean {
 }
 
 // Cancel every expired awaiting-payment order. Dedup via clearing the deadline.
-export function expireOverdueOrders(): void {
+export async function expireOverdueOrders(): Promise<void> {
   // While the shop is paused, deadlines are frozen — no auto-cancellations.
   if (!shopStatusStore.isOperational()) return;
 
@@ -45,12 +45,17 @@ export function expireOverdueOrders(): void {
   for (const order of dataStore.getOrders()) {
     if (!isOrderExpired(order, now)) continue;
 
-    dataStore.updateOrder(order.id, {
-      status: 'Canceled',
-      cancellationReason: PAYMENT_DEADLINE_EXPIRED_REASON,
-      holdReason: undefined,
-      paymentDeadline: undefined,
-    });
+    try {
+      await dataStore.updateOrder(order.id, {
+        status: 'Canceled',
+        cancellationReason: PAYMENT_DEADLINE_EXPIRED_REASON,
+        holdReason: undefined,
+        paymentDeadline: undefined,
+      });
+    } catch (err) {
+      console.warn('[paymentExpiry] failed to cancel expired order', order.id, err);
+      continue;
+    }
 
     const deadlineLabel = formatPHDateTime(order.paymentDeadline);
     notificationStore.addNotification('order', 'Order Cancelled — Payment Deadline Expired', `${order.customerName}'s order ${order.id} (${order.total}) was auto-cancelled because payment was not confirmed before ${deadlineLabel} (deadline expired).`, {
@@ -72,6 +77,8 @@ export function expireOverdueOrders(): void {
 // Evaluate once on load and then on a lightweight interval so deadlines expire
 // even while the page is sitting open. (Pure demo timing — a real backend
 // would use scheduled jobs.)
-expireOverdueOrders();
+void expireOverdueOrders();
 const EXPIRY_CHECK_INTERVAL_MS = 30_000;
-setInterval(expireOverdueOrders, EXPIRY_CHECK_INTERVAL_MS);
+setInterval(() => {
+  void expireOverdueOrders();
+}, EXPIRY_CHECK_INTERVAL_MS);

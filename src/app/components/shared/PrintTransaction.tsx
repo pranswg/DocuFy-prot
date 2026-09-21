@@ -57,7 +57,7 @@ import {
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore } from "../../utils/dataStore";
-import { ordersStore } from "../../utils/ordersStore";
+import { showDbError } from "../../../lib/db/errors";
 import { PDFDocument } from "pdf-lib";
 import { inventoryStore } from "../../utils/inventoryStore";
 import { notificationStore } from "../../utils/notificationStore";
@@ -514,6 +514,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [step2FileIndex, setStep2FileIndex] = useState(0);
   const [submittedOrderId, setSubmittedOrderId] = useState("");
+  const submittedDisplayId = submittedOrderId
+    ? dataStore.getOrderById(submittedOrderId)?.displayId ?? submittedOrderId
+    : "";
   // Set synchronously the moment an order is placed (before any navigate) so
   // the useBlocker below can't fire from a stale submittedOrderId render while
   // the intentional jump to Payment Verification is in flight, and so a
@@ -1021,9 +1024,8 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setCurrentStep(1);
   };
 
-  const handleProceedToQueue = () => {
+  const handleProceedToQueue = async () => {
     const now = new Date();
-    const orderId = dataStore.getNextOrderId();
 
     const hasPaperInStock = availablePaperSizes.some((s) => s.inStock);
 
@@ -1038,13 +1040,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       const paperLabel = photocopyPaperLabel(photocopyPaperSize);
       const colorLabel = photocopyColorMode === "bw" ? "Black & White" : "Colored";
       const newOrder = {
-        id: orderId,
         customer: "Walk-in Customer",
         customerType: "photocopy" as const,
         pages: photocopyCopies,
         type: "Photocopy",
         notes: `Photocopy - ${photocopyCopies} ${photocopyCopies === 1 ? "copy" : "copies"} ${paperLabel} (${colorLabel})`,
-        status: "inQueue" as const,
+        status: "In Queue" as const,
         time: formatPHTime(now),
         paperSize: photocopyPaperSize,
         copies: photocopyCopies,
@@ -1057,11 +1058,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         expectedPaperUsage: [{ size: photocopyPaperSize, sheets: photocopyCopies }],
         paperDeductedOnCreate: false,
       };
-      ordersStore.addOrder(newOrder);
+      const created = await dataStore
+        .addOrder({ ...newOrder, actorId: user?.id })
+        .catch((err) => {
+          showDbError("adding the walk-in order", err);
+          return null;
+        });
+      if (!created) return;
       toast.success(
         <div className="flex flex-col gap-1">
           <span className="font-semibold">Photocopy sent to queue!</span>
-          <span className="text-sm">Order ID: {orderId}</span>
+          <span className="text-sm">Order ID: {created.displayId ?? created.id}</span>
           <span className="text-sm">Total: {formatCurrency(manualPrice)}</span>
         </div>,
         { duration: 5000 }
@@ -1073,7 +1080,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const total = calculateTotal();
     let filesTotal = 0;
     for (const f of files) filesTotal += calculateFileTotal(f);
-    const transactionId = orderId;
+    let transactionId = "";
 
     if (!validatePhotoMinQty()) return;
 
@@ -1098,7 +1105,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       const firstPhoto = files.find((f) => f.printType === "photo");
 
       const newOrder = {
-        id: orderId,
         customer: "Walk-in Customer",
         customerType,
         pages: totalPages > 0 ? totalPages : firstPhoto ? firstPhoto.photoQty : 0,
@@ -1106,7 +1112,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         notes: hasPhoto
           ? `Walk-in photo print - ${files.filter((f) => f.printType === "photo").map((f) => `${f.photoQty} pc(s) ${PHOTO_SIZE_LABELS[f.photoSize]}`).join(", ")}`
           : `Walk-in transaction - ${files.length} file(s)`,
-        status: "inQueue" as const,
+        status: "In Queue" as const,
         time: formatPHTime(now),
         paperSize: firstPhoto
           ? firstPhoto.photoSize === "2R" ? "2R" : firstPhoto.photoSize === "A4photo" ? "A4" : firstPhoto.photoSize
@@ -1146,7 +1152,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         paperDeductedOnCreate: false,
       };
 
-      ordersStore.addOrder(newOrder);
+      const created = await dataStore
+        .addOrder({ ...newOrder, actorId: user?.id })
+        .catch((err) => {
+          showDbError("adding the walk-in order", err);
+          return null;
+        });
+      if (!created) return;
+      transactionId = created.displayId ?? created.id;
     }
 
     toast.success(
@@ -1161,7 +1174,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     resetForm();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (submittedOrderId || orderSubmittedRef.current) {
       toast.error(
         "This order has already been placed. Track it under My Orders to see its status.",
@@ -1213,7 +1226,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     const total = calculateTotal();
     let filesTotal = 0;
     for (const f of files) filesTotal += calculateFileTotal(f);
-    const orderId = dataStore.getNextOrderId();
     const methodLabel = isOnline ? paymentMethod : "Cash";
 
     if (!validatePhotoMinQty()) return;
@@ -1241,7 +1253,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         : undefined;
 
     const newOrder = {
-      id: orderId,
       customerId: user?.email || "customer@example.com",
       customerName: user?.name || "Customer",
       customerEmail: user?.email || "customer@example.com",
@@ -1353,12 +1364,26 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       paperDeductedOnCreate: false,
     };
 
-    // ONLINE payment orders and DOWN-PAYMENT-tier orders are NOT pushed to the
-    // system yet. We hold the full order payload as a pending order + a resume
-    // draft, then only create the real order once the customer picks their
-    // down-payment method and (for online) submits their payment reference on
-    // the payment verification page. Backing out / going to the dashboard
-    // simply leaves the pending order unsaved (never entered the queue).
+    // The order row is created in Supabase here for EVERY customer flow (status
+    // is already correct: In Queue for low-value cash, Awaiting Payment for
+    // everything else). Online / down-payment orders then navigate to the
+    // payment / down-payment-method pages where the customer chooses how to pay
+    // and (online) submits their reference — backing out leaves an awaiting-
+    // payment order that auto-expires after its payment deadline.
+    let created: Awaited<ReturnType<typeof dataStore.addOrder>>;
+    try {
+      created = await dataStore.addOrder({ ...newOrder, actorId: user?.id });
+    } catch (err) {
+      showDbError("placing your order", err);
+      return;
+    }
+    const orderId = created.id;
+    const displayId = created.displayId ?? orderId;
+
+    // ONLINE payment orders and DOWN-PAYMENT-tier orders route to their payment
+    // decision page immediately (the order already exists — the customer just
+    // hasn't paid yet). Backing out leaves the awaiting-payment order in place,
+    // subject to its payment deadline.
     if (isOnline || isDownTier) {
       const orderData = {
         orderId,
@@ -1429,8 +1454,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       return;
     }
 
-    dataStore.addOrder(newOrder);
-
     const notifTitle = isLowValueCash
       ? "New Order — In Queue (Cash on Pickup)"
       : requiresFullPayment
@@ -1439,12 +1462,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           ? "New Order — Down Payment Required"
           : "New Order — Awaiting Cash Payment";
     const notifMsg = isLowValueCash
-      ? `New order #${orderId} from ${user?.email || "customer"} is already IN THE PRINT QUEUE — ₱${Math.round(total)} (Cash on Pickup) to be collected at the shop on pickup.`
+      ? `New order #${displayId} from ${user?.email || "customer"} is already IN THE PRINT QUEUE — ₱${Math.round(total)} (Cash on Pickup) to be collected at the shop on pickup.`
       : requiresFullPayment
-        ? `New order #${orderId} from ${user?.email || "customer"} is awaiting FULL payment verification — ₱${Math.round(total)} (100% of total) required before the order can be printed.`
+        ? `New order #${displayId} from ${user?.email || "customer"} is awaiting FULL payment verification — ₱${Math.round(total)} (100% of total) required before the order can be printed.`
         : requiresDownPayment
-          ? `New order #${orderId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
-          : `New order #${orderId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total — Cash on Pickup, awaiting payment of ₱${Math.round(total)} at the shop.`;
+          ? `New order #${displayId} from ${user?.email || "customer"} is awaiting down payment verification — ₱${Math.round(downPaymentAmount)} required (50% of total ₱${Math.round(total)}).`
+          : `New order #${displayId} from ${user?.email || "customer"}. ${files.length} file(s), ${totalPages} pages total — Cash on Pickup, awaiting payment of ₱${Math.round(total)} at the shop.`;
 
     notificationStore.addNotification("order", notifTitle, notifMsg, {
       clickable: true,
@@ -3708,7 +3731,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 <div className="bg-[#F2F7FF] p-4 rounded-lg border border-blue-200">
                   <p className="text-sm text-gray-600 mb-1">Order ID</p>
                   <p className="font-mono font-semibold text-[#10316B]">
-                    {submittedOrderId}
+                    {submittedDisplayId}
                   </p>
                 </div>
               </DialogDescription>

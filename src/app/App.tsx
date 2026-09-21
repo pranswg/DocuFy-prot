@@ -44,6 +44,8 @@ import MobileNavSheet from './components/shared/MobileNavSheet';
 import './utils/inventoryAlerts';
 // Auto-cancels awaited-payment orders whose payment deadline has passed.
 import './utils/paymentExpiry';
+// Seeds the single-row settings tables + pricing matrix cells (best-effort).
+import '../lib/db/bootstrap';
 
 // Simple error boundary component
 function ErrorBoundary() {

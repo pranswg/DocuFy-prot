@@ -171,7 +171,11 @@ export default function DownPaymentMethod() {
             Down Payment Method
           </h1>
           <p className="text-gray-500 mt-1">
-            Choose how you'd like to pay for order {orderId}. Order total{" "}
+            Choose how you'd like to pay for{" "}
+            {dataStore.getOrderById(orderId!)?.displayId
+              ? `order ${dataStore.getOrderById(orderId!)?.displayId}`
+              : `your order (${orderId})`}
+            . Order total{" "}
             {formatCurrency(total)}.
           </p>
         </div>

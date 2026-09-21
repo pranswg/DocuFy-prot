@@ -32,6 +32,7 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { adminMenuItems } from "../../utils/adminMenuItems";
+import { showDbError } from "../../../lib/db/errors";
 import {
   paymentMethodsStore,
   downloadQRCode,
@@ -109,7 +110,7 @@ export default function PaymentMethodsManagement() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const name = form.name.trim();
     const accountName = form.accountName.trim();
     const accountNumber = form.accountNumber.trim();
@@ -121,40 +122,55 @@ export default function PaymentMethodsManagement() {
       return toast.error("A payment method with this name already exists");
     }
 
-    if (editingId) {
-      paymentMethodsStore.updatePaymentMethod(editingId, {
-        name,
-        accountName,
-        accountNumber,
-        qrCode: form.qrCode,
-      });
-      toast.success("Payment method updated successfully");
-    } else {
-      paymentMethodsStore.addPaymentMethod({
-        name,
-        accountName,
-        accountNumber,
-        qrCode: form.qrCode,
-      });
-      toast.success("Payment method created successfully");
+    try {
+      if (editingId) {
+        await paymentMethodsStore.updatePaymentMethod(editingId, {
+          name,
+          accountName,
+          accountNumber,
+          qrCode: form.qrCode,
+        });
+        toast.success("Payment method updated successfully");
+      } else {
+        await paymentMethodsStore.addPaymentMethod({
+          name,
+          accountName,
+          accountNumber,
+          qrCode: form.qrCode,
+        });
+        toast.success("Payment method created successfully");
+      }
+    } catch (err) {
+      showDbError("saving the payment method", err);
+      return;
     }
     setShowFormDialog(false);
     setEditingId(null);
     setForm({ name: "", accountName: "", accountNumber: "", qrCode: undefined });
   };
 
-  const toggleActive = (method: PaymentMethodType) => {
-    paymentMethodsStore.setActive(method.id, !method.active);
+  const toggleActive = async (method: PaymentMethodType) => {
+    try {
+      await paymentMethodsStore.setActive(method.id, !method.active);
+    } catch (err) {
+      showDbError("updating the payment method", err);
+      return;
+    }
     toast.success(
       method.active
-        ? `${method.name} deactivated — no longer available to customers`
-        : `${method.name} activated — now available to customers`,
+        ? `${method.name} deactivated - no longer available to customers`
+        : `${method.name} activated - now available to customers`,
     );
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleting) return;
-    paymentMethodsStore.deletePaymentMethod(deleting.id);
+    try {
+      await paymentMethodsStore.deletePaymentMethod(deleting.id);
+    } catch (err) {
+      showDbError("removing the payment method", err);
+      return;
+    }
     toast.success(`${deleting.name} payment method removed`);
     setDeleting(null);
   };
