@@ -3,7 +3,24 @@
 // separate Morning/Afternoon split anymore). Staff can still clock back in
 // AFTER the day is complete; that extra clock-in is flagged `exceeded` and is
 // surfaced as "Exceeded" in the staff timesheet and admin monitoring logs.
+//
+// Backend integration: this is now a Supabase-backed facade. The sync read API
+// (getRecord/getUserLogs/getAllLogs/getNextAction/subscribe …) and the
+// localStorage mirror stay untouched so every existing consumer just works, but
+// every mutation ALSO writes through to the `attendance_records` table
+// (fire-and-forget, with a toast + keep-local on failure) and admin time
+// corrections are audited in `attendance_adjustments`. The in-memory cache
+// hydrates from the DB on load and follows realtime changes, so another tab or
+// device (e.g. staff clocking in while an admin monitors) shows up live.
 import { internetUtcMs, toPHT, formatPHTime } from "./pht";
+import {
+  fetchAttendanceRecords,
+  upsertAttendanceRecord,
+  logAttendanceAdjustment,
+  subscribeAttendanceChanges,
+  type AttendanceRecordDto,
+} from "../../lib/db/attendanceRepo";
+import { toast } from "sonner";
 
 export type SessionRecord = {
   timeIn?: Date;
@@ -177,6 +194,8 @@ class AttendanceStore {
   private records: DailyAttendanceRecord[] = [];
   private absences: Map<string, AbsenceType> = new Map(); // `${userId}|${date}` -> type
   private subscribers: Set<Subscriber> = new Set();
+  private hydrating: Promise<void> | null = null;
+  private dbSyncing = new Set<string>(); // record id currently being pushed
 
   constructor() {
     this.restore();
@@ -184,6 +203,105 @@ class AttendanceStore {
     if (typeof window !== "undefined") {
       window.addEventListener("storage", this.onStorage);
     }
+    // Hydrate from Supabase + follow realtime so the cache reflects the
+    // backend (other tabs/devices). Any failure is silent — the localStorage
+    // mirror keeps serving data offline.
+    void this.hydrate();
+    subscribeAttendanceChanges(() => void this.hydrate());
+  }
+
+  // ── Backend hydration ──────────────────────────────────────────────────
+  // Reload records/absences from `attendance_records`. Concurrent calls share
+  // one in-flight request. DB rows whose person maps back to an email become
+  // app records (keyed by email); the local mirror remains the fallback.
+  private hydrate(): Promise<void> {
+    if (this.hydrating) return this.hydrating;
+    this.hydrating = (async () => {
+      try {
+        const dtos = await fetchAttendanceRecords();
+        this.applyDtos(dtos);
+        this.notify();
+      } catch (err) {
+        console.warn("[attendanceStore] hydrate failed (local mirror kept):", err);
+      } finally {
+        this.hydrating = null;
+      }
+    })();
+    return this.hydrating;
+  }
+
+  private applyDtos(dtos: AttendanceRecordDto[]): void {
+    const byKey = new Map<string, DailyAttendanceRecord>();
+    for (const r of this.records) {
+      byKey.set(`${r.userId.toLowerCase()}|${r.date}`, r);
+    }
+
+    for (const dto of dtos) {
+      if (!dto.email) continue; // row resolves to no known person — skip
+      const key = `${dto.email.toLowerCase()}|${dto.date}`;
+      const record: DailyAttendanceRecord = {
+        id: dto.id,
+        userId: dto.email,
+        userName: dto.name ?? dto.email,
+        role: dto.role === "admin" ? "admin" : "staff",
+        date: dto.date,
+        timeIn: dto.timeIn ?? undefined,
+        timeOut: dto.timeOut ?? undefined,
+        exceeded: dto.exceeded === true,
+        extraSessions: dto.extraSessions ?? [],
+      };
+      byKey.set(key, record);
+      // Absence/leave marks live on the record itself in the DB.
+      if (dto.absenceStatus) {
+        this.absences.set(`${dto.email.toLowerCase()}|${dto.date}`, dto.absenceStatus);
+      }
+    }
+
+    this.records = [...byKey.values()];
+  }
+
+  // ── Backend write-through (fire-and-forget) ────────────────────────────
+  // Pushes a single record to `attendance_records`. Local state is ALWAYS
+  // authoritative for the current session — the DB push is best-effort; on
+  // failure the change is kept locally (offline mode) and a toast surfaces it.
+  private pushRecord(record: DailyAttendanceRecord): void {
+    if (this.dbSyncing.has(record.id)) return;
+    this.dbSyncing.add(record.id);
+
+    void (async () => {
+      try {
+        await upsertAttendanceRecord({
+          email: record.userId,
+          date: record.date,
+          timeIn: record.timeIn ?? null,
+          timeOut: record.timeOut ?? null,
+          exceeded: record.exceeded === true,
+          extraSessions: record.extraSessions ?? [],
+        });
+      } catch (err) {
+        console.warn("[attendanceStore] DB push failed (kept locally):", err);
+        toast.error("Attendance time clock couldn't sync to the server — kept locally.");
+      } finally {
+        this.dbSyncing.delete(record.id);
+      }
+    })();
+  }
+
+  // Persist an absence/leave mark to the DB (as `absence_status` on the day's
+  // record; creates the record when the person has none that day).
+  private pushAbsence(userId: string, date: string, type: AbsenceType | null): void {
+    void (async () => {
+      try {
+        await upsertAttendanceRecord({
+          email: userId,
+          date,
+          absenceStatus: type ?? null,
+        });
+      } catch (err) {
+        console.warn("[attendanceStore] absence sync failed (kept locally):", err);
+        toast.error("Attendance status couldn't sync to the server — kept locally.");
+      }
+    })();
   }
 
   // Cross-tab live sync: when another tab writes attendance/absences, reload
@@ -347,6 +465,7 @@ class AttendanceStore {
     if (!record.timeIn) {
       record.timeIn = now;
       this.notify();
+      this.pushRecord(record);
       return record;
     }
     if (hasActiveSession(record)) {
@@ -356,6 +475,7 @@ class AttendanceStore {
     record.exceeded = true;
     record.extraSessions.push({ timeIn: now });
     this.notify();
+    this.pushRecord(record);
     return record;
   }
 
@@ -381,6 +501,7 @@ class AttendanceStore {
     }
 
     this.notify();
+    this.pushRecord(record);
     return record;
   }
 
@@ -432,6 +553,7 @@ class AttendanceStore {
     value: Date | null,
   ): DailyAttendanceRecord {
     let record = this.records.find(r => r.userId === userId && r.date === date);
+    const created = !record;
     if (!record) {
       record = {
         id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -443,6 +565,8 @@ class AttendanceStore {
       };
       this.records.push(record);
     }
+
+    const before = field === 'timeIn' ? record.timeIn : record.timeOut;
 
     if (field === 'timeIn') {
       record.timeIn = value ?? undefined;
@@ -459,7 +583,55 @@ class AttendanceStore {
     }
 
     this.notify();
+
+    // Sync to DB and, when this was a real change to an EXISTING row, audit it
+    // in `attendance_adjustments` (admin corrections only — brand-new records
+    // from the seed logic are plain inserts, not adjustments).
+    const after = field === 'timeIn' ? record.timeIn : record.timeOut;
+    const changed = (before?.getTime() ?? null) !== (after?.getTime() ?? null);
+    if (!created && changed) {
+      this.pushRecordAndAudit(record.id, field, before, after);
+    } else {
+      this.pushRecord(record);
+    }
+
     return record;
+  }
+
+  // Push an admin-issued time correction to the DB and write the matching
+  // `attendance_adjustments` audit row in one round-trip.
+  private pushRecordAndAudit(
+    recordId: string,
+    field: 'timeIn' | 'timeOut',
+    before: Date | undefined,
+    after: Date | undefined,
+  ): void {
+    if (this.dbSyncing.has(recordId)) return;
+    this.dbSyncing.add(recordId);
+
+    void (async () => {
+      try {
+        const record = this.records.find(r => r.id === recordId);
+        if (!record) return;
+        const pushed = await upsertAttendanceRecord({
+          email: record.userId,
+          date: record.date,
+          timeIn: record.timeIn ?? null,
+          timeOut: record.timeOut ?? null,
+          exceeded: record.exceeded === true,
+          extraSessions: record.extraSessions ?? [],
+        });
+        await logAttendanceAdjustment({
+          attendanceId: pushed.id,
+          fieldName: field === 'timeIn' ? 'time_in' : 'time_out',
+          oldValue: before ? before.toISOString() : null,
+          newValue: after ? after.toISOString() : null,
+          reason: 'Admin manual adjustment',
+        });
+      } catch (err) {
+        console.warn("[attendanceStore] adjustment audit failed:", err);
+      }
+    })();
   }
 
   // ── Absence / leave overrides (admin monitoring) ──────────────────────
@@ -472,6 +644,7 @@ class AttendanceStore {
     }
     this.persistAbsences();
     this.notify();
+    this.pushAbsence(userId, date, type);
   }
 
   getAbsence(userId: string, date: string): AbsenceType | null {

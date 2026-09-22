@@ -3,6 +3,7 @@ import { DEFAULT_MATRIX, pricingStore } from '../../app/utils/pricingStore';
 import type {
   PricingSettingsRow,
   MatrixCellInsert,
+  StaffRecordInsert,
 } from './types';
 
 // Phase 0 bootstrap: guarantee the single-row settings tables and the pricing
@@ -25,6 +26,73 @@ async function runAll(): Promise<void> {
   await ensurePricingSettings();
   await ensureMatrixCells();
   await ensurePaymentMethods();
+  await ensureStaffRecords();
+}
+
+// Seed `staff_records` directory rows for the DEMO roster so attendance sync
+// has an identity to attach to (the roster members have no Supabase auth
+// accounts — only the real staff@test.com account does, and its staff_records
+// row gets linked to the existing `profiles.id` by email). The SQL migration
+// also seeds these; this is a best-effort runtime counterpart for when the
+// migration hasn't been run yet. Idempotent: rows are matched by email.
+const DEMO_STAFF_SEEDS: Array<{
+  fullName: string;
+  email: string;
+  employeeCode: string;
+}> = [
+  { fullName: 'Heaven Rica', email: 'staff@test.com', employeeCode: 'EMP-001' },
+  { fullName: 'Robert Chen', email: 'robert.chen@docufy.com', employeeCode: 'EMP-002' },
+  { fullName: 'Katie Perry', email: 'katie.perry@docufy.com', employeeCode: 'EMP-003' },
+  { fullName: 'Miguel Santos', email: 'miguel.santos@docufy.com', employeeCode: 'EMP-004' },
+  { fullName: 'Ana Dela Cruz', email: 'ana.delacruz@docufy.com', employeeCode: 'EMP-005' },
+];
+
+async function ensureStaffRecords(): Promise<void> {
+  try {
+    for (const seed of DEMO_STAFF_SEEDS) {
+      const email = seed.email.toLowerCase();
+      const { data: existing } = await supabase
+        .from('staff_records')
+        .select('id, profile_id')
+        .eq('email', email)
+        .maybeSingle();
+      if (existing) continue;
+
+      // Link the real auth account (staff@test.com) to its profiles.id row so
+      // clock-ins made while signed in as that user land on its profile_id.
+      let profileId: string | null = null;
+      if (email === 'staff@test.com') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        if (profile) profileId = profile.id;
+      }
+
+      const insert: StaffRecordInsert = {
+        profile_id: profileId,
+        employee_code: seed.employeeCode,
+        full_name: seed.fullName,
+        email,
+        role: 'staff',
+        status: 'active',
+        attendance_status: 'active',
+        on_leave_reason: seed.email === 'staff@test.com'
+          ? 'On scheduled annual leave'
+          : null,
+        join_date: '2026-09-01',
+        skills_message: null,
+        portfolio_link: null,
+        permissions: ['attendance'],
+        salary: 0,
+      };
+      const { error: insertError } = await supabase.from('staff_records').insert(insert);
+      if (insertError) throw insertError;
+    }
+  } catch (err) {
+    console.warn('[bootstrap] staff_records seed skipped (RLS or offline):', err);
+  }
 }
 
 // Seed the two demo online payment methods (GCash / Maya) when the table is

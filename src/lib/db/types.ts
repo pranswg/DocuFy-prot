@@ -35,6 +35,16 @@ export type PricingSettingsRow = Tables['pricing_settings']['Row'];
 export type MatrixCellRow = Tables['pricing_matrix_cells']['Row'];
 export type MatrixCellInsert = Tables['pricing_matrix_cells']['Insert'];
 
+export type AttendanceRecordRow = Tables['attendance_records']['Row'];
+export type AttendanceRecordInsert = Tables['attendance_records']['Insert'];
+export type AttendanceRecordUpdate = Tables['attendance_records']['Update'];
+
+export type AttendanceAdjustmentRow = Tables['attendance_adjustments']['Row'];
+export type AttendanceAdjustmentInsert = Tables['attendance_adjustments']['Insert'];
+
+export type StaffRecordRow = Tables['staff_records']['Row'];
+export type StaffRecordInsert = Tables['staff_records']['Insert'];
+
 // ── Domain DTOs (decoupled from the row shapes so consumers never touch raw
 // ── DB rows) ────────────────────────────────────────────────────────────────
 
@@ -134,4 +144,50 @@ export interface OrderDto {
 // the human-facing ID is derived on read: ORD-0001 … ORD-9999…
 export function formatOrderNumber(orderNumber: number): string {
   return `ORD-${String(orderNumber).padStart(4, '0')}`;
+}
+
+// ── Attendance domain (staff clock-in / out, adjustments) ────────────────────
+
+// Absence / leave status applied to a single attendance day.
+export type AbsenceStatus = 'on-leave' | 'absent';
+
+// A clock-in/out paired session (the day's primary, or one extra session).
+export interface AttendanceSessionDto {
+  timeIn?: Date;
+  timeOut?: Date;
+}
+
+// Decoupled attendance record: dates are already parsed into Dates, identity is
+// carried as profile_id (real Supabase staff account) and/or staff_id
+// (a staff_records directory row — used for demo staff with no auth account).
+export interface AttendanceRecordDto {
+  id: string;
+  profileId: string | null;
+  staffId: string | null;
+  date: string; // YYYY-MM-DD (PHT day)
+  timeIn: Date | null;
+  timeOut: Date | null;
+  exceeded: boolean;
+  extraSessions: AttendanceSessionDto[];
+  absenceStatus: AbsenceStatus | null;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  // Resolved person info (joined from profiles / staff_records) so the app can
+  // rebuild its email-keyed records. Null when the row references no known id.
+  email: string | null;
+  name: string | null;
+  role: 'admin' | 'staff' | null;
+}
+
+// A logged admin/db-level adjustment to an attendance record (audit trail).
+export interface AttendanceAdjustmentDto {
+  id: string;
+  attendanceId: string;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+  reason: string | null;
+  adjustedBy: string | null;
+  createdAt: Date;
 }
