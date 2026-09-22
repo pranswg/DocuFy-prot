@@ -11,12 +11,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
+import {
+  BUCKETS,
+  getSignedObjectUrl,
+  downloadObjectToBlob,
+} from "../../../lib/db/storage";
 
 interface AttachedFile {
   name: string;
   size: string;
   type: string;
   url?: string;
+  storagePath?: string;
   uploadedAt?: string;
 }
 
@@ -145,30 +151,57 @@ export function FileAttachments({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   if (!files || files.length === 0) return null;
 
-  const handleDownload = (file: AttachedFile) => {
-    const content = `[Docufy PSMS — Palawan State University]\nFile: ${file.name}\nOrder ID: ${orderId}\nSize: ${file.size}\nType: ${file.type}\nUploaded: ${formatUploadDate(file.uploadedAt)}\n\nThis is a placeholder download for the submitted document.\nActual file content would be served from the server.`;
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
+  // Resolve the read URL for a file: prefers an authenticated signed URL (the
+  // order-files bucket is private), falling back to the stored public URL.
+  const resolveFileUrl = async (file: AttachedFile): Promise<string | null> => {
+    if (file.storagePath) {
+      const signed = await getSignedObjectUrl(BUCKETS.orderFiles, file.storagePath);
+      if (signed) return signed;
+      toast.error("Couldn't load this file from the server. Please try again.");
+      return null;
+    }
+    return file.url || null;
+  };
+
+  const handleDownload = async (file: AttachedFile) => {
+    if (file.storagePath) {
+      const result = await downloadObjectToBlob(BUCKETS.orderFiles, file.storagePath);
+      if (result) {
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name || result.name;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success(`Downloading ${file.name}…`);
+        return;
+      }
+      toast.error("Couldn't download this file. Please try again.");
+      return;
+    }
+    if (!file.url) {
+      toast.info("No document available to download in this session.");
+      return;
+    }
     const a = document.createElement("a");
-    a.href = url;
+    a.href = file.url;
     a.download = file.name;
-    document.body.appendChild(a);
+    a.target = "_blank";
+    a.rel = "noopener,noreferrer";
     a.click();
-    URL.revokeObjectURL(url);
-    document.body.removeChild(a);
     toast.success(`Downloading ${file.name}…`);
   };
 
   // Open the document in a new tab using the browser's native PDF viewer (no download).
-  const handleView = (file: AttachedFile) => {
-    if (!file.url) {
-      toast.info("No document available to view in this session.");
-      return;
-    }
-    const win = window.open(file.url, "_blank", "noopener,noreferrer");
+  const handleView = async (file: AttachedFile) => {
+    const url = await resolveFileUrl(file);
+    if (!url) return;
+    const win = window.open(url, "_blank", "noopener,noreferrer");
     if (!win) {
       const a = document.createElement("a");
-      a.href = file.url;
+      a.href = url;
       a.target = "_blank";
       a.rel = "noopener,noreferrer";
       a.click();
@@ -176,11 +209,9 @@ export function FileAttachments({
   };
 
   // Open the Ctrl+P print dialog directly on the document without showing anything in the app.
-  const handlePrint = (file: AttachedFile) => {
-    if (!file.url) {
-      toast.info("No document available to print in this session.");
-      return;
-    }
+  const handlePrint = async (file: AttachedFile) => {
+    const url = await resolveFileUrl(file);
+    if (!url) return;
     const iframe = iframeRef.current;
     if (iframe) {
       iframe.onload = () => {
@@ -190,7 +221,7 @@ export function FileAttachments({
           toast.error("Your browser blocked printing this document.");
         }
       };
-      iframe.src = file.url;
+      iframe.src = url;
     }
   };
 

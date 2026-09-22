@@ -44,6 +44,7 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
 import { verifyPayment, rejectPayment, confirmCashPayment } from "../../../lib/db/paymentsRepo";
 import { showDbError } from "../../../lib/db/errors";
+import { BUCKETS, getSignedObjectUrl } from "../../../lib/db/storage";
 import { pricingStore } from "../../utils/pricingStore";
 import { formatPHTime, formatPHDate, formatPHDateTime, toPHTKey, todayPHTKey } from "../../utils/pht";
 import { formatCurrency } from "../../utils/formatNumber";
@@ -144,6 +145,9 @@ type PaymentType = {
   time: string;
   reference?: string;
   proofImageUrl?: string;
+  // Raw storage path of the uploaded proof (private `payment-proofs` bucket);
+  // used to sign the image URL at read time.
+  proofStoragePath?: string;
   // Payment-kind-aware fields (see generatePaymentsFromOrders):
   //  - cash       → Cash on Pickup: paid at the shop, Amount to Pay + Deadline
   //  - online     → Online payment (full amount, incl. high-value orders)
@@ -268,6 +272,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
         time: formatPHTime(orderDate).toLowerCase(),
         reference: order.paymentReferenceNumber || (isCashOnPickup ? 'Cash on Pickup' : ''),
         proofImageUrl: order.paymentProofUrl || SAMPLE_PROOF_IMAGE,
+        proofStoragePath: order.proofStoragePath,
         kind,
         totalAmount,
         amountPaid,
@@ -314,6 +319,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
     useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showProofImage, setShowProofImage] = useState(false);
+  // Resolved signed URL for the proof image currently being previewed. The
+  // payment-proofs bucket is private, so the public URL stored on the order
+  // won't load — we sign it when the preview opens.
+  const [proofSignedUrl, setProofSignedUrl] = useState<string | undefined>(undefined);
   const [pendingVerifyAction, setPendingVerifyAction] = useState<
     "verified" | "rejected" | null
   >(null);
@@ -327,6 +336,24 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
   const { user } = useAuth();
   const myName = user?.name || "Staff";
+
+  // Resolve the proof image's signed URL when the preview opens (private bucket).
+  useEffect(() => {
+    if (!showProofImage || !selectedPayment?.proofStoragePath) {
+      setProofSignedUrl(undefined);
+      return;
+    }
+    let cancelled = false;
+    setProofSignedUrl(undefined);
+    getSignedObjectUrl(BUCKETS.paymentProofs, selectedPayment.proofStoragePath).then(
+      (url) => {
+        if (!cancelled) setProofSignedUrl(url ?? undefined);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [showProofImage, selectedPayment]);
 
   // Session lock awareness: a badge tick that re-renders whenever lock state
   // changes (in THIS tab or another — see orderLocks.ts). Used to show who is
@@ -1604,7 +1631,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
             </DialogDescription>
           </DialogHeader>
           <img
-            src={selectedPayment?.proofImageUrl}
+            src={proofSignedUrl || selectedPayment?.proofImageUrl}
             alt="Proof"
             className="w-full h-auto rounded-lg border border-[#1D73EC]/10"
           />

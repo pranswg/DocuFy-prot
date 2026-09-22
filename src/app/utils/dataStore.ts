@@ -20,7 +20,7 @@ import {
   type CreateOrderInput,
 } from '../../lib/db/ordersRepo';
 import { hasVerifiedPayment } from '../../lib/db/paymentsRepo';
-import { resolveStorageUrl, BUCKETS } from '../../lib/db/storage';
+import { resolveStorageUrl, BUCKETS, uploadObjectAndGetPath, removeObjectsIfPresent } from '../../lib/db/storage';
 import { formatOrderNumber } from '../../lib/db/types';
 import type { OrderDto, OrderFileDto } from '../../lib/db/types';
 
@@ -29,7 +29,14 @@ export interface AttachedFile {
   size: string;
   type: string;
   url?: string;
+  storagePath?: string;
   uploadedAt?: string;
+  file?: File;
+  mimeType?: string;
+  sizeBytes?: number;
+  photoSize?: string;
+  photoQuantity?: number;
+  contentType?: string;
   paperSize?: string;
   orientation?: string;
   printType?: string;
@@ -43,6 +50,7 @@ export interface AttachedFile {
   scale?: string;
   customScale?: number;
   pageCount?: number;
+  notes?: string;
 }
 
 export interface Order {
@@ -79,6 +87,9 @@ export interface Order {
   paymentReferenceNumber?: string;
   paymentVerified?: boolean;
   paymentProofUrl?: string;
+  // Raw storage path of the upload payment proof (private `payment-proofs`
+  // bucket) — needed to generate a signed URL at read time.
+  proofStoragePath?: string;
   // DB payments row id for the order's latest payment (used by staff/admin to
   // mark the customer-submitted row verified/rejected).
   paymentRowId?: string;
@@ -169,6 +180,7 @@ function toAttachedFile(f: OrderFileDto): AttachedFile {
     size: fileSizeLabel(f.sizeBytes),
     type: fileTypeLabel(f.mimeType, f.printType),
     url: resolveStorageUrl(BUCKETS.orderFiles, f.storagePath) || undefined,
+    storagePath: f.storagePath || undefined,
     uploadedAt: f.createdAt.toISOString(),
     paperSize: f.paperSize || undefined,
     orientation: f.orientation || undefined,
@@ -230,6 +242,7 @@ export function orderDtoToApp(dto: OrderDto): Order {
     paymentReferenceNumber: vp?.referenceNumber ?? undefined,
     paymentVerified: hasVerifiedPayment(dto.payments.map((p) => p.status)),
     paymentProofUrl: resolveStorageUrl(BUCKETS.paymentProofs, vp?.proofStoragePath ?? null) || undefined,
+    proofStoragePath: vp?.proofStoragePath ?? undefined,
     fileName: firstFile?.originalName,
     pages: pages || firstFile?.pageCount || undefined,
     attachedFiles: dto.files.map(toAttachedFile),
@@ -440,20 +453,55 @@ class DataStore {
 
     const createdById = input.actorId ?? null;
 
-    const { id, orderNumber } = await createOrder(row);
-
+    // Upload attached file bytes to Storage BEFORE any DB write so a storage
+    // failure (bucket missing, RLS, offline) blocks placement cleanly with no
+    // orphaned order row. If any file upload fails, best-effort remove whatever
+    // was already uploaded and rethrow so the caller aborts before touching the DB.
     const files = input.attachedFiles ?? [];
+    const uploadFolder = `${input.actorId ?? 'anonymous'}/orders`;
+    const storagePaths: (string | null)[] = [];
+    for (const f of files) {
+      if (!f.file) {
+        storagePaths.push(null);
+        continue;
+      }
+      try {
+        const path = await uploadObjectAndGetPath({
+          bucket: BUCKETS.orderFiles,
+          folder: uploadFolder,
+          file: f.file,
+          fileName: f.name,
+          contentType: f.mimeType || f.file.type,
+        });
+        storagePaths.push(path);
+      } catch (err) {
+        await removeObjectsIfPresent(BUCKETS.orderFiles, storagePaths);
+        throw err;
+      }
+    }
+
+    let id: string;
+    let orderNumber: number;
+    try {
+      ({ id, orderNumber } = await createOrder(row));
+    } catch (err) {
+      // The order row failed — remove the files we just uploaded so storage
+      // never holds orphans for an order that doesn't exist.
+      await removeObjectsIfPresent(BUCKETS.orderFiles, storagePaths);
+      throw err;
+    }
+
     if (files.length > 0) {
       await insertOrderFiles(
         id,
-        files.map((f) => ({
-          storagePath: null,
+        files.map((f, i) => ({
+          storagePath: storagePaths[i],
           originalName: f.name,
-          mimeType: f.type,
-          sizeBytes: null,
+          mimeType: f.mimeType ?? f.file?.type ?? null,
+          sizeBytes: f.sizeBytes ?? f.file?.size ?? null,
           pageCount: f.pageCount ?? null,
           printType: f.printType ?? null,
-          contentType: null,
+          contentType: f.contentType ?? null,
           paperSize: f.paperSize ?? null,
           copies: f.copies ?? 1,
           colorMode: f.colorMode ?? null,
@@ -465,18 +513,18 @@ class DataStore {
           margins: f.margins ?? null,
           scale: f.scale ?? null,
           customScale: f.customScale ?? null,
-          photoSize: null,
-          photoQuantity: null,
-          notes: null,
+          photoSize: f.photoSize ?? null,
+          photoQuantity: f.photoQuantity ?? null,
+          notes: f.notes ?? null,
         })),
-      );
+      ).catch((err) => console.warn('[dataStore] order files write failed (order placed without file rows):', err));
     }
 
     if (input.addons && input.addons.length > 0) {
       await insertOrderAddons(
         id,
         input.addons.map((a) => ({ name: a.name, quantity: a.quantity, unitPrice: a.price })),
-      );
+      ).catch((err) => console.warn('[dataStore] order addons write failed (order placed without addon rows):', err));
     }
 
     if (input.costBreakdown) {
@@ -484,7 +532,7 @@ class DataStore {
         printingCost: input.costBreakdown.printingCost,
         addonsCost: input.costBreakdown.addonsCost,
         total: input.costBreakdown.total,
-      });
+      }).catch((err) => console.warn('[dataStore] cost breakdown write failed:', err));
     }
 
     await insertStatusHistory(id, {

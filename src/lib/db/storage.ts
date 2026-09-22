@@ -58,6 +58,41 @@ export async function uploadDataUrlAndGetPath(
   return uploadObjectAndGetPath({ bucket, folder, file: blob, fileName, contentType: blob.type });
 }
 
+// Create a short-lived signed URL for an object in a bucket. Private buckets
+// can't be read through the public endpoint, so signed URLs (or the download
+// helper below) are the way to fetch their contents while keeping them private.
+export async function getSignedObjectUrl(
+  bucket: BucketName,
+  path: string | null | undefined,
+  expiresInSeconds = 300,
+): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, expiresInSeconds);
+  if (error) {
+    console.warn(`[storage] failed to create signed URL for ${bucket}/${path}:`, error);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
+// Download the object's raw bytes (authenticated). Used to fetch the real file
+// content for private-bucket downloads.
+export async function downloadObjectToBlob(
+  bucket: BucketName,
+  path: string | null | undefined,
+): Promise<{ blob: Blob; name: string } | null> {
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from(bucket).download(path);
+  if (error) {
+    console.warn(`[storage] failed to download ${bucket}/${path}:`, error);
+    return null;
+  }
+  const name = path.split('/').pop() || path;
+  return { blob: data, name };
+}
+
 // Remove one or more objects by storage path. Failures are logged, not thrown
 // (best-effort cleanup).
 export async function removeObjectsIfPresent(bucket: BucketName, paths: Array<string | null | undefined>): Promise<void> {
