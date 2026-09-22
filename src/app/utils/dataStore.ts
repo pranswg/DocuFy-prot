@@ -298,6 +298,15 @@ export type OrderInput = Partial<Order> &
       | 'awaitingPayment';
   };
 
+export type OrderUploadProgress = {
+  // 1-based index of the file currently uploading, within the total files that
+  // actually carry bytes (files without a File object are skipped).
+  fileIndex: number;
+  fileCount: number;
+  fileName: string;
+  percent: number; // 0-100 for the current file
+};
+
 const STATUS_MAP: Record<string, Order['status']> = {
   'Awaiting Payment': 'Awaiting Payment',
   awaitingPayment: 'Awaiting Payment',
@@ -408,7 +417,7 @@ class DataStore {
   // then adopt the result locally. Returns the created app Order — its `id` is
   // the DB uuid and `displayId` is the ORD-0001 form. The input's pre-minted
   // display `id` (legacy counter) is ignored.
-  async addOrder(input: OrderInput): Promise<Order> {
+  async addOrder(input: OrderInput, onProgress?: (p: OrderUploadProgress) => void): Promise<Order> {
     const status = STATUS_MAP[input.status ?? 'Awaiting Payment'] ?? 'Awaiting Payment';
     const total = parseMoney(input.total, 0);
     const printingCost = input.costBreakdown?.printingCost ?? total - (input.costBreakdown?.addonsCost ?? 0);
@@ -460,11 +469,20 @@ class DataStore {
     const files = input.attachedFiles ?? [];
     const uploadFolder = `${input.actorId ?? 'anonymous'}/orders`;
     const storagePaths: (string | null)[] = [];
+
+    // Pre-count the files that actually carry bytes so the progress callback can
+    // report "file 2 of 3" accurately (files without a File object are skipped).
+    const uploadable = files.filter((f) => Boolean(f.file));
+    let uploadIndex = 0;
+
     for (const f of files) {
       if (!f.file) {
         storagePaths.push(null);
         continue;
       }
+      uploadIndex += 1;
+      const fileIndex = uploadIndex;
+      const fileCount = uploadable.length;
       try {
         const path = await uploadObjectAndGetPath({
           bucket: BUCKETS.orderFiles,
@@ -472,6 +490,16 @@ class DataStore {
           file: f.file,
           fileName: f.name,
           contentType: f.mimeType || f.file.type,
+          onProgress: onProgress
+            ? (loaded, total) => {
+                onProgress({
+                  fileIndex,
+                  fileCount,
+                  fileName: f.name,
+                  percent: total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+                });
+              }
+            : undefined,
         });
         storagePaths.push(path);
       } catch (err) {

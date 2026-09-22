@@ -31,6 +31,7 @@ import {
   WifiOff,
   CalendarClock,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -56,7 +57,7 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
-import { dataStore } from "../../utils/dataStore";
+import { dataStore, type OrderUploadProgress } from "../../utils/dataStore";
 import { showDbError } from "../../../lib/db/errors";
 import { PDFDocument } from "pdf-lib";
 import { inventoryStore } from "../../utils/inventoryStore";
@@ -522,6 +523,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   // the intentional jump to Payment Verification is in flight, and so a
   // dismissed success dialog can never re-place the same order.
   const orderSubmittedRef = useRef(false);
+  // Placing-state for the submit buttons: set synchronously before the awaited
+  // order-write (file uploads + DB round trips) so a rapid double-click can
+  // never double-fire, and mirrored into state so the UI can show a spinner.
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const submittingRef = useRef(false);
+  // Live upload progress for the submitting state. Throttled to whole-percent
+  // changes (XHR fires onprogress very frequently) to avoid re-render churn.
+  const [uploadProgress, setUploadProgress] = useState<OrderUploadProgress | null>(null);
+  const lastUploadPercentRef = useRef(-1);
+  const lastUploadFileIndexRef = useRef(0);
   const [availablePaperSizes, setAvailablePaperSizes] = useState<
     Array<{
       id: string;
@@ -1021,10 +1032,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setPhotocopyManualPrice("");
     setSubmittedOrderId("");
     orderSubmittedRef.current = false;
+    submittingRef.current = false;
+    setIsSubmittingOrder(false);
+    setUploadProgress(null);
+    lastUploadPercentRef.current = -1;
+    lastUploadFileIndexRef.current = 0;
     setCurrentStep(1);
   };
 
   const handleProceedToQueue = async () => {
+    if (submittingRef.current) return;
     const now = new Date();
 
     const hasPaperInStock = availablePaperSizes.some((s) => s.inStock);
@@ -1058,13 +1075,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         expectedPaperUsage: [{ size: photocopyPaperSize, sheets: photocopyCopies }],
         paperDeductedOnCreate: false,
       };
+      submittingRef.current = true;
+      setIsSubmittingOrder(true);
       const created = await dataStore
-        .addOrder({ ...newOrder, actorId: user?.id })
+        .addOrder({ ...newOrder, actorId: user?.id }, reportUploadProgress)
         .catch((err) => {
           showDbError("adding the walk-in order", err);
           return null;
         });
-      if (!created) return;
+      if (!created) {
+        submittingRef.current = false;
+        setIsSubmittingOrder(false);
+        setUploadProgress(null);
+        lastUploadPercentRef.current = -1;
+    lastUploadFileIndexRef.current = 0;
+        return;
+      }
       toast.success(
         <div className="flex flex-col gap-1">
           <span className="font-semibold">Photocopy sent to queue!</span>
@@ -1172,13 +1198,22 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
         paperDeductedOnCreate: false,
       };
 
+      submittingRef.current = true;
+      setIsSubmittingOrder(true);
       const created = await dataStore
-        .addOrder({ ...newOrder, actorId: user?.id })
+        .addOrder({ ...newOrder, actorId: user?.id }, reportUploadProgress)
         .catch((err) => {
           showDbError("adding the walk-in order", err);
           return null;
         });
-      if (!created) return;
+      if (!created) {
+        submittingRef.current = false;
+        setIsSubmittingOrder(false);
+        setUploadProgress(null);
+        lastUploadPercentRef.current = -1;
+    lastUploadFileIndexRef.current = 0;
+        return;
+      }
       transactionId = created.displayId ?? created.id;
     }
 
@@ -1194,7 +1229,24 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     resetForm();
   };
 
+  // Throttled progress reporter for the submit flow. XHR fires `onprogress` very
+  // frequently, so only re-render when the whole percentage (or the active file)
+  // changes.
+  const reportUploadProgress = (p: OrderUploadProgress) => {
+    if (
+      p.percent === lastUploadPercentRef.current &&
+      p.fileIndex === lastUploadFileIndexRef.current
+    ) {
+      return;
+    }
+    lastUploadPercentRef.current = p.percent;
+    lastUploadFileIndexRef.current = p.fileIndex;
+    lastUploadFileIndexRef.current = p.fileIndex;
+    setUploadProgress(p);
+  };
+
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
     if (submittedOrderId || orderSubmittedRef.current) {
       toast.error(
         "This order has already been placed. Track it under My Orders to see its status.",
@@ -1399,9 +1451,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     // and (online) submits their reference — backing out leaves an awaiting-
     // payment order that auto-expires after its payment deadline.
     let created: Awaited<ReturnType<typeof dataStore.addOrder>>;
+    submittingRef.current = true;
+    setIsSubmittingOrder(true);
     try {
-      created = await dataStore.addOrder({ ...newOrder, actorId: user?.id });
+      created = await dataStore.addOrder({ ...newOrder, actorId: user?.id }, reportUploadProgress);
     } catch (err) {
+      submittingRef.current = false;
+      setIsSubmittingOrder(false);
+      setUploadProgress(null);
+      lastUploadPercentRef.current = -1;
+    lastUploadFileIndexRef.current = 0;
       showDbError("placing your order", err);
       return;
     }
@@ -1527,6 +1586,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     setSubmittedOrderId(orderId);
     orderSubmittedRef.current = true;
     clearPrintDraft();
+    submittingRef.current = false;
+    setIsSubmittingOrder(false);
+    setUploadProgress(null);
+    lastUploadPercentRef.current = -1;
+    lastUploadFileIndexRef.current = 0;
     setShowSuccessModal(true);
   };
 
@@ -3163,6 +3227,16 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           )
         )}
 
+        {/* Upload progress — shown above the action bar while files upload */}
+        {isSubmittingOrder && uploadProgress && uploadProgress.percent < 100 && (
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+            <div
+              className="h-full rounded-full bg-[#2F6FD6] transition-[width] duration-150 ease-linear"
+              style={{ width: `${uploadProgress.percent}%` }}
+            />
+          </div>
+        )}
+
         {/* Navigation Buttons */}
         {isWalkin && (currentStep === 4 || (isPhotocopy && currentStep === 2)) ? (
           <div className="mt-6">
@@ -3201,10 +3275,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               <button
                 type="button"
                 onClick={() => setShowProceedConfirm(true)}
-                disabled={shopPaused || (isPhotocopy ? false : files.length === 0)}
+                disabled={shopPaused || isSubmittingOrder || (isPhotocopy ? false : files.length === 0)}
                 className="w-full py-3 bg-blue-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all @min-[640px]:w-auto @min-[640px]:min-w-[180px] @min-[640px]:px-6"
               >
-                Proceed to In Queue
+                {isSubmittingOrder ? (
+                  <span className="inline-flex items-center gap-2 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {uploadProgress && uploadProgress.percent < 100
+                      ? `Uploading… ${uploadProgress.percent}%`
+                      : "Placing order…"}
+                  </span>
+                ) : (
+                  "Proceed to In Queue"
+                )}
               </button>
             </div>
           </div>
@@ -3284,9 +3367,23 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       setShowPlaceOrderConfirm(true);
                     }
                   }}
-                  disabled={shopPaused || (isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged))}
+                  disabled={shopPaused || isSubmittingOrder || (isWalkin ? (isPhotocopy ? false : files.length === 0) : files.length === 0 || !paymentMethod || (paymentMethod === "cash" && !cashAcknowledged))}
                 >
-                  {isWalkin
+                  {isSubmittingOrder ? (
+                    uploadProgress && uploadProgress.percent < 100 ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {uploadProgress.fileCount > 1
+                          ? `Uploading ${uploadProgress.fileName} (${uploadProgress.fileIndex}/${uploadProgress.fileCount})… ${uploadProgress.percent}%`
+                          : `Uploading ${uploadProgress.fileName}… ${uploadProgress.percent}%`}
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Placing order…
+                      </>
+                    )
+                  ) : isWalkin
                     ? "Proceed to In Queue"
                     : isDownTier
                       ? "Proceed to Down Payment Method"
@@ -3842,6 +3939,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           }
           cancelLabel="Go Back"
           destructive={false}
+          loading={isSubmittingOrder}
         />
       )}
 
@@ -3959,6 +4057,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           confirmLabel="Proceed to In Queue"
           cancelLabel="Go Back"
           destructive={false}
+          loading={isSubmittingOrder}
         />
       )}
     </Layout>

@@ -29,6 +29,11 @@ export interface UploadInput {
   file: Blob;
   fileName?: string;
   contentType?: string;
+  // Emits real byte progress while the upload is in flight. Only wired when
+  // provided — the supabase-js client (which uses fetch under the hood) exposes
+  // no upload progress events, so a progressive callback switches to a matching
+  // XHR request against the same Storage REST endpoint (see below).
+  onProgress?: (loaded: number, total: number) => void;
 }
 
 // Upload a Blob to the bucket, returning the storage path (not the URL).
@@ -36,6 +41,11 @@ export async function uploadObjectAndGetPath(input: UploadInput): Promise<string
   const ext = (input.fileName?.split('.').pop() || '').toLowerCase();
   const safeExt = /^[a-z0-9]{1,10}$/.test(ext) ? ext : 'bin';
   const path = `${input.folder.replace(/^\/+|\/+$/g, '')}/${Date.now()}.${safeExt}`;
+
+  if (input.onProgress) {
+    return uploadObjectWithProgress(input, path);
+  }
+
   const { error } = await supabase.storage
     .from(input.bucket)
     .upload(path, input.file, {
@@ -43,6 +53,76 @@ export async function uploadObjectAndGetPath(input: UploadInput): Promise<string
       upsert: true,
     });
   if (error) throw error;
+  return path;
+}
+
+// Progressive upload via XMLHttpRequest — mirrors the exact request the
+// supabase-js SDK sends (same endpoint, headers, and FormData shape) but fires
+// `xhr.upload.onprogress`, which fetch does not expose. Falls back to the SDK
+// call when no session token is available.
+async function uploadObjectWithProgress(input: UploadInput, path: string): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token ?? null;
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+
+  if (!token || !supabaseUrl) {
+    const { error } = await supabase.storage
+      .from(input.bucket)
+      .upload(path, input.file, {
+        contentType: input.contentType || input.file.type || 'application/octet-stream',
+        upsert: true,
+      });
+    if (error) throw error;
+    return path;
+  }
+
+  const encodedBucket = encodeURIComponent(input.bucket);
+  const encodedPath = path.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+  const url = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${encodedBucket}/${encodedPath}`;
+
+  // The SDK's Blob path sends the file inside FormData under an empty key, with
+  // cacheControl as a sibling field; Content-Type is left to the browser so the
+  // multipart boundary is generated. Replicating it keeps the server parse the
+  // same way.
+  const body = new FormData();
+  body.append('cacheControl', '3600');
+  body.append('', input.file);
+
+  const result: { Id?: string; Key?: string; statusCode?: string; message?: string; error?: string } =
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_ANON_KEY as string);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('x-upsert', 'true');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && input.onProgress) {
+          input.onProgress(e.loaded, e.total);
+        }
+      };
+      xhr.onload = () => {
+        let parsed: { Id?: string; Key?: string; statusCode?: string; message?: string; error?: string } | null = null;
+        try {
+          parsed = JSON.parse(xhr.responseText);
+        } catch {
+          parsed = null;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(parsed ?? {});
+        } else {
+          const message = parsed?.message || parsed?.error || `Upload failed (HTTP ${xhr.status})`;
+          reject(new Error(message));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload failed — check your connection and try again.'));
+      xhr.onabort = () => reject(new Error('Upload was aborted'));
+      xhr.send(body);
+    });
+
+  if (input.onProgress && input.file.size > 0) {
+    input.onProgress(input.file.size, input.file.size);
+  }
+
   return path;
 }
 
