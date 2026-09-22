@@ -265,7 +265,7 @@ function readPrintDraft(): PrintDraft | null {
   }
 }
 
-function clearPrintDraft() {
+export function clearPrintDraft() {
   sessionStorage.removeItem(PRINT_DRAFT_KEY);
 }
 
@@ -286,7 +286,7 @@ function readPendingOrder():
   }
 }
 
-function clearPendingOrder() {
+export function clearPendingOrder() {
   sessionStorage.removeItem(PENDING_ORDER_KEY);
 }
 

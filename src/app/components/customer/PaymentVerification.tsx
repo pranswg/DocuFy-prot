@@ -56,6 +56,10 @@ import { formatCurrency } from "../../utils/formatNumber";
 import { formatPHDateTime } from "../../utils/pht";
 import { PaymentDeadlineCountdown } from "../shared/PaymentDeadlineCountdown";
 import {
+  clearPrintDraft,
+  clearPendingOrder,
+} from "../shared/PrintTransaction";
+import {
   paymentMethodsStore,
   type PaymentMethodType,
 } from "../../utils/paymentMethodsStore";
@@ -161,6 +165,11 @@ export default function PaymentVerification() {
   const location = useLocation();
   const { orderId } = useParams();
   const { user } = useAuth();
+  const goToNewRequest = () => {
+    clearPrintDraft();
+    clearPendingOrder();
+    navigate("/customer/new-request");
+  };
   const [paymentMethod, setPaymentMethod] = useState<
     string
   >(""); // method name or "cash"
@@ -511,7 +520,7 @@ export default function PaymentVerification() {
     }
     setShowCancelConfirm(false);
     toast.success("Order has been canceled.");
-    navigate("/customer/orders");
+    goToNewRequest();
   };
 
   // A canceled order no longer has a payment to verify — show a canceled state
@@ -554,17 +563,17 @@ export default function PaymentVerification() {
           </Card>
           <div className="flex gap-3">
             <Button
-              onClick={() => navigate("/customer/orders")}
-              className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
-            >
-              View My Orders
-            </Button>
+onClick={goToNewRequest}
+            className="flex-1 bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
+          >
+            New Print Request
+          </Button>
             <Button
               variant="outline"
-              onClick={() => navigate("/customer/dashboard")}
+              onClick={goToNewRequest}
               className="flex-1"
             >
-              Go to Dashboard
+              Back to Print Request
             </Button>
           </div>
         </div>
@@ -1193,8 +1202,8 @@ export default function PaymentVerification() {
         open={showSuccessDialog}
         onOpenChange={(open) => {
           if (!open) {
-            // If user closes dialog via X or clicking outside, redirect to order tracking
-            navigate(`/customer/track/${orderId}`);
+            // If user closes dialog via X or clicking outside, redirect to new print request
+            goToNewRequest();
           }
         }}
       >
@@ -1216,10 +1225,10 @@ export default function PaymentVerification() {
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-6">
             <Button
-              onClick={() => navigate(`/customer/track/${orderId}`)}
+              onClick={goToNewRequest}
               className="w-full h-11 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B]"
             >
-              See My Order
+              New Print Request
             </Button>
             <Button
               variant="outline"
