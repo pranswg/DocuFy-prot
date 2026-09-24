@@ -71,6 +71,16 @@ export type InventoryItemUpdate = Tables['inventory_items']['Update'];
 export type InventoryMovementRow = Tables['inventory_movements']['Row'];
 export type InventoryMovementInsert = Tables['inventory_movements']['Insert'];
 
+export type NotificationRow = Tables['notifications']['Row'];
+export type NotificationInsert = Tables['notifications']['Insert'];
+export type NotificationUpdate = Tables['notifications']['Update'];
+
+export type AnnouncementRow = Tables['announcements']['Row'];
+export type AnnouncementInsert = Tables['announcements']['Insert'];
+
+export type AnnouncementReadRow = Tables['announcement_reads']['Row'];
+export type AnnouncementReadInsert = Tables['announcement_reads']['Insert'];
+
 // ── Domain DTOs (decoupled from the row shapes so consumers never touch raw
 // ── DB rows) ────────────────────────────────────────────────────────────────
 
@@ -321,4 +331,47 @@ export interface InventoryMovementDto {
   relatedOrderId: string | null;
   relatedTransactionId: string | null;
   createdAt: Date;
+}
+
+// ── Notifications domain (per-recipient notifications + announcements) ────────
+// The generated schema has no person-aware concept of "unread": notifications
+// use `read_at` (null = unread) and announcements use the `announcement_reads`
+// join table. These DTOs mirror the localStorage store shapes plus the server
+// `dbId` so the facade can reconcile realtime echoes.
+
+export type NotificationKind = 'order' | 'payment' | 'status_update' | 'inventory';
+export type NotificationPriority = 'important' | 'emergency';
+export type NotificationRecipientRole = 'customer' | 'staff' | 'admin' | 'staff_admin' | 'all';
+
+export interface NotificationDto {
+  id: string;                       // server uuid = stable identity across devices
+  dbId: string;                     // same uuid (kept explicit for reconciliation)
+  type: NotificationKind;
+  priority: NotificationPriority | null;
+  title: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;                    // derived from read_at != null
+  clickable: boolean;
+  relatedOrderId: string | null;
+  relatedRoute: string | null;
+  recipientRole: NotificationRecipientRole;
+  recipientEmail: string | null;    // only known for locally-created rows
+}
+
+export type AnnouncementType = 'announcement' | 'pricing' | 'maintenance' | 'reminder' | 'promo';
+export type AnnouncementPriority = 'regular' | 'important' | 'emergency';
+export type AnnouncementRecipientRole = 'customer' | 'all';
+
+export interface AnnouncementDto {
+  id: string;
+  dbId: string;
+  type: AnnouncementType;
+  priority: AnnouncementPriority;
+  title: string;
+  message: string;
+  recipientRole: AnnouncementRecipientRole;
+  sentBy: string;                   // sender email
+  sentAt: string;                   // ISO timestamp
+  readBy: string[];                 // reader emails resolvable from the read join
 }

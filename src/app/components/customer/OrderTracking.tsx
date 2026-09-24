@@ -39,6 +39,7 @@ import {
 import { Textarea } from "../ui/textarea";
 import { FileAttachments } from "../ui/file-attachments";
 import { dataStore } from "../../utils/dataStore";
+import { notificationStore } from "../../utils/notificationStore";
 import ShopStatusBanner from "../shared/ShopStatusBanner";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore, formatPrice, type PricingValues } from "../../utils/pricingStore";
@@ -171,6 +172,19 @@ export default function OrderTracking() {
       status: "Canceled",
       cancellationReason: cancellationReason.trim(),
     });
+
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${orderData?.displayId ?? orderId} was canceled by the customer.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "admin" },
+    );
+    notificationStore.addNotification(
+      "order",
+      "Order Canceled by Customer",
+      `Order #${orderData?.displayId ?? orderId} was canceled by the customer.`,
+      { clickable: true, relatedOrderId: orderId, recipientRole: "staff" },
+    );
 
     setShowCancelDialog(false);
     setCancellationReason("");

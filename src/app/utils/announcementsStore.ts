@@ -8,7 +8,22 @@
 // their own notifications (e.g. pricing updates, order-status changes) through
 // the SAME store without redesigning the Notifications section — just call
 // createAnnouncement() with the right type from wherever the event happens.
+//
+// The store is a Supabase-backed facade: the localStorage mirror stays as the
+// offline fallback, DB rows are adopted on hydrate + realtime change (DB wins
+// when rows exist), and audience/read state syncs through `announcement_reads`
+// (readBy = the current viewer's email when they've read the announcement).
 import { toPHT, PHT_OFFSET_MS } from './pht';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import {
+  fetchAnnouncements,
+  insertAnnouncement,
+  markAnnouncementRead,
+  deleteAnnouncement,
+  resolveProfileIdByEmail,
+  subscribeAnnouncements,
+} from '../../lib/db/notificationsRepo';
+import type { AnnouncementDto } from '../../lib/db/notificationsRepo';
 
 export type AnnouncementType =
   | 'announcement'
@@ -23,6 +38,9 @@ export type AnnouncementPriority = 'regular' | 'important' | 'emergency';
 
 export type Announcement = {
   id: string;
+  // Server uuid once the row reaches Supabase; used to reconcile realtime
+  // echoes (a broadcast pushed here and echoed back is the SAME announcement).
+  dbId?: string;
   type: AnnouncementType;
   priority: AnnouncementPriority;
   title: string;
@@ -84,6 +102,7 @@ class AnnouncementsStore {
   private announcements: Announcement[] = [];
   private subscribers: Set<Subscriber> = new Set();
   private initialized = false;
+  private remoteStarted = false;
 
   constructor() {
     this.load();
@@ -97,10 +116,44 @@ class AnnouncementsStore {
     });
   }
 
+  // ── Supabase: hydrate + live sync ────────────────────────────────────────
+
+  private startRemote(): void {
+    if (this.remoteStarted) return;
+    this.remoteStarted = true;
+    subscribeAnnouncements(() => {
+      void this.refreshRemote();
+    });
+    void this.refreshRemote();
+  }
+
+  // Merge DB rows into the mirror, keyed by dbId. The DB is source of truth for
+  // the rows it has, but an empty/unreachable backend NEVER wipes the
+  // localStorage mirror — that is the offline fallback.
+  private async refreshRemote(): Promise<void> {
+    try {
+      const dtos = await fetchAnnouncements();
+      if (dtos.length === 0) return;
+      const remote = dtos.map(toLocalAnnouncement);
+      const merged = new Map<string, Announcement>();
+      for (const a of this.announcements) merged.set(a.dbId ?? a.id, a);
+      for (const r of remote) merged.set(r.dbId ?? r.id, r);
+      this.announcements = Array.from(merged.values()).sort(
+        (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime(),
+      );
+      this.save();
+    } catch {
+      // keep the local mirror
+    }
+  }
+
+  // ── localStorage mirror ──────────────────────────────────────────────────
+
   private load(): void {
     if (this.initialized) return;
     this.reload();
     this.initialized = true;
+    this.startRemote();
   }
 
   // Re-read unconditionally (ignores the `initialized` guard) and notify — used
@@ -122,6 +175,7 @@ class AnnouncementsStore {
     } catch (error) {
       console.error('Failed to save notifications:', error);
     }
+    this.notify();
   }
 
   private notify(): void {
@@ -177,15 +231,25 @@ class AnnouncementsStore {
     );
     this.save();
     this.notify();
+    const target = this.announcements[index];
+    if (target.dbId) {
+      void this.syncRead(target.dbId, email);
+    }
     return true;
   }
 
   markAllRead(email: string): void {
-    this.announcements = this.announcements.map((a) =>
-      a.readBy.includes(email) ? a : { ...a, readBy: [...a.readBy, email] },
-    );
+    const dbIds: string[] = [];
+    this.announcements = this.announcements.map((a) => {
+      if (a.readBy.includes(email)) return a;
+      if (a.dbId) dbIds.push(a.dbId);
+      return { ...a, readBy: [...a.readBy, email] };
+    });
     this.save();
     this.notify();
+    for (const dbId of dbIds) {
+      void this.syncRead(dbId, email);
+    }
   }
 
   // Create a new announcement broadcast. Dashboard broadcasts are customer-only
@@ -215,17 +279,76 @@ class AnnouncementsStore {
     this.announcements = [announcement, ...this.announcements];
     this.save();
     this.notify();
+    void this.syncPush(announcement);
     return announcement;
   }
 
   deleteAnnouncement(id: string): boolean {
-    const next = this.announcements.filter((a) => a.id !== id);
+    const target = this.announcements.find((a) => a.id === id || a.dbId === id);
+    const next = this.announcements.filter((a) => a.id !== id && a.dbId !== id);
     if (next.length === this.announcements.length) return false;
     this.announcements = next;
     this.save();
     this.notify();
+    if (target?.dbId) {
+      void this.syncDelete(target.dbId);
+    }
     return true;
   }
+
+  private async syncPush(announcement: Announcement): Promise<void> {
+    try {
+      const dbId = await insertAnnouncement({
+        type: announcement.type,
+        priority: announcement.priority,
+        title: announcement.title,
+        message: announcement.message,
+        recipientRole: announcement.recipientRole,
+        sentBy: announcement.sentBy,
+      });
+      if (dbId) {
+        const item = this.announcements.find((a) => a.id === announcement.id);
+        if (item) {
+          item.dbId = dbId;
+          this.save();
+        }
+      }
+      console.info(
+        '[db:announcement-push] ok',
+        dbId,
+        announcement.type,
+        announcement.recipientRole ?? null,
+      );
+    } catch (err) {
+      if (isRlsDenied(err)) {
+        console.warn('[db:announcement-push] RLS denied', announcement.type, announcement.title);
+      } else {
+        showDbError('announcement sync', err);
+      }
+    }
+  }
+
+  private async syncRead(dbId: string, email: string): Promise<void> {
+    try {
+      const profileId = await resolveProfileIdByEmail(email);
+      if (!profileId) return;
+      await markAnnouncementRead(dbId, profileId);
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('announcement mark-read', err);
+    }
+  }
+
+  private async syncDelete(dbId: string): Promise<void> {
+    try {
+      await deleteAnnouncement(dbId);
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('announcement delete', err);
+    }
+  }
+}
+
+function toLocalAnnouncement(dto: AnnouncementDto): Announcement {
+  return { ...dto };
 }
 
 export const announcementsStore = new AnnouncementsStore();

@@ -42,6 +42,7 @@ import {
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { dataStore } from "../../utils/dataStore";
+import { notificationStore } from "../../utils/notificationStore";
 import { verifyPayment, rejectPayment, confirmCashPayment } from "../../../lib/db/paymentsRepo";
 import { showDbError } from "../../../lib/db/errors";
 import { BUCKETS, getSignedObjectUrl } from "../../../lib/db/storage";
@@ -562,6 +563,39 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         showDbError("saving the verification", err);
         // Keep the dialog open + keep our lock so the reviewer can retry.
         return false;
+      }
+
+      // Notify the customer about the verification outcome (skips walk-ins /
+      // orders without a customer email). Rendered by both the admin and staff
+      // copies of this page — one insertion covers both roles.
+      if (targetOrder?.customerEmail) {
+        const orderLabel = targetOrder?.displayId ?? selectedPayment.orderId;
+        if (status === "verified") {
+          notificationStore.addNotification(
+            "payment",
+            "Payment Verified",
+            `Your payment for order #${orderLabel} has been verified — your order is now in the print queue.`,
+            {
+              clickable: true,
+              relatedOrderId: selectedPayment.orderId,
+              relatedRoute: `/customer/track/${selectedPayment.orderId}`,
+              recipientEmail: targetOrder.customerEmail,
+            },
+          );
+        } else {
+          notificationStore.addNotification(
+            "payment",
+            "Payment Rejected",
+            `Your payment for order #${orderLabel} was rejected. Reason: ${rejectionReason.trim() || "Rejected"}. Please update your payment details or contact Docufy for assistance.`,
+            {
+              clickable: true,
+              priority: "important",
+              relatedOrderId: selectedPayment.orderId,
+              relatedRoute: `/customer/payment/${selectedPayment.orderId}`,
+              recipientEmail: targetOrder.customerEmail,
+            },
+          );
+        }
       }
 
       // The order is processed — release our hold so it's free for anyone.

@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { applicationsStore, applicationDisplayId } from "../../utils/applicationsStore";
+import { notificationStore } from "../../utils/notificationStore";
 import { jobsStore } from "../../utils/jobsStore";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -183,6 +184,29 @@ export default function JobApplyForm() {
         portfolioFile: formData.resumeFile,
         portfolioFileName: formData.resumeFile?.name,
       });
+
+      const applicantLabel = `${formData.firstName} ${formData.lastName}`.trim();
+      notificationStore.addNotification(
+        "status_update",
+        "New Job Application",
+        `${applicantLabel} applied for "${jobTitle}". Review the application.`,
+        {
+          clickable: true,
+          relatedRoute: "/admin/job-board",
+          recipientRole: "admin",
+        },
+      );
+      notificationStore.addNotification(
+        "status_update",
+        "New Job Application",
+        `${applicantLabel} applied for "${jobTitle}". Review the application.`,
+        {
+          clickable: true,
+          relatedRoute: "/staff/profile",
+          recipientRole: "staff",
+        },
+      );
+
       setSubmittedAppId(applicationDisplayId(result.id));
       setSubmitted(true);
     } finally {
