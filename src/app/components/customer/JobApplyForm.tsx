@@ -26,8 +26,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { applicationsStore } from "../../utils/applicationsStore";
+import { applicationsStore, applicationDisplayId } from "../../utils/applicationsStore";
 import { jobsStore } from "../../utils/jobsStore";
+import { useAuth } from "../../contexts/AuthContext";
 
 const menuItems = [
   {
@@ -66,6 +67,7 @@ const fieldErrors: Record<FormField, string> = {
 
 export default function JobApplyForm() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { jobId } = useParams();
   const job = jobsStore.getJobById(jobId || "");
   const jobTitle = job?.title || "Open Position";
@@ -153,7 +155,7 @@ export default function JobApplyForm() {
     setErrors((prev) => { const n = { ...prev }; delete n.portfolio; return n; });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
@@ -164,8 +166,9 @@ export default function JobApplyForm() {
     setErrors({});
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const result = applicationsStore.addApplication({
+    try {
+      const result = await applicationsStore.addApplication({
+        applicantProfileId: user?.id ?? null,
         jobId: jobId || "",
         jobTitle,
         firstName: formData.firstName,
@@ -180,10 +183,11 @@ export default function JobApplyForm() {
         portfolioFile: formData.resumeFile,
         portfolioFileName: formData.resumeFile?.name,
       });
-      setSubmittedAppId(result.id);
-      setIsSubmitting(false);
+      setSubmittedAppId(applicationDisplayId(result.id));
       setSubmitted(true);
-    }, 600);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass = (field: string) =>

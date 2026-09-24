@@ -4,6 +4,7 @@ import type {
   PricingSettingsRow,
   MatrixCellInsert,
   StaffRecordInsert,
+  JobInsert,
 } from './types';
 
 // Phase 0 bootstrap: guarantee the single-row settings tables and the pricing
@@ -27,6 +28,7 @@ async function runAll(): Promise<void> {
   await ensureMatrixCells();
   await ensurePaymentMethods();
   await ensureStaffRecords();
+  await ensureJobs();
 }
 
 // Seed `staff_records` directory rows for the DEMO roster so attendance sync
@@ -127,8 +129,66 @@ async function ensurePaymentMethods(): Promise<void> {
   }
 }
 
-function defaultPricingSettings(): Omit<PricingSettingsRow, 'updated_by' | 'updated_at'> {
-  const p = pricingStore.getPricing();
+// Seed the two demo job board listings when the table is empty, matching the
+// old localStorage defaults. Best-effort: RLS only lets staff/admin insert, so
+// customers simply skip this.
+const DEFAULT_JOB_SEEDS: Array<{
+  title: string;
+  description: string;
+  type: string;
+  duration: string;
+  department: string;
+  postedDate: string;
+}> = [
+  {
+    title: 'Part-Time Print Shop Assistant',
+    description:
+      'Assist customers with print requests, handle document processing, operate printing and binding equipment, and help maintain the print shop. Ideal for students looking to gain hands-on experience in a fast-paced environment.',
+    type: 'Part-Time',
+    duration: '15-20 hours/week',
+    department: 'General',
+    postedDate: '2026-08-26',
+  },
+  {
+    title: 'Document Encoding / Layout Assistant',
+    description:
+      'Handle document formatting, encoding, and layout design for customer print jobs. Requires attention to detail and basic familiarity with office/document software.',
+    type: 'Part-Time',
+    duration: '10-15 hours/week',
+    department: 'General',
+    postedDate: '2026-08-23',
+  },
+];
+
+async function ensureJobs(): Promise<void> {
+  try {
+    const { count, error } = await supabase
+      .from('jobs')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    if (count && count > 0) return;
+    const rows: JobInsert[] = DEFAULT_JOB_SEEDS.map((seed) => ({
+      title: seed.title,
+      description: seed.description,
+      job_type: seed.type,
+      duration: seed.duration,
+      department: seed.department,
+      location: null,
+      salary: null,
+      schedule: null,
+      requirements: [],
+      responsibilities: [],
+      status: 'active',
+      posted_date: seed.postedDate,
+    }));
+    const { error: insertError } = await supabase.from('jobs').insert(rows);
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] jobs seed skipped (RLS or offline):', err);
+  }
+}
+
+function defaultPricingSettings(): Omit<PricingSettingsRow, 'updated_by' | 'updated_at'> {  const p = pricingStore.getPricing();
   return {
     id: true,
     bw: p.bw,

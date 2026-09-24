@@ -43,29 +43,11 @@ import {
 } from "../ui/select";
 import { toast } from "sonner";
 import { jobsStore } from "../../utils/jobsStore";
-import { applicationsStore } from "../../utils/applicationsStore";
+import { applicationsStore, openApplicationPortfolio } from "../../utils/applicationsStore";
 import { todayPHTKey } from "../../utils/pht";
 import { notificationStore } from "../../utils/notificationStore";
 
 const menuItems = adminMenuItems;
-
-/** Open a Blob/File (in-memory PDF) in a new tab using the browser's native viewer. */
-function openBlobInNewTab(blob: Blob | undefined | null) {
-  if (!blob) return;
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank", "noopener,noreferrer");
-  if (!win) {
-    // Popup may be blocked: fall back to an anchor click (still native viewer).
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener,noreferrer";
-    a.click();
-  }
-  // Revoke after the tab has had time to fetch the blob. Keeping it a bit longer
-  // than the tab load avoids a broken/blank viewer due to premature revoking.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 export default function JobBoardManagement() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -124,6 +106,7 @@ export default function JobBoardManagement() {
             portfolioType: app.portfolioType,
             portfolioFile: app.portfolioFile,
             portfolioFileName: app.portfolioFileName,
+            portfolioStoragePath: app.portfolioStoragePath || null,
             coverLetter: app.skills,
             skills: app.skills,
             interviewDate: app.interviewDate || "",
@@ -152,17 +135,14 @@ export default function JobBoardManagement() {
     setShowCreateConfirmDialog(true);
   };
 
-  const confirmCreate = () => {
-    const jobsCount = jobsStore.getJobs().length;
-    jobsStore.addJob({
-      id: `JOB-${String(jobsCount + 1).padStart(3, '0')}`,
+  const confirmCreate = async () => {
+    await jobsStore.addJob({
       title: formData.title,
       description: formData.description,
       type: formData.type as any,
       duration: formData.duration,
       status: "active",
       department: "General",
-      posted: "Just now",
       postedDate: todayPHTKey(),
     });
     setFormData({
@@ -182,13 +162,19 @@ export default function JobBoardManagement() {
     setViewState('applicants');
   };
 
-  const handleViewResume = (applicant: any) => {
+  const handleViewResume = async (applicant: any) => {
     setSelectedApplicant(applicant);
-    // Open the portfolio in a brand-new tab using the browser's native viewer.
-    if (applicant.portfolioType === 'file') {
-      openBlobInNewTab(applicant.portfolioFile);
-    } else if (applicant.resumeUrl) {
-      window.open(applicant.resumeUrl, "_blank", "noopener,noreferrer");
+    // Open the portfolio in a brand-new tab using the browser's native viewer —
+    // real files resolve a signed URL for the private bucket first.
+    const opened = await openApplicationPortfolio({
+      portfolioType: applicant.portfolioType,
+      portfolio: applicant.resumeUrl,
+      portfolioUrl: applicant.resumeUrl,
+      portfolioFile: applicant.portfolioFile,
+      portfolioStoragePath: applicant.portfolioStoragePath || null,
+    });
+    if (!opened) {
+      toast.error("No document available for this applicant");
     }
   };
 

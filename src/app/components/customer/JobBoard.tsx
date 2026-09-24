@@ -32,7 +32,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../ui/dialog';
-import { applicationsStore, ApplicationType } from '../../utils/applicationsStore';
+import {
+  applicationsStore,
+  applicationDisplayId,
+  openApplicationPortfolio,
+  ApplicationType,
+} from '../../utils/applicationsStore';
 import { jobsStore } from '../../utils/jobsStore';
 import { formatPHDate } from '../../utils/pht';
 
@@ -50,23 +55,6 @@ const STATUS_COLORS: Record<string, string> = {
   Approved: 'bg-white border-2 border-blue-200 text-blue-700 border-blue-200',
   Rejected: 'bg-white border-2 border-blue-200 text-red-500 border-blue-200',
 };
-
-/** Open a Blob/File (in-memory PDF/image) in a new tab using the browser's native viewer. */
-function openBlobInNewTab(blob: Blob | undefined | null) {
-  if (!blob) return;
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!win) {
-    // Popup may be blocked: fall back to an anchor click (still native viewer).
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener,noreferrer';
-    a.click();
-  }
-  // Revoke after the tab has had time to fetch the blob.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 export default function JobBoard() {
   const navigate = useNavigate();
@@ -329,7 +317,7 @@ export default function JobBoard() {
                               <Badge className={`text-xs border ${STATUS_COLORS[app.status]}`}>
                                 {app.status}
                               </Badge>
-                              <span className="text-xs text-gray-400">{app.id}</span>
+                              <span className="text-xs text-gray-400">{applicationDisplayId(app.id)}</span>
                             </div>
                           </div>
                         </div>
@@ -439,7 +427,7 @@ export default function JobBoard() {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Application ID</p>
-                  <p className="font-bold text-gray-900 font-mono">{selectedApp.id}</p>
+                  <p className="font-bold text-gray-900 font-mono">{applicationDisplayId(selectedApp.id)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 font-medium mb-1">Status</p>
@@ -519,17 +507,17 @@ export default function JobBoard() {
                             <p className="text-xs text-gray-500">PDF/Image Upload</p>
                           </div>
                         </div>
-                        {selectedApp.portfolioFile && (
+                        {selectedApp.portfolioStoragePath || selectedApp.portfolioFile ? (
                           <Button
                             variant="outline"
                             size="sm"
                             className="w-full"
-                            onClick={() => openBlobInNewTab(selectedApp.portfolioFile)}
+                            onClick={() => void openApplicationPortfolio(selectedApp)}
                           >
                             <Eye className="mr-1.5 h-4 w-4" />
                             View
                           </Button>
-                        )}
+                        ) : null}
                       </div>
                     ) : (
                       <a

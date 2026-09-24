@@ -45,6 +45,17 @@ export type AttendanceAdjustmentInsert = Tables['attendance_adjustments']['Inser
 export type StaffRecordRow = Tables['staff_records']['Row'];
 export type StaffRecordInsert = Tables['staff_records']['Insert'];
 
+export type JobStatus = Database['public']['Enums']['job_status'];
+export type ApplicationStatus = Database['public']['Enums']['application_status'];
+
+export type JobRow = Tables['jobs']['Row'];
+export type JobInsert = Tables['jobs']['Insert'];
+export type JobUpdate = Tables['jobs']['Update'];
+
+export type JobApplicationRow = Tables['job_applications']['Row'];
+export type JobApplicationInsert = Tables['job_applications']['Insert'];
+export type JobApplicationUpdate = Tables['job_applications']['Update'];
+
 // ── Domain DTOs (decoupled from the row shapes so consumers never touch raw
 // ── DB rows) ────────────────────────────────────────────────────────────────
 
@@ -190,4 +201,55 @@ export interface AttendanceAdjustmentDto {
   reason: string | null;
   adjustedBy: string | null;
   createdAt: Date;
+}
+
+// ── Jobs domain (job board listings + applications) ──────────────────────────
+
+export interface JobDto {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  duration: string | null;
+  department: string | null;
+  location: string | null;
+  salary: string | null;
+  schedule: string | null;
+  requirements: string[];
+  responsibilities: string[];
+  status: JobStatus;
+  postedDate: string;
+  // Relative "posted X ago" label derived from postedDate at read time.
+  posted: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type JobStatusDto = JobStatus;
+
+export interface JobApplicationDto {
+  id: string;
+  jobId: string;
+  jobTitle: string | null;
+  applicantProfileId: string | null;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email: string;
+  contact: string;
+  address: string | null;
+  position: string;
+  skills: string | null;
+  coverLetter: string | null;
+  portfolioUrl: string | null;
+  portfolioStoragePath: string | null;
+  portfolioFileName: string | null;
+  portfolioFileType: string | null;
+  status: ApplicationStatus;
+  interviewDate: string | null;
+  interviewTime: string | null;
+  interviewLocation: string | null;
+  rejectionReason: string | null;
+  appliedAt: string;
+  updatedAt: string;
 }
