@@ -1,5 +1,25 @@
 // Centralized inventory store for supply/consumable tracking.
-// Persisted to localStorage. Tracks stock in/out and flags low-stock items.
+// Supabase-backed facade: the localStorage mirror below stays as the offline /
+// anonymous fallback, but the DB now drives real cross-device stock. Every
+// authenticated role can READ items (stock levels gate the customer's paper /
+// add-on lists); writes are staff/admin only; a customer's order-time paper
+// deduction runs through the `deduct_paper_pieces` security-definer RPC so it
+// reaches the backend from any device the order was placed on.
+
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import {
+  deductPaperPiecesRpc,
+  fetchInventoryItems,
+  fetchInventoryMovements,
+  insertInventoryMovement,
+  removeInventoryItem,
+  saveInventoryItem,
+} from '../../lib/db/inventoryRepo';
+import type {
+  InventoryItemDto,
+  InventoryMovementDto,
+} from '../../lib/db/types';
 
 export type InventoryStatus = 'out' | 'low' | 'ok';
 
@@ -52,11 +72,61 @@ export type StockMovement = {
 
 type Subscriber = () => void;
 
+const LOCAL_KEY = 'inventoryStore';
+const LOCAL_MOVES = 'inventoryMovements';
+const LOCAL_VERSION = 'inventoryStoreVersion';
+// Keep the v3.0 mirror version (NOT bumped) so any existing local edits by the
+// user survive until the DB hydrate replaces them with the server snapshot.
+const INVENTORY_VERSION = '3.0';
+
+// DB DTO → store shape, applying the legacy client-side migrations (the merged
+// "School supplies" category and the paper ream pcsPerUnit default).
+function fromItemDto(dto: InventoryItemDto): InventoryItem {
+  return {
+    id: dto.id,
+    name: dto.name,
+    category: dto.category === 'School supplies' ? 'Add-ons' : dto.category,
+    brand: dto.brand ?? undefined,
+    unit: dto.unit,
+    currentStock: dto.currentStock,
+    minimumStock: dto.minimumStock,
+    price: dto.price ?? undefined,
+    paperSize: dto.paperSize ?? undefined,
+    pcsPerUnit: dto.piecesPerUnit || 1,
+    archived: dto.archived,
+    lastUpdated: todayKey(),
+  };
+}
+
+function fromMovementDto(dto: InventoryMovementDto): StockMovement {
+  return {
+    id: dto.id,
+    itemId: dto.itemId,
+    itemName: '',
+    type: dto.movementType === 'in' ? 'in' : 'out',
+    quantity: dto.quantity,
+    unit: dto.unit,
+    reason: dto.reason ?? undefined,
+    person: dto.person ?? undefined,
+    related: dto.relatedOrderId ?? dto.relatedTransactionId ?? undefined,
+    createdAt: dto.createdAt.toISOString(),
+  };
+}
+
+function todayKey(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function mintId(): string {
+  return `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 class InventoryStore {
   private items: InventoryItem[] = [];
   private movements: StockMovement[] = [];
   private subscribers: Set<Subscriber> = new Set();
   private initialized: boolean = false;
+  private hydrating: boolean = false;
 
   constructor() {
     this.loadFromLocalStorage();
@@ -67,30 +137,31 @@ class InventoryStore {
     // staff/admin Inventory page, paper size options, and low/out-of-stock
     // alerts all update without a page refresh.
     window.addEventListener('storage', (e) => {
-      if (
-        e.key !== 'inventoryStore' &&
-        e.key !== 'inventoryMovements' &&
-        e.key !== 'inventoryStoreVersion'
-      ) {
-        return;
-      }
+      if (e.key !== LOCAL_KEY && e.key !== LOCAL_MOVES && e.key !== LOCAL_VERSION) return;
       this.reloadFromLocalStorage();
     });
+
+    // Real-time backend sync (replaces the per-browser mirror whenever the DB
+    // has rows — e.g. a staff restock on another device).
+    subscribeTableChanges('inventory_items', () => {
+      void this.hydrate();
+    });
+
+    void this.hydrate();
   }
 
   private loadFromLocalStorage(): void {
     if (this.initialized) return;
 
     try {
-      const INVENTORY_VERSION = '3.0'; // Increment to force a reset
-      const storedVersion = localStorage.getItem('inventoryStoreVersion');
-      const stored = localStorage.getItem('inventoryStore');
-      const storedMoves = localStorage.getItem('inventoryMovements');
+      const storedVersion = localStorage.getItem(LOCAL_VERSION);
+      const stored = localStorage.getItem(LOCAL_KEY);
+      const storedMoves = localStorage.getItem(LOCAL_MOVES);
 
       if (!stored || storedVersion !== INVENTORY_VERSION) {
         this.items = this.getDefaultItems();
         this.movements = [];
-        localStorage.setItem('inventoryStoreVersion', INVENTORY_VERSION);
+        localStorage.setItem(LOCAL_VERSION, INVENTORY_VERSION);
         this.saveToLocalStorage();
       } else {
         const parsed = JSON.parse(stored);
@@ -119,14 +190,14 @@ class InventoryStore {
   // subscriber re-renders.
   private reloadFromLocalStorage(): void {
     try {
-      const stored = localStorage.getItem('inventoryStore');
+      const stored = localStorage.getItem(LOCAL_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         this.items = Array.isArray(parsed)
           ? parsed.map(item => this.normalizeItem(item))
           : [];
       }
-      const storedMoves = localStorage.getItem('inventoryMovements');
+      const storedMoves = localStorage.getItem(LOCAL_MOVES);
       try {
         const movesParsed = storedMoves ? JSON.parse(storedMoves) : [];
         this.movements = Array.isArray(movesParsed) ? movesParsed : [];
@@ -136,6 +207,38 @@ class InventoryStore {
       this.notify();
     } catch (error) {
       console.error('Failed to reload inventory from localStorage:', error);
+    }
+  }
+
+  // Pull the latest snapshot from Supabase. The DB wins whenever it returns
+  // rows; when the tables are empty/unreachable (anon visitor, offline) the
+  // local mirror is kept so the pages never appear blank. Concurrent calls
+  // dedupe.
+  private async hydrate(): Promise<void> {
+    if (this.hydrating) return;
+    this.hydrating = true;
+    try {
+      const items = await fetchInventoryItems();
+      if (items.length > 0) {
+        this.items = items.map(fromItemDto);
+        this.saveToLocalStorage();
+        this.notify();
+      }
+    } catch (err) {
+      console.warn('[inventory] hydration kept local data:', err);
+    }
+    try {
+      const movements = await fetchInventoryMovements();
+      if (movements.length > 0) {
+        this.movements = movements.map(fromMovementDto);
+        this.saveToLocalStorage();
+        this.notify();
+      }
+    } catch {
+      // Movement history is staff/admin-only; a customer's empty/denied read
+      // simply keeps the local list. Silent.
+    } finally {
+      this.hydrating = false;
     }
   }
 
@@ -156,8 +259,8 @@ class InventoryStore {
 
   private saveToLocalStorage(): void {
     try {
-      localStorage.setItem('inventoryStore', JSON.stringify(this.items));
-      localStorage.setItem('inventoryMovements', JSON.stringify(this.movements));
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(this.items));
+      localStorage.setItem(LOCAL_MOVES, JSON.stringify(this.movements));
     } catch (error) {
       console.error('Failed to save inventory to localStorage:', error);
     }
@@ -167,23 +270,83 @@ class InventoryStore {
     item: InventoryItem,
     type: StockMovementType,
     quantity: number,
-    opts?: { reason?: string; person?: string; related?: string }
+    opts?: { reason?: string; person?: string; related?: string; push?: boolean }
   ): void {
-    this.movements = [
-      {
-        id: `mv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        itemId: item.id,
-        itemName: item.name,
-        type,
-        quantity,
+    const movement: StockMovement = {
+      id: `mv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      itemId: item.id,
+      itemName: item.name,
+      type,
+      quantity,
+      unit: item.unit,
+      reason: opts?.reason,
+      person: opts?.person,
+      related: opts?.related,
+      createdAt: new Date().toISOString(),
+    };
+    this.movements = [movement, ...this.movements];
+    this.saveToLocalStorage();
+    // Paper deductions are written server-side ONCE by the deduct_paper_pieces
+    // RPC (its own security-definer movement insert). Suppress the direct push
+    // there so staff restock()/stockOut() are the only direct movement writers
+    // and a walk-in deduction never logs twice.
+    if (opts?.push !== false) void this.pushMovement(movement);
+  }
+
+  // Best-effort DB append of a movement row. RLS-denied writes (a customer
+  // being prevented from logging a movement directly, e.g. a deduction that
+  // the RPC handles server-side) degrade silently.
+  private async pushMovement(movement: StockMovement): Promise<void> {
+    try {
+      await insertInventoryMovement({
+        item_id: movement.itemId,
+        movement_type: movement.type,
+        quantity: movement.quantity,
+        unit: movement.unit,
+        reason: movement.reason ?? null,
+        person: movement.person ?? null,
+        related_order_id: movement.related ?? null,
+        related_transaction_id: null,
+      });
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('inventory.movement', err);
+    }
+  }
+
+  // DB upsert of the full item snapshot. On success the server's row is
+  // adopted (id + defaults) so the store matches realtime. RLS-denied writes
+  // keep the local state silently; other failures toast (keep-local).
+  private async syncItem(item: InventoryItem): Promise<void> {
+    try {
+      const saved = await saveInventoryItem({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        brand: item.brand ?? null,
         unit: item.unit,
-        reason: opts?.reason,
-        person: opts?.person,
-        related: opts?.related,
-        createdAt: new Date().toISOString(),
-      },
-      ...this.movements,
-    ];
+        currentStock: item.currentStock,
+        minimumStock: item.minimumStock,
+        price: item.price ?? null,
+        paperSize: item.paperSize ?? null,
+        piecesPerUnit: item.pcsPerUnit ?? 1,
+        archived: item.archived ?? false,
+      });
+      const mapped = fromItemDto(saved);
+      this.items = this.items.map(i => (i.id === item.id ? mapped : i));
+      this.saveToLocalStorage();
+      this.notify();
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('inventory.update', err);
+    }
+  }
+
+  // Best-effort DB delete. RLS-denied/not-found deletions degrade silently.
+  private async removeRemote(id: string): Promise<void> {
+    try {
+      await removeInventoryItem(id);
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('inventory.delete', err);
+    }
   }
 
   private getDefaultItems(): InventoryItem[] {
@@ -217,22 +380,60 @@ class InventoryStore {
     return this.items.find(item => item.id === id);
   }
 
-  addItem(item: InventoryItem): void {
+  // Create an inventory item. Applies locally immediately, then inserts to the
+  // DB and adopts the server-assigned uuid id. On failure the item stays local
+  // (silently when RLS-denied, with a toast otherwise). The id is optional —
+  // the store mints one — so callers never have to invent ids.
+  async addItem(item: Omit<InventoryItem, 'id'> & { id?: string }): Promise<InventoryItem> {
     this.loadFromLocalStorage();
-    this.items = [...this.items, { ...item, lastUpdated: new Date().toISOString().split('T')[0] }];
+    const stamped: InventoryItem = {
+      ...item,
+      id: item.id || mintId(),
+      lastUpdated: todayKey(),
+    };
+    this.items = [stamped, ...this.items];
     this.saveToLocalStorage();
     this.notify();
+
+    try {
+      const saved = await saveInventoryItem({
+        name: stamped.name,
+        category: stamped.category,
+        brand: stamped.brand ?? null,
+        unit: stamped.unit,
+        currentStock: stamped.currentStock,
+        minimumStock: stamped.minimumStock,
+        price: stamped.price ?? null,
+        paperSize: stamped.paperSize ?? null,
+        piecesPerUnit: stamped.pcsPerUnit ?? 1,
+        archived: stamped.archived ?? false,
+      });
+      const mapped = fromItemDto(saved);
+      this.items = this.items.map(i => (i.id === stamped.id ? mapped : i));
+      this.saveToLocalStorage();
+      this.notify();
+      return mapped;
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('inventory.add', err);
+      return stamped;
+    }
   }
 
   updateItem(id: string, updates: Partial<InventoryItem>): void {
     this.loadFromLocalStorage();
+    const prev = this.items.find(item => item.id === id);
+    const merged: InventoryItem = {
+      ...(prev ?? ({} as InventoryItem)),
+      ...updates,
+      id,
+      lastUpdated: todayKey(),
+    };
     this.items = this.items.map(item =>
-      item.id === id
-        ? { ...item, ...updates, lastUpdated: new Date().toISOString().split('T')[0] }
-        : item
+      item.id === id ? { ...item, ...updates, lastUpdated: todayKey() } : item
     );
     this.saveToLocalStorage();
     this.notify();
+    if (prev) void this.syncItem(merged);
   }
 
   archiveItem(id: string): void {
@@ -248,6 +449,7 @@ class InventoryStore {
     this.items = this.items.filter(item => item.id !== id);
     this.saveToLocalStorage();
     this.notify();
+    void this.removeRemote(id);
   }
 
   // Stock In (restocking): add quantity
@@ -326,7 +528,10 @@ class InventoryStore {
     );
   }
 
-  // Deduct paper pieces for an order, matched by paper size.
+  // Deduct paper pieces for an order, matched by paper size. Applies locally
+  // for instant UI feedback, then runs the `deduct_paper_pieces` RPC so the
+  // REAL, cross-device stock is decremented too (the RPC is the authoritative
+  // writer — no separate item upsert here to avoid clobbering server stock).
   // Returns how many pieces were actually deducted for that size.
   deductPaperPieces(paperSize: string, pieces: number, opts?: { reason?: string; person?: string; related?: string }): number {
     if (pieces <= 0) return 0;
@@ -339,11 +544,44 @@ class InventoryStore {
     const deductedUnits = item.currentStock - newStock;
     const deductedPieces = Math.round(deductedUnits * pcsPerUnit);
 
-    this.updateItem(item.id, { currentStock: newStock });
+    this.items = this.items.map(i =>
+      i.id === item.id ? { ...i, currentStock: newStock, lastUpdated: todayKey() } : i
+    );
+
     if (deductedUnits > 0) {
-      this.recordMovement(item, 'out', deductedUnits, opts ?? { reason: 'Order printing' });
+      this.recordMovement(item, 'out', deductedUnits, {
+        reason: opts?.reason ?? 'Order printing',
+        person: opts?.person,
+        related: opts?.related,
+        push: false, // the RPC writes the server movement row itself
+      });
+    } else {
+      this.saveToLocalStorage();
+      this.notify();
+    }
+
+    if (deductedPieces > 0) {
+      void this.deductRemote(paperSize, deductedPieces, opts?.related);
     }
     return deductedPieces;
+  }
+
+  private async deductRemote(paperSize: string, pieces: number, related?: string): Promise<void> {
+    try {
+      // The related reference is order-ish (order id) — route it to the
+      // related_order_id column; the transaction-side FK stays null here.
+      await deductPaperPiecesRpc(paperSize, pieces, related, null);
+    } catch (err) {
+      // RLS-denied failures degrade quietly (the local deduction already applied
+      // and there's nothing the caller can do about permissions); every other
+      // server failure is surfaced so a silently-unreflected deduction is never
+      // mistaken for a successful sync.
+      if (!isRlsDenied(err)) {
+        showDbError('paper deduction', err);
+      } else {
+        console.warn('[inventory] paper deduction not synced to server:', err);
+      }
+    }
   }
 
   // Stock movement history, optionally filtered by type

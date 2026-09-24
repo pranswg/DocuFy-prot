@@ -59,6 +59,18 @@ export type JobApplicationRow = Tables['job_applications']['Row'];
 export type JobApplicationInsert = Tables['job_applications']['Insert'];
 export type JobApplicationUpdate = Tables['job_applications']['Update'];
 
+// ── Inventory domain (supplies/consumables + stock movements) ─────────────────
+// Alias the generated `database.types.ts` shapes so the repo matches the real
+// columns: `inventory_items` uses `pieces_per_unit`, `inventory_movements`
+// carries a `movement_type` text plus separate related-order/transaction FKs.
+
+export type InventoryItemRow = Tables['inventory_items']['Row'];
+export type InventoryItemInsert = Tables['inventory_items']['Insert'];
+export type InventoryItemUpdate = Tables['inventory_items']['Update'];
+
+export type InventoryMovementRow = Tables['inventory_movements']['Row'];
+export type InventoryMovementInsert = Tables['inventory_movements']['Insert'];
+
 // ── Domain DTOs (decoupled from the row shapes so consumers never touch raw
 // ── DB rows) ────────────────────────────────────────────────────────────────
 
@@ -278,4 +290,35 @@ export interface JobApplicationDto {
   rejectionReason: string | null;
   appliedAt: string;
   updatedAt: string;
+}
+
+// ── Inventory DTOs (decoupled from row shapes) ────────────────────────────────
+
+export interface InventoryItemDto {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  unit: string;
+  currentStock: number;
+  minimumStock: number;
+  price: number | null;
+  paperSize: string | null;
+  piecesPerUnit: number;
+  archived: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface InventoryMovementDto {
+  id: string;
+  itemId: string;
+  movementType: string;
+  quantity: number;
+  unit: string;
+  reason: string | null;
+  person: string | null;
+  relatedOrderId: string | null;
+  relatedTransactionId: string | null;
+  createdAt: Date;
 }

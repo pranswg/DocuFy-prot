@@ -5,6 +5,7 @@ import type {
   MatrixCellInsert,
   StaffRecordInsert,
   JobInsert,
+  InventoryItemInsert,
 } from './types';
 
 // Phase 0 bootstrap: guarantee the single-row settings tables and the pricing
@@ -29,6 +30,7 @@ async function runAll(): Promise<void> {
   await ensurePaymentMethods();
   await ensureStaffRecords();
   await ensureJobs();
+  await ensureInventory();
 }
 
 // Seed `staff_records` directory rows for the DEMO roster so attendance sync
@@ -185,6 +187,53 @@ async function ensureJobs(): Promise<void> {
     if (insertError) throw insertError;
   } catch (err) {
     console.warn('[bootstrap] jobs seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the six demo inventory items when the table is empty, matching the old
+// localStorage defaults (paper reams = 500 pcs each, add-on sell prices).
+// Best-effort: RLS only lets staff/admin insert, so customers simply skip this.
+const DEFAULT_INVENTORY_SEEDS: Array<{
+  name: string;
+  category: string;
+  unit: string;
+  currentStock: number;
+  minimumStock: number;
+  price?: number;
+  paperSize?: string;
+  piecesPerUnit: number;
+}> = [
+  { name: 'Bond Paper (A4)', category: 'Paper', unit: 'ream', currentStock: 15, minimumStock: 3, paperSize: 'a4', piecesPerUnit: 500 },
+  { name: 'Bond Paper (Short)', category: 'Paper', unit: 'ream', currentStock: 12, minimumStock: 3, paperSize: 'short', piecesPerUnit: 500 },
+  { name: 'Bond Paper (Legal)', category: 'Paper', unit: 'ream', currentStock: 8, minimumStock: 2, paperSize: 'legal', piecesPerUnit: 500 },
+  { name: 'Printer Ink (Black)', category: 'Ink', unit: 'bottle', currentStock: 5, minimumStock: 2, piecesPerUnit: 1 },
+  { name: 'Ballpen (Black)', category: 'Add-ons', unit: 'piece', currentStock: 30, minimumStock: 10, price: 10, piecesPerUnit: 1 },
+  { name: 'Staples', category: 'Add-ons', unit: 'box', currentStock: 15, minimumStock: 4, price: 5, piecesPerUnit: 1 },
+];
+
+async function ensureInventory(): Promise<void> {
+  try {
+    const { count, error } = await supabase
+      .from('inventory_items')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    if (count && count > 0) return;
+    const rows: InventoryItemInsert[] = DEFAULT_INVENTORY_SEEDS.map((seed) => ({
+      name: seed.name,
+      category: seed.category,
+      brand: '',
+      unit: seed.unit,
+      current_stock: seed.currentStock,
+      minimum_stock: seed.minimumStock,
+      price: seed.price ?? null,
+      paper_size: seed.paperSize ?? null,
+      pieces_per_unit: seed.piecesPerUnit,
+      archived: false,
+    }));
+    const { error: insertError } = await supabase.from('inventory_items').insert(rows);
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] inventory seed skipped (RLS or offline):', err);
   }
 }
 

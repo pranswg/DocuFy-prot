@@ -534,7 +534,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
           inventoryStore.deductPaperPieces(u.size, u.sheets, {
             reason: "Order completion",
             person: selectedOrder.customer,
-            related: `Order ${selectedOrder.id}`,
+            related: selectedOrder.id,
           });
         }
       });

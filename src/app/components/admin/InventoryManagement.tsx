@@ -693,7 +693,7 @@ export default function InventoryManagement({
     setStockDialog({ type, item });
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!form.name.trim()) {
       toast.error("Item name is required.");
       return;
@@ -726,9 +726,10 @@ export default function InventoryManagement({
       });
       toast.success("Item updated successfully.");
     } else {
-      const id = `inv-${Date.now()}`;
-      inventoryStore.addItem({
-        id,
+      // addItem is async — the store applies locally, inserts to Supabase and
+      // adopts the server-assigned id. Callers with aliases (down-payment type)
+      // pass an explicit id; otherwise the store mints one.
+      await inventoryStore.addItem({
         name: form.name.trim(),
         category: form.category,
         brand: form.brand.trim(),
