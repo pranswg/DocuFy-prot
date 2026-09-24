@@ -20,6 +20,7 @@ import {
   type CreateOrderInput,
 } from '../../lib/db/ordersRepo';
 import { hasVerifiedPayment } from '../../lib/db/paymentsRepo';
+import { createWalkInTransaction } from '../../lib/db/walkInRepo';
 import { resolveStorageUrl, BUCKETS, uploadObjectAndGetPath, removeObjectsIfPresent } from '../../lib/db/storage';
 import { formatOrderNumber } from '../../lib/db/types';
 import type { OrderDto, OrderFileDto } from '../../lib/db/types';
@@ -517,6 +518,21 @@ class DataStore {
       // never holds orphans for an order that doesn't exist.
       await removeObjectsIfPresent(BUCKETS.orderFiles, storagePaths);
       throw err;
+    }
+
+    // Walk-in companion log: only AFTER the order row is confirmed, write the
+    // `walk_in_transactions` entry (best-effort — a failed log write must never
+    // block or reverse the already-placed order). No rows are written at all if
+    // `createOrder` above threw, so the log can only ever reference a placed order.
+    if (isWalkin) {
+      createWalkInTransaction({
+        orderId: id,
+        customerName: input.customer ?? input.customerName ?? 'Walk-in Customer',
+        customerType: input.customerType ?? 'printing',
+        total: input.manualTotal ?? input.costBreakdown?.total ?? total,
+        paymentMethod: 'Cash',
+        createdBy: createdById,
+      }).catch((err) => console.warn('[dataStore] walk-in transaction log write failed:', err));
     }
 
     if (files.length > 0) {

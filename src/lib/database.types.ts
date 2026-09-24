@@ -894,6 +894,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          order_id?: string | null
           customer_name?: string | null
           customer_type?: string
           total?: number

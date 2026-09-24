@@ -31,6 +31,9 @@ export type PaymentMethodRow = Tables['payment_methods']['Row'];
 export type PaymentMethodInsert = Tables['payment_methods']['Insert'];
 export type PaymentMethodUpdate = Tables['payment_methods']['Update'];
 
+export type WalkInTransactionRow = Tables['walk_in_transactions']['Row'];
+export type WalkInTransactionInsert = Tables['walk_in_transactions']['Insert'];
+
 export type PricingSettingsRow = Tables['pricing_settings']['Row'];
 export type MatrixCellRow = Tables['pricing_matrix_cells']['Row'];
 export type MatrixCellInsert = Tables['pricing_matrix_cells']['Insert'];
@@ -155,6 +158,29 @@ export interface OrderDto {
 // the human-facing ID is derived on read: ORD-0001 … ORD-9999…
 export function formatOrderNumber(orderNumber: number): string {
   return `ORD-${String(orderNumber).padStart(4, '0')}`;
+}
+
+// ── Walk-in domain (companion transaction log linked to an orders row) ───────
+
+// Human-facing walk-in transaction number: WK-0001 … (the DB serves the raw
+// identity `transaction_number`; this derives the display form).
+export function formatWalkInNumber(transactionNumber: number): string {
+  return `WK-${String(transactionNumber).padStart(4, '0')}`;
+}
+
+// A walk-in transaction log entry. `transactionNumber` is the server-assigned
+// identity; `orderId` links back to the placed `orders` row so the queue/print
+// pipeline and the transaction log stay consistent.
+export interface WalkInTransactionDto {
+  id: string;
+  transactionNumber: number;
+  orderId: string | null;
+  customerName: string | null;
+  customerType: string;
+  total: number;
+  paymentMethod: string;
+  createdBy: string | null;
+  createdAt: Date;
 }
 
 // ── Attendance domain (staff clock-in / out, adjustments) ────────────────────
