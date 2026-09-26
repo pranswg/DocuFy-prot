@@ -3,6 +3,8 @@ import { dataStore } from './dataStore';
 
 type OrderType = {
   id: string;
+  // Human-facing ORD-0001 form (DB uuid stays in `id`; consumers display this).
+  displayId?: string;
   customer: string;
   customerEmail?: string;
   customerType?: 'printing' | 'photocopy';
@@ -186,6 +188,7 @@ class OrdersStore {
     const submitted = asDate(order.date) ?? new Date(0);
     return {
       id: order.id,
+      displayId: order.displayId,
       customer: order.customerName,
       pages: order.pages || 0,
       type: order.printType === 'Colored' ? 'Colored' : 'B&W',

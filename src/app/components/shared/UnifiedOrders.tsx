@@ -91,6 +91,8 @@ function fallbackPrintTotal(pages: number, copies: number, type: string): number
 
 type OrderType = {
   id: string;
+  // Human-facing ORD-0001 form (DB uuid stays in `id`; consumers display this).
+  displayId?: string;
   customer: string;
   customerEmail?: string;
   customerType?: 'printing' | 'photocopy';
@@ -344,7 +346,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       try {
         const invoice = generateInvoiceData({
           ...order,
-          id: order.id,
+          id: order.displayId ?? order.id,
           customerName: order.customer,
           date: formatPHDate(order.submittedAt, "long"),
           fileName: order.attachedFiles?.[0]?.name || 'document.pdf',
@@ -630,7 +632,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       try {
         const invoice = generateInvoiceData({
           ...updatedSelectedOrder,
-          id: updatedSelectedOrder.id,
+          id: updatedSelectedOrder.displayId ?? updatedSelectedOrder.id,
           customerName: updatedSelectedOrder.customer,
           date: formatPHDate(updatedSelectedOrder.submittedAt, "long"),
           fileName: updatedSelectedOrder.attachedFiles?.[0]?.name || 'document.pdf',
@@ -673,11 +675,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
 
     if (pendingStatus === "completed") {
       toast.success(
-        `Order ${selectedOrder.id} completed!`,
+        `Order ${selectedOrder.displayId ?? selectedOrder.id} completed!`,
       );
     } else {
       toast.success(
-        `Order ${selectedOrder.id} updated to ${pendingStatus === "inQueue" ? "In Queue" : pendingStatus} successfully!`,
+        `Order ${selectedOrder.displayId ?? selectedOrder.id} updated to ${pendingStatus === "inQueue" ? "In Queue" : pendingStatus} successfully!`,
       );
     }
 
@@ -1055,7 +1057,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                       {order.customer}
                                     </p>
                                     <p className="text-xs text-gray-500 mt-0.5">
-                                      {order.id}
+                                      {order.displayId ?? order.id}
                                     </p>
                                     {order.orderSource === "walkin" && order.customerType && (
                                       <span className="inline-block mt-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 border border-blue-200">
@@ -1243,7 +1245,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               variant="outline"
               className="text-xs bg-gray-100 text-gray-700 font-mono border-gray-200"
             >
-              {selectedOrder?.id}
+              {selectedOrder?.displayId ?? selectedOrder?.id}
             </Badge>
           </DialogHeader>
 
@@ -1991,10 +1993,10 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
-              Invoice Preview - {invoiceData?.orderId || selectedOrder?.id}
+              Invoice Preview - {invoiceData?.orderId || selectedOrder?.displayId || selectedOrder?.id}
             </DialogTitle>
             <DialogDescription>
-              View and download invoice for order {invoiceData?.orderId || selectedOrder?.id}
+              View and download invoice for order {invoiceData?.orderId || selectedOrder?.displayId || selectedOrder?.id}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-auto max-h-[70vh] p-6 bg-white">

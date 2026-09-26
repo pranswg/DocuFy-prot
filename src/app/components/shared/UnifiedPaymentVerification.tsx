@@ -139,6 +139,8 @@ function FilterDropdown({
 type PaymentType = {
   id: string;
   orderId: string;
+  // Human-facing ORD-0001 form; consumers display `displayId ?? orderId`.
+  displayId?: string;
   customer: string;
   amount: number;
   method: string;
@@ -265,6 +267,7 @@ function generatePaymentsFromOrders(): PaymentType[] {
       return {
         id: order.id,
         orderId: order.id,
+        displayId: order.displayId,
         rowId: order.paymentRowId,
         customer: order.customerName,
         amount: totalAmount,
@@ -1004,7 +1007,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                             {payment.customer}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {payment.orderId}
+                            {payment.displayId ?? payment.orderId}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
                             {formatPHDate(payment.submittedAt, "short")} ·{" "}
@@ -1201,7 +1204,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               variant="outline"
               className="text-xs bg-gray-100 text-gray-700 border-gray-200 font-mono"
             >
-              {selectedPayment?.orderId}
+              {selectedPayment?.displayId ?? selectedPayment?.orderId}
             </Badge>
           </DialogHeader>
 
@@ -1285,7 +1288,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                         Order ID
                       </p>
                       <p className="font-semibold text-[#1c1f26] font-mono text-sm">
-                        {selectedPayment.orderId}
+                        {selectedPayment.displayId ?? selectedPayment.orderId}
                       </p>
                     </div>
                     <div className="bg-white p-3">

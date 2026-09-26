@@ -376,7 +376,7 @@ export default function CustomerDashboard() {
                     <div className="mb-4">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-gray-900">
-                          {currentOrder.id}
+{currentOrder.displayId ?? currentOrder.id}
                         </span>
                         <Badge
                           className={`${getStatusBadgeClasses(getCustomerStatusLabel(currentOrder))} font-medium text-xs`}
@@ -540,7 +540,7 @@ export default function CustomerDashboard() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold text-gray-900">
-                                {order.id}
+                                {order.displayId ?? order.id}
                               </span>
                               <Badge
                                 className={`${getStatusBadgeClasses(getCustomerStatusLabel(order))} font-medium text-[10px]`}
@@ -586,7 +586,7 @@ export default function CustomerDashboard() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-bold text-gray-900">
-                                {order.id}
+                                {order.displayId ?? order.id}
                               </span>
                               <Badge
                                 className={`${getStatusBadgeClasses(getCustomerStatusLabel(order))} font-medium text-[10px]`}

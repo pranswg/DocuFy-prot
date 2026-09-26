@@ -346,7 +346,7 @@ export default function CustomerOrders() {
                       tabIndex={0}
                     >
                       <td className="py-4 px-4 text-sm font-medium text-gray-900">
-                        {order.id}
+                        {order.displayId ?? order.id}
                       </td>
                       <td className="py-4 px-4 text-sm text-gray-900">
                         <div className="flex min-w-0 items-center gap-2">
