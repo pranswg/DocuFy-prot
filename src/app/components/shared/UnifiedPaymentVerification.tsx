@@ -57,6 +57,7 @@ import {
   claimLock,
   releaseLock,
   stillHoldsLock,
+  verifyLockOnServer,
   subscribeToLocks,
 } from "../../utils/orderLocks";
 import { useAuth } from "../../contexts/AuthContext";
@@ -443,12 +444,12 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   ): Promise<boolean> => {
     if (selectedPayment) {
       // ===== SESSION LOCK GUARD =====
-      // Re-check ownership at the FINAL confirm moment (a second tab might have
-      // claimed the order after we opened the modal). Only the lock holder may
-      // act. NOTE (backend later): this check must be a transactional
-      // conditional update (WHERE id = ? AND held_by = ?) on the shared table,
-      // not a client-side localStorage read.
-      if (!stillHoldsLock(selectedPayment.orderId, myName)) {
+      // Re-check ownership at the FINAL confirm moment (a second machine might
+      // have claimed the order after we opened the modal). Only the lock holder
+      // may act. We verify against the SERVER — the `claim_order_lock` RPC made
+      // the claim atomic, and this confirms we still hold it — falling back to
+      // the local mirror only when the backend is unreachable.
+      if (!(await verifyLockOnServer(selectedPayment.orderId, myName))) {
         const other = getLock(selectedPayment.orderId);
         toast.error(other ? `${other.heldBy} is currently viewing this order` : "This order is no longer available", {
           description: "Only the current reviewer can verify. Refresh to see the latest status.",

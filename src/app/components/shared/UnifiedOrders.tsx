@@ -73,6 +73,7 @@ import {
   claimLock,
   releaseLock,
   stillHoldsLock,
+  verifyLockOnServer,
   subscribeToLocks,
 } from "../../utils/orderLocks";
 import { useAuth } from "../../contexts/AuthContext";
@@ -569,13 +570,14 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     if (!selectedOrder || !pendingStatus) return;
 
     // ===== SESSION LOCK GUARD =====
-    // Re-check ownership at the FINAL confirm moment — a second tab might have
-    // claimed the order after we opened the modal. Only the lock holder may act.
-    // NOTE (backend later): make this a transactional conditional update
-    // (WHERE id = ? AND held_by = ?) on the shared table, not a localStorage read.
+    // Re-check ownership at the FINAL confirm moment — a second machine might
+    // have claimed the order after we opened the modal. Only the lock holder
+    // may act. We verify against the SERVER (the `claim_order_lock` storage
+    // RPC made the claim atomic; this read confirms we still hold it), falling
+    // back to the local mirror only when the backend is unreachable.
     // Photocopy orders are never session-locked, so the final-reconfirm lock
     // guard only applies to regular (printing) orders.
-    if (!isPhotocopyOrder(selectedOrder) && !stillHoldsLock(selectedOrder.id, myName)) {
+    if (!isPhotocopyOrder(selectedOrder) && !(await verifyLockOnServer(selectedOrder.id, myName))) {
       const other = getLock(selectedOrder.id);
       setShowStatusForm(false);
       setPendingStatus(null);

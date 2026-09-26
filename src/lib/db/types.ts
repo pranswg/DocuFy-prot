@@ -34,6 +34,17 @@ export type PaymentMethodUpdate = Tables['payment_methods']['Update'];
 export type WalkInTransactionRow = Tables['walk_in_transactions']['Row'];
 export type WalkInTransactionInsert = Tables['walk_in_transactions']['Insert'];
 
+// `order_locks` — the cross-machine "someone is reviewing this order" session
+// lock. Not yet present in the generated types (table is created via the SQL in
+// the chat), so the row shape is written by hand to match the repo's reads.
+export interface OrderLockRow {
+  order_id: string;
+  held_by: string;
+  held_by_name: string;
+  held_at: string;
+  expires_at: string;
+}
+
 export type ShopStatusRow = Tables['shop_status']['Row'];
 export type ShopStatusInsert = Tables['shop_status']['Insert'];
 
