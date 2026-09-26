@@ -1,9 +1,26 @@
 // Centralized printing-pricing store.
-// Single source of truth for all page prices, paper-size surcharges,
-// double-sided savings, and the down-payment threshold. Previously these
-// values were hardcoded in new-print-request, walk-in, invoice, and landing
-// pages. Admin edits them on /admin/pricing; every consumer subscribes so
-// changes propagate live. Persisted to localStorage.
+// Supabase-backed facade: the localStorage mirror below stays as the offline /
+// anonymous fallback, but the DB now drives real cross-device pricing. Every
+// authenticated role can READ pricing (customers price their checkout live);
+// admin edits on /admin/pricing push to `pricing_settings` (the single-row
+// legacy flat rates + payment windows) and `pricing_matrix_cells` (one row per
+// matrix cell), and a realtime subscription propagates edits made on any
+// device back to every open page. Previously these values were hardcoded in
+// new-print-request, walk-in, invoice, and landing pages. Admin edits them on
+// /admin/pricing; every consumer subscribes so changes propagate live.
+// The localStorage mirror is persisted for offline/anon fallback.
+
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
+import {
+  fetchMatrixCells,
+  fetchPricingSettings,
+  replaceMatrixCells,
+  saveMatrixCell,
+  upsertPricingSettings,
+} from '../../lib/db/pricingRepo';
+import type { MatrixCellInsert, MatrixCellRow, PricingSettingsRow } from '../../lib/db/types';
 
 // ============================================================
 // LEGACY FLAT MODEL (kept for backward compatibility)
@@ -376,14 +393,117 @@ function normalizeMatrix(raw: unknown): PricingMatrix {
   return { document, vellum, sticker, photo };
 }
 
+// ── matrix-cell row helpers (DB ↔ store) ────────────────────────────────────
+// A cell's natural key is its service/content/color/paper/photo path — the
+// same identity the bootstrap seed and the admin page use.
+
+function matrixRowKey(row: MatrixCellRow): string {
+  return cellKey(row.service_type, row.content_type, row.color_tier, row.paper_size, row.photo_size);
+}
+
+function cellKey(
+  service: string,
+  contentType: string | null,
+  colorTier: string | null,
+  paperSize: string | null,
+  photoSize: string | null,
+): string {
+  return [service, contentType ?? '', colorTier ?? '', paperSize ?? '', photoSize ?? ''].join(':');
+}
+
+// Apply one DB cell row onto a matrix, guarding shapes so a partially-seeded or
+// hand-edited table overlays cleanly (only valid cells win; invalid ones keep
+// the current/default value).
+function applyMatrixRow(matrix: PricingMatrix, row: MatrixCellRow): void {
+  if (
+    row.service_type === 'document' &&
+    row.content_type &&
+    row.color_tier &&
+    row.paper_size
+  ) {
+    const ct = row.content_type as ContentType;
+    const tier = row.color_tier as ColorTier;
+    const size = row.paper_size as PaperSizeKey;
+    const price = convertToNumber(row.price);
+    if (matrix.document[ct]?.[tier]?.[size] && !Number.isNaN(price)) {
+      matrix.document[ct][tier][size] = price;
+    }
+    return;
+  }
+
+  if (
+    row.service_type === 'vellum' &&
+    !row.content_type &&
+    row.color_tier &&
+    row.paper_size
+  ) {
+    const tier = row.color_tier as ColorTier;
+    const size = row.paper_size as PaperSizeKey;
+    const price = convertToNumber(row.price);
+    if (matrix.vellum[tier]?.[size] && !Number.isNaN(price)) {
+      matrix.vellum[tier][size] = price;
+    }
+    return;
+  }
+
+  if (
+    row.service_type === 'sticker' &&
+    !row.content_type &&
+    row.color_tier &&
+    !row.paper_size &&
+    !row.photo_size
+  ) {
+    const tier = row.color_tier as ColorTier;
+    const price = convertToNumber(row.price);
+    if (tier in matrix.sticker && !Number.isNaN(price)) {
+      matrix.sticker[tier] = price;
+    }
+    return;
+  }
+
+  if (row.service_type === 'photo' && row.photo_size) {
+    const size = row.photo_size as PhotoSizeKey;
+    const current = matrix.photo[size];
+    if (!current) return;
+    const price = convertToNumber(row.price);
+    const minQty = convertToNumber(row.minimum_quantity);
+    matrix.photo[size] = {
+      price: !Number.isNaN(price) ? price : current.price,
+      minQty: !Number.isNaN(minQty) ? Math.max(1, minQty) : current.minQty,
+    };
+  }
+}
+
 class PricingStore {
   private pricing: PricingValues = { ...DEFAULT_PRICING };
   private matrix: PricingMatrix = normalizeMatrix(undefined);
   private subscribers: Set<Subscriber> = new Set();
   private initialized = false;
+  // Row-id map keyed by the matrix cell's natural key (service/content/color/
+  // paper/photo path) so a cell edit can target the existing DB row by id.
+  private remoteCellIds: Map<string, string> = new Map();
+  private hydrating = false;
 
   constructor() {
     this.load();
+
+    // Cross-tab live sync: an admin editing pricing in another tab writes the
+    // mirror; the `storage` event reloads it here so every open page updates.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORAGE_KEY && e.key !== `${STORAGE_KEY}_version`) return;
+      this.reloadFromLocalStorage();
+    });
+
+    // Backend sync: realtime fires when ANY device edits pricing (admin table
+    // edits, reset, another browser), so the DB snapshot replaces the mirror.
+    subscribeTableChanges('pricing_settings', () => {
+      void this.hydrate();
+    });
+    subscribeTableChanges('pricing_matrix_cells', () => {
+      void this.hydrate();
+    });
+
+    void this.hydrate();
   }
 
   private load(): void {
@@ -414,6 +534,285 @@ class PricingStore {
       this.matrix = normalizeMatrix(undefined);
     }
     this.initialized = true;
+  }
+
+  // Re-read the pricing mirror unconditionally (ignores the `initialized`
+  // guard) and notify. Used by the cross-tab `storage` listener so an edit
+  // made in another tab replaces the in-memory snapshot and every subscriber
+  // re-renders.
+  private reloadFromLocalStorage(): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        this.pricing = mergeStorage(parsed);
+        this.matrix = normalizeMatrix((parsed as Record<string, unknown>).matrix);
+      }
+      this.notify();
+    } catch (error) {
+      console.error('Failed to reload pricing from localStorage:', error);
+    }
+  }
+
+  // Pull the latest snapshot from Supabase. The DB wins whenever it returns
+  // rows (per-field / per-cell, so a partially-seeded table still overlays
+  // what exists onto the mirror); when the tables are empty/unreachable (anon
+  // visitor, offline) the local mirror is kept. Concurrent calls dedupe.
+  private async hydrate(): Promise<void> {
+    if (this.hydrating) return;
+    this.hydrating = true;
+    await authReady;
+    try {
+      await this.hydrateSettings();
+      await this.hydrateMatrix();
+    } catch (err) {
+      console.warn('[pricing] hydration kept local data:', err);
+    } finally {
+      this.hydrating = false;
+    }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles: a fresh
+  // incognito boot ran with the anonymous token, so the DB rows appear the
+  // moment the user logs in without needing a page reload).
+  async refreshFromBackend(): Promise<void> {
+    await this.hydrate();
+  }
+
+  private async hydrateSettings(): Promise<void> {
+    try {
+      const row = await fetchPricingSettings();
+      if (!row) return; // not seeded yet — keep the local mirror
+      const next: PricingValues = { ...this.pricing };
+      const pairs: Array<[keyof PricingValues, unknown]> = [
+        ['bw', row.bw],
+        ['colorLow', row.color_low],
+        ['colorHigh', row.color_high],
+        ['sizeLongLegalFolio', row.size_long_legal_folio],
+        ['sizeA3', row.size_a3],
+        ['duplexSavings', row.duplex_savings],
+        ['downPaymentThreshold', row.down_payment_threshold],
+        ['fullPaymentThreshold', row.full_payment_threshold],
+        ['cashPickupPaymentWindowSeconds', row.cash_payment_window_seconds],
+        ['onlinePaymentVerificationWindowSeconds', row.online_payment_window_seconds],
+      ];
+      let changed = false;
+      for (const [key, value] of pairs) {
+        const n = convertToNumber(value);
+        if (!Number.isNaN(n) && n !== next[key]) {
+          next[key] = n;
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.pricing = next;
+        this.save();
+        this.notify();
+      }
+    } catch {
+      // Mirrors the fail-open pattern of the other facades; the outer hydrate
+      // logs a single warn.
+    }
+  }
+
+  private async hydrateMatrix(): Promise<void> {
+    try {
+      const rows = await fetchMatrixCells();
+      if (rows.length === 0) return; // not seeded yet — keep the local mirror
+      const next = normalizeMatrix(this.matrix);
+      const ids: Map<string, string> = new Map();
+      for (const row of rows) {
+        ids.set(matrixRowKey(row), row.id);
+        applyMatrixRow(next, row);
+      }
+      this.matrix = next;
+      this.remoteCellIds = ids;
+      this.save();
+      this.notify();
+    } catch {
+      // outer hydrate logs a single warn
+    }
+  }
+
+  // Build the full settings row (camelCase store → snake_case DB columns)
+  // from the current pricing snapshot for a best-effort remote sync.
+  private settingsPatch(): Omit<PricingSettingsRow, 'id' | 'updated_at'> {
+    const p = this.pricing;
+    return {
+      bw: p.bw,
+      color_low: p.colorLow,
+      color_high: p.colorHigh,
+      size_long_legal_folio: p.sizeLongLegalFolio,
+      size_a3: p.sizeA3,
+      duplex_savings: p.duplexSavings,
+      down_payment_threshold: p.downPaymentThreshold,
+      full_payment_threshold: p.fullPaymentThreshold,
+      cash_payment_window_seconds: p.cashPickupPaymentWindowSeconds,
+      online_payment_window_seconds: p.onlinePaymentVerificationWindowSeconds,
+      updated_by: null,
+    };
+  }
+
+  // Best-effort push of the whole settings row. RLS-denied writes (e.g. a
+  // customer being prevented from editing pricing) degrade quietly; every
+  // other failure is surfaced so a silently-unreflected admin edit is never
+  // mistaken for a successful sync.
+  private async syncSettings(): Promise<void> {
+    try {
+      await upsertPricingSettings(this.settingsPatch());
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('pricing.update', err);
+      else console.warn('[pricing] settings not synced (RLS):', err);
+    }
+  }
+
+  // Best-effort DB write of a single matrix cell (admin cell edit). The row id
+  // is looked up from the hydrate snapshot so an existing cell is updated in
+  // place; an unknown cell (server row the store hasn't seen yet) inserts.
+  private async syncCell(service: ServiceType, path: string[], value: number): Promise<void> {
+    const cell = this.cellInsertFor(service, path, value);
+    if (!cell) return;
+    try {
+      await saveMatrixCell({ id: this.lookupCellId(cell), cell });
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('pricing.update', err);
+      else console.warn('[pricing] matrix cell not synced (RLS):', err);
+    }
+  }
+
+  private cellInsertFor(service: ServiceType, path: string[], value: number): MatrixCellInsert | null {
+    if (service === 'document') {
+      if (path.length !== 3) return null;
+      const [content, tier, size] = path as [ContentType, ColorTier, PaperSizeKey];
+      if (!this.matrix.document[content]?.[tier]?.[size]) return null;
+      return {
+        service_type: 'document',
+        content_type: content,
+        color_tier: tier,
+        paper_size: size,
+        photo_size: null,
+        price: value,
+        minimum_quantity: null,
+      };
+    }
+    if (service === 'vellum') {
+      if (path.length !== 2) return null;
+      const [tier, size] = path as [ColorTier, PaperSizeKey];
+      if (!this.matrix.vellum[tier]?.[size]) return null;
+      return {
+        service_type: 'vellum',
+        content_type: null,
+        color_tier: tier,
+        paper_size: size,
+        photo_size: null,
+        price: value,
+        minimum_quantity: null,
+      };
+    }
+    if (service === 'sticker') {
+      if (path.length !== 1) return null;
+      const [tier] = path as [ColorTier];
+      if (!(tier in this.matrix.sticker)) return null;
+      return {
+        service_type: 'sticker',
+        content_type: null,
+        color_tier: tier,
+        paper_size: null,
+        photo_size: null,
+        price: value,
+        minimum_quantity: null,
+      };
+    }
+    if (service === 'photo') {
+      if (path.length !== 2) return null;
+      const [size, field] = path as [PhotoSizeKey, 'price' | 'minQty'];
+      const current = this.matrix.photo[size];
+      if (!current) return null;
+      return {
+        service_type: 'photo',
+        content_type: null,
+        color_tier: null,
+        paper_size: null,
+        photo_size: size,
+        price: field === 'price' ? value : current.price,
+        minimum_quantity: field === 'minQty' ? value : current.minQty,
+      };
+    }
+    return null;
+  }
+
+  private lookupCellId(cell: MatrixCellInsert): string | undefined {
+    if (!cell.service_type) return undefined;
+    return this.remoteCellIds.get(
+      cellKey(cell.service_type, cell.content_type ?? null, cell.color_tier ?? null, cell.paper_size ?? null, cell.photo_size ?? null),
+    );
+  }
+
+  // Rebuild the full matrix as DB insert rows (used for setMatrix / reset).
+  private allCellInserts(): MatrixCellInsert[] {
+    const cells: MatrixCellInsert[] = [];
+    for (const ct of CONTENT_TYPES) {
+      for (const tier of COLOR_TIERS) {
+        for (const size of PAPER_SIZES) {
+          cells.push({
+            service_type: 'document',
+            content_type: ct,
+            color_tier: tier,
+            paper_size: size,
+            photo_size: null,
+            price: this.matrix.document[ct][tier][size],
+            minimum_quantity: null,
+          });
+        }
+      }
+    }
+    for (const tier of COLOR_TIERS) {
+      for (const size of PAPER_SIZES) {
+        cells.push({
+          service_type: 'vellum',
+          content_type: null,
+          color_tier: tier,
+          paper_size: size,
+          photo_size: null,
+          price: this.matrix.vellum[tier][size],
+          minimum_quantity: null,
+        });
+      }
+    }
+    for (const tier of COLOR_TIERS) {
+      cells.push({
+        service_type: 'sticker',
+        content_type: null,
+        color_tier: tier,
+        paper_size: null,
+        photo_size: null,
+        price: this.matrix.sticker[tier],
+        minimum_quantity: null,
+      });
+    }
+    for (const size of PHOTO_SIZE_KEYS) {
+      cells.push({
+        service_type: 'photo',
+        content_type: null,
+        color_tier: null,
+        paper_size: null,
+        photo_size: size,
+        price: this.matrix.photo[size].price,
+        minimum_quantity: this.matrix.photo[size].minQty,
+      });
+    }
+    return cells;
+  }
+
+  // Best-effort full replacement of the cell table (setMatrix / reset).
+  private async replaceRemote(): Promise<void> {
+    try {
+      await replaceMatrixCells(this.allCellInserts());
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('pricing.update', err);
+      else console.warn('[pricing] matrix not replaced (RLS):', err);
+    }
   }
 
   private save(): void {
@@ -454,6 +853,7 @@ class PricingStore {
     this.pricing = { ...this.pricing, [key]: value };
     this.save();
     this.notify();
+    void this.syncSettings();
     return true;
   }
 
@@ -506,6 +906,7 @@ class PricingStore {
     this.matrix = m;
     this.save();
     this.notify();
+    void this.syncCell(service, path, value);
     return true;
   }
 
@@ -514,6 +915,7 @@ class PricingStore {
     this.matrix = normalizeMatrix(matrix);
     this.save();
     this.notify();
+    void this.replaceRemote();
   }
 
   // Reset all values (legacy + matrix) back to the system defaults.
@@ -522,6 +924,8 @@ class PricingStore {
     this.matrix = normalizeMatrix(undefined);
     this.save();
     this.notify();
+    void this.syncSettings();
+    void this.replaceRemote();
   }
 }
 

@@ -15,6 +15,7 @@
 // (readBy = the current viewer's email when they've read the announcement).
 import { toPHT, PHT_OFFSET_MS } from './pht';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
 import {
   fetchAnnouncements,
   insertAnnouncement,
@@ -131,6 +132,7 @@ class AnnouncementsStore {
   // the rows it has, but an empty/unreachable backend NEVER wipes the
   // localStorage mirror — that is the offline fallback.
   private async refreshRemote(): Promise<void> {
+    await authReady;
     try {
       const dtos = await fetchAnnouncements();
       if (dtos.length === 0) return;
@@ -145,6 +147,13 @@ class AnnouncementsStore {
     } catch {
       // keep the local mirror
     }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles: a fresh
+  // incognito boot ran with the anonymous token, so DB rows appear the moment
+  // a user logs in without needing a page reload).
+  async refreshFromBackend(): Promise<void> {
+    await this.refreshRemote();
   }
 
   // ── localStorage mirror ──────────────────────────────────────────────────

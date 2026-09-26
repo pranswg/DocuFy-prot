@@ -24,6 +24,7 @@ import { createWalkInTransaction } from '../../lib/db/walkInRepo';
 import { resolveStorageUrl, BUCKETS, uploadObjectAndGetPath, removeObjectsIfPresent } from '../../lib/db/storage';
 import { formatOrderNumber } from '../../lib/db/types';
 import type { OrderDto, OrderFileDto } from '../../lib/db/types';
+import { authReady } from '../../lib/supabaseClient';
 
 export interface AttachedFile {
   name: string;
@@ -370,6 +371,7 @@ class DataStore {
   }
 
   async hydrate(): Promise<void> {
+    await authReady;
     try {
       const dtos = await fetchOrders();
       this.orders = dtos.map(orderDtoToApp);
@@ -377,6 +379,12 @@ class DataStore {
       console.warn('[dataStore] initial order hydrate failed', err);
     }
     this.notify();
+  }
+
+  // Public force-refetch entry (used by storeSync after auth settles); failures
+  // keep the current snapshot so a transient RLS/network error never blanks UI.
+  refreshFromBackend(): Promise<void> {
+    return this.hydrate();
   }
 
   subscribe(listener: () => void) {

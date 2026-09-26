@@ -1,3 +1,7 @@
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady, supabase } from '../../lib/supabaseClient';
+import { fetchShopStatus, upsertShopStatus } from '../../lib/db/siteContentRepo';
 import { dataStore } from "./dataStore";
 import { notificationStore } from "./notificationStore";
 import { internetUtcMs } from "./pht";
@@ -27,6 +31,26 @@ function isShopStatus(value: unknown): value is ShopStatus {
   return value === "open" || value === "closed-scheduled" || value === "paused";
 }
 
+// Best-effort resolve a `profiles.id` (the uuid stored in `updated_by`) back to
+// a display name so the "Updated by …" line stays human. Returns null when the
+// value isn't a uuid or the lookup fails (offline / profile deleted).
+async function resolveProfileName(profileId: string | null | undefined): Promise<string | null> {
+  if (!profileId) return null;
+  const maybeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profileId);
+  if (!maybeUuid) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', profileId)
+      .maybeSingle();
+    if (error || !data || !data.full_name) return null;
+    return data.full_name;
+  } catch {
+    return null;
+  }
+}
+
 function normalize(raw: unknown): ShopStatusState {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_STATE };
   const s = raw as ShopStatusState;
@@ -39,12 +63,34 @@ function normalize(raw: unknown): ShopStatusState {
   };
 }
 
+// Supabase-backed facade: the localStorage mirror below stays as the offline /
+// anonymous fallback, but the DB's single `shop_status` row now drives the
+// real cross-device status — a staff/admin pause/closing on any device shows
+// up on every open page (landing banner, dashboard banner, checkout locks,
+// auto-expiry freeze) via realtime. Reads are open to everyone (the public
+// landing page renders the banner anonymously); writes are staff/admin only.
 class ShopStatusStore {
   private state: ShopStatusState = { ...DEFAULT_STATE };
   private subscribers: Set<Subscriber> = new Set();
+  private hydrating = false;
 
   constructor() {
     this.loadFromStorage();
+
+    // Cross-tab live sync: any local edit writes the mirror; the `storage`
+    // event reloads it here so every open tab of this browser updates.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORAGE_KEY) return;
+      this.loadFromStorage();
+    });
+
+    // Backend sync: realtime fires when ANY device flips the shop status, so
+    // the DB snapshot replaces the mirror everywhere.
+    subscribeTableChanges('shop_status', () => {
+      void this.hydrate();
+    });
+
+    void this.hydrate();
   }
 
   private loadFromStorage() {
@@ -68,6 +114,61 @@ class ShopStatusStore {
       // ignore storage quota/availability errors
     }
     this.subscribers.forEach((cb) => cb());
+  }
+
+  // Pull the latest snapshot from Supabase. The DB wins whenever the row
+  // exists; an empty/unreachable backend keeps the local mirror. Customer
+  // notifications are NOT re-fired on hydrate — they only ever fire on a LOCAL
+  // `setStatus` transition (a realtime echo elsewhere would duplicate the
+  // alerts in every browser otherwise). Concurrent calls dedupe.
+  private async hydrate(): Promise<void> {
+    if (this.hydrating) return;
+    this.hydrating = true;
+    await authReady;
+    try {
+      const row = await fetchShopStatus();
+      if (!row) return; // not seeded yet — keep the local mirror
+      this.state = {
+        status: isShopStatus(row.status) ? row.status : "open",
+        reason: (row.reason ?? undefined) || undefined,
+        eta: (row.eta ?? undefined) || undefined,
+        // The DB stores the actor as a profile uuid; resolve it to a name for
+        // display. Unresolvable → undefined (never show the raw uuid).
+        updatedBy: (await resolveProfileName(row.updated_by)) ?? undefined,
+        updatedAt: row.updated_at,
+      } as ShopStatusState;
+      this.persist();
+    } catch (err) {
+      console.warn('[shop-status] hydration kept local data:', err);
+    } finally {
+      this.hydrating = false;
+    }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles so the DB
+  // status appears the moment a user logs in without needing a page reload).
+  async refreshFromBackend(): Promise<void> {
+    await this.hydrate();
+  }
+
+  // Best-effort push of the status row. RLS-denied writes degrade quietly;
+  // every other failure is surfaced so a silently-unreflected toggle is never
+  // mistaken for a successful sync.
+  private async syncRemote(): Promise<void> {
+    try {
+      // `updated_by` is a uuid FK → profiles.id, so send the ACTING user's
+      // profile id (resolved from the auth session), never a display name.
+      const { data: sessionData } = await supabase.auth.getSession();
+      await upsertShopStatus({
+        status: this.state.status,
+        reason: this.state.reason ?? null,
+        eta: this.state.eta ?? null,
+        updated_by: sessionData.session?.user?.id ?? null,
+      });
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('shop-status.update', err);
+      else console.warn('[shop-status] not synced (RLS):', err);
+    }
   }
 
   subscribe(cb: Subscriber): () => void {
@@ -112,6 +213,7 @@ class ShopStatusStore {
     if (prev.status !== this.state.status) {
       this.notifyStatusChange(prev, this.state);
     }
+    void this.syncRemote();
     return this.getState();
   }
 

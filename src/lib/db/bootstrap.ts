@@ -1,5 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { DEFAULT_MATRIX, pricingStore } from '../../app/utils/pricingStore';
+import { landingContentStore } from '../../app/utils/landingContentStore';
+import { legalContentStore } from '../../app/utils/legalContentStore';
 import type {
   PricingSettingsRow,
   MatrixCellInsert,
@@ -7,6 +9,7 @@ import type {
   JobInsert,
   InventoryItemInsert,
 } from './types';
+import type { Json } from '../database.types';
 
 // Phase 0 bootstrap: guarantee the single-row settings tables and the pricing
 // matrix cells exist so every later phase has a stable source of truth. This is
@@ -31,6 +34,12 @@ async function runAll(): Promise<void> {
   await ensureStaffRecords();
   await ensureJobs();
   await ensureInventory();
+  await ensureShopStatus();
+  await ensureLandingContent();
+  await ensureLegalPolicies();
+  await ensureBrandSettings();
+  await ensureSalarySettings();
+  await ensureStaffNested();
 }
 
 // Seed `staff_records` directory rows for the DEMO roster so attendance sync
@@ -349,6 +358,224 @@ async function ensureMatrixCells(): Promise<void> {
     }
   } catch (err) {
     console.warn('[bootstrap] pricing matrix cells seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the single-row `shop_status` (Open) so the shop-status banner and the
+// checkout locks have a server snapshot to hydrate from. Best-effort: reads
+// are open to everyone but the INSERT needs staff/admin RLS, so customers skip.
+async function ensureShopStatus(): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_status')
+      .select('id')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return; // already seeded
+    const { error: insertError } = await supabase
+      .from('shop_status')
+      .insert({ id: true, status: 'open', reason: null, eta: null });
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] shop_status seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the single-row `landing_content` (the canonical defaults) so the public
+// landing page has a server snapshot to hydrate from. The `content` jsonb blob
+// mirrors the store's default content model; the seed always uses the DEFAULTS
+// (never the current browser mirror) so a fresh install gets the published copy.
+async function ensureLandingContent(): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('landing_content')
+      .select('id')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return; // already seeded
+    const { error: insertError } = await supabase
+      .from('landing_content')
+      .insert({ id: true, content: landingContentStore.getDefaults() as unknown as Json });
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] landing_content seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the Terms + Privacy policy rows so the landing footer, sign-up and
+// checkout "Terms & Privacy" readers have a server snapshot to hydrate from.
+// The `content` column holds the JSON string of `{ sections, lastUpdated }`.
+async function ensureLegalPolicies(): Promise<void> {
+  try {
+    const { count, error } = await supabase
+      .from('legal_policies')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    if (count && count > 0) return;
+    const defaults = legalContentStore.getDefaults();
+    const encode = (sections: { title: string; body: string }[], lastUpdated: string) =>
+      JSON.stringify({ sections, lastUpdated });
+    const { error: insertError } = await supabase.from('legal_policies').insert([
+      {
+        policy_type: 'terms',
+        title: defaults.termsTitle,
+        content: encode(defaults.termsSections, defaults.termsLastUpdated),
+        version: 'v1',
+        published: true,
+      },
+      {
+        policy_type: 'privacy',
+        title: defaults.privacyTitle,
+        content: encode(defaults.privacySections, defaults.privacyLastUpdated),
+        version: 'v1',
+        published: true,
+      },
+    ]);
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] legal_policies seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the single-row `brand_settings` (no custom logo → bundled default in
+// use) so the logo store has a server snapshot to hydrate from.
+async function ensureBrandSettings(): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('brand_settings')
+      .select('id')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return; // already seeded
+    const { error: insertError } = await supabase
+      .from('brand_settings')
+      .insert({ id: true, logo_storage_path: null });
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] brand_settings seed skipped (RLS or offline):', err);
+  }
+}
+
+// Seed the single-row `salary_settings` (default hourly rate ₱50) so the
+// salary store has a server snapshot to hydrate from.
+async function ensureSalarySettings(): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('salary_settings')
+      .select('id')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return; // already seeded
+    const { error: insertError } = await supabase
+      .from('salary_settings')
+      .insert({ id: true, hourly_rate: 50 });
+    if (insertError) throw insertError;
+  } catch (err) {
+    console.warn('[bootstrap] salary_settings seed skipped (RLS or offline):', err);
+  }
+}
+
+// The nested demo data shown on the Staff page (performance notes, allowances,
+// tasks) is hydrate-only — the app never edits it, so these seed it once so the
+// roster displays the same populated profile the localStorage mock showed.
+// Matched to the roster rows by email; each table is seeded only when empty.
+const NESTED_DEMO_SEEDS: Array<{
+  email: string;
+  notes: { date: string; note: string; rating: number }[];
+  allowances: { type: string; amount: number }[];
+  tasks: { title: string; status: string; priority: string; dueDate: string }[];
+}> = [
+  {
+    email: 'staff@test.com',
+    notes: [
+      { date: '2026-04-01', note: 'Excellent performance, handled rush orders efficiently', rating: 5 },
+      { date: '2026-03-01', note: 'Successfully trained 2 new staffs', rating: 5 },
+      { date: '2026-02-01', note: 'Improved print quality standards', rating: 4 },
+    ],
+    allowances: [
+      { type: 'Transportation', amount: 2000 },
+      { type: 'Meal', amount: 1500 },
+    ],
+    tasks: [
+      { title: 'Quality check for color prints', status: 'Completed', priority: 'High', dueDate: '2026-04-20' },
+      { title: 'Train new staff on binding', status: 'In Progress', priority: 'Medium', dueDate: '2026-04-25' },
+      { title: 'Printer toner check', status: 'Pending', priority: 'Low', dueDate: '2026-04-30' },
+    ],
+  },
+  {
+    email: 'robert.chen@docufy.com',
+    notes: [
+      { date: '2026-04-01', note: 'Good attendance and punctuality', rating: 4 },
+      { date: '2026-03-01', note: 'Needs improvement in color matching', rating: 3 },
+    ],
+    allowances: [{ type: 'Transportation', amount: 1500 }],
+    tasks: [
+      { title: 'Process customer orders', status: 'Completed', priority: 'High', dueDate: '2026-04-21' },
+      { title: 'Clean and maintain printers', status: 'Completed', priority: 'Medium', dueDate: '2026-04-22' },
+    ],
+  },
+  {
+    email: 'katie.perry@docufy.com',
+    notes: [
+      { date: '2026-04-01', note: 'Excellent customer service skills', rating: 5 },
+      { date: '2026-03-01', note: 'Quick learner, adapting well to role', rating: 4 },
+    ],
+    allowances: [{ type: 'Meal', amount: 1000 }],
+    tasks: [
+      { title: 'Verify payment receipts', status: 'In Progress', priority: 'High', dueDate: '2026-04-22' },
+      { title: 'Update customer database', status: 'Pending', priority: 'Low', dueDate: '2026-04-28' },
+    ],
+  },
+];
+
+async function ensureStaffNested(): Promise<void> {
+  try {
+    const rows = await Promise.all([
+      supabase.from('staff_performance_notes').select('*', { count: 'exact', head: true }),
+      supabase.from('staff_allowances').select('*', { count: 'exact', head: true }),
+      supabase.from('staff_tasks').select('*', { count: 'exact', head: true }),
+    ]);
+    const counts = rows.map((r) => r.count ?? 0);
+    if (counts.some((c) => c > 0)) return; // already seeded somewhere — skip all
+
+    const { data: roster } = await supabase
+      .from('staff_records')
+      .select('id, email');
+    if (!roster) return;
+    const idByEmail = new Map((roster as { id: string; email: string | null }[])
+      .filter((r) => r.email)
+      .map((r) => [r.email!.toLowerCase(), r.id]));
+    if (idByEmail.size === 0) return;
+
+    const noteInserts: any[] = [];
+    const allowanceInserts: any[] = [];
+    const taskInserts: any[] = [];
+    for (const seed of NESTED_DEMO_SEEDS) {
+      const staffId = idByEmail.get(seed.email.toLowerCase());
+      if (!staffId) continue;
+      for (const n of seed.notes) noteInserts.push({ staff_id: staffId, note_date: n.date, note: n.note, rating: n.rating });
+      for (const a of seed.allowances) allowanceInserts.push({ staff_id: staffId, allowance_type: a.type, amount: a.amount });
+      for (const t of seed.tasks) taskInserts.push({ staff_id: staffId, title: t.title, status: t.status, priority: t.priority, due_date: t.dueDate });
+    }
+
+    if (noteInserts.length) {
+      const { error: e } = await supabase.from('staff_performance_notes').insert(noteInserts);
+      if (e) throw e;
+    }
+    if (allowanceInserts.length) {
+      const { error: e } = await supabase.from('staff_allowances').insert(allowanceInserts);
+      if (e) throw e;
+    }
+    if (taskInserts.length) {
+      const { error: e } = await supabase.from('staff_tasks').insert(taskInserts);
+      if (e) throw e;
+    }
+  } catch (err) {
+    console.warn('[bootstrap] staff nested demo seed skipped (RLS or offline):', err);
   }
 }
 

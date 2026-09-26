@@ -8,6 +8,7 @@
 // then best-effort sync to the DB — kept locally + surfaced on failure, never
 // thrown.
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import {
   createApplication,
@@ -157,6 +158,7 @@ class ApplicationsStore {
   private async refresh(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    await authReady;
     try {
       const rows = await fetchApplications();
       this.applications = rows.map(toApplicationType);
@@ -166,6 +168,12 @@ class ApplicationsStore {
     } finally {
       this.busy = false;
     }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles — a
+  // customer logging in must re-read their own RLS rows after an anon boot).
+  refreshFromBackend(): Promise<void> {
+    return this.refresh();
   }
 
   getApplications(): ApplicationType[] {

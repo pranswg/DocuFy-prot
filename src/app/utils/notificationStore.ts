@@ -1,5 +1,6 @@
 // Centralized notification store
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
 import {
   fetchNotifications,
   pushNotification,
@@ -76,6 +77,7 @@ class NotificationStore {
   // has, but an empty/unreachable backend NEVER wipes the localStorage mirror —
   // that is the offline fallback.
   private async refreshRemote(): Promise<void> {
+    await authReady;
     try {
       const dtos = await fetchNotifications();
       if (dtos.length === 0) return;
@@ -90,6 +92,13 @@ class NotificationStore {
     } catch {
       // keep the local mirror
     }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles: a fresh
+  // incognito boot ran with the anonymous token, so the DB rows appear the
+  // moment the user logs in without needing a page reload).
+  async refreshFromBackend(): Promise<void> {
+    await this.refreshRemote();
   }
 
   // ── localStorage mirror ──────────────────────────────────────────────────

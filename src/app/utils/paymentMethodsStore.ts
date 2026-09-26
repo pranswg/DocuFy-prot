@@ -14,6 +14,7 @@ import {
   type PaymentMethodDto,
 } from '../../lib/db/paymentMethodsRepo';
 import { subscribeTableChanges } from '../../lib/db/hooks';
+import { authReady } from '../../lib/supabaseClient';
 
 export type PaymentMethodType = {
   id: string;
@@ -81,6 +82,7 @@ class PaymentMethodsStore {
   private hydrate(): Promise<void> {
     if (this.hydrating) return this.hydrating;
     this.hydrating = (async () => {
+      await authReady;
       try {
         const dtos = await fetchPaymentMethods();
         this.methods = dtos.map(dtoToType);
@@ -96,6 +98,11 @@ class PaymentMethodsStore {
 
   private notify(): void {
     this.subscribers.forEach((listener) => listener());
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles).
+  refresh(): Promise<void> {
+    return this.hydrate();
   }
 
   subscribe(listener: Subscriber): () => void {

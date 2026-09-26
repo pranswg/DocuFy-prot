@@ -8,6 +8,7 @@
 
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
 import {
   deductPaperPiecesRpc,
   fetchInventoryItems,
@@ -217,6 +218,7 @@ class InventoryStore {
   private async hydrate(): Promise<void> {
     if (this.hydrating) return;
     this.hydrating = true;
+    await authReady;
     try {
       const items = await fetchInventoryItems();
       if (items.length > 0) {
@@ -240,6 +242,12 @@ class InventoryStore {
     } finally {
       this.hydrating = false;
     }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles). The DB
+  // wins only when it returns rows; a denied/empty read keeps the mirror.
+  refresh(): Promise<void> {
+    return this.hydrate();
   }
 
   // Backfill pcsPerUnit for existing Paper items that were saved before it

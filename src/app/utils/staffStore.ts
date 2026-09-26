@@ -5,7 +5,25 @@
 // role change look like it reverted. This store persists the roster itself
 // (localStorage), while AuthContext persists the matching staff/admin sign-in
 // accounts, keeping the displayed role and the real login permission in sync.
+//
+// Supabase-backed facade: the localStorage mirror stays as the offline /
+// anonymous fallback, but `staff_records` (the roster assigned to real staff
+// sign-ins) is the source of truth when rows exist. The nested demo data
+// (performance notes / allowances / tasks) has no admin editor — it is
+// hydrate-only and re-attached from its sub-tables by staff_records id.
+// Writes are staff/admin only (customers never read this).
 import { attendanceStore } from "./attendanceStore";
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
+import {
+  fetchStaffAllowances,
+  fetchStaffPerformanceNotes,
+  fetchStaffRecords,
+  fetchStaffTasks,
+  saveStaffMember,
+} from '../../lib/db/staffRepo';
+import type { StaffAllowanceRow, StaffPerformanceNoteRow, StaffRecordInsert, StaffRecordRow, StaffTaskRow } from '../../lib/db/types';
 
 export interface Staff {
   id: string;
@@ -266,16 +284,78 @@ function normalizeStaff(s: Staff): Staff {
   };
 }
 
+// ── DB → store mappings (keep the exact consumer-facing Staff shape) ─────────
+
+function rowToStaff(
+  row: StaffRecordRow,
+  notesByStaff: Map<string, { date: string; note: string; rating: number }[]>,
+  allowancesByStaff: Map<string, { type: string; amount: number }[]>,
+  tasksByStaff: Map<string, { id: string; title: string; status: string; priority: string; dueDate: string }[]>,
+  index: number,
+): Staff {
+  const attendanceStatus: "active" | "on-leave" =
+    row.attendance_status === "on-leave" ? "on-leave" : "active";
+  return normalizeStaff({
+    id: row.employee_code || `EMP-${String(index + 1).padStart(3, "0")}`,
+    name: row.full_name || "",
+    email: (row.email || "").toLowerCase(),
+    phone: row.phone || "",
+    role: row.role === "admin" ? "Admin" : "Staff",
+    status: row.status === "inactive" ? "Inactive" : "Active",
+    attendanceStatus,
+    onLeaveReason: attendanceStatus === "on-leave" ? row.on_leave_reason || "Not specified" : "",
+    joinDate: row.join_date || "",
+    skillsMessage: row.skills_message || "",
+    portfolioLink: row.portfolio_link || "",
+    performanceNotes: notesByStaff.get(row.id) ?? [],
+    salary: row.salary ?? 0,
+    allowances: allowancesByStaff.get(row.id) ?? [],
+    paymentHistory: [], // hydrate-only demo data without a DB home
+    permissions: row.permissions ?? [],
+    tasks: tasksByStaff.get(row.id) ?? [],
+  });
+}
+
+function toRecordInsert(s: Staff, profileId: string | null): StaffRecordInsert {
+  return {
+    profile_id: profileId,
+    employee_code: s.id,
+    full_name: s.name,
+    email: s.email.toLowerCase(),
+    phone: s.phone || null,
+    role: s.role === "Admin" ? "admin" : "staff",
+    status: s.status === "Inactive" ? "inactive" : "active",
+    attendance_status: s.attendanceStatus || "active",
+    on_leave_reason: s.onLeaveReason?.trim() ? s.onLeaveReason : null,
+    join_date: s.joinDate,
+    skills_message: s.skillsMessage || null,
+    portfolio_link: s.portfolioLink || null,
+    permissions: s.permissions ?? [],
+    salary: s.salary ?? 0,
+  };
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 class StaffStore {
   private list: Staff[] = DEFAULT_STAFF;
   private subscribers: Set<Subscriber> = new Set();
+  private hydrating = false;
+  private hydrated = false;
+  // staff_records.id per lowercased email + the linked profile id, learned at
+  // hydrate so saves UPDATE the existing row (and never clobber its profile
+  // link with null) instead of inserting a duplicate.
+  private recordIdsByEmail: Map<string, string> = new Map();
+  private profileIdsByEmail: Map<string, string | null> = new Map();
 
   constructor() {
     this.restore();
     if (typeof window !== "undefined") {
       window.addEventListener("storage", this.onStorage);
     }
+    subscribeTableChanges('staff_records', () => {
+      void this.hydrate();
+    });
+    void this.hydrate();
   }
 
   private onStorage = (e: StorageEvent) => {
@@ -308,7 +388,59 @@ class StaffStore {
     }
   }
 
+  // Pull the full roster + nested demo rows from the DB. The DB wins whenever
+  // it has rows (replacing the mirror); an empty/unreachable backend keeps the
+  // localStorage roster. Concurrent calls dedupe; failures degrade quietly.
+  private async hydrate(): Promise<void> {
+    if (this.hydrating) return;
+    this.hydrating = true;
+    await authReady;
+    try {
+      const rows = await fetchStaffRecords();
+      if (rows.length === 0) return; // not seeded — keep the mirror
+      const [notes, allowances, tasks] = await Promise.all([
+        fetchStaffPerformanceNotes(),
+        fetchStaffAllowances(),
+        fetchStaffTasks(),
+      ]);
+      const notesByStaff = groupNotes(notes);
+      const allowancesByStaff = groupAllowances(allowances);
+      const tasksByStaff = groupTasks(tasks);
+
+      const recordIds = new Map<string, string>();
+      const profileIds = new Map<string, string | null>();
+      const next = rows.map((row, i) => {
+        const email = (row.email || "").toLowerCase();
+        if (email) {
+          recordIds.set(email, row.id);
+          profileIds.set(email, row.profile_id);
+        }
+        return rowToStaff(row, notesByStaff, allowancesByStaff, tasksByStaff, i);
+      });
+
+      this.recordIdsByEmail = recordIds;
+      this.profileIdsByEmail = profileIds;
+      this.list = next;
+      this.hydrated = true;
+      this.persist();
+      this.notify();
+    } catch (err) {
+      console.warn('[staff] hydration kept local roster:', err);
+    } finally {
+      this.hydrating = false;
+    }
+  }
+
+  private ensureHydrated(): void {
+    if (!this.hydrated && !this.hydrating) void this.hydrate();
+  }
+
+  async refreshFromBackend(): Promise<void> {
+    await this.hydrate();
+  }
+
   getStaff(): Staff[] {
+    this.ensureHydrated();
     return this.list.map((s) => ({ ...s }));
   }
 
@@ -316,6 +448,28 @@ class StaffStore {
     this.list = next.map((s) => normalizeStaff({ ...s }));
     this.persist();
     this.notify();
+    void this.syncAll();
+  }
+
+  // Best-effort push of the whole roster: syncs the DB only after hydration so
+  // row ids + profile links are known (updates target existing rows, inserts
+  // mint new ones and adopt their uuid). RLS-denied writes degrade quietly;
+  // every other failure toasts.
+  private async syncAll(): Promise<void> {
+    await this.hydrate();
+    for (const s of this.list) {
+      const email = s.email.toLowerCase();
+      const existingId = this.recordIdsByEmail.get(email);
+      const profileId = this.profileIdsByEmail.get(email) ?? null;
+      try {
+        const adopted = await saveStaffMember({ id: existingId, row: toRecordInsert(s, profileId) });
+        this.recordIdsByEmail.set(email, adopted);
+        this.profileIdsByEmail.set(email, profileId);
+      } catch (err) {
+        if (!isRlsDenied(err)) showDbError('staff.update', err);
+        else console.warn('[staff] not synced (RLS):', err);
+      }
+    }
   }
 
   subscribe(callback: Subscriber): () => void {
@@ -328,6 +482,39 @@ class StaffStore {
   private notify(): void {
     this.subscribers.forEach((cb) => cb());
   }
+}
+
+function groupNotes(rows: StaffPerformanceNoteRow[]): Map<string, { date: string; note: string; rating: number }[]> {
+  const map = new Map<string, { date: string; note: string; rating: number }[]>();
+  for (const r of rows) {
+    const entry = { date: r.note_date || '', note: r.note || '', rating: r.rating ?? 0 };
+    const list = map.get(r.staff_id) ?? [];
+    list.push(entry);
+    map.set(r.staff_id, list);
+  }
+  return map;
+}
+
+function groupAllowances(rows: StaffAllowanceRow[]): Map<string, { type: string; amount: number }[]> {
+  const map = new Map<string, { type: string; amount: number }[]>();
+  for (const r of rows) {
+    const entry = { type: r.allowance_type || '', amount: r.amount ?? 0 };
+    const list = map.get(r.staff_id) ?? [];
+    list.push(entry);
+    map.set(r.staff_id, list);
+  }
+  return map;
+}
+
+function groupTasks(rows: StaffTaskRow[]): Map<string, { id: string; title: string; status: string; priority: string; dueDate: string }[]> {
+  const map = new Map<string, { id: string; title: string; status: string; priority: string; dueDate: string }[]>();
+  for (const r of rows) {
+    const entry = { id: r.id, title: r.title || '', status: r.status || '', priority: r.priority || '', dueDate: r.due_date || '' };
+    const list = map.get(r.staff_id) ?? [];
+    list.push(entry);
+    map.set(r.staff_id, list);
+  }
+  return map;
 }
 
 export const staffStore = new StaffStore();

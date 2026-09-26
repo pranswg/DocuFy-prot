@@ -2,6 +2,19 @@
 // All editable text on the landing page is read from / written to this store
 // (backed by localStorage "landing_content"). The LandingPage and the admin
 // LandingPageEditor both import from here so they stay in sync.
+//
+// Supabase-backed facade: the localStorage mirror stays as the offline /
+// anonymous fallback, but the DB's single `landing_content` row (the whole
+// content model as one `content` jsonb blob) now drives real cross-device
+// edits — an admin saving on any device updates the public page everywhere via
+// realtime. Reads are open to everyone (the public landing renders
+// anonymously); writes are staff/admin only.
+
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady, supabase } from '../../lib/supabaseClient';
+import { fetchLandingContent, upsertLandingContent } from '../../lib/db/siteContentRepo';
+import type { Json } from '../../lib/database.types';
 
 export interface ServiceCardContent {
   title: string;
@@ -177,9 +190,50 @@ function migrateLegacy(parsed: Record<string, any>): Partial<LandingPageContent>
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let cached: LandingPageContent | null = null;
+let hydrating = false;
 
 function notify() {
   listeners.forEach((fn) => fn());
+}
+
+// Normalize a raw blob (localStorage mirror or a DB row's `content` jsonb) into
+// a full content snapshot: migrate legacy fields and re-ensure the 3 service
+// cards exist.
+function normalizeContent(raw: unknown): LandingPageContent {
+  const source = confirmServiceCards(migrateLegacyToContent(raw));
+  return { ...defaults, ...source };
+}
+
+function migrateLegacyToContent(raw: unknown): Record<string, any> {
+  if (!raw || typeof raw !== 'object') return {};
+  return migrateLegacy(raw as Record<string, any>);
+}
+
+function confirmServiceCards(source: Record<string, any>): Record<string, any> {
+  const out = { ...source };
+  if (!Array.isArray(out.serviceCards)) {
+    out.serviceCards = structuredClone(defaults.serviceCards);
+    return out;
+  }
+  const cards = [...out.serviceCards];
+  while (cards.length < defaults.serviceCards.length) {
+    cards.push(structuredClone(defaults.serviceCards[cards.length]));
+  }
+  out.serviceCards = cards;
+  return out;
+}
+
+// Best-effort mirror write that never throws (used by hydration); the public
+// `save` below keeps its throw-on-failure contract so the editor can surface
+// a real error instead of silently losing an edit.
+function writeMirror(content: LandingPageContent): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(content));
+  } catch {
+    return false;
+  }
+  cached = content;
+  return true;
 }
 
 function read(): LandingPageContent {
@@ -187,15 +241,8 @@ function read(): LandingPageContent {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      const migrated = migrateLegacy(parsed);
-      cached = { ...defaults, ...migrated } as LandingPageContent;
-      // Ensure serviceCards has all 3 cards
-      while (cached!.serviceCards.length < defaults.serviceCards.length) {
-        const idx = cached!.serviceCards.length;
-        cached!.serviceCards.push(defaults.serviceCards[idx]);
-      }
-      return cached!;
+      cached = normalizeContent(JSON.parse(raw));
+      return cached;
     }
   } catch {
     // fall through
@@ -218,6 +265,41 @@ function save(content: LandingPageContent) {
   notify();
 }
 
+// Pull the latest snapshot from Supabase. The DB row (when present) wins over
+// the mirror; an empty/unreachable backend keeps the local content.
+async function hydrate(): Promise<void> {
+  if (hydrating) return;
+  hydrating = true;
+  await authReady;
+  try {
+    const row = await fetchLandingContent();
+    if (!row) return; // not seeded yet — keep the local mirror
+    writeMirror(normalizeContent(row.content));
+    notify();
+  } catch (err) {
+    console.warn('[landing-content] hydration kept local data:', err);
+  } finally {
+    hydrating = false;
+  }
+}
+
+async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? null;
+}
+
+// Best-effort push of the whole content row. RLS-denied writes degrade quietly;
+// every other failure is surfaced so a silently-unreflected admin edit is never
+// mistaken for a successful sync.
+async function syncRemote(content: LandingPageContent): Promise<void> {
+  try {
+    await upsertLandingContent(content as unknown as Json, await currentUserId());
+  } catch (err) {
+    if (!isRlsDenied(err)) showDbError('landing-content.update', err);
+    else console.warn('[landing-content] not synced (RLS):', err);
+  }
+}
+
 function subscribe(fn: Listener): () => void {
   listeners.add(fn);
   // Cross-tab sync via storage event
@@ -234,10 +316,26 @@ function subscribe(fn: Listener): () => void {
   };
 }
 
+// Backend realtime: an admin editing the landing content from any device
+// refreshes every open page.
+subscribeTableChanges('landing_content', () => {
+  void hydrate();
+});
+
+void hydrate();
+
 export const landingContentStore = {
   getDefaults: () => structuredClone(defaults),
   getContent: read,
-  saveContent: save,
-  resetContent: () => save({ ...defaults }),
+  saveContent: (content: LandingPageContent) => {
+    save(content);
+    void syncRemote(content);
+  },
+  resetContent: () => {
+    const reset = { ...defaults };
+    save(reset);
+    void syncRemote(reset);
+  },
+  refreshFromBackend: () => hydrate(),
   subscribe,
 };

@@ -21,6 +21,7 @@ import {
   type AttendanceRecordDto,
 } from "../../lib/db/attendanceRepo";
 import { toast } from "sonner";
+import { authReady } from "../../lib/supabaseClient";
 
 export type SessionRecord = {
   timeIn?: Date;
@@ -217,6 +218,7 @@ class AttendanceStore {
   private hydrate(): Promise<void> {
     if (this.hydrating) return this.hydrating;
     this.hydrating = (async () => {
+      await authReady;
       try {
         const dtos = await fetchAttendanceRecords();
         this.applyDtos(dtos);
@@ -228,6 +230,11 @@ class AttendanceStore {
       }
     })();
     return this.hydrating;
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles).
+  refresh(): Promise<void> {
+    return this.hydrate();
   }
 
   private applyDtos(dtos: AttendanceRecordDto[]): void {
@@ -551,6 +558,7 @@ class AttendanceStore {
     date: string,
     field: 'timeIn' | 'timeOut',
     value: Date | null,
+    push = true,
   ): DailyAttendanceRecord {
     let record = this.records.find(r => r.userId === userId && r.date === date);
     const created = !record;
@@ -591,7 +599,7 @@ class AttendanceStore {
     const changed = (before?.getTime() ?? null) !== (after?.getTime() ?? null);
     if (!created && changed) {
       this.pushRecordAndAudit(record.id, field, before, after);
-    } else {
+    } else if (push) {
       this.pushRecord(record);
     }
 

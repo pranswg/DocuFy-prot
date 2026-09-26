@@ -10,6 +10,7 @@ import {
   isDataUrl,
   isSupabaseAvatarUrl,
 } from '../utils/supabaseAvatar';
+import { refreshAllStores } from '../utils/storeSync';
 
 // Auth Types
 export interface User {
@@ -206,6 +207,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) console.error('Failed to restore Supabase session:', error);
       if (mounted && data.session?.user) {
         await loadProfile(data.session.user);
+        // Fetch the stores with the authenticated token (the module-constructor
+        // hydration ran anonymous and may have cached empty snapshots).
+        void refreshAllStores();
       }
       if (mounted) setAuthLoading(false);
     };
@@ -216,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       if (session?.user) {
         void loadProfile(session.user);
+        void refreshAllStores();
       } else {
         setUser(null);
       }
@@ -270,6 +275,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, reason: 'inactive' as const };
     }
 
+    void refreshAllStores();
+
     return { success: true };
   };
 
@@ -317,6 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', result.user.id);
       }
       await loadProfile(result.user);
+      void refreshAllStores();
     }
 
     toast.success(

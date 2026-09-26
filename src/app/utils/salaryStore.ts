@@ -7,7 +7,24 @@
 // attendance, if any, still counts as worked time). Releasing a salary marks the
 // current period paid, stores a history record, and starts a NEW period — the
 // attendance records themselves are never deleted.
+//
+// Supabase-backed facade: the localStorage mirror stays as the offline /
+// anonymous fallback, but the DB is now the source of truth when available —
+// `salary_settings` holds the admin-set hourly rate and `salary_releases` the
+// cross-device history (emails/names resolved by the repo). Writes are
+// staff/admin only (customers never read salary data).
 import { attendanceStore, sessionTotalMs, nowPHT } from "./attendanceStore";
+import { subscribeTableChanges } from '../../lib/db/hooks';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { authReady } from '../../lib/supabaseClient';
+import {
+  fetchSalaryReleases,
+  fetchSalarySettings,
+  insertSalaryRelease,
+  resolveStaffRecordIdByEmail,
+  sessionUserId,
+  upsertSalarySettings,
+} from '../../lib/db/staffRepo';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type SalaryReleaseRecord = {
@@ -71,12 +88,20 @@ const DEFAULT_STATE = (): SalaryState => ({
 class SalaryStore {
   private state: SalaryState = DEFAULT_STATE();
   private subscribers: Set<Subscriber> = new Set();
+  private hydrating = false;
 
   constructor() {
     this.restore();
     if (typeof window !== "undefined") {
       window.addEventListener("storage", this.onStorage);
     }
+    subscribeTableChanges('salary_settings', () => {
+      void this.hydrate();
+    });
+    subscribeTableChanges('salary_releases', () => {
+      void this.hydrate();
+    });
+    void this.hydrate();
   }
 
   // Cross-tab live sync: when another tab writes salary state (release, rate,
@@ -115,6 +140,61 @@ class SalaryStore {
     this.subscribers.forEach(cb => cb());
   }
 
+  // Pull the DB source of truth: the settings row wins for the hourly rate, and
+  // every release row wins for the history (replacing the mirror). periodStarts
+  // has no DB home — it is derived from the fetched releases (period_end + 1),
+  // merged over any local override. Concurrent calls dedupe; failures keep the
+  // mirror quietly.
+  private async hydrate(): Promise<void> {
+    if (this.hydrating) return;
+    this.hydrating = true;
+    await authReady;
+    try {
+      const [settings, releases] = await Promise.all([
+        fetchSalarySettings(),
+        fetchSalaryReleases(),
+      ]);
+
+      const next: SalaryState = { ...this.state };
+
+      if (settings && typeof settings.hourly_rate === "number" && settings.hourly_rate > 0) {
+        next.hourlyRate = settings.hourly_rate;
+      }
+
+      if (releases.length > 0) {
+        const periodStarts = { ...this.state.periodStarts };
+        next.releases = releases.map((r) => ({
+          id: r.id,
+          staffEmail: r.staffEmail.toLowerCase(),
+          staffName: r.staffName,
+          periodStart: r.periodStart,
+          periodEnd: r.periodEnd,
+          totalHours: r.totalHours,
+          hourlyRate: r.hourlyRate,
+          amount: round2(r.releasedAmount),
+          releasedAt: r.releasedAt,
+          releasedBy: r.releasedByName,
+        }));
+        for (const r of next.releases) {
+          if (r.staffEmail) periodStarts[r.staffEmail] = addDays(r.periodEnd, 1);
+        }
+        next.periodStarts = periodStarts;
+      }
+
+      this.state = next;
+      this.persist();
+      this.notify();
+    } catch (err) {
+      console.warn('[salary] hydration kept local data:', err);
+    } finally {
+      this.hydrating = false;
+    }
+  }
+
+  async refreshFromBackend(): Promise<void> {
+    await this.hydrate();
+  }
+
   subscribe(callback: Subscriber): () => void {
     this.subscribers.add(callback);
     return () => {
@@ -132,6 +212,20 @@ class SalaryStore {
     this.state.hourlyRate = round2(safe);
     this.persist();
     this.notify();
+    void this.syncRate(this.state.hourlyRate);
+  }
+
+  // Best-effort push of the hourly rate; adopted back only via the DB snapshot.
+  private async syncRate(rate: number): Promise<void> {
+    try {
+      const uid = await sessionUserId();
+      const patch: { hourly_rate: number; updated_by?: string | null } = { hourly_rate: rate };
+      if (uid) patch.updated_by = uid;
+      await upsertSalarySettings(patch);
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('salary.update', err);
+      else console.warn('[salary] not synced (RLS):', err);
+    }
   }
 
   // ── Salary period ──────────────────────────────────────────────────────
@@ -200,7 +294,39 @@ class SalaryStore {
     this.state.periodStarts[key] = addDays(summary.periodEnd, 1);
     this.persist();
     this.notify();
+    void this.syncRelease(email, record);
     return record;
+  }
+
+  // Best-effort push of a salary release: resolve the roster row for the email,
+  // INSERT the history row, then adopt the server uuid into the local record so
+  // history + realtime reconcile to one entry. Failures keep the local record.
+  private async syncRelease(email: string, record: SalaryReleaseRecord): Promise<void> {
+    try {
+      const staffId = await resolveStaffRecordIdByEmail(email);
+      if (!staffId) {
+        console.warn('[salary] release kept local only (no staff_records row for', email, ')');
+        return;
+      }
+      const uid = await sessionUserId();
+      const id = await insertSalaryRelease({
+        staff_id: staffId,
+        period_start: record.periodStart,
+        period_end: record.periodEnd,
+        total_hours: record.totalHours,
+        hourly_rate: record.hourlyRate,
+        released_amount: record.amount,
+        released_by: uid,
+        released_at: record.releasedAt,
+      });
+      if (id) {
+        this.state.releases = this.state.releases.map((r) => (r.id === record.id ? { ...r, id } : r));
+        this.persist();
+      }
+    } catch (err) {
+      if (!isRlsDenied(err)) showDbError('salary.release', err);
+      else console.warn('[salary] release not synced (RLS):', err);
+    }
   }
 
   // ── Salary history (per staff, newest first) ───────────────────────────

@@ -73,14 +73,14 @@ export const seedDemoAttendance = (): void => {
 
   const seedDay = (member: StaffMember, timeIn: Date, timeOut: Date) => {
     if (attendanceStore.getRecord(member.email, today)) return;
-    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn);
-    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeOut", timeOut);
+    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn, false);
+    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeOut", timeOut, false);
   };
 
   // Clock-in only (no time-out) so the record stays live on the monitor.
   const seedLive = (member: StaffMember, timeIn: Date) => {
     if (attendanceStore.getRecord(member.email, today)) return;
-    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn);
+    attendanceStore.upsertTime(member.email, member.name, "staff", today, "timeIn", timeIn, false);
   };
 
   // Robert Chen — Present, On Time, still on the clock (8:00 start)

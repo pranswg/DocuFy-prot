@@ -34,6 +34,21 @@ export type PaymentMethodUpdate = Tables['payment_methods']['Update'];
 export type WalkInTransactionRow = Tables['walk_in_transactions']['Row'];
 export type WalkInTransactionInsert = Tables['walk_in_transactions']['Insert'];
 
+export type ShopStatusRow = Tables['shop_status']['Row'];
+export type ShopStatusInsert = Tables['shop_status']['Insert'];
+
+export type LandingContentRow = Tables['landing_content']['Row'];
+export type LandingContentInsert = Tables['landing_content']['Insert'];
+
+export type BrandSettingsRow = Tables['brand_settings']['Row'];
+export type BrandSettingsInsert = Tables['brand_settings']['Insert'];
+
+export type LegalPolicyRow = Tables['legal_policies']['Row'];
+export type LegalPolicyInsert = Tables['legal_policies']['Insert'];
+
+export type ShopPhotoRow = Tables['shop_photos']['Row'];
+export type ShopPhotoInsert = Tables['shop_photos']['Insert'];
+
 export type PricingSettingsRow = Tables['pricing_settings']['Row'];
 export type MatrixCellRow = Tables['pricing_matrix_cells']['Row'];
 export type MatrixCellInsert = Tables['pricing_matrix_cells']['Insert'];
@@ -374,4 +389,65 @@ export interface AnnouncementDto {
   sentBy: string;                   // sender email
   sentAt: string;                   // ISO timestamp
   readBy: string[];                 // reader emails resolvable from the read join
+}
+
+// ── Staff domain (roster + nested demo data + salary tracking) ───────────────
+// `staff_records` is the source roster (shared with the attendance batch). The
+// nested tables are hydrate-only demo data displayed on the Staff page/profile;
+// `salary_settings` mirrors the store's hourly rate, and `salary_releases` is
+// the real cross-device history behind the salary-store `releases` list.
+
+export type StaffPerformanceNoteRow = Tables['staff_performance_notes']['Row'];
+export type StaffPerformanceNoteInsert = Tables['staff_performance_notes']['Insert'];
+
+export type StaffAllowanceRow = Tables['staff_allowances']['Row'];
+export type StaffAllowanceInsert = Tables['staff_allowances']['Insert'];
+
+export type StaffTaskRow = Tables['staff_tasks']['Row'];
+export type StaffTaskInsert = Tables['staff_tasks']['Insert'];
+
+export type SalarySettingsRow = Tables['salary_settings']['Row'];
+export type SalarySettingsInsert = Tables['salary_settings']['Insert'];
+
+export type SalaryReleaseRow = Tables['salary_releases']['Row'];
+export type SalaryReleaseInsert = Tables['salary_releases']['Insert'];
+
+// A rendered roster DTO: the store staff-facing fields PLUS the server identity
+// (`recordId`) so nested demo rows (notes/allowances/tasks) re-attach to the
+// right staff member after hydration.
+export interface StaffRecordDto {
+  recordId: string;                 // staff_records.id (server identity)
+  id: string;                       // EMP-xxxx employee code (display key)
+  name: string;
+  email: string;
+  phone: string;
+  role: string;                     // 'Staff' | 'Admin' display role
+  status: string;                   // 'Active' | 'Inactive'
+  attendanceStatus: string;         // 'active' | 'on-leave'
+  onLeaveReason: string;
+  joinDate: string;
+  skillsMessage: string;
+  portfolioLink: string;
+  performanceNotes: { date: string; note: string; rating: number }[];
+  salary: number;
+  allowances: { type: string; amount: number }[];
+  paymentHistory: { date: string; amount: number; type: string }[];
+  permissions: string[];
+  tasks: { id: string; title: string; status: string; priority: string; dueDate: string }[];
+}
+
+// A rendered salary-release history row: the store record shape PLUS the
+// resolved names/emails (the DB rows only carry ids, so the repo joins back
+// `staff_records.email`/`full_name` and `profiles.full_name` for releasedBy).
+export interface SalaryReleaseDto {
+  id: string;
+  staffEmail: string;
+  staffName: string;
+  periodStart: string;              // YYYY-MM-DD
+  periodEnd: string;                // YYYY-MM-DD
+  totalHours: number;
+  hourlyRate: number;
+  releasedAmount: number;
+  releasedAt: string;               // ISO instant
+  releasedByName: string;           // resolver name (falls back to id)
 }

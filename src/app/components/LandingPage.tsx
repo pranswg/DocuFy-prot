@@ -377,7 +377,7 @@ export default function LandingPage({
       </header>
 
       <div className="relative z-10 mx-auto w-full max-w-7xl min-[1366px]:max-w-[93.7vw] px-4 sm:px-6 pt-4">
-        <ShopStatusBanner />
+        <ShopStatusBanner className="mt-24 sm:mt-28" />
       </div>
 
       {/* Hero Section */}

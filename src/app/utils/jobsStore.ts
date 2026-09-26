@@ -8,6 +8,7 @@
 // returns rows; every mutation applies locally first, then best-effort syncs to
 // the DB (kept locally + surfaced on failure — never thrown).
 import { fetchJobs, saveJob, setJobStatus } from '../../lib/db/jobsRepo';
+import { authReady } from '../../lib/supabaseClient';
 import type { JobDto } from '../../lib/db/types';
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { showDbError } from '../../lib/db/errors';
@@ -157,6 +158,7 @@ class JobsStore {
   private async refresh(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    await authReady;
     try {
       const rows = await fetchJobs();
       if (rows.length > 0) {
@@ -169,6 +171,12 @@ class JobsStore {
     } finally {
       this.busy = false;
     }
+  }
+
+  // Public force-refetch entry (used by storeSync when auth settles; e.g. the
+  // anon boot left the Board with mock rows because backend reads were denied).
+  refreshFromBackend(): Promise<void> {
+    return this.refresh();
   }
 
   getJobs(): JobType[] {
