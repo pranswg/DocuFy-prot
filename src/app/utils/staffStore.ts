@@ -301,7 +301,7 @@ function rowToStaff(
     email: (row.email || "").toLowerCase(),
     phone: row.phone || "",
     role: row.role === "admin" ? "Admin" : "Staff",
-    status: row.status === "inactive" ? "Inactive" : "Active",
+    status: row.status === "Inactive" ? "Inactive" : "Active",
     attendanceStatus,
     onLeaveReason: attendanceStatus === "on-leave" ? row.on_leave_reason || "Not specified" : "",
     joinDate: row.join_date || "",
@@ -324,7 +324,7 @@ function toRecordInsert(s: Staff, profileId: string | null): StaffRecordInsert {
     email: s.email.toLowerCase(),
     phone: s.phone || null,
     role: s.role === "Admin" ? "admin" : "staff",
-    status: s.status === "Inactive" ? "inactive" : "active",
+    status: s.status === "Inactive" ? "Inactive" : "Active",
     attendance_status: s.attendanceStatus || "active",
     on_leave_reason: s.onLeaveReason?.trim() ? s.onLeaveReason : null,
     join_date: s.joinDate,
@@ -456,8 +456,12 @@ class StaffStore {
   // mint new ones and adopt their uuid). RLS-denied writes degrade quietly;
   // every other failure toasts.
   private async syncAll(): Promise<void> {
+    // Snapshot the roster before re-hydrating: hydrate() REPLACES this.list
+    // with the DB rows, so any just-added local staff would be dropped before
+    // the push loop (their saveStaffMember would never run).
+    const batch = this.list.map((s) => ({ ...s }));
     await this.hydrate();
-    for (const s of this.list) {
+    for (const s of batch) {
       const email = s.email.toLowerCase();
       const existingId = this.recordIdsByEmail.get(email);
       const profileId = this.profileIdsByEmail.get(email) ?? null;

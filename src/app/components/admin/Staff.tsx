@@ -373,7 +373,7 @@ export default function Staff() {
     };
   }, []);
 
-  const handleAddStaff = () => {
+  const handleAddStaff = async () => {
     const name = newStaff.fullName.trim();
     const email = newStaff.email.trim();
     const password = newStaff.password;
@@ -411,8 +411,9 @@ export default function Staff() {
 
     const role: "staff" | "admin" = newStaff.role === "admin" ? "admin" : "staff";
 
-    // Register the brand-new staff account so they can sign in
-    const result = registerStaff({ name, email, password, role });
+    // Register the brand-new staff account so they can sign in (now a REAL
+    // Supabase Auth user)
+    const result = await registerStaff({ name, email, password, role });
     if (!result.success) {
       toast.error(result.message || "Could not create staff account");
       return;

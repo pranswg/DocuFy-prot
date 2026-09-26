@@ -29,7 +29,7 @@ export interface AuthContextType {
   authLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; reason?: 'inactive' }>;
   signup: (data: any) => Promise<boolean>;
-  registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => { success: boolean; message?: string };
+  registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => Promise<{ success: boolean; message?: string }>;
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
   getStaffAccounts: () => { email: string; name: string; role: string; active?: boolean; isAdminRegistered?: boolean }[];
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
@@ -335,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const registerStaff = (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => {
+  const registerStaff = async (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => {
     if (!data.name || !data.email || !data.password) {
       return { success: false, message: 'All fields are required.' };
     }
@@ -346,6 +346,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (mockUsers.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
       return { success: false, message: 'An account with this email already exists.' };
     }
+
+    // Snapshot the acting admin's session: with email confirmation OFF, signUp
+    // returns (and would ACTIVATE) a session for the brand-new staff user,
+    // which would silently swap the admin out of their own session. We restore
+    // the admin session right after so the staff creation never logs the admin out.
+    const { data: beforeSession } = await supabase.auth.getSession();
+    const actingSession = beforeSession.session;
+
+    // Create a REAL Supabase Auth user (so the new staff can actually sign in).
+    const { data: signUpResult, error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: { data: { full_name: data.name, role: data.role || 'staff' } },
+    });
+
+    if (signUpError || !signUpResult.user) {
+      // Already a real auth user (e.g. staff@test.com or a customer) →
+      // friendly duplicate message instead of a raw "User already registered".
+      return {
+        success: false,
+        message: signUpError?.message?.toLowerCase().includes('already')
+          ? 'An account with this email already exists.'
+          : signUpError?.message || 'Could not create staff account.',
+      };
+    }
+
+    const newUserId = signUpResult.user.id;
+
+    // Restore the admin's session (see the comment above).
+    if (actingSession) {
+      await supabase.auth.setSession({
+        access_token: actingSession.access_token,
+        refresh_token: actingSession.refresh_token,
+      });
+    }
+
+    // The handle_new_user() trigger only copies full_name/email, so the new
+    // profile's role defaults to 'customer' — raise it to the requested role
+    // so the account actually logs in with staff/admin permissions.
+    const roleUpdate = await supabase
+      .from('profiles')
+      .update({ role: data.role || 'staff', active: true })
+      .eq('id', newUserId);
+    if (roleUpdate.error) {
+      console.warn('[auth:registerStaff] could not elevate the new profile role:', roleUpdate.error.message);
+    }
+
+    // Keep the local mirror (roster display + demo reset codes) in sync too.
     const newStaff: any = {
       email: data.email,
       password: data.password,
@@ -359,6 +407,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     mockUsers.push(newStaff);
     persistStaffAccounts();
     return { success: true };
+  };
+
+  // Push role/active changes to the REAL Supabase profile row (the login gate
+  // reads profiles.role/active). Best-effort: a row missing a matching real
+  // account keeps the local mirror only.
+  const syncRealStaffProfile = async (currentEmail: string, updates: {
+    email?: string;
+    name?: string;
+    role?: 'staff' | 'admin';
+    active?: boolean;
+  }) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', currentEmail.toLowerCase())
+        .maybeSingle();
+      if (!profile) return;
+      const patch: Database['public']['Tables']['profiles']['Update'] = {};
+      if (typeof updates.name === 'string') patch.full_name = updates.name;
+      if (updates.role === 'staff' || updates.role === 'admin') patch.role = updates.role;
+      if (typeof updates.active === 'boolean') patch.active = updates.active;
+      if (Object.keys(patch).length === 0) return;
+      await supabase.from('profiles').update(patch).eq('id', profile.id);
+    } catch (err) {
+      console.warn('[auth:updateStaffAccount] could not sync real profile:', err);
+    }
   };
 
   const updateStaffAccount = (currentEmail: string, updates: {
@@ -382,6 +457,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (updates.role === 'staff' || updates.role === 'admin') mockUsers[userIndex].role = updates.role;
     if (typeof updates.active === 'boolean') mockUsers[userIndex].active = updates.active;
     persistStaffAccounts();
+
+    // Best-effort: push role/active changes up to the REAL Supabase profile too
+    // (the account may have been created as a real Auth user). The login gate
+    // reads profiles.active/role, so a deactivate or role change here must be
+    // reflected there or the DB row would override it on the next sign-in.
+    void syncRealStaffProfile(currentEmail, updates);
     return true;
   };
 

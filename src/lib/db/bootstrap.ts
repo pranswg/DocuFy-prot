@@ -89,7 +89,7 @@ async function ensureStaffRecords(): Promise<void> {
         full_name: seed.fullName,
         email,
         role: 'staff',
-        status: 'active',
+        status: 'Active',
         attendance_status: 'active',
         on_leave_reason: seed.email === 'staff@test.com'
           ? 'On scheduled annual leave'
