@@ -203,15 +203,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const initializeAuth = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.error('Failed to restore Supabase session:', error);
-      if (mounted && data.session?.user) {
-        await loadProfile(data.session.user);
-        // Fetch the stores with the authenticated token (the module-constructor
-        // hydration ran anonymous and may have cached empty snapshots).
-        void refreshAllStores();
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) console.error('Failed to restore Supabase session:', error);
+        if (mounted && data.session?.user) {
+          await loadProfile(data.session.user);
+          // Fetch the stores with the authenticated token (the module-constructor
+          // hydration ran anonymous and may have cached empty snapshots).
+          void refreshAllStores();
+        }
+      } finally {
+        // Single owner of the initial auth-gate: only release it AFTER the
+        // session/profile restore above has settled (and `setUser` ran), so a
+        // reload paints a blank `null` frame instead of flashing to /login.
+        // The onAuthStateChange callback deliberately does NOT clear this —
+        // its INITIAL_SESSION event fires before loadProfile resolves.
+        if (mounted) setAuthLoading(false);
       }
-      if (mounted) setAuthLoading(false);
     };
 
     void initializeAuth();
@@ -224,7 +232,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
       }
-      setAuthLoading(false);
     });
 
     return () => {
