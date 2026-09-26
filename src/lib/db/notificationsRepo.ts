@@ -75,6 +75,16 @@ export async function resolveProfileIdByEmail(email: string): Promise<string | n
   return id;
 }
 
+// The AUTHORITATIVE viewer identity: the signed-in user's auth uid, which is by
+// construction the same `profiles.id` the read paths filter on. `announcement_reads`
+// is keyed by this uid, so writes must resolve to it — email→profiles lookups can
+// return null when `profiles.email` is empty, which silently breaks read-state
+// persistence (announcements "revert to unread" after a reload).
+export async function sessionUserProfileId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? null;
+}
+
 // Supabase `orders.id` is a UUID. The store also carries an `orderNumber`
 // (display "ORD-0001"); only pass a real UUID into the FK.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -219,6 +229,15 @@ export async function markAllNotificationsRead(): Promise<void> {
     .update({ read_at: new Date().toISOString() })
     .is('read_at', null);
   if (error) throw error;
+  const { count, error: checkError } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null);
+  if (!checkError && (count ?? 0) > 0) {
+    console.warn(
+      `[db:notification:mark-all-read] ${count} visible notifications still unread after update — check the notifications UPDATE RLS policy`,
+    );
+  }
 }
 
 // Delete a notification row.
@@ -267,12 +286,15 @@ export async function fetchAnnouncements(): Promise<AnnouncementDto[]> {
   const rows = (data ?? []) as AnnouncementRow[];
   if (rows.length === 0) return [];
 
-  // Resolve the current viewer's profile id + email once.
+  // Resolve the current viewer's profile id + email once. The email prefers the
+  // session's auth user (auth.users always carries it), falling back to the
+  // profiles row — `profiles.email` is nullable so it alone can leave readBy empty.
   let uid: string | null = null;
   let myEmail: string | null = null;
   const { data: sessionData } = await supabase.auth.getSession();
   if (sessionData.session) {
     uid = sessionData.session.user.id;
+    myEmail = sessionData.session.user.email ?? null;
     const { data: me } = await supabase
       .from('profiles')
       .select('email')
@@ -375,6 +397,24 @@ export async function markAnnouncementRead(
   };
   const { error } = await supabase.from('announcement_reads').insert(row);
   if (error) throw error;
+
+  // Verify the row actually persisted: a write that RLS silently drops (or one
+  // that never lands) would otherwise surface later as the announcement
+  // "reverting to unread" after a reload with no warning at all.
+  const { data: check, error: checkError } = await supabase
+    .from('announcement_reads')
+    .select('read_at')
+    .eq('announcement_id', announcementId)
+    .eq('profile_id', profileId)
+    .maybeSingle();
+  if (!checkError && !check) {
+    console.warn(
+      '[db:announcement:mark-read] row did not persist',
+      announcementId,
+      profileId,
+      '— check the announcement_reads INSERT RLS policy',
+    );
+  }
 }
 
 // Delete an announcement row.

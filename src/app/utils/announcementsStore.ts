@@ -22,6 +22,7 @@ import {
   markAnnouncementRead,
   deleteAnnouncement,
   resolveProfileIdByEmail,
+  sessionUserProfileId,
   subscribeAnnouncements,
 } from '../../lib/db/notificationsRepo';
 import type { AnnouncementDto } from '../../lib/db/notificationsRepo';
@@ -243,6 +244,11 @@ class AnnouncementsStore {
     const target = this.announcements[index];
     if (target.dbId) {
       void this.syncRead(target.dbId, email);
+    } else {
+      console.warn(
+        '[db:announcement-mark-read] local announcement has no dbId (not synced) — will revert on reload:',
+        target.title,
+      );
     }
     return true;
   }
@@ -252,6 +258,12 @@ class AnnouncementsStore {
     this.announcements = this.announcements.map((a) => {
       if (a.readBy.includes(email)) return a;
       if (a.dbId) dbIds.push(a.dbId);
+      else {
+        console.warn(
+          '[db:announcement-mark-read] local announcement has no dbId (not synced) — will revert on reload:',
+          a.title,
+        );
+      }
       return { ...a, readBy: [...a.readBy, email] };
     });
     this.save();
@@ -339,11 +351,26 @@ class AnnouncementsStore {
 
   private async syncRead(dbId: string, email: string): Promise<void> {
     try {
-      const profileId = await resolveProfileIdByEmail(email);
-      if (!profileId) return;
+      // Identity is resolved session-first: `announcement_reads` is read back by
+      // the viewer's auth uid, so the write MUST land on that same uid or the
+      // mark never persists (the announcement "reverts to unread" after reload).
+      // Email→profiles lookup can return null when `profiles.email` is empty,
+      // hence the fallback rather than the sole resolution path.
+      const profileId = (await sessionUserProfileId()) ?? (await resolveProfileIdByEmail(email));
+      if (!profileId) {
+        console.warn(
+          '[db:announcement-mark-read] no profile id resolved — read state NOT synced to Supabase (will revert on reload):',
+          email,
+        );
+        return;
+      }
       await markAnnouncementRead(dbId, profileId);
     } catch (err) {
-      if (!isRlsDenied(err)) showDbError('announcement mark-read', err);
+      if (isRlsDenied(err)) {
+        console.warn('[db:announcement-mark-read] RLS denied', dbId, email);
+      } else {
+        showDbError('announcement mark-read', err);
+      }
     }
   }
 

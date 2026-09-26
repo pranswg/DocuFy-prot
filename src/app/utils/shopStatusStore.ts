@@ -225,29 +225,42 @@ class ShopStatusStore {
     // Shop-status notifications are customer-only: the affected customers are
     // notified individually via their email. Staff/admin are NOT notified (they
     // flipped the toggle themselves).
+    //
+    // ONE notification per CUSTOMER per flip (not one per order): a customer
+    // with several affected orders still receives a single, count-aware alert
+    // instead of N near-identical messages.
     const affected = dataStore
       .getOrders()
       .filter(
         (o) =>
           o.status === "In Queue" ||
           o.status === "Printing" ||
-          o.status === "Awaiting Payment",
+          o.status === "Awaiting Payment" &&
+          !!o.customerEmail,
       );
+    const byCustomer = new Map<string, { firstOrderId: string; count: number }>();
+    for (const order of affected) {
+      const entry = byCustomer.get(order.customerEmail!) ?? {
+        firstOrderId: order.id,
+        count: 0,
+      };
+      entry.count += 1;
+      byCustomer.set(order.customerEmail!, entry);
+    }
     const notifyCustomers = (
       title: string,
-      message: (order: { customerEmail?: string; id: string }) => string,
+      message: (customer: { firstOrderId: string; count: number }) => string,
     ) => {
-      for (const order of affected) {
-        if (!order.customerEmail) continue;
+      for (const [email, customer] of byCustomer) {
         notificationStore.addNotification(
           "status_update",
           title,
-          message(order),
+          message(customer),
           {
             clickable: true,
-            relatedOrderId: order.id,
+            relatedOrderId: customer.firstOrderId,
             relatedRoute: "/customer/orders",
-            recipientEmail: order.customerEmail,
+            recipientEmail: email,
           },
         );
       }
@@ -256,20 +269,26 @@ class ShopStatusStore {
     if (nextState.status === "paused") {
       notifyCustomers(
         "Docufy is Temporarily Paused",
-        (order) =>
-          `Your order ${order.id} is safe and on hold — Docufy is currently paused${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we're back.`,
+        (customer) =>
+          customer.count === 1
+            ? `Your order ${customer.firstOrderId} is safe and on hold — Docufy is currently paused${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we're back.`
+            : `Your ${customer.count} orders (e.g. ${customer.firstOrderId}) are safe and on hold — Docufy is currently paused${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we're back.`,
       );
     } else if (nextState.status === "closed-scheduled") {
       notifyCustomers(
         "Docufy is Closed — Scheduled",
-        (order) =>
-          `Your order ${order.id} is safe and on hold — Docufy is on scheduled close (e.g. weekend or holiday)${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we reopen.`,
+        (customer) =>
+          customer.count === 1
+            ? `Your order ${customer.firstOrderId} is safe and on hold — Docufy is on scheduled close (e.g. weekend or holiday)${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we reopen.`
+            : `Your ${customer.count} orders (e.g. ${customer.firstOrderId}) are safe and on hold — Docufy is on scheduled close (e.g. weekend or holiday)${detail ? ` (${detail})` : ""}. We'll resume processing as soon as we reopen.`,
       );
     } else if (nextState.status === "open") {
       notifyCustomers(
         "Docufy is Open Again",
-        (order) =>
-          `Your order ${order.id} — Docufy has resumed operations and will continue processing your order. New orders are accepted again.`,
+        (customer) =>
+          customer.count === 1
+            ? `Your order ${customer.firstOrderId} — Docufy has resumed operations and will continue processing your order. New orders are accepted again.`
+            : `Your ${customer.count} orders (e.g. ${customer.firstOrderId}) — Docufy has resumed operations and will continue processing them. New orders are accepted again.`,
       );
     }
   }
