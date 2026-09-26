@@ -81,9 +81,13 @@ function notify() {
 function refreshFromRows(rows: OrderLockRow[]) {
   const next: Record<string, OrderLock> = {};
   for (const row of rows) {
-    const heldAt = Date.parse(row.held_at);
+    const heldAt = Date.parse(row.locked_at);
     if (Number.isNaN(heldAt)) continue;
-    next[row.order_id] = { orderId: row.order_id, heldBy: row.held_by_name, heldAt };
+    next[row.order_id] = {
+      orderId: row.order_id,
+      heldBy: row.locked_by_name ?? row.locked_by,
+      heldAt,
+    };
   }
   mirror = next;
   persist(mirror);
@@ -121,7 +125,7 @@ export async function verifyLockOnServer(orderId: string, heldBy?: string): Prom
       const row = await getOrderLockById(orderId);
       // getOrderLockById already excludes expired rows — an expired/missing
       // lock therefore means we can NOT act, regardless of our local mirror.
-      return !!row && row.held_by === profileId;
+      return !!row && row.locked_by === profileId;
     }
   } catch {
     // fall through to the local mirror
@@ -195,18 +199,18 @@ export function claimLock(orderId: string, heldBy: string): OrderLock {
   mirror[orderId] = lock;
   persist(mirror);
   notify();
-  void pushClaim(orderId, heldBy);
+  void pushClaim(orderId);
   return lock;
 }
 
-async function pushClaim(orderId: string, name: string): Promise<void> {
+async function pushClaim(orderId: string): Promise<void> {
   try {
     const profileId = await sessionUserProfileId();
     if (!profileId) {
       console.warn('[order-locks] no session — keeping local-only lock');
       return;
     }
-    const row = await claimOrderLock(orderId, profileId, name);
+    const row = await claimOrderLock(orderId, profileId);
     if (row === null) {
       // A live lock held by someone else won the race — adopt the real DB
       // state (never keep a locally-optimistic lock the server didn't grant).

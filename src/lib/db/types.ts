@@ -35,15 +35,13 @@ export type WalkInTransactionRow = Tables['walk_in_transactions']['Row'];
 export type WalkInTransactionInsert = Tables['walk_in_transactions']['Insert'];
 
 // `order_locks` — the cross-machine "someone is reviewing this order" session
-// lock. Not yet present in the generated types (table is created via the SQL in
-// the chat), so the row shape is written by hand to match the repo's reads.
-export interface OrderLockRow {
-  order_id: string;
-  held_by: string;
-  held_by_name: string;
-  held_at: string;
-  expires_at: string;
-}
+// lock. The table's real columns are `order_id → locked_by (profiles.id FK) →
+// locked_at → expires_at` (already generated in `database.types.ts`); the
+// `locked_by_name` DTO field is filled by the repo's `profiles` join so the
+// "X is managing" banners render a name, not a uuid.
+export type OrderLockRow = Tables['order_locks']['Row'] & {
+  locked_by_name?: string | null;
+};
 
 export type ShopStatusRow = Tables['shop_status']['Row'];
 export type ShopStatusInsert = Tables['shop_status']['Insert'];

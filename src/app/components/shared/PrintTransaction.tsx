@@ -59,7 +59,11 @@ import { ConfirmationDialog } from "../ui/confirmation-dialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { dataStore, type OrderUploadProgress } from "../../utils/dataStore";
 import { showDbError } from "../../../lib/db/errors";
-import { PDFDocument } from "pdf-lib";
+import {
+  analyzeDocument,
+  isSupportedImageName,
+  type ColorAnalysis,
+} from "../../utils/colorAnalysis";
 import { inventoryStore } from "../../utils/inventoryStore";
 import { notificationStore } from "../../utils/notificationStore";
 import {
@@ -177,16 +181,8 @@ function scrollPageToTop() {
 }
 
 function isImageFile(file: File): boolean {
-  const ext = file.name.toLowerCase().split(".").pop();
-  return ext === "jpg" || ext === "jpeg" || ext === "png";
+  return isSupportedImageName(file.name);
 }
-
-type ColorAnalysis = {
-  totalPages: number;
-  colorPages: number[];
-  bwPages: number[];
-  colorPercentages: { [page: number]: number };
-};
 
 type FileData = {
   id: string;
@@ -402,33 +398,6 @@ function NumberStepper({
     </div>
   );
 }
-
-// Accurately count PPTX slides by scanning the ZIP local-file/central directory
-// headers for "ppt/slides/slideN.xml" entries (entry names are stored verbatim).
-const countPptxSlides = async (file: File): Promise<number> => {
-  try {
-    const buffer = new Uint8Array(await file.arrayBuffer());
-    const text = new TextDecoder("latin1").decode(buffer);
-    const names = new Set<string>();
-    const scan = (signature: string, nameLenAt: number, nameAt: number) => {
-      let idx = text.indexOf(signature, 0);
-      while (idx !== -1) {
-        const nameLen =
-          text.charCodeAt(idx + nameLenAt) | (text.charCodeAt(idx + nameLenAt + 1) << 8);
-        const entryName = text.slice(idx + nameAt, idx + nameAt + nameLen);
-        if (entryName.startsWith("ppt/slides/slide") && entryName.endsWith(".xml")) {
-          names.add(entryName);
-        }
-        idx = text.indexOf(signature, idx + 1);
-      }
-    };
-    scan("PK\u0003\u0004", 26, 30);
-    scan("PK\u0001\u0002", 42, 46);
-    return names.size;
-  } catch {
-    return 0;
-  }
-};
 
 export default function PrintTransaction({ mode, userRole }: PrintTransactionProps) {
   const navigate = useNavigate();
@@ -682,83 +651,72 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
     "Bind on left side",
   ];
 
-  const detectPageCount = async (file: File): Promise<number> => {
-    const fileExtension = file.name.toLowerCase().split(".").pop();
+  const processUploadedFiles = async (filesToProcess: File[]) => {
+    setIsProcessingFile(true);
 
-    if (fileExtension === "pdf") {
-      try {
-        const pdf = await PDFDocument.load(await file.arrayBuffer(), {
-          ignoreEncryption: true,
-        });
-        const count = pdf.getPageCount();
-        if (count > 0) return count;
-      } catch {
-        // fall through to the byte-scan fallback
-      }
-      try {
-        const text = new TextDecoder("latin1").decode(await file.arrayBuffer());
-        const pageMatches = text.match(/\/Type\s*\/Page[^s]/g);
-        if (pageMatches && pageMatches.length > 0) {
-          return pageMatches.length;
+    try {
+      for (const file of filesToProcess) {
+        const fileId = Math.random().toString(36).substr(2, 9);
+
+        setFiles((prev) => [
+          ...prev,
+          {
+            id: fileId,
+            file,
+            fileName: file.name,
+            pageCount: 1,
+            colorAnalysis: null,
+            contentType: isImageFile(file) ? "imageOnly" : "text",
+            printType: "",
+            paperSize: availablePaperSizes.length > 0 ? availablePaperSizes[0].name : "",
+            copies: 1,
+            colorMode: "bw",
+            pagesPerSheet: "1",
+            orientation: "portrait",
+            pageRange: "all",
+            specificPages: "",
+            twoSided: "no",
+            margins: "default",
+            scale: "default",
+            customScale: 100,
+            notes: "",
+            photoSize: "2R",
+            photoQty: Math.max(
+              1,
+              pricingStore.getMatrix().photo["2R"]?.minQty ?? 6,
+            ),
+          },
+        ]);
+
+        // The row is on screen immediately; the real analysis then fills in the
+        // page count + per-page color percentages. A failed analysis leaves the
+        // row at 1 page / no color data rather than blocking the whole upload.
+        setAnalyzingFileId(fileId);
+        try {
+          const analyzed = await analyzeDocument(file);
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    pageCount: analyzed.pageCount,
+                    colorAnalysis: analyzed.analysis,
+                  }
+                : f,
+            ),
+          );
+        } catch (error) {
+          console.error("Color analysis failed for", file.name, error);
+        } finally {
+          setAnalyzingFileId(null);
         }
-      } catch {
-        // ignore
       }
-      return Math.max(1, Math.ceil(file.size / 102400));
+    } catch (error) {
+      setFileError("Error processing files. Please try again.");
+      console.error(error);
+    } finally {
+      setIsProcessingFile(false);
     }
-
-    if (fileExtension === "pptx") {
-      const slideCount = await countPptxSlides(file);
-      if (slideCount > 0) return slideCount;
-      return Math.max(1, Math.ceil(file.size / 153600));
-    }
-
-    if (fileExtension === "txt") {
-      try {
-        const content = await file.text();
-        const lines = content
-          .split(/\r\n|\r|\n/)
-          .filter((line) => line.trim().length > 0).length;
-        return Math.max(1, Math.ceil(lines / 40));
-      } catch {
-        return Math.max(1, Math.ceil(file.size / 3000));
-      }
-    }
-
-    if (fileExtension === "doc" || fileExtension === "docx") {
-      return Math.max(1, Math.ceil(file.size / 51200));
-    }
-    if (fileExtension === "ppt") {
-      return Math.max(1, Math.ceil(file.size / 153600));
-    }
-    if (fileExtension === "xls" || fileExtension === "xlsx") {
-      return Math.max(1, Math.ceil(file.size / 50000));
-    }
-
-    return 1;
-  };
-
-  const analyzeColorContent = async (pageCount: number): Promise<ColorAnalysis> => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const colorPages: number[] = [];
-    const bwPages: number[] = [];
-    const colorPercentages: { [page: number]: number } = {};
-    for (let i = 1; i <= pageCount; i++) {
-      const hasColor = Math.random() > 0.6;
-      if (hasColor) {
-        colorPages.push(i);
-        colorPercentages[i] = Math.floor(Math.random() * 70) + 15;
-      } else {
-        bwPages.push(i);
-        colorPercentages[i] = 0;
-      }
-    }
-    return {
-      totalPages: pageCount,
-      colorPages,
-      bwPages,
-      colorPercentages,
-    };
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -799,73 +757,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       await processUploadedFiles(filesToProcess);
     } finally {
       clearInput();
-    }
-  };
-
-  const processUploadedFiles = async (filesToProcess: File[]) => {
-    setIsProcessingFile(true);
-
-    try {
-      const processedFiles: FileData[] = [];
-
-      for (const file of filesToProcess) {
-        const pageCount = await detectPageCount(file);
-        const fileId = Math.random().toString(36).substr(2, 9);
-
-        const newFile: FileData = {
-          id: fileId,
-          file,
-          fileName: file.name,
-          pageCount,
-          colorAnalysis: null,
-          contentType: isImageFile(file) ? "imageOnly" : "text",
-          printType: "",
-          paperSize: availablePaperSizes.length > 0 ? availablePaperSizes[0].name : "",
-          copies: 1,
-          colorMode: "bw",
-          pagesPerSheet: "1",
-          orientation: "portrait",
-          pageRange: "all",
-          specificPages: "",
-          twoSided: "no",
-          margins: "default",
-          scale: "default",
-          customScale: 100,
-          notes: "",
-          photoSize: "2R",
-          photoQty: Math.max(
-            1,
-            pricingStore.getMatrix().photo["2R"]?.minQty ?? 6,
-          ),
-        };
-
-        processedFiles.push(newFile);
-      }
-
-      setFiles((prev) => [...prev, ...processedFiles]);
-      setIsProcessingFile(false);
-
-      for (const processedFile of processedFiles) {
-        setAnalyzingFileId(processedFile.id);
-        const colorAnalysis = await analyzeColorContent(processedFile.pageCount);
-
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === processedFile.id
-              ? {
-                  ...f,
-                  colorAnalysis,
-                }
-              : f,
-          ),
-        );
-        setAnalyzingFileId(null);
-      }
-    } catch (error) {
-      setFileError("Error processing files. Please try again.");
-      console.error(error);
-      setIsProcessingFile(false);
-      setAnalyzingFileId(null);
     }
   };
 
@@ -1881,6 +1772,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                               <div className="mt-2 space-y-1">
                                 <p className="text-xs text-blue-700 font-medium">
                                   ✓ Analysis complete
+                                  {fileData.colorAnalysis.estimated && (
+                                    <span className="ml-1 text-[10px] font-normal text-gray-400">
+                                      (estimated)
+                                    </span>
+                                  )}
                                 </p>
                                 {fileData.colorAnalysis.colorPages.length > 0 ? (
                                   <p className="text-xs text-gray-600">
@@ -2872,7 +2768,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         </div>
                         {fileData.colorMode !== "bw" && fileData.colorAnalysis && (
                           <div className="col-span-2">
-                            <p className="text-gray-600">Color Breakdown</p>
+                            <p className="text-gray-600">
+                              Color Breakdown
+                              {fileData.colorAnalysis.estimated && (
+                                <span className="ml-1 text-[10px] text-gray-400">
+                                  (estimated)
+                                </span>
+                              )}
+                            </p>
                             <div className="font-medium text-gray-900 text-xs space-y-0.5">
                               {(() => {
                                 const buckets: Array<{ label: string; pct: number; count: number }> = [

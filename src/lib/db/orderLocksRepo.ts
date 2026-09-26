@@ -1,8 +1,10 @@
 // Order session-lock repository: the cross-MACHINE "who is reviewing this order
 // right now" mechanism. One row per order (`order_id` PK) — a lock is live only
 // while `expires_at` is in the future, so a dead tab/PC frees the order on its
-// own without a janitor. `held_by` is the acting `profiles.id` (authoritative),
-// `held_by_name` is denormalized for the "X is managing" banners.
+// own without a janitor. `locked_by` is the acting `profiles.id` (authoritative
+// holder identity); the display name for the "X is managing" banners is joined
+// back from `profiles.full_name` so a lock claimed on ANY machine renders a
+// human-readable holder.
 //
 // RLS: SELECT/INSERT/UPDATE/DELETE all staff/admin only via
 // `public.is_staff_or_admin()`. The CLAIM is a security-definer RPC so the
@@ -20,6 +22,19 @@ export const ORDER_LOCK_TTL_SECONDS = 5 * 60;
 
 const nowIso = (): string => new Date().toISOString();
 
+const LOCK_SELECT = '*, profiles!order_locks_locked_by_fkey(full_name)';
+
+function mapRow(raw: unknown): OrderLockRow {
+  const r = raw as (Partial<OrderLockRow> & { profiles?: { full_name?: string | null } | null });
+  return {
+    order_id: r.order_id ?? '',
+    locked_by: r.locked_by ?? '',
+    locked_at: r.locked_at ?? '',
+    expires_at: r.expires_at ?? '',
+    locked_by_name: r.profiles?.full_name ?? r.locked_by_name ?? null,
+  } as OrderLockRow;
+}
+
 export async function sessionUserProfileId(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id ?? null;
@@ -30,22 +45,22 @@ export async function sessionUserProfileId(): Promise<string | null> {
 export async function fetchOrderLocks(): Promise<OrderLockRow[]> {
   const { data, error } = await supabase
     .from('order_locks')
-    .select('*')
+    .select(LOCK_SELECT)
     .gt('expires_at', nowIso());
   if (error) throw error;
-  return (data ?? []) as OrderLockRow[];
+  return (data ?? []).map(mapRow);
 }
 
 // The live lock for one order, if any (null when none / expired / RLS-hidden).
 export async function getOrderLockById(orderId: string): Promise<OrderLockRow | null> {
   const { data, error } = await supabase
     .from('order_locks')
-    .select('*')
+    .select(LOCK_SELECT)
     .eq('order_id', orderId)
     .gt('expires_at', nowIso())
     .maybeSingle();
   if (error) throw error;
-  return (data as OrderLockRow | null) ?? null;
+  return data ? mapRow(data) : null;
 }
 
 // Atomic claim/renewal. Runs the `claim_order_lock` security-definer RPC so the
@@ -57,36 +72,33 @@ export async function getOrderLockById(orderId: string): Promise<OrderLockRow | 
 export async function claimOrderLock(
   orderId: string,
   profileId: string,
-  name: string,
   ttlSeconds: number = ORDER_LOCK_TTL_SECONDS,
 ): Promise<OrderLockRow | null> {
   const { data, error } = await (supabase.rpc as unknown as (
     fn: 'claim_order_lock',
     args: {
       p_order_id: string;
-      p_held_by: string;
-      p_name: string;
+      p_locked_by: string;
       p_ttl_seconds: number;
     },
   ) => Promise<{ data: unknown; error: unknown }>)('claim_order_lock', {
     p_order_id: orderId,
-    p_held_by: profileId,
-    p_name: name,
+    p_locked_by: profileId,
     p_ttl_seconds: ttlSeconds,
   });
   if (error) throw error;
   if (!data) return null;
-  return (Array.isArray(data) ? (data[0] ?? null) : data) as OrderLockRow | null;
+  return mapRow(Array.isArray(data) ? (data[0] ?? null) : data);
 }
 
-// Release OUR hold. The `held_by = profileId` condition means a closed
+// Release OUR hold. The `locked_by = profileId` condition means a closed
 // dialog/browser can never free another reviewer's lock.
 export async function releaseOrderLock(orderId: string, profileId: string): Promise<void> {
   const { error } = await supabase
     .from('order_locks')
     .delete()
     .eq('order_id', orderId)
-    .eq('held_by', profileId);
+    .eq('locked_by', profileId);
   if (error) throw error;
 }
 
@@ -100,7 +112,7 @@ export async function stillHoldsOrderLock(
     .from('order_locks')
     .select('order_id')
     .eq('order_id', orderId)
-    .eq('held_by', profileId)
+    .eq('locked_by', profileId)
     .gt('expires_at', nowIso())
     .maybeSingle();
   if (error) throw error;
