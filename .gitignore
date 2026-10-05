@@ -27,6 +27,7 @@ Thumbs.db
 # Local-only setup/documentation logs (never push)
 PHASE*_LOG*.docx
 ~$*.docx
+dev_readme.md
 
 # Project docs / misc files not required for the system
 ATTRIBUTIONS.md

@@ -107,19 +107,40 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
     doTimeIn();
   };
 
+  // Clicking the dimmed/blurred backdrop — rather than the Time In buttons —
+  // sends the staff back to the page they were on before this locked page
+  // opened (e.g. Inventory → tapped Orders → back to Inventory) instead of
+  // always dropping them on the dashboard. The dashboard is only the fallback
+  // for a direct open (refresh / deep link), where there is no earlier in-app
+  // history entry to return to.
+  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    // Clicks on the panel itself (and everything inside it) keep the lockout up.
+    if (target?.closest("[data-lockout-panel]")) return;
+
+    const historyIdx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof historyIdx === "number" && historyIdx > 0) navigate(-1);
+    else navigate("/staff/dashboard");
+  };
+
   return (
     <>
       {children}
 
-      {/* Lockout overlay — fixed modal over a blurred backdrop */}
+      {/* Lockout overlay — fixed modal over a blurred backdrop. Clicking the
+          blurred area returns the staff to the page they came from. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="staff-lockout-title"
-        className="fixed inset-0 z-50 overflow-y-auto bg-[#1D73EC]/25 backdrop-blur-[3px]"
+        onClick={handleOverlayClick}
+        className="fixed inset-0 z-50 cursor-pointer overflow-y-auto bg-[#1D73EC]/25 backdrop-blur-[3px]"
       >
         <div className="flex min-h-full w-full items-center justify-center p-3 sm:p-6">
-          <Card className="w-full max-w-2xl border-slate-100 bg-white p-6 shadow-xl sm:p-8">
+          <Card
+            data-lockout-panel=""
+            className="w-full max-w-2xl cursor-default border-slate-100 bg-white p-6 shadow-xl sm:p-8"
+          >
             {/* Horizontal header — icon left, title/description right */}
             <div className="flex items-start gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F2F7FF] sm:h-16 sm:w-16">
@@ -215,6 +236,10 @@ export default function StaffTimeInGate({ children }: StaffTimeInGateProps) {
                 Return to Dashboard
               </Button>
             </div>
+
+            <p className="mt-3 text-center text-[11px] text-gray-400">
+              Click outside this panel to go back to the page you were on.
+            </p>
           </Card>
         </div>
       </div>

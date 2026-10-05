@@ -1,91 +1,88 @@
 # Docufy PSMS
 
-**Docufy PSMS** (Print Shop Management System) is a frontend prototype for managing a print shop's day-to-day operations. It provides role-based dashboards for **Customers**, **Staff**, and **Admins**, covering everything from placing print orders to managing inventory, employees, and job applications.
+**Docufy PSMS** (Print Shop Management System) is a web app for running a print shop. It gives customers, staff, and admins their own dashboard for everything from submitting a print job to managing stock, staff, and pay.
 
-> **Note:** This is a frontend-only prototype. There is no backend — data is stored in `localStorage` and in-memory and does not persist across sessions/devices.
+> Developed on the **`backend-core`** branch.
+
+## What It Does
+
+| Role | What they get |
+|------|---------------|
+| **Customer** | Submit print requests, track orders, pay online or on pickup, browse the job board, apply for open positions |
+| **Staff** | Dashboard with KPIs, order queue, walk-in transactions, payment verification, inventory, time clock |
+| **Admin** | Everything staff can do, plus staff management, the pricing matrix, and landing-page content editing |
+
+Core features:
+
+- **Orders** — move through Awaiting Payment → In Queue → Printing → Completed → Released, with live progress tracking for customers
+- **Payments** — online payments with staff verification, down-payment tiers, and automatic expiry windows
+- **Inventory** — stock tracked in pieces, automatically deducted as orders are fulfilled
+- **Job board** — post openings, receive applications with uploaded portfolios
+- **Attendance & salary** — staff clock in and out, salary is calculated from hours worked
+- **Pricing** — an editable price matrix across service, content type, color, and paper size
+- **Notifications** — role-specific alerts for orders, payments, inventory, and announcements
 
 ## Tech Stack
 
-- **React 18** + **TypeScript**
-- **Vite** (build tool & dev server)
-- **Tailwind CSS v4** (styling)
-- **Radix UI** / **shadcn/ui** components
-- **React Router** (routing)
-- **Recharts** (charts), **Lucide** (icons), **MUI** (Material UI)
-
-## Features
-
-### Roles
-
-The app has three roles, each with its own set of pages and permissions:
-
-| Role   | Highlights |
-|--------|-----------|
-| **Customer** | Dashboard, new print requests, order history & tracking, online payments, job board & applications |
-| **Staff** | Dashboard with KPIs, order queue, walk-in transactions, payment verification, inventory |
-| **Admin** | Full dashboard, order/payment/inventory management, staff & employee management, job board management, content management |
-
-### Key Modules
-
-- **Authentication** — role-based routing with `ProtectedRoute`; customer, staff, and admin accounts.
-- **Orders** — customers submit print requests; staff move them through statuses (Received → In Queue → Printing → Completed → Released); customers can track progress and cancel in-queue orders.
-- **Payments** — online payment flow with verification by staff/admin.
-- **Job Board** — the shop posts open positions; customers apply; admins review and manage applicants.
-- **Inventory** — stock tracking with automatic deduction when orders are fulfilled.
-- **Notifications** — role-specific in-app notifications (order status changes, payment verifications, job applications, inventory alerts).
-- **Responsive UI** — a uniform blue/white theme with a responsive layout (sidebar + header, plus a mobile bottom sheet).
+- React 18 + TypeScript, built with Vite
+- Tailwind CSS v4, Radix UI / shadcn/ui
+- React Router, Recharts, Lucide
+- Supabase — Postgres, Auth, Storage, Realtime
 
 ## Getting Started
 
-### Prerequisites
+### Requirements
 
-- [Node.js](https://nodejs.org/) (18+)
+- [Node.js](https://nodejs.org/) 18 or newer
+- npm
 
 ### Install
 
 ```bash
+git clone https://github.com/pranswg/DocuFy-prot.git
+cd DocuFy-prot
+git checkout backend-core
 npm install
 ```
 
-### Run the development server
+### Configure
+
+The app talks to Supabase, so it needs two environment variables in a `.env.local` file at the project root:
+
+```bash
+VITE_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+Get both from your Supabase project under **Project Settings → API**. Use the `anon` `public` key only.
+
+### Run
 
 ```bash
 npm run dev
 ```
 
-Then open the local URL Vite prints (usually `http://localhost:5173`).
+Vite prints a local URL — open it in your browser (usually `http://localhost:5173`).
 
-### Build for production
+### Other Commands
 
-```bash
-npm run build
-```
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build for production into `dist/` |
+| `npm run typecheck` | Type-check without emitting files |
 
-The built app is output to `dist/`.
+The production build in `dist/` is a static bundle and can be hosted anywhere. Set the two environment variables in your host's build settings.
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── App.tsx             # Router setup (role-based routes)
-│   ├── components/         # Pages & shared UI
-│   │   ├── admin/
-│   │   ├── customer/
-│   │   ├── staff/
-│   │   ├── shared/
-│   │   └── ui/             # shadcn/ui primitives
-│   ├── contexts/           # Auth, mobile-nav state
-│   └── utils/              # Stores & helpers (orders, inventory, jobs, etc.)
-├── assets/
-└── styles/                 # Tailwind + global styles
+│   ├── App.tsx        # Router setup (role-based routes)
+│   ├── components/    # Pages and shared UI
+│   ├── contexts/      # Auth, navigation state
+│   └── utils/         # Data stores
+├── lib/               # Supabase client, schema types, repositories
+└── styles/            # Tailwind and global styles
 ```
-
-## Data & Backend
-
-This prototype runs entirely in the browser:
-
-- **`localStorage`** persists data like jobs and orders *per browser*.
-- File uploads (e.g., portfolio/attachments) are **in-memory only** — they are not shared across sessions or devices.
-
-Real multi-device sharing and durability require connecting a backend and moving the stores (`ordersStore`, `jobsStore`, `inventoryStore`, etc.) to database tables plus storage for uploaded files.
