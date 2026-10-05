@@ -39,6 +39,7 @@ import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
@@ -1762,7 +1763,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             </p>
                             {analyzingFileId === fileData.id && (
                               <div className="mt-2 flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                <Spinner size="xs" className="text-blue-700" />
                                 <p className="text-sm text-blue-700 font-medium">
                                   Analyzing document...
                                 </p>
@@ -3132,11 +3133,33 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
         {/* Upload progress — shown above the action bar while files upload */}
         {isSubmittingOrder && uploadProgress && uploadProgress.percent < 100 && (
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+          <div className="mt-4 space-y-1.5">
+            {/* A bare moving bar doesn't say WHAT is happening; naming the file
+                and the counts makes a long upload legible instead of a hang. */}
+            <div className="flex items-center justify-between gap-3 text-xs font-medium text-blue-800">
+              <span className="truncate">
+                Uploading {uploadProgress.fileName}
+                {uploadProgress.fileCount > 1
+                  ? ` (file ${uploadProgress.fileIndex} of ${uploadProgress.fileCount})`
+                  : ""}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {Math.round(uploadProgress.percent)}%
+              </span>
+            </div>
             <div
-              className="h-full rounded-full bg-[#2F6FD6] transition-[width] duration-150 ease-linear"
-              style={{ width: `${uploadProgress.percent}%` }}
-            />
+              className="h-1.5 w-full overflow-hidden rounded-full bg-blue-100"
+              role="progressbar"
+              aria-valuenow={Math.round(uploadProgress.percent)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Uploading ${uploadProgress.fileName}`}
+            >
+              <div
+                className="h-full rounded-full bg-[#2F6FD6] transition-[width] duration-150 ease-linear"
+                style={{ width: `${uploadProgress.percent}%` }}
+              />
+            </div>
           </div>
         )}
 

@@ -10,12 +10,18 @@ import {
 import { Button } from './button';
 import { Input } from './input';
 import { Label } from './label';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 interface ConfirmationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  /**
+   * May be sync OR async. When it returns a promise the dialog now STAYS OPEN
+   * showing a spinner until that promise settles, then closes itself. That
+   * fixes the silent-gap bug where the dialog vanished while the write was
+   * still in flight (and made double-confirm possible).
+   */
+  onConfirm: () => void | Promise<void>;
   title: string;
   description: string;
   confirmLabel?: string;
@@ -24,6 +30,14 @@ interface ConfirmationDialogProps {
   requirePhrase?: boolean;
   confirmationPhrase?: string;
   loading?: boolean;
+  /** Label to show on the confirm button while busy. Defaults to confirmLabel. */
+  loadingText?: string;
+  /**
+   * Set to false when the caller's `onConfirm` manages its own closing (e.g. it
+   * keeps the dialog open on a failed verification so the user can retry).
+   * Defaults to true: the dialog closes itself once the promise settles.
+   */
+  closeOnConfirm?: boolean;
 }
 
 export function ConfirmationDialog({
@@ -38,26 +52,67 @@ export function ConfirmationDialog({
   requirePhrase = false,
   confirmationPhrase = "Docufy",
   loading = false,
+  loadingText,
+  closeOnConfirm = true,
 }: ConfirmationDialogProps) {
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
+  // True only while OUR OWN onConfirm promise is in flight. `loading` lets a
+  // caller force the busy state (e.g. work that continues after the dialog is
+  // dismissed); the two are OR-ed so existing usages behave as before.
+  const [pending, setPending] = useState(false);
+  const busy = loading || pending;
 
   useEffect(() => {
     if (!open) {
       setInputValue('');
       setError('');
+      setPending(false);
     }
   }, [open]);
 
   const canConfirm = requirePhrase ? inputValue.trim() === confirmationPhrase : true;
 
-  const handleConfirm = () => {
-    if (loading) return;
+  const handleConfirm = async () => {
+    if (busy) return;
     if (requirePhrase && inputValue.trim() !== confirmationPhrase) {
       setError(`Please type "${confirmationPhrase}" exactly to confirm.`);
       return;
     }
-    onConfirm();
+
+    let result: void | Promise<void>;
+    try {
+      result = onConfirm();
+    } catch (err) {
+      console.error('[confirmation-dialog] onConfirm threw:', err);
+      return;
+    }
+
+    // A sync onConfirm (the majority of call sites) closes immediately, exactly
+    // as it always has.
+    if (!(result instanceof Promise)) {
+      if (closeOnConfirm) {
+        onOpenChange(false);
+        setInputValue('');
+        setError('');
+      }
+      return;
+    }
+
+    setPending(true);
+    try {
+      await result;
+    } catch (err) {
+      // The dialog stays open on failure so the user can retry without losing
+      // what they typed into the phrase field.
+      console.error('[confirmation-dialog] onConfirm rejected:', err);
+      return;
+    } finally {
+      setPending(false);
+    }
+
+    if (!closeOnConfirm) return;
+
     onOpenChange(false);
     setInputValue('');
     setError('');
@@ -131,7 +186,7 @@ export function ConfirmationDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={busy}
               className="bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
             >
               {cancelLabel}
@@ -139,10 +194,11 @@ export function ConfirmationDialog({
             <Button
               type="submit"
               variant={destructive ? "destructive" : "default"}
-              disabled={!canConfirm || loading}
+              disabled={!canConfirm || busy}
+              loading={busy}
+              loadingText={loadingText ?? confirmLabel}
               className={destructive ? "bg-red-600 hover:bg-red-700" : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"}
             >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {confirmLabel}
             </Button>
           </DialogFooter>

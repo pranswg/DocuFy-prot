@@ -31,7 +31,6 @@ import {
   Unlock,
   UserCheck,
   WifiOff,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -44,6 +43,7 @@ import { notificationStore } from "../../utils/notificationStore";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
 import { shopStatusStore } from "../../utils/shopStatusStore";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -62,6 +62,8 @@ import { Textarea } from "../ui/textarea";
 import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import { FileAttachments } from "../ui/file-attachments";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { TableSkeleton } from "../ui/table-skeleton";
+import { useHydrating } from "../../utils/useHydrating";
 import { generateInvoiceData, generateInvoiceHTML, InvoiceData } from "../../utils/invoiceUtils";
 import { pricingStore } from "../../utils/pricingStore";
 import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
@@ -72,7 +74,6 @@ import {
   getLock,
   claimLock,
   releaseLock,
-  stillHoldsLock,
   verifyLockOnServer,
   subscribeToLocks,
 } from "../../utils/orderLocks";
@@ -211,6 +212,11 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showStatusForm, setShowStatusForm] = useState(false);
   const [showPaperConfirm, setShowPaperConfirm] = useState(false);
+  const hydrating = useHydrating();
+  // Covers the whole status write, including the session-lock re-check that
+  // runs before it. Without it, clicking Confirm Update on a slow connection
+  // looked like a dead button.
+  const [statusSaving, setStatusSaving] = useState(false);
   const [paperFormData, setPaperFormData] = useState<{
     noErrors: boolean;
     reason: string;
@@ -279,20 +285,37 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     status === "completed" ||
     status === "awaitingPayment";
 
-  // HEARTBEAT: while our order details dialog is open on an actionable row,
+// HEARTBEAT: while our order details dialog is open on an actionable row,
   // keep renewing OUR lock so it persists for as long as we keep viewing —
   // it never vanishes mid-review. A dead tab stops beating and expires.
+  //
+  // Re-claims unconditionally rather than only when `stillHoldsLock()` is true.
+  // That guard read the local mirror, so the FIRST time the lock went missing
+  // (a tab that slept past the TTL, a slow `claim_order_lock` push, or a
+  // hydrate landing before our optimistic claim reached the DB) the heartbeat
+  // silently stopped renewing and the order could stay unlocked for the rest of
+  // the session — the dialog stayed open, so nothing ever re-asserted it. Claim
+  // is a no-op against someone else's live lock and a renewal against our own,
+  // so calling it every beat is both safe and self-healing.
   useEffect(() => {
     if (!selectedOrder || !showDialog || !isActionableStatus(selectedOrder.status) || isPhotocopyOrder(selectedOrder)) {
       return;
     }
-    const beat = () => {
-      if (stillHoldsLock(selectedOrder.id, myName)) {
-        claimLock(selectedOrder.id, myName);
-      }
-    };
+    const beat = () => claimLock(selectedOrder.id, myName);
     const iv = setInterval(beat, 30000);
-    return () => clearInterval(iv);
+    // Also re-assert when the tab comes back to the foreground: a backgrounded
+    // tab can be throttled well past the TTL, and the reviewer is looking at the
+    // order again the moment they switch back.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") beat();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [selectedOrder?.id, selectedOrder?.status, showDialog, myName]);
 
   // Read ?orderId=... so a notification click can deep-open a specific order
@@ -559,10 +582,22 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     }
 
     setShowPaperConfirm(false);
-    confirmStatusUpdate({
+    runStatusUpdate({
       paperConfirmed: true,
       errorUsage,
     });
+  };
+
+  const runStatusUpdate = async (paperData?: {
+    paperConfirmed: boolean;
+    errorUsage?: { noErrors: boolean; reason?: string; wastedSheets: number };
+  }) => {
+    setStatusSaving(true);
+    try {
+      await confirmStatusUpdate(paperData);
+    } finally {
+      setStatusSaving(false);
+    }
   };
 
   const confirmStatusUpdate = async (paperData?: {
@@ -933,37 +968,25 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 />
               </div>
             </div>
-            <div className="w-full lg:w-40">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || undefined}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="pr-10"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="w-full lg:w-40">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="pr-10"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
+            <DateRangeFilter
+              value={{ from: dateFrom, to: dateTo }}
+              onChange={(next) => {
+                setDateFrom(next.from);
+                setDateTo(next.to);
+              }}
+              fromLabel="From"
+              toLabel="To"
+              className="w-full lg:w-[21rem]"
+            />
           </div>
         </Card>
 
         {/* Table */}
         <Card className="overflow-hidden">
+          {hydrating ? (
+            <TableSkeleton columns={8} rows={10} />
+          ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10 sticky top-0 z-10">
@@ -1214,6 +1237,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               </div>
             )}
           </div>
+          </>
+          )}
         </Card>
       </div>
 
@@ -1391,12 +1416,16 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                           Attached Files
                         </p>
+                        {/* File actions follow the session lock: when another
+                            staff/admin holds this order, View/Download are
+                            blocked with an explanation instead of opening the
+                            same document from two places. */}
                         <FileAttachments
                           files={selectedOrder.attachedFiles}
                           orderId={selectedOrder.id}
                           showDownload={true}
                           showView={true}
-                          showPrint={true}
+                          lockedBy={canActOnOrder ? null : lockHolder}
                         />
                       </div>
                     )}
@@ -1842,16 +1871,19 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
               onClick={() =>
                 pendingStatus === "completed"
                   ? openPaperConfirm()
-                  : confirmStatusUpdate()
+                  : runStatusUpdate()
               }
+              loading={statusSaving}
+              loadingText="Updating..."
               className={
                 pendingStatus === "canceled"
                   ? "bg-red-600 text-white hover:bg-red-700"
                   : "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
               }
               disabled={
-                pendingStatus === "canceled" &&
-                !statusFormData.cancellationReason
+                statusSaving ||
+                (pendingStatus === "canceled" &&
+                  !statusFormData.cancellationReason)
               }
             >
               Confirm Update

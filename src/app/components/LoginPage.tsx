@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (user) {
@@ -43,13 +44,18 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const result = await login(email, password);
-    if (!result.success) {
-      setError(
-        result.reason === "inactive"
-          ? "This account has been deactivated. Please contact your administrator."
-          : "Invalid email or password",
-      );
+    setSubmitting(true);
+    try {
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(
+          result.reason === "inactive"
+            ? "This account has been deactivated. Please contact your administrator."
+            : "Invalid email or password",
+);
+        }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -257,6 +263,8 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
+                loading={submitting}
+                loadingText="Logging In..."
                 className="w-full h-10 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] hover:border-[#10316B] rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.97] active:bg-[#0c2a5c] disabled:opacity-60 disabled:pointer-events-none"
               >
                 Log In

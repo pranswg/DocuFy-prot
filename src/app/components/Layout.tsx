@@ -50,6 +50,7 @@ import {
 } from "./ui/dialog";
 import { AnnouncementDetailsModal, type AnnouncementDetailData } from "./shared/AnnouncementDetailsModal";
 import { Button } from "./ui/button";
+import { TopProgressBar } from "./ui/top-progress-bar";
 import {
   adminSections,
   staffSections,
@@ -956,6 +957,10 @@ export default function Layout({
         isMobile ? "overflow-x-clip" : "overflow-hidden"
       }`}
     >
+      {/* Non-blocking indicator while the backend stores hydrate, so a slow
+          connection reads as "still loading" instead of "no data". */}
+      <TopProgressBar />
+
       {!isMobile && (
         <aside
           aria-label="Primary navigation"

@@ -497,6 +497,8 @@ export default function CustomerProfile() {
             <Button
               onClick={confirmSave}
               disabled={isSaving}
+              loading={isSaving}
+              loadingText="Saving..."
               className="bg-white text-[#1D73EC] border-2 border-blue-200 hover:bg-[#1D73EC] hover:text-white"
             >
               Save Changes

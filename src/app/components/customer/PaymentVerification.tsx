@@ -194,6 +194,9 @@ export default function PaymentVerification() {
   >(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  // Submitting the reference writes the order + proof + notifications, so the
+  // confirm dialog needs a real pending state instead of vanishing instantly.
+  const [submitting, setSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cashAcknowledged, setCashAcknowledged] = useState(false);
@@ -372,7 +375,8 @@ export default function PaymentVerification() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setSubmitting(true);
+    try {
     if (paymentMethod !== "cash") {
       if (!referenceNumber.trim()) {
         toast.error(
@@ -477,6 +481,9 @@ export default function PaymentVerification() {
 
     // Show success dialog instead of navigating immediately
     setShowSuccessDialog(true);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const selectMethod = (value: string) => {
@@ -1128,6 +1135,8 @@ onClick={goToNewRequest}
                 </Button>
                 <Button
                   type="submit"
+                  loading={submitting}
+                  loadingText="Submitting..."
                   className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B]"
                 >
                   Submit Reference
@@ -1246,7 +1255,12 @@ onClick={goToNewRequest}
         <ConfirmationDialog
           open
           onOpenChange={setShowSubmitConfirm}
-          onConfirm={() => { handleSubmit({ preventDefault: () => {} } as React.FormEvent); setShowSubmitConfirm(false); }}
+          onConfirm={async () => {
+            await handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+            setShowSubmitConfirm(false);
+          }}
+          closeOnConfirm={false}
+          loadingText={paymentMethod === "cash" ? "Confirming..." : "Submitting..."}
           title="Submit Payment for Verification?"
           description={
             paymentMethod === "cash"

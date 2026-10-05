@@ -11,11 +11,11 @@ import {
   Link2,
   ArrowLeft,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
@@ -626,10 +626,7 @@ export default function JobApplyForm() {
                 className="w-full h-11 bg-[#1D73EC] text-white border-2 border-[#1D73EC] hover:bg-[#10316B] hover:border-[#10316B] transition-all hover:-translate-y-0.5 hover:shadow-md disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Submitting...
-                  </span>
+                  <Spinner size="xs" label="Submitting..." />
                 ) : (
                   "Submit Application"
                 )}

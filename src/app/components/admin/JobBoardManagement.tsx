@@ -68,6 +68,7 @@ export default function JobBoardManagement() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [selectedApplicant, setSelectedApplicant] =
     useState<any>(null);
+  const [resumeOpening, setResumeOpening] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -170,17 +171,23 @@ export default function JobBoardManagement() {
 
   const handleViewResume = async (applicant: any) => {
     setSelectedApplicant(applicant);
-    // Open the portfolio in a brand-new tab using the browser's native viewer —
-    // real files resolve a signed URL for the private bucket first.
-    const opened = await openApplicationPortfolio({
-      portfolioType: applicant.portfolioType,
-      portfolio: applicant.resumeUrl,
-      portfolioUrl: applicant.resumeUrl,
-      portfolioFile: applicant.portfolioFile,
-      portfolioStoragePath: applicant.portfolioStoragePath || null,
-    });
-    if (!opened) {
-      toast.error("No document available for this applicant");
+    // Resolving the signed URL for a private bucket + fetching the object is a
+    // real round-trip before the browser tab opens, so the button shows a
+    // spinner instead of looking like it did nothing.
+    setResumeOpening(true);
+    try {
+      const opened = await openApplicationPortfolio({
+        portfolioType: applicant.portfolioType,
+        portfolio: applicant.resumeUrl,
+        portfolioUrl: applicant.resumeUrl,
+        portfolioFile: applicant.portfolioFile,
+        portfolioStoragePath: applicant.portfolioStoragePath || null,
+      });
+      if (!opened) {
+        toast.error("No document available for this applicant");
+      }
+    } finally {
+      setResumeOpening(false);
     }
   };
 
@@ -692,10 +699,12 @@ export default function JobBoardManagement() {
                     <Button
                       variant="outline"
                       size="sm"
+                      loading={resumeOpening}
+                      loadingText="Opening..."
                       onClick={() => handleViewResume(selectedApplicant)}
                       className="w-full"
                     >
-                      <Eye className="w-4 h-4 mr-2" />
+                      {!resumeOpening ? <Eye className="w-4 h-4 mr-2" /> : null}
                       View Portfolio
                     </Button>
                   </div>

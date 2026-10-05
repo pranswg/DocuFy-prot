@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -47,6 +48,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { TableSkeleton } from "../ui/table-skeleton";
+import { useHydrating } from "../../utils/useHydrating";
 import { SummaryCard } from "../ui/summary-card";
 import { staffStore, type Staff } from "../../utils/staffStore";
 import { salaryStore } from "../../utils/salaryStore";
@@ -282,6 +285,8 @@ export default function Staff() {
   }, [staff]);
 
   const { todayKey, now, kpis, liveRows, todayRowByEmail } = useTodaySnapshot(attendanceMembers);
+
+  const hydrating = useHydrating();
 
   const filteredStaff = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -722,6 +727,11 @@ export default function Staff() {
             </Button>
           </div>
           </div>
+          {/* The roster paints from the local mirror first, so an empty list is
+              ambiguous. The skeleton claims the loading case and leaves the
+              empty state meaning what it says. */}
+          {hydrating && <TableSkeleton columns={6} rows={8} />}
+          {!hydrating && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[820px]">
               <thead>
@@ -886,6 +896,7 @@ export default function Staff() {
               </tbody>
             </table>
           </div>
+          )}
 
           {filteredStaff.length === 0 && (
             <div className="py-16 text-center">
@@ -1097,21 +1108,16 @@ export default function Staff() {
                     })}
                   </div>
                   {detailPeriod === "range" && (
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <Input
-                        type="date"
-                        value={detailFrom}
-                        max={detailTo}
-                        onChange={(e) => setDetailFrom(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                      <Input
-                        type="date"
-                        value={detailTo}
-                        min={detailFrom}
+                    <div className="mt-3">
+                      <DateRangeFilter
+                        value={{ from: detailFrom, to: detailTo }}
+                        onChange={(next) => {
+                          setDetailFrom(next.from);
+                          setDetailTo(next.to);
+                        }}
                         max={todayKey}
-                        onChange={(e) => setDetailTo(e.target.value)}
-                        className="h-9 text-xs"
+                        compact
+                        className="max-w-md"
                       />
                     </div>
                   )}
@@ -1474,24 +1480,18 @@ export default function Staff() {
                             </div>
                           ) : (
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 sm:px-6 py-3 border-b border-[#EEF3FA]">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-[#54606E]">From</span>
-                                <input
-                                  type="date"
-                                  value={historyFrom}
-                                  onChange={(e) => setHistoryFrom(e.target.value)}
-                                  className="h-8 rounded-lg border border-[#E5EDF9] bg-[#FBFDFF] px-2 text-xs text-[#14213D] focus:outline-none focus:ring-2 focus:ring-[#1677F2]/30"
-                                />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-[#54606E]">To</span>
-                                <input
-                                  type="date"
-                                  value={historyTo}
-                                  onChange={(e) => setHistoryTo(e.target.value)}
-                                  className="h-8 rounded-lg border border-[#E5EDF9] bg-[#FBFDFF] px-2 text-xs text-[#14213D] focus:outline-none focus:ring-2 focus:ring-[#1677F2]/30"
-                                />
-                              </div>
+                              <DateRangeFilter
+                                value={{ from: historyFrom, to: historyTo }}
+                                onChange={(next) => {
+                                  setHistoryFrom(next.from);
+                                  setHistoryTo(next.to);
+                                }}
+                                fromLabel="From"
+                                toLabel="To"
+                                labelsInline
+                                compact
+                                className="min-w-[15rem] flex-1"
+                              />
                               {(historyFrom || historyTo) && (
                                 <button
                                   type="button"
@@ -1923,7 +1923,9 @@ export default function Staff() {
         onOpenChange={(open) => {
           if (!open) setActivating(null);
         }}
-        onConfirm={() => activating && confirmActivate(activating)}
+        onConfirm={() => {
+          if (activating) confirmActivate(activating);
+        }}
         title="Activate Staff Account?"
         description={
           activating
@@ -1939,7 +1941,9 @@ export default function Staff() {
         onOpenChange={(open) => {
           if (!open) setDeactivating(null);
         }}
-        onConfirm={() => deactivating && confirmDeactivate(deactivating)}
+        onConfirm={() => {
+          if (deactivating) confirmDeactivate(deactivating);
+        }}
         title="Deactivate Staff Account?"
         description={
           deactivating
@@ -1959,6 +1963,7 @@ export default function Staff() {
         confirmLabel="Create Account"
         cancelLabel="Go Back"
         destructive={false}
+        loadingText="Creating Account..."
       />
 
       <ConfirmationDialog

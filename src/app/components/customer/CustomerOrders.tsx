@@ -6,7 +6,6 @@ import {
   Briefcase,
   Package,
   X,
-  Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
@@ -199,45 +199,19 @@ export default function CustomerOrders() {
               <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out sm:flex sm:flex-1 sm:flex-row sm:items-end sm:gap-4 sm:min-w-0 sm:w-auto ${showMoreFilters ? "grid-rows-[1fr]" : "grid-rows-[0fr] -my-2 sm:my-0"}`}>
                 <div className="min-h-0 overflow-hidden sm:contents">
                   <div className="flex flex-col gap-4 sm:contents">
-                    {/* Date From */}
-                    <div className="space-y-2 w-full sm:w-48">
-                      <Label
-                        htmlFor="dateFrom"
-                        className="text-sm font-medium text-gray-700"
-                      >
-                        Date From
-                      </Label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        <Input
-                          id="dateFrom"
-                          type="date"
-                          value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Date To */}
-                    <div className="space-y-2 w-full sm:w-48">
-                      <Label
-                        htmlFor="dateTo"
-                        className="text-sm font-medium text-gray-700"
-                      >
-                        Date To
-                      </Label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        <Input
-                          id="dateTo"
-                          type="date"
-                          value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
+                    {/* Date range */}
+                    <DateRangeFilter
+                      value={{ from: dateFrom, to: dateTo }}
+                      onChange={(next) => {
+                        setDateFrom(next.from);
+                        setDateTo(next.to);
+                      }}
+                      fromLabel="Date From"
+                      toLabel="Date To"
+                      fromAriaLabel="Date From"
+                      toAriaLabel="Date To"
+                      className="w-full sm:w-auto"
+                    />
 
                     {/* Search */}
                     <div className="w-full sm:max-w-xs space-y-2">

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "./utils";
 
@@ -40,19 +41,54 @@ const Button = React.forwardRef<
   React.ComponentProps<"button"> &
     VariantProps<typeof buttonVariants> & {
       asChild?: boolean;
+      /**
+       * Puts the button into its pending state: a spinner replaces any leading
+       * icon, the label switches to `loadingText`, and the button is disabled +
+       * `aria-busy` so it can't be double-submitted. The visual language matches
+       * the SignUp / JobApply submit buttons that already did this by hand.
+       */
+      loading?: boolean;
+      /** Label to show while loading. Defaults to the button's own children. */
+      loadingText?: string;
     }
->(({ className, variant, size, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? Slot : "button";
+>(
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      loadingText,
+      disabled,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const Comp = asChild ? Slot : "button";
 
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+    return (
+      <Comp
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        aria-busy={loading || undefined}
+        disabled={asChild ? undefined : disabled || loading}
+        {...props}
+      >
+        {loading && !asChild ? (
+          <>
+            <Loader2 className="animate-spin" aria-hidden="true" />
+            {loadingText ?? children}
+          </>
+        ) : (
+          children
+        )}
+      </Comp>
+    );
+  },
+);
 Button.displayName = "Button";
 
 export { Button, buttonVariants };

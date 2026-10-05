@@ -28,15 +28,16 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { SummaryCard } from "../ui/summary-card";
 import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "../ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import {
   auditLogStore,
@@ -265,7 +266,7 @@ export default function AuditLogManagement() {
         {/* Filters */}
         <Card className="border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <Label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Search
               </Label>
@@ -316,29 +317,17 @@ export default function AuditLogManagement() {
               />
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-4">
               <Label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Date Range
               </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={fromDate}
-                  max={toDate || undefined}
-                  onChange={(event) => setFromDate(event.target.value)}
-                  className="h-10 rounded-md bg-[#FBFDFF] text-sm ring-blue-300 ring-1"
-                  aria-label="From date"
-                />
-                <span className="text-sm text-slate-400">to</span>
-                <Input
-                  type="date"
-                  value={toDate}
-                  min={fromDate || undefined}
-                  onChange={(event) => setToDate(event.target.value)}
-                  className="h-10 rounded-md bg-[#FBFDFF] text-sm ring-blue-300 ring-1"
-                  aria-label="To date"
-                />
-              </div>
+              <DateRangeFilter
+                value={{ from: fromDate, to: toDate }}
+                onChange={(next) => {
+                  setFromDate(next.from);
+                  setToDate(next.to);
+                }}
+              />
             </div>
           </div>
 
@@ -506,17 +495,17 @@ export default function AuditLogManagement() {
         </Card>
       </div>
 
-      {/* Details drawer — everything the table deliberately omits */}
-      <Sheet
+      {/* Details pop-up — everything the table deliberately omits */}
+      <Dialog
         open={selected !== null}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
       >
-        <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg">
+        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
           {selected ? (
             <>
-              <SheetHeader className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+              <DialogHeader className="border-b border-slate-100 bg-slate-50/80 px-5 py-4 pr-12">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${ACTION_BADGE[selected.action]}`}
@@ -529,16 +518,16 @@ export default function AuditLogManagement() {
                     {selected.actorRole}
                   </span>
                 </div>
-                <SheetTitle className="text-lg font-bold text-slate-900">
+                <DialogTitle className="text-lg font-bold text-slate-900">
                   {selected.title}
-                </SheetTitle>
-                <SheetDescription className="text-sm text-slate-500">
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-500">
                   {formatPHDate(selected.timestamp, "long")} at{" "}
                   {formatPHTime(selected.timestamp)}
-                </SheetDescription>
-              </SheetHeader>
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="space-y-5 px-5 py-4">
+              <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
                 {/* Performed by */}
                 <section>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -640,8 +629,8 @@ export default function AuditLogManagement() {
               </div>
             </>
           ) : null}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

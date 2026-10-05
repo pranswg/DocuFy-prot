@@ -31,6 +31,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { TableSkeleton } from "../ui/table-skeleton";
+import { useHydrating } from "../../utils/useHydrating";
 import { adminMenuItems } from "../../utils/adminMenuItems";
 import { showDbError } from "../../../lib/db/errors";
 import {
@@ -175,6 +177,7 @@ export default function PaymentMethodsManagement() {
     setDeleting(null);
   };
 
+  const hydrating = useHydrating();
   const activeCount = methods.filter((m) => m.active).length;
 
   return (
@@ -203,7 +206,11 @@ export default function PaymentMethodsManagement() {
         </div>
 
         {/* Method Cards */}
-        {methods.length === 0 ? (
+        {hydrating ? (
+          <Card className="p-8">
+            <TableSkeleton columns={3} rows={6} />
+          </Card>
+        ) : methods.length === 0 ? (
           <Card className="p-16 text-center">
             <QrCode className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-600 font-medium">No payment methods yet</p>
@@ -465,7 +472,11 @@ export default function PaymentMethodsManagement() {
         <ConfirmationDialog
           open
           onOpenChange={setShowSaveConfirm}
-          onConfirm={handleSave}
+          onConfirm={async () => {
+            await handleSave();
+          }}
+          loadingText={editingId ? "Saving..." : "Adding..."}
+          closeOnConfirm={false}
           title={editingId ? "Save Changes?" : "Add Payment Method?"}
           description={
             editingId
@@ -483,7 +494,12 @@ export default function PaymentMethodsManagement() {
         <ConfirmationDialog
           open
           onOpenChange={() => setToggleMethod(null)}
-          onConfirm={() => { toggleActive(toggleMethod); setToggleMethod(null); }}
+          onConfirm={async () => {
+            await toggleActive(toggleMethod);
+            setToggleMethod(null);
+          }}
+          loadingText={toggleMethod.active ? "Deactivating..." : "Activating..."}
+          closeOnConfirm={false}
           title={toggleMethod.active ? "Deactivate Payment Method?" : "Activate Payment Method?"}
           description={
             toggleMethod.active
@@ -502,6 +518,8 @@ export default function PaymentMethodsManagement() {
           open
           onOpenChange={() => setDeleting(null)}
           onConfirm={confirmDelete}
+          loadingText="Removing..."
+          closeOnConfirm={false}
           title="Remove Payment Method?"
           description={`This permanently removes "${deleting.name}" from the system. Existing orders that used it keep their payment reference, but customers can no longer select it. This cannot be undone.`}
           confirmLabel="Remove"

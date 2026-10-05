@@ -17,7 +17,6 @@ import {
   Unlock,
   UserCheck,
   Filter,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -26,6 +25,7 @@ import { toast } from "sonner";
 import Layout from "../Layout";
 import StaffTimeInGate from "./StaffTimeInGate";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { SummaryCard } from "../ui/summary-card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -41,6 +41,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { TableSkeleton } from "../ui/table-skeleton";
+import { useHydrating } from "../../utils/useHydrating";
 import { dataStore } from "../../utils/dataStore";
 import { notificationStore } from "../../utils/notificationStore";
 import { verifyPayment, rejectPayment, confirmCashPayment } from "../../../lib/db/paymentsRepo";
@@ -311,6 +313,7 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentType | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const hydrating = useHydrating();
   const [statusFilter, setStatusFilter] = useState<
     "all" | "pending" | "verified" | "rejected" | "cancelled" | "expired"
   >("pending");
@@ -837,32 +840,16 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
                 />
               </div>
             </div>
-            <div className="w-full lg:w-40">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || undefined}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="pr-10"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="w-full lg:w-40">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="pr-10"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
+            <DateRangeFilter
+              value={{ from: dateFrom, to: dateTo }}
+              onChange={(next) => {
+                setDateFrom(next.from);
+                setDateTo(next.to);
+              }}
+              fromLabel="From"
+              toLabel="To"
+              className="w-full lg:w-[21rem]"
+            />
             <div className="w-full lg:w-48">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</Label>
               <FilterDropdown
@@ -926,6 +913,10 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
 
         {/* Payments Table */}
         <Card className="flex-1 border border-gray-200/80 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04)] overflow-hidden flex flex-col">
+          {hydrating ? (
+            <TableSkeleton columns={7} rows={10} />
+          ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-[#F2F7FF] border-b border-[#1D73EC]/10">
@@ -1171,6 +1162,8 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
               </div>
             )}
           </div>
+          </>
+          )}
         </Card>
       </div>
 
@@ -1702,6 +1695,8 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
           confirmLabel="Verify Payment"
           cancelLabel="Go Back"
           destructive={false}
+          loadingText="Verifying..."
+          closeOnConfirm={false}
         />
       )}
       {pendingVerifyAction === "rejected" && selectedPayment && (
@@ -1724,6 +1719,8 @@ className="font-semibold border-2 border-[#1D73EC]/30 text-[#1D73EC] hover:bg-[#
           cancelLabel="Go Back"
           destructive
           requirePhrase
+          loadingText="Rejecting..."
+          closeOnConfirm={false}
         />
       )}
       </StaffTimeInGate>

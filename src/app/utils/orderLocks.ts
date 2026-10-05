@@ -61,7 +61,12 @@ function load(): Record<string, OrderLock> {
 
 function persist(map: Record<string, OrderLock>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    const serialized = JSON.stringify(map);
+    // Skip identical writes: a `storage` event only fires when the value really
+    // changes, so this keeps the sibling tabs from bouncing empty snapshots off
+    // each other now that every writer re-applies its own holds before saving.
+    if (localStorage.getItem(STORAGE_KEY) === serialized) return;
+    localStorage.setItem(STORAGE_KEY, serialized);
   } catch {
     // ignore storage quota/availability errors
   }
@@ -74,8 +79,33 @@ let mirror: Record<string, OrderLock> = load();
 const subscribers = new Set<() => void>();
 let hydrating = false;
 
+// Order ids THIS tab has claimed and not released. The DB snapshot stays
+// authoritative for every order it mentions, but it can lag behind our own
+// optimistic claim (the `claim_order_lock` push is best-effort), and a wholesale
+// replace used to erase a lock we had just taken. Only locks in this set are
+// carried across such a gap — so a colleague's lock that they release is never
+// resurrected by our stale mirror, while ours survives the echo.
+const heldLocally = new Set<string>();
+
 function notify() {
   subscribers.forEach((cb) => cb());
+}
+
+/**
+ * The locks THIS tab holds that are still inside their TTL, read out of `prev`.
+ *
+ * Both places that reload the mirror wholesale have to call this: "this snapshot
+ * doesn't mention the order" means "the writer hasn't caught up", NOT "nobody
+ * holds it". Scoped to `heldLocally` so a colleague's claim or release still
+ * applies immediately and is never undone by our own hold.
+ */
+function liveHeldFrom(prev: Record<string, OrderLock>): Record<string, OrderLock> {
+  const kept: Record<string, OrderLock> = {};
+  for (const orderId of heldLocally) {
+    const lock = prev[orderId];
+    if (lock && !isLockExpired(lock)) kept[orderId] = lock;
+  }
+  return kept;
 }
 
 function refreshFromRows(rows: OrderLockRow[]) {
@@ -89,14 +119,21 @@ function refreshFromRows(rows: OrderLockRow[]) {
       heldAt,
     };
   }
+  // Carry over locks this tab still holds that the snapshot didn't mention, so a
+  // snapshot lagging behind our own optimistic claim can't wipe them.
+  for (const [orderId, lock] of Object.entries(liveHeldFrom(mirror))) {
+    if (!next[orderId]) next[orderId] = lock;
+  }
   mirror = next;
   persist(mirror);
   notify();
 }
 
 // Pull the authoritative lock snapshot from Supabase. The DB replaces the
-// mirror entirely (so a live lock claimed on ANOTHER machine shows up here);
-// an empty/unreachable backend keeps the local mirror as the offline fallback.
+// mirror for every order it mentions (so a live lock claimed on ANOTHER machine
+// shows up here), while locks this tab holds but the snapshot hasn't caught up
+// with are carried over (see refreshFromRows); an empty/unreachable backend
+// keeps the local mirror as the offline fallback.
 async function hydrate(): Promise<void> {
   if (hydrating) return;
   hydrating = true;
@@ -140,7 +177,19 @@ subscribeOrderLocks(() => {
 });
 window.addEventListener("storage", (e) => {
   if (e.key !== STORAGE_KEY) return;
+  // Another tab of THIS browser just wrote the shared lock key, so reload it —
+  // but re-apply the locks we hold first. A sibling tab has no business clearing
+  // them: any tab can wipe the key, because Supabase RLS returns ZERO ROWS WITH
+  // NO ERROR to a context that can't see `order_locks` (a customer tab, or a tab
+  // that hydrated before its session attached), and that tab's `persist({})`
+  // fires this event here. Taking `load()` at face value used to drop the lock on
+  // an order we had open, seconds after claiming it.
+  const previous = mirror;
   mirror = load();
+  for (const [orderId, lock] of Object.entries(liveHeldFrom(previous))) {
+    if (!mirror[orderId]) mirror[orderId] = lock;
+  }
+  persist(mirror);
   notify();
 });
 void hydrate();
@@ -154,6 +203,7 @@ export function getLock(orderId: string): OrderLock | null {
   const lock = mirror[orderId];
   if (!lock) return null;
   if (isLockExpired(lock)) {
+    heldLocally.delete(orderId);
     delete mirror[orderId];
     persist(mirror);
     return null;
@@ -196,6 +246,7 @@ export function claimLock(orderId: string, heldBy: string): OrderLock {
     return existing; // someone else holds a live lock — don't steal it
   }
   const lock: OrderLock = { orderId, heldBy, heldAt: Date.now() };
+  heldLocally.add(orderId);
   mirror[orderId] = lock;
   persist(mirror);
   notify();
@@ -231,6 +282,7 @@ export function releaseLock(orderId: string, heldBy?: string) {
   const lock = mirror[orderId];
   if (!lock) return;
   if (heldBy && lock.heldBy !== heldBy) return; // not ours — leave it alone
+  heldLocally.delete(orderId);
   delete mirror[orderId];
   persist(mirror);
   notify();

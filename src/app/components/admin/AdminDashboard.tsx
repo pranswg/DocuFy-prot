@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { SummaryCard } from "../ui/summary-card";
 import {
   LineChart,
@@ -604,14 +605,16 @@ function DateRangeSelector({ selectedLabel, rangeId, onSelect, customStart, cust
             ))}
             {rangeId === "custom" && (
               <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-                <div>
-                  <label className="text-[10px] font-medium text-slate-500 uppercase">From</label>
-                  <input type="date" value={customStart} onChange={(e) => onCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-medium text-slate-500 uppercase">To</label>
-                  <input type="date" value={customEnd} onChange={(e) => onCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                </div>
+                <DateRangeFilter
+                  value={{ from: customStart, to: customEnd }}
+                  onChange={(next) => {
+                    onCustomStart(next.from);
+                    onCustomEnd(next.to);
+                  }}
+                  fromLabel="From"
+                  toLabel="To"
+                  compact
+                />
                 <button onClick={() => setOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
               </div>
             )}

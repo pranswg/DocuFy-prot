@@ -33,6 +33,7 @@ import {
 } from "../../utils/inventoryStore";
 import { formatNumber } from "../../utils/formatNumber";
 import { Card } from "../ui/card";
+import { DateRangeFilter } from "../ui/date-range-filter";
 import { SummaryCard } from "../ui/summary-card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -54,6 +55,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { ConfirmationDialog } from "../ui/confirmation-dialog";
+import { TableSkeleton } from "../ui/table-skeleton";
+import { useHydrating } from "../../utils/useHydrating";
 import { ZoomSafeDropdown } from "../ui/zoom-safe-dropdown";
 import {
   BarChart,
@@ -336,14 +339,16 @@ function InventoryReports() {
                   ))}
                   {rangeId === "custom" && (
                     <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-                      <div>
-                        <label className="text-[10px] font-medium text-slate-500 uppercase">From</label>
-                        <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-slate-500 uppercase">To</label>
-                        <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full mt-0.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-[#2F6FD6]" />
-                      </div>
+                      <DateRangeFilter
+                        value={{ from: customStart, to: customEnd }}
+                        onChange={(next) => {
+                          setCustomStart(next.from);
+                          setCustomEnd(next.to);
+                        }}
+                        fromLabel="From"
+                        toLabel="To"
+                        compact
+                      />
                       <button onClick={() => setDropdownOpen(false)} className="w-full py-1.5 bg-[#2F6FD6] text-white rounded-lg text-xs font-semibold hover:bg-[#1e5bb8]">Apply</button>
                     </div>
                   )}
@@ -636,6 +641,8 @@ export default function InventoryManagement({
     (sum, item) => sum + inventoryStore.getItemPieces(item),
     0,
   );
+
+  const hydrating = useHydrating();
 
   const filteredItems = items.filter((item) => {
     const q = search.trim().toLowerCase();
@@ -948,7 +955,12 @@ export default function InventoryManagement({
 
         {/* Items Table */}
         <Card className="bg-white border border-slate-100 shadow-sm overflow-hidden">
-          {filteredItems.length === 0 ? (
+          {hydrating ? (
+            // The local mirror paints first and the server rows replace it, so an
+            // empty list is ambiguous. The skeleton claims the loading case and
+            // leaves the empty state meaning what it says.
+            <TableSkeleton columns={6} />
+          ) : filteredItems.length === 0 ? (
             <div className="p-10 text-center">
               <Boxes className="mx-auto h-10 w-10 text-gray-300" />
               <p className="mt-3 text-sm font-medium text-gray-600">
@@ -1284,6 +1296,7 @@ export default function InventoryManagement({
           open
           onOpenChange={() => setConfirmType(null)}
           onConfirm={saveItem}
+          loadingText="Saving..."
           title="Save Changes?"
           description={`Are you sure you want to update "${form.name.trim()}"? Its details, stock level (${Math.max(0, Number(form.currentStock) || 0)} ${form.unit}(s)), and reorder level will be overwritten.`}
           confirmLabel="Save Changes"
@@ -1296,6 +1309,7 @@ export default function InventoryManagement({
           open
           onOpenChange={() => setConfirmType(null)}
           onConfirm={saveItem}
+          loadingText="Adding..."
           title="Add Item?"
           description={`Are you sure you want to add "${form.name.trim()}" to inventory? It will appear in the active inventory immediately with an initial stock of ${Math.max(0, Number(form.currentStock) || 0)} ${form.unit}(s).`}
           confirmLabel="Add Item"
@@ -1396,6 +1410,7 @@ export default function InventoryManagement({
           open
           onOpenChange={() => setConfirmType(null)}
           onConfirm={submitStock}
+          loadingText="Stocking In..."
           title="Stock In Item?"
           description={`Are you sure you want to add ${Math.floor(Number(stockQty)) || 0} ${stockDialog.item.unit}(s) to "${stockDialog.item.name}"? The stock level will increase permanently.`}
           confirmLabel="Stock In"
@@ -1408,6 +1423,7 @@ export default function InventoryManagement({
           open
           onOpenChange={() => setConfirmType(null)}
           onConfirm={submitStock}
+          loadingText="Stocking Out..."
           title="Stock Out Item?"
           description={`Are you sure you want to deduct ${Math.floor(Number(stockQty)) || 0} ${stockDialog.item.unit}(s) from "${stockDialog.item.name}"? This reduces available stock (cannot go below 0) and records a usage/sale movement.`}
           confirmLabel="Stock Out"

@@ -18,3 +18,13 @@
     cursor: pointer;
   }
 }
+
+/* Indeterminate sweep for the app-level TopProgressBar (store hydration). */
+@keyframes hydrating-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

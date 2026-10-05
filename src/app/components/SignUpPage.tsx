@@ -5,10 +5,10 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
+import { Spinner } from "./ui/spinner";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
@@ -425,10 +425,7 @@ export default function SignUpPage() {
               }`}
             >
               {isSubmitting ? (
-                <span className="inline-flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating Account...
-                </span>
+                <Spinner size="xs" label="Creating Account..." stack={false} />
               ) : (
                 "Create Account"
               )}

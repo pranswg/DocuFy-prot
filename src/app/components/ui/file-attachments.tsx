@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   FileText,
   Download,
@@ -7,7 +7,7 @@ import {
   Presentation,
   File,
   Eye,
-  Printer,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
@@ -16,6 +16,15 @@ import {
   getSignedObjectUrl,
   downloadObjectToBlob,
 } from "../../../lib/db/storage";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./dialog";
+import { Button } from "./button";
 
 interface AttachedFile {
   name: string;
@@ -31,7 +40,11 @@ interface FileAttachmentsProps {
   orderId: string;
   showDownload?: boolean; // defaults to false — hides download on customer-facing views
   showView?: boolean; // show a "View" button that opens the file in a new tab (native viewer)
-  showPrint?: boolean; // show a "Print" button that opens the Ctrl+P dialog directly
+  // Name of the staff/admin currently holding the order's SESSION LOCK. While
+  // set, View/Download are blocked so two people can't pull the same document
+  // at once; clicking one explains why instead of silently doing nothing.
+  // Left undefined by consumers with no session locks (customer Order Tracking).
+  lockedBy?: string | null;
 }
 
 function getFileExtension(name: string): string {
@@ -146,9 +159,11 @@ export function FileAttachments({
   orderId,
   showDownload = false,
   showView = false,
-  showPrint = false,
+  lockedBy = null,
 }: FileAttachmentsProps) {
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // A live lock held by someone else blocks the file actions.
+  const actionsLocked = !!lockedBy;
+  const [lockNoticeOpen, setLockNoticeOpen] = useState(false);
   if (!files || files.length === 0) return null;
 
   // Resolve the read URL for a file: prefers an authenticated signed URL (the
@@ -208,32 +223,22 @@ export function FileAttachments({
     }
   };
 
-  // Open the Ctrl+P print dialog directly on the document without showing anything in the app.
-  const handlePrint = async (file: AttachedFile) => {
-    const url = await resolveFileUrl(file);
-    if (!url) return;
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.print();
-        } catch {
-          toast.error("Your browser blocked printing this document.");
-        }
-      };
-      iframe.src = url;
-    }
-  };
+  // When another staff/admin holds the order's session lock, the file actions
+  // explain the block instead of opening the document. This is deliberately NOT
+  // a real `disabled` attribute — a disabled button swallows the click, so the
+  // person would get no feedback at all and assume the button is broken.
+  const guardLockedAction = () => setLockNoticeOpen(true);
+
+  // Literal class strings (not interpolated) so Tailwind's scanner keeps them.
+  const actionBtnBase =
+    "w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all";
+  const actionBtnCls = actionsLocked
+    ? `${actionBtnBase} border-gray-200 bg-gray-50 text-gray-300`
+    : `${actionBtnBase} border-gray-300 text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF]`;
+  const lockTitle = `${lockedBy} is viewing this order`;
 
   return (
     <div className="space-y-2">
-      {/* Hidden iframe that loads the document in the background so we can trigger print without a visible tab. */}
-      <iframe
-        ref={iframeRef}
-        title="print-frame"
-        className="hidden"
-        aria-hidden="true"
-      />
       {files.map((file, index) => {
         const badgeCls = FileBadgeColor(file);
         const ext = getFileExtension(file.name).toUpperCase();
@@ -275,29 +280,21 @@ export function FileAttachments({
               {/* View icon button — opens the document in a new tab */}
               {showView && (
                 <button
-                  onClick={() => handleView(file)}
-                  title={`View ${file.name}`}
-                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  onClick={actionsLocked ? guardLockedAction : () => handleView(file)}
+                  aria-disabled={actionsLocked || undefined}
+                  title={actionsLocked ? lockTitle : `View ${file.name}`}
+                  className={actionBtnCls}
                 >
                   <Eye className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {/* Print icon button — opens the Ctrl+P dialog directly */}
-              {showPrint && (
-                <button
-                  onClick={() => handlePrint(file)}
-                  title={`Print ${file.name}`}
-                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
-                >
-                  <Printer className="w-3.5 h-3.5" />
                 </button>
               )}
               {/* Download icon button — only shown when showDownload is true */}
               {showDownload && (
                 <button
-                  onClick={() => handleDownload(file)}
-                  title={`Download ${file.name}`}
-                  className="w-8 h-8 rounded-lg border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:text-[#1D73EC] hover:border-[#1D73EC] hover:bg-[#F2F7FF] transition-all"
+                  onClick={actionsLocked ? guardLockedAction : () => handleDownload(file)}
+                  aria-disabled={actionsLocked || undefined}
+                  title={actionsLocked ? lockTitle : `Download ${file.name}`}
+                  className={actionBtnCls}
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
@@ -306,6 +303,36 @@ export function FileAttachments({
           </div>
         );
       })}
+
+      {/* Shown when View/Download is clicked while another staff/admin holds
+          this order's session lock. */}
+      <Dialog open={lockNoticeOpen} onOpenChange={setLockNoticeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 ring-2 ring-amber-200">
+              <Lock className="h-5 w-5 text-amber-700" />
+            </div>
+            <DialogTitle className="text-center text-lg font-semibold text-[#1c1f26]">
+              Order is being viewed
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm leading-relaxed">
+              <span className="font-semibold text-gray-900">{lockedBy}</span> is
+              currently viewing this order, so its files can&apos;t be opened or
+              downloaded. They become available again once they finish with it or
+              their session lock expires.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setLockNoticeOpen(false)}
+              className="w-full"
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
