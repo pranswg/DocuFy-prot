@@ -13,6 +13,7 @@ import {
   BadgeDollarSign,
   MonitorPlay,
   ScrollText,
+  History,
 } from "lucide-react";
 
 export const adminMenuItems = [
@@ -70,5 +71,10 @@ export const adminMenuItems = [
     label: "Terms & Privacy",
     path: "/admin/legal",
     icon: <ScrollText className="w-5 h-5" />,
+  },
+  {
+    label: "Audit Trail",
+    path: "/admin/audit-trail",
+    icon: <History className="w-5 h-5" />,
   },
 ];

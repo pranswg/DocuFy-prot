@@ -948,3 +948,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Backdrop click now returns staff to where they were: on the staff time-in lockout popup, clicking the blurred background (instead of the Time In / Timesheet / Dashboard buttons) sends the staff back to the page they were on before the locked page opened - so someone in Inventory who taps Orders lands back on Inventory instead of being dropped on the dashboard. A refresh or deep link straight onto a locked page still falls back to the dashboard.
 - Split the public README from internal setup notes: the public `README.md` is now a short project intro + basic setup commands, and the detailed Supabase setup guide moved to a git-ignored `dev_readme.md` so internal setup steps stay out of the public repo.
 
+
+---
+
+## October 5, 2026 (10:53 PM PHT) — Francis William Garcia
+- Added the Audit Trail admin page: a new Admin-only page (Admin -> Management -> Audit Trail) that shows a permanent record of every change in Docufy - who acted, what they changed, which module, and when - so any edit can be traced back to the exact person and time.
+- Audit Trail table made scannable: the table shows only Date & Time, User, Role, Action, Module, Reference and a View Details button. The Description column was deliberately removed from the table because it repeated what those columns already said, made every row twice as tall, and pushed the useful information off-screen on a smaller laptop.
+- View Details drawer now carries the full story: clicking a row opens a side panel with the activity title and timestamp, who performed it and their role, the module/action/reference, the exact previous -> new values that changed (e.g. Pending to Verified), the full written description, plus optional request details like IP address, device/browser and transaction ID - which are hidden entirely instead of shown as empty rows when unknown.
+- Added filters and summary counts: four cards at the top (Total Activities, Activities Today, Admin Actions, Flagged for Review) and a filter row for Search, Role, Action, Module and a date range, with page numbers showing "Showing X-Y of N" so a long history stays easy to navigate.
+- UI only - no backend changes: the `audit_logs` table exists in the database but the system never wrote to it, so this release deliberately includes no Supabase changes (no tables, triggers, or access rules). The page reads from a local log store seeded with sample entries; capturing real activity in the database is a separate future step.

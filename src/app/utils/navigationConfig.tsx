@@ -116,6 +116,7 @@ const management = {
     { label: "Pricing Management", path: "/admin/pricing" },
     { label: "Landing Page", path: "/admin/landing" },
     { label: "Terms & Privacy", path: "/admin/legal" },
+    { label: "Audit Trail", path: "/admin/audit-trail" },
   ],
 };
 
