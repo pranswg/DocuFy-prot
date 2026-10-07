@@ -57,3 +57,27 @@ export async function deleteAvatar(urlOrPath: string): Promise<void> {
     console.warn('Failed to remove old avatar:', error);
   }
 }
+
+// Avatar persistence is SUPABASE-ONLY: the picture lives in the `profile-images`
+// bucket and `profiles.profile_image_path`. Older builds also cached avatars in
+// localStorage under shared/role-scoped keys (customer_profile_image,
+// staff_profile_image, admin_profile_image, and per-account *_profile_image_v2:*
+// variants). This removes those leftovers once (idempotent, safe to call on
+// every boot) so no stale picture can ever appear locally again.
+export function purgeLocalAvatarKeys(): void {
+  try {
+    const legacyExact = ['customer_profile_image', 'staff_profile_image', 'admin_profile_image'];
+    const toRemove: string[] = [];
+    const count = localStorage.length;
+    for (let i = 0; i < count; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (legacyExact.includes(key) || key.includes('_profile_image_v2:')) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) localStorage.removeItem(key);
+  } catch {
+    // storage unavailable — nothing to purge, nothing to show
+  }
+}

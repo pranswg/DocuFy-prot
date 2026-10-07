@@ -9,8 +9,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, type User as AuthUser } from '../../contexts/AuthContext';
 import { PasswordStrengthIndicator, validatePassword } from '../ui/password-strength-indicator';
+import { isDataUrl } from '../../utils/supabaseAvatar';
+import type { Database } from '../../../lib/database.types';
 
 const menuItems = [
   { label: 'Dashboard', path: '/customer/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -19,15 +21,85 @@ const menuItems = [
   { label: 'Job Board', path: '/customer/job-board', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
-const STORAGE_KEY = 'customer_profile_data';
+// Profile data (name/phone/student ID) is stored PER ACCOUNT so a customer who
+// signs out cannot leave their details behind for the next person on the same
+// browser. The legacy shared key is adopted ONLY when it embeds the signed-in
+// account's own email — otherwise it is ignored (leak-safe migration).
+// Profile PICTURES are never stored locally — they live only in Supabase
+// (profiles.profile_image_path), and legacy localStorage avatar keys are
+// purged at boot (see supabaseAvatar.purgeLocalAvatarKeys).
+const LEGACY_PROFILE_KEY = 'customer_profile_data';
+const PROFILE_KEY_PREFIX = 'customer_profile_data_v2';
 
-const defaultProfileData = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '0912 345 6789',
-  studentId: 'STU-2024-001',
-};
+function accountKeyFor(user: AuthUser | null): string {
+  if (!user) return 'unknown';
+  if (user.id) return user.id;
+  return user.email ? user.email.trim().toLowerCase() : 'unknown';
+}
+
+function profileStorageKey(user: AuthUser | null): string {
+  return `${PROFILE_KEY_PREFIX}:${accountKeyFor(user)}`;
+}
+
+/** Reads the signed-in account's saved profile from its per-account key,
+ * adopting the legacy shared blob only when it is attributable to THIS account
+ * (its embedded email matches). Any other blob is left untouched so one
+ * customer's data can never surface for another. Returns null when there is
+ * nothing to show for the current account. */
+function readSavedProfile(
+  user: AuthUser | null,
+): { firstName?: string; lastName?: string; email?: string; phone?: string; studentId?: string } | null {
+  if (!user) return null;
+
+  try {
+    const raw = localStorage.getItem(profileStorageKey(user));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch {
+    // ignore storage failures — fall through to legacy
+  }
+
+  try {
+    const raw = localStorage.getItem(LEGACY_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const embedded =
+      typeof parsed.email === 'string' ? parsed.email.trim().toLowerCase() : '';
+    if (!embedded || embedded !== user.email?.trim().toLowerCase()) return null;
+
+    // Adopt into the per-account key, then retire the legacy key so no later
+    // account can be misattributed. (The legacy picture, if any, is NOT touched
+    // here — avatars are Supabase-only, and legacy avatar keys were purged at boot.)
+    try {
+      localStorage.setItem(profileStorageKey(user), raw);
+      localStorage.removeItem(LEGACY_PROFILE_KEY);
+    } catch {
+      // storage unavailable — legacy stays, but the form still renders
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function buildFormData(
+  user: AuthUser | null,
+  saved: { firstName?: string; lastName?: string; email?: string; phone?: string; studentId?: string } | null,
+) {
+  const nameParts = (user?.name || '').split(' ');
+  const defaultFirstName = nameParts[0] || '';
+  const defaultLastName = nameParts.slice(1).join(' ') || '';
+  return {
+    firstName: saved?.firstName || defaultFirstName,
+    lastName: saved?.lastName || defaultLastName,
+    email: user?.email || saved?.email || '',
+    phone: saved?.phone ?? user?.phone ?? '',
+    studentId: saved?.studentId || '',
+  };
+}
 
 /** Scannable read-only row used in the profile VIEW state. */
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -52,7 +124,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
-  const { user, resetPassword, updateProfile, updateProfileImage, logout } = useAuth();
+  const { user, resetPassword, updateProfile, updateProfileImage, syncProfileDetails, logout } = useAuth();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
@@ -68,94 +140,18 @@ export default function CustomerProfile() {
     email: string;
     phone: string;
     studentId: string;
-  }>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const nameParts = (user?.name || '').split(' ');
-    const defaultFirstName = nameParts[0] || '';
-    const defaultLastName = nameParts.slice(1).join(' ') || '';
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Handle migration from old 'name' field to firstName/lastName
-        if (parsed.name && !parsed.firstName && !parsed.lastName) {
-          const parts = parsed.name.split(' ');
-          return {
-            ...parsed,
-            firstName: parts[0] || defaultFirstName,
-            lastName: parts.slice(1).join(' ') || defaultLastName,
-            email: user?.email || parsed.email
-          };
-        }
-        return {
-          ...parsed,
-          firstName: parsed.firstName || defaultFirstName,
-          lastName: parsed.lastName || defaultLastName,
-          email: user?.email || parsed.email
-        };
-      } catch {
-        return {
-          ...defaultProfileData,
-          firstName: defaultFirstName,
-          lastName: defaultLastName,
-          email: user?.email || defaultProfileData.email
-        };
-      }
-    }
-    return {
-      ...defaultProfileData,
-      firstName: defaultFirstName,
-      lastName: defaultLastName,
-      email: user?.email || defaultProfileData.email
-    };
-  });
+  }>(() => buildFormData(user, readSavedProfile(user)));
   const [isEditing, setIsEditing] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(() => {
-    const savedImage = localStorage.getItem('customer_profile_image');
-    return savedImage || user?.profileImage || null;
-  });
+  const [profileImage, setProfileImage] = useState<string | null>(() =>
+    user?.profileImage ?? null,
+  );
 
   useEffect(() => {
-    if (user?.profileImage) {
-      setProfileImage(user.profileImage);
-    }
-  }, [user?.profileImage]);
+    setFormData(buildFormData(user, readSavedProfile(user)));
+  }, [user]);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const nameParts = (user?.name || '').split(' ');
-    const defaultFirstName = nameParts[0] || '';
-    const defaultLastName = nameParts.slice(1).join(' ') || '';
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Handle migration from old 'name' field to firstName/lastName
-        if (parsed.name && !parsed.firstName && !parsed.lastName) {
-          const parts = parsed.name.split(' ');
-          setFormData({
-            ...parsed,
-            firstName: parts[0] || defaultFirstName,
-            lastName: parts.slice(1).join(' ') || defaultLastName,
-            email: user?.email || parsed.email
-          });
-        } else {
-          setFormData({
-            ...parsed,
-            firstName: parsed.firstName || defaultFirstName,
-            lastName: parsed.lastName || defaultLastName,
-            email: user?.email || parsed.email
-          });
-        }
-      } catch {
-        setFormData({
-          ...defaultProfileData,
-          firstName: defaultFirstName,
-          lastName: defaultLastName,
-          email: user?.email || defaultProfileData.email
-        });
-      }
-    }
+    setProfileImage(user?.profileImage ?? null);
   }, [user]);
 
   const displayName = `${formData.firstName} ${formData.lastName}`.trim() || user?.name || 'Customer User';
@@ -183,34 +179,59 @@ export default function CustomerProfile() {
 
   const confirmSave = async () => {
     if (isSaving) return;
+    if (!user) {
+      setShowSaveDialog(false);
+      return;
+    }
     setIsSaving(true);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-    if (profileImage) {
-      localStorage.setItem('customer_profile_image', profileImage);
-    } else {
-      localStorage.removeItem('customer_profile_image');
+
+    // Text details (name/phone/student ID) write to the per-account blob
+    // regardless of the upload/backend result, so nothing is lost locally.
+    localStorage.setItem(profileStorageKey(user), JSON.stringify(formData));
+
+    // The picture is Supabase-ONLY: upload first, best-effort.
+    const pictureChanged = (profileImage ?? null) !== (user.profileImage ?? null);
+    let pictureSynced = !pictureChanged;
+    if (pictureChanged) {
+      try {
+        pictureSynced = await updateProfileImage(profileImage ?? null);
+      } catch {
+        pictureSynced = false;
+      }
     }
-    // Persist the picture to Supabase Storage + the profiles table; the local
-    // storage write above stays as the offline/mock fallback.
-    let synced = false;
+
+    // Push text details to the signed-in user's OWN profiles row. The email is
+    // excluded — it is the registered account email and is not editable.
+    const patch: Database['public']['Tables']['profiles']['Update'] = {
+      full_name: displayName,
+      phone: formData.phone.trim() || null,
+      student_id: formData.studentId.trim() || null,
+    };
+    let detailsSynced = false;
     try {
-      synced = await updateProfileImage(profileImage ?? null);
+      detailsSynced = await syncProfileDetails(patch);
     } catch {
-      synced = false;
+      detailsSynced = false;
     }
-    if (synced) {
-      updateProfile({ name: displayName });
-    } else {
-      updateProfile({ name: displayName, profileImage: profileImage ?? undefined });
+
+    updateProfile({ name: displayName });
+    setIsSaving(false);
+
+    const failures: string[] = [];
+    if (!detailsSynced) failures.push('saving your details to the server');
+    if (!pictureSynced) failures.push('uploading your profile picture');
+
+    if (failures.length > 0) {
+      toast.error(
+        `Your details were kept on this device, but ${failures.join(' and ')} failed. `
+        + 'Please try again — the dialog is still open.',
+      );
+      return;
     }
+
     setIsEditing(false);
     setShowSaveDialog(false);
-    setIsSaving(false);
-    toast.success(
-      synced
-        ? 'Profile updated successfully.'
-        : 'Profile saved locally — avatar sync to the server failed. Please try again.',
-    );
+    toast.success('Profile updated successfully.');
   };
 
   const handleChangePassword = async () => {
@@ -309,6 +330,11 @@ export default function CustomerProfile() {
                       Remove photo
                     </button>
                   )}
+                  {!isEditing && profileImage && isDataUrl(profileImage) && (
+                    <span className="whitespace-nowrap rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200">
+                      Profile picture was not saved — upload failed
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-gray-900">{displayName}</p>
@@ -367,7 +393,9 @@ export default function CustomerProfile() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      disabled
+                      aria-disabled="true"
+                      title="Your registered email address cannot be changed"
                     />
                   </div>
                 </div>

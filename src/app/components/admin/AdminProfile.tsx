@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { PasswordStrengthIndicator, validatePassword } from '../ui/password-strength-indicator';
+import { isDataUrl } from '../../utils/supabaseAvatar';
+import type { Database } from '../../../lib/database.types';
 
 const menuItems = adminMenuItems;
 
@@ -30,7 +32,7 @@ const defaultProfileData = {
 
 export default function AdminProfile() {
   const navigate = useNavigate();
-  const { user, resetPassword, updateProfile, updateProfileImage, logout } = useAuth();
+  const { user, resetPassword, updateProfile, updateProfileImage, syncProfileDetails, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   // Saving uploads the avatar to Supabase Storage, so it is a real round-trip.
   const [saving, setSaving] = useState(false);
@@ -98,29 +100,56 @@ export default function AdminProfile() {
   };
 
   const handleSave = async () => {
+    const displayName =
+      `${formData.firstName} ${formData.lastName}`.trim() || user?.name || 'Admin User';
     setSaving(true);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-      localStorage.setItem('admin_profile_image', profileImage || '');
-      // Persist the picture to Supabase Storage + the profiles table; the local
-      // storage write above stays as the offline/mock fallback.
-      let synced = false;
+      // The picture is Supabase-ONLY: it must reach storage + the profiles table
+      // before it counts. A failed upload never falls back to localStorage — the
+      // chosen picture stays in the form so the user can retry, clearly surfaced.
+      const pictureChanged = (profileImage ?? null) !== (user?.profileImage ?? null);
+      let pictureSynced = !pictureChanged;
+      if (pictureChanged) {
+        try {
+          pictureSynced = await updateProfileImage(profileImage ?? null);
+        } catch {
+          pictureSynced = false;
+        }
+      }
+
+      // Push text details to the signed-in user's OWN profiles row. The email is
+      // excluded — it is the registered account email and is not editable.
+      const patch: Database['public']['Tables']['profiles']['Update'] = {
+        full_name: displayName,
+        phone: formData.phone.trim() || null,
+      };
+      let detailsSynced = false;
       try {
-        synced = await updateProfileImage(profileImage ?? null);
+        detailsSynced = await syncProfileDetails(patch);
       } catch {
-        synced = false;
+        detailsSynced = false;
       }
-      if (synced) {
-        updateProfile({});
-      } else {
-        updateProfile({ profileImage: profileImage ?? undefined });
+
+      updateProfile({ name: displayName });
+      setSaving(false);
+
+      const failures: string[] = [];
+      if (!detailsSynced) failures.push('saving your details to the server');
+      if (!pictureSynced) failures.push('uploading your profile picture');
+
+      if (failures.length > 0) {
+        toast.error(
+          `Your details were kept on this device, but ${failures.join(' and ')} failed. `
+          + 'Please try again — the form is still open.',
+        );
+        return;
       }
+
       setIsEditing(false);
       setShowSavedMessage(true);
       setTimeout(() => setShowSavedMessage(false), 3000);
-      if (!synced) {
-        toast.error('Profile picture saved locally only — avatar sync to the server failed. Please try again.');
-      }
+      toast.success('Profile updated successfully.');
     } finally {
       setSaving(false);
     }
@@ -212,6 +241,11 @@ export default function AdminProfile() {
                   <button type="button" onClick={() => setProfileImage(null)} className="absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-red-600 hover:underline">Remove photo</button>
                 )}
               </div>
+              {!isEditing && profileImage && isDataUrl(profileImage) && (
+                <span className="whitespace-nowrap rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200">
+                  Profile picture was not saved — upload failed
+                </span>
+              )}
               <Badge className="bg-red-100 text-red-700 font-medium">Administrator</Badge>
             </div>
 
@@ -283,8 +317,10 @@ export default function AdminProfile() {
                       <input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="text-sm font-medium text-gray-900 bg-transparent border-b border-gray-300 focus:outline-none focus:border-[#2F6FD6]"
+                        disabled
+                        aria-disabled="true"
+                        title="Your registered email address cannot be changed"
+                        className="text-sm font-medium text-gray-900 bg-transparent border-b border-gray-300 opacity-60 cursor-not-allowed"
                       />
                     ) : (
                       <p className="text-sm font-medium text-gray-900">{formData.email}</p>

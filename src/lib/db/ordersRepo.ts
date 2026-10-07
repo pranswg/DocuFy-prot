@@ -377,7 +377,13 @@ export async function fetchOrders(): Promise<OrderDto[]> {
   if (ordersRes.error) throw ordersRes.error;
 
   const filesByOrder = new Map<string, OrderFileRow[]>();
-  if (!filesRes.error) {
+  if (filesRes.error) {
+    console.warn(
+      '[db:orders] order_files read FAILED (%s) — data may be missing or RLS is misconfigured:',
+      filesRes.error.code ?? filesRes.error.message,
+      filesRes.error.message,
+    );
+  } else {
     for (const f of filesRes.data) {
       const list = filesByOrder.get(f.order_id) ?? [];
       list.push(f);
@@ -386,7 +392,13 @@ export async function fetchOrders(): Promise<OrderDto[]> {
   }
 
   const addonsByOrder = new Map<string, OrderAddonRow[]>();
-  if (!addonsRes.error) {
+  if (addonsRes.error) {
+    console.warn(
+      '[db:orders] order_addons read FAILED (%s) — data may be missing or RLS is misconfigured:',
+      addonsRes.error.code ?? addonsRes.error.message,
+      addonsRes.error.message,
+    );
+  } else {
     for (const a of addonsRes.data) {
       const list = addonsByOrder.get(a.order_id) ?? [];
       list.push(a);
@@ -395,12 +407,24 @@ export async function fetchOrders(): Promise<OrderDto[]> {
   }
 
   const breakdownByOrder = new Map<string, CostBreakdownRow>();
-  if (!breakdownRes.error) {
+  if (breakdownRes.error) {
+    console.warn(
+      '[db:orders] order_cost_breakdowns read FAILED (%s) — data may be missing or RLS is misconfigured:',
+      breakdownRes.error.code ?? breakdownRes.error.message,
+      breakdownRes.error.message,
+    );
+  } else {
     for (const b of breakdownRes.data) breakdownByOrder.set(b.order_id, b);
   }
 
   const paymentsByOrder = new Map<string, PaymentRow[]>();
-  if (!paymentsRes.error) {
+  if (paymentsRes.error) {
+    console.warn(
+      '[db:orders] payments read FAILED (%s) — data may be missing or RLS is misconfigured:',
+      paymentsRes.error.code ?? paymentsRes.error.message,
+      paymentsRes.error.message,
+    );
+  } else {
     for (const pay of paymentsRes.data) {
       const list = paymentsByOrder.get(pay.order_id) ?? [];
       list.push(pay);

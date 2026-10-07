@@ -344,25 +344,10 @@ export default function Layout({
     return letters || "U";
   };
 
-  const getStoredProfileImage = (): string | undefined => {
-    if (!user?.role) return undefined;
-    try {
-      const key = `${user.role}_profile_image`;
-      return localStorage.getItem(key) || undefined;
-    } catch {
-      return undefined;
-    }
-  };
-
-  // Profile pages write the photo both to AuthContext (user.profileImage) and to a
-  // role-scoped localStorage key; fall back to the stored key so the sidebar always
-  // reflects whatever photo the user has, even if the session never got it.
-  const [storedProfileImage, setStoredProfileImage] = useState<string | undefined>(getStoredProfileImage);
-  useEffect(() => {
-    setStoredProfileImage(getStoredProfileImage());
-  }, [user?.role, user?.email]);
-
-  const profileImage = user?.profileImage || storedProfileImage;
+  // Avatars live ONLY in Supabase (profiles.profile_image_path -> user.profileImage).
+  // Any legacy localStorage avatar keys were purged at boot, so the sidebar and
+  // header always reflect the signed-in account's persisted picture.
+  const profileImage = user?.profileImage;
   const profileInitial = getInitials(user?.name || user?.email || "User");
 
   const displayTitle =
@@ -886,7 +871,7 @@ export default function Layout({
           {(isMobile || isSidebarExpanded) && (
             <div className="min-w-0 flex-1 text-left">
               <p className="text-xs font-semibold text-white leading-none truncate">
-                {user?.email?.split("@")[0]}
+                {user?.name || user?.email?.split("@")[0]}
               </p>
               <p className="text-[10px] text-blue-100 capitalize leading-none mt-1">
                 {user?.role} account
@@ -901,7 +886,8 @@ export default function Layout({
         {sidebarProfilePresence && (
           <div className={`absolute bottom-full mb-2 ${sidebarProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-bottom-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"} ${isMobile || isSidebarExpanded ? "left-3 right-3" : "left-[72px] w-56"} bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20`}>
             <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-xs font-bold text-gray-900 truncate">{user?.email}</p>
+              <p className="text-xs font-bold text-gray-900 truncate">{user?.name || user?.email?.split("@")[0]}</p>
+              <p className="text-[10px] text-gray-500 truncate mt-0.5">{user?.email}</p>
               <p className="text-[10px] text-gray-500 capitalize mt-0.5">{user?.role} Account</p>
             </div>
             <div className="py-1">
@@ -1167,6 +1153,11 @@ export default function Layout({
                 </button>
                 {topProfilePresence && (
                   <div className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-2xl ${topProfilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"}`}>
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-xs font-bold text-gray-900 truncate">{user?.name || user?.email?.split("@")[0]}</p>
+                      <p className="text-[10px] text-gray-500 truncate mt-0.5">{user?.email}</p>
+                      <p className="text-[10px] text-gray-500 capitalize mt-0.5">{user?.role} Account</p>
+                    </div>
                     <button type="button" onClick={() => { setIsTopProfileOpen(false); navigate("/"); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50">
                       <Home className="h-4 w-4" /> Home
                     </button>
