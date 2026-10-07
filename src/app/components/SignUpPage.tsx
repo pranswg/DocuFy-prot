@@ -22,7 +22,7 @@ export default function SignUpPage() {
   const navigate = useNavigate();
   const logo = useLogo();
   const authBg = useAuthBackgroundUrl();
-  const { signup } = useAuth();
+  const { signup, signInWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -38,6 +38,7 @@ export default function SignUpPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,6 +53,16 @@ export default function SignUpPage() {
       setProfileImage(result);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    const result = await signInWithGoogle();
+    if (!result.success) {
+      setGoogleLoading(false);
+      toast.error("Could not start Google sign-in. Please try again.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -447,10 +458,12 @@ export default function SignUpPage() {
             type="button"
             variant="outline"
             className="w-full h-11 lg:h-10 border-gray-200 rounded-xl text-sm"
-            onClick={() =>
-              toast.info("Google Sign-In coming soon!")
-            }
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
           >
+            {googleLoading ? (
+              <span className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-[#2F6FD6]" />
+            ) : (
             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
@@ -469,6 +482,7 @@ export default function SignUpPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
+            )}
             Sign in with Google
           </Button>
 

@@ -31,6 +31,7 @@ export interface AuthContextType {
   user: User | null;
   authLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; reason?: 'inactive' }>;
+  signInWithGoogle: () => Promise<{ success: boolean }>;
   signup: (data: any) => Promise<boolean>;
   registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => Promise<{ success: boolean; message?: string }>;
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
@@ -289,6 +290,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void refreshAllStores();
 
+    return { success: true };
+  };
+
+  // Kick off the Google OAuth flow. Supabase redirects the whole tab to Google,
+  // then back to window.location.origin/auth/callback with a session, which the
+  // AuthProvider session-restore effect picks up like any other login.
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      console.warn('[auth:google] failed to start OAuth:', error.message);
+      return { success: false };
+    }
     return { success: true };
   };
 
@@ -639,6 +657,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         authLoading,
         login,
+        signInWithGoogle,
         signup,
         registerStaff,
         updateStaffAccount,

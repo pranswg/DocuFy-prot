@@ -21,12 +21,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const logo = useLogo();
   const authBg = useAuthBackgroundUrl();
-  const { login, user } = useAuth();
+  const { login, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
@@ -56,6 +57,16 @@ export default function LoginPage() {
         }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError("");
+    const result = await signInWithGoogle();
+    if (!result.success) {
+      setGoogleLoading(false);
+      setError("Could not start Google sign-in. Please try again.");
     }
   };
 
@@ -135,8 +146,12 @@ export default function LoginPage() {
           <Button
             variant="outline"
             className="w-full border-gray-200 text-[#1c1f26] h-10 text-sm mb-4"
-            onClick={() => {}}
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
           >
+            {googleLoading ? (
+              <span className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-[#2F6FD6]" />
+            ) : (
             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
@@ -155,6 +170,7 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
+            )}
             Continue with Google
           </Button>
 
