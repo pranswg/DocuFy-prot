@@ -9,8 +9,31 @@
 // six while making rows tall and unreadable. The full human-readable narrative
 // lives ONLY in the "View Details" panel, which also carries the
 // investigation-level extras (previous/new values, IP, device, transaction id).
+//
+// Backend: this store is a Supabase-backed facade over `public.audit_logs`.
+// `refreshFromBackend()` hydrates the mirror from the DB and the DB wins
+// whenever it returns rows. When the DB is empty the mirror stays as-is for
+// anonymous/offline rendering (the demo SEED below), and a signed-in staff/admin
+// viewer with an empty log sees the real (empty) log. `record()` is local-first
+// then best-effort: the entry is written to the localStorage mirror immediately
+// and pushed to `audit_logs` fire-and-forget (the actor's name/role/email + the
+// full narrative are snapshotted into the row's jsonb `metadata`).
+
+import {
+  fetchAuditEntries,
+  insertAuditEntry,
+  subscribeAuditLogs,
+  type AuditLogDto,
+} from '../../lib/db/auditLogRepo';
+import { isRlsDenied, showDbError } from '../../lib/db/errors';
 
 const STORAGE_KEY = "docufy_audit_log_v1";
+
+// The AuthContext persists the signed-in user per-tab (see AuthContext.tsx
+// AUTH_SESSION_KEY). The actor helper reads the same key so a store-level
+// audit write captures whoever is signed in on this device without threading
+// the user through every call site.
+const AUTH_SESSION_KEY = "docufy_auth_session_tab";
 
 export type AuditAction =
   | "Created"
@@ -65,13 +88,81 @@ export interface AuditEntry {
 
 type Subscriber = () => void;
 
-const minutesAgo = (m: number): string =>
-  new Date(Date.now() - m * 60_000).toISOString();
+interface PersistedUser {
+  name?: string;
+  email?: string;
+  role?: "customer" | "staff" | "admin" | string;
+  id?: string;
+}
+
+const ROLE_LABEL: Record<string, AuditRole> = {
+  admin: "Admin",
+  staff: "Staff",
+  customer: "Customer",
+};
+
+// Snapshot the acting user from the per-tab session. Kept small and readable:
+// real capture can't know the client's public IP, so `ipAddress` is omitted
+// (the DB column stays NULL) rather than fabricated.
+function currentAuditActor(): { actorId: string | null; actorName: string; actorRole: AuditRole; actorEmail: string } {
+  let raw: string | null = null;
+  try {
+    raw = sessionStorage.getItem(AUTH_SESSION_KEY);
+  } catch {
+    raw = null;
+  }
+  let user: PersistedUser | null = null;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as PersistedUser;
+      if (parsed && typeof parsed === "object") user = parsed;
+    } catch {
+      user = null;
+    }
+  }
+  const role: AuditRole = user?.role ? (ROLE_LABEL[String(user.role).toLowerCase()] ?? "Staff") : "Staff";
+  return {
+    actorId: user?.id ?? null,
+    actorName: user?.name?.trim() || (role === "Staff" ? "Staff" : role),
+    actorRole: role,
+    actorEmail: user?.email ?? "",
+  };
+}
+
+function currentDeviceLabel(): string {
+  try {
+    const ua = navigator.userAgent;
+    const isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua);
+    const isEdge = /Edg\//.test(ua);
+    const isSafari = /Safari\//.test(ua) && !isChrome && !isEdge;
+    const isFirefox = /Firefox\//.test(ua);
+    const browser = isEdge ? "Edge" : isFirefox ? "Firefox" : isChrome ? "Chrome" : isSafari ? "Safari" : "Browser";
+    const os = /Windows/.test(ua)
+      ? "Windows"
+      : /Mac OS X/.test(ua)
+        ? "macOS"
+        : /Android/.test(ua)
+          ? "Android"
+          : /iPhone|iPad|iPod/.test(ua)
+            ? "iOS"
+            : /Linux/.test(ua)
+              ? "Linux"
+              : "Unknown OS";
+    return `${browser} — ${os}`;
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Demo history. Timestamps are generated relative to load so the log always
- * reads as "recent" rather than drifting into the past.
+ * reads as "recent" rather than drifting into the past. Used ONLY as the
+ * anonymous/offline rendering fallback — a signed-in staff/admin viewer with an
+ * empty DB log sees the real (empty) log.
  */
+const minutesAgo = (m: number): string =>
+  new Date(Date.now() - m * 60_000).toISOString();
+
 const SEED: AuditEntry[] = [
   {
     id: "AUD-1021",
@@ -88,9 +179,7 @@ const SEED: AuditEntry[] = [
       { field: "Payment Status", previous: "Pending", next: "Verified" },
       { field: "Order Status", previous: "Awaiting Payment", next: "In Queue" },
     ],
-    ipAddress: "112.135.44.90",
     device: "Chrome — Windows 11",
-    transactionId: "TXN-88412",
   },
   {
     id: "AUD-1020",
@@ -106,9 +195,7 @@ const SEED: AuditEntry[] = [
     changes: [
       { field: "Order Status", previous: "In Queue", next: "Printing" },
     ],
-    ipAddress: "112.135.44.77",
     device: "Chrome — Windows 11",
-    transactionId: "TXN-88405",
   },
   {
     id: "AUD-1019",
@@ -125,7 +212,6 @@ const SEED: AuditEntry[] = [
       { field: "Order Status", previous: "—", next: "Awaiting Payment" },
       { field: "Payment Method", previous: "—", next: "GCash" },
     ],
-    ipAddress: "124.89.72.14",
     device: "Safari — iPhone 15",
   },
   {
@@ -142,9 +228,7 @@ const SEED: AuditEntry[] = [
     changes: [
       { field: "Full Color A4", previous: "₱12.00", next: "₱15.00" },
     ],
-    ipAddress: "49.144.19.203",
     device: "Edge — Windows 11",
-    transactionId: "TXN-88360",
   },
   {
     id: "AUD-1017",
@@ -160,9 +244,7 @@ const SEED: AuditEntry[] = [
     changes: [
       { field: "Payment Status", previous: "Pending", next: "Rejected" },
     ],
-    ipAddress: "112.135.44.90",
     device: "Chrome — Windows 11",
-    transactionId: "TXN-88341",
   },
   {
     id: "AUD-1016",
@@ -176,9 +258,7 @@ const SEED: AuditEntry[] = [
     description:
       "Miguel Santos released the completed order to the customer and collected the balance at the counter.",
     changes: [{ field: "Order Status", previous: "Completed", next: "Released" }],
-    ipAddress: "112.135.44.31",
     device: "Chrome — Windows 10",
-    transactionId: "TXN-88290",
   },
   {
     id: "AUD-1015",
@@ -192,7 +272,6 @@ const SEED: AuditEntry[] = [
     description:
       "Angel Reyes registered a new staff account for Miguel Santos with the Staff role. The account can now sign in but must clock in before using staff functions.",
     changes: [{ field: "Account Status", previous: "—", next: "Active" }],
-    ipAddress: "49.144.19.203",
     device: "Edge — Windows 11",
   },
   {
@@ -209,9 +288,7 @@ const SEED: AuditEntry[] = [
     changes: [
       { field: "Current Stock", previous: "12 reams", next: "9 reams" },
     ],
-    ipAddress: "112.135.44.77",
     device: "Chrome — Windows 11",
-    transactionId: "TXN-88211",
   },
   {
     id: "AUD-1013",
@@ -225,7 +302,6 @@ const SEED: AuditEntry[] = [
     description:
       "Ana Dela Cruz deleted a duplicate walk-in order that had been entered twice by mistake. The original order record was left untouched.",
     changes: [{ field: "Record", previous: "Active", next: "Deleted" }],
-    ipAddress: "112.135.44.58",
     device: "Chrome — Windows 10",
   },
   {
@@ -240,9 +316,7 @@ const SEED: AuditEntry[] = [
     description:
       "Angel Reyes deactivated the Maya payment method after its account number was changed by the provider.",
     changes: [{ field: "Status", previous: "Active", next: "Inactive" }],
-    ipAddress: "49.144.19.203",
     device: "Edge — Windows 11",
-    transactionId: "TXN-88104",
   },
   {
     id: "AUD-1011",
@@ -259,9 +333,7 @@ const SEED: AuditEntry[] = [
       { field: "Payment Status", previous: "Unpaid", next: "Paid" },
       { field: "Amount Collected", previous: "—", next: "₱85.00" },
     ],
-    ipAddress: "112.135.44.90",
     device: "Chrome — Windows 11",
-    transactionId: "TXN-88062",
   },
   {
     id: "AUD-1010",
@@ -277,9 +349,7 @@ const SEED: AuditEntry[] = [
     changes: [
       { field: "Clock In", previous: "08:45 AM", next: "08:30 AM" },
     ],
-    ipAddress: "49.144.19.203",
     device: "Edge — Windows 11",
-    transactionId: "TXN-87915",
   },
   {
     id: "AUD-1009",
@@ -293,7 +363,6 @@ const SEED: AuditEntry[] = [
     description:
       "Maria Santos created a walk-in printing transaction for a customer who paid at the counter.",
     changes: [{ field: "Order Status", previous: "—", next: "In Queue" }],
-    ipAddress: "112.135.44.77",
     device: "Chrome — Windows 11",
   },
   {
@@ -308,16 +377,53 @@ const SEED: AuditEntry[] = [
     description:
       "Angel Reyes paused new order acceptance while the shop underwent electrical repairs. Existing orders continued to be processed normally.",
     changes: [{ field: "Shop Status", previous: "Open", next: "Paused" }],
-    ipAddress: "49.144.19.203",
     device: "Edge — Windows 11",
-    transactionId: "TXN-87740",
   },
 ];
+
+function dtoToEntry(dto: AuditLogDto): AuditEntry | null {
+  const action = dto.action as AuditAction;
+  const module = (dto.module ?? "") as AuditModule;
+  const role = (dto.actorRole ?? "Staff") as AuditRole;
+  const validActions = ["Created", "Updated", "Approved", "Rejected", "Deleted", "Released"];
+  if (!validActions.includes(action) || !module) return null;
+  return {
+    id: dto.id,
+    timestamp: dto.created_at,
+    actorName: dto.actorName || dto.actorRole || "Staff",
+    actorRole: role,
+    action,
+    module,
+    reference: dto.reference ?? dto.entityId ?? "",
+    title: dto.title ?? action,
+    description: dto.description ?? "",
+    changes: dto.changes ?? [],
+    ...(dto.ipAddress ? { ipAddress: dto.ipAddress } : {}),
+    ...(dto.device ? { device: dto.device } : {}),
+    ...(dto.transactionId ? { transactionId: dto.transactionId } : {}),
+  };
+}
+
+function isStaffAdmin(): boolean {
+  const { actorRole } = currentAuditActor();
+  return actorRole === "Admin" || actorRole === "Staff";
+}
 
 class AuditLogStore {
   private entries: AuditEntry[] = [];
   private subscribers: Set<Subscriber> = new Set();
   private loaded = false;
+  private hydrated = false;
+  private refreshInFlight: Promise<void> | null = null;
+
+  constructor() {
+    // Live updates across devices + a best-effort first hydrate (the storeSync
+    // re-hydration after auth settle handles the anonymous-first-fetch race).
+    subscribeAuditLogs(() => {
+      void this.refreshFromBackend();
+    });
+    void this.refreshFromBackend();
+  }
 
   private load(): void {
     if (this.loaded) return;
@@ -350,6 +456,41 @@ class AuditLogStore {
     this.subscribers.forEach((listener) => listener());
   }
 
+  /**
+   * Re-read the shared `audit_logs` table. The DB wins whenever it returns
+   * rows; an empty-but-reachable DB replaces the mirror with the real (empty)
+   * log for staff/admin viewers, while anonymous/customer viewers keep the
+   * demo seed so the page never paints blank. Unreachable backend = keep the
+   * local mirror (offline fallback).
+   */
+  async refreshFromBackend(): Promise<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = (async () => {
+      this.load();
+      try {
+        const rows = await fetchAuditEntries();
+        const mapped = rows.map(dtoToEntry).filter((e): e is AuditEntry => e !== null);
+        if (mapped.length > 0) {
+          this.entries = mapped;
+          this.persist();
+        } else if (isStaffAdmin()) {
+          // Real staff/admin viewer with an empty log — show the real log.
+          this.entries = [];
+        }
+        this.hydrated = true;
+        this.notify();
+      } catch {
+        // Keep the local mirror when the backend is unreachable.
+        this.hydrated = true;
+      }
+    })();
+    try {
+      await this.refreshInFlight;
+    } finally {
+      this.refreshInFlight = null;
+    }
+  }
+
   /** Newest first — the order a reviewer reads a log in. */
   getEntries(): AuditEntry[] {
     this.load();
@@ -371,17 +512,78 @@ class AuditLogStore {
     };
   }
 
-  /** Append a new activity entry (newest automatically sorts first). */
-  record(entry: Omit<AuditEntry, "id" | "timestamp"> & { id?: string; timestamp?: string }): void {
+  /**
+   * Append a new activity entry. Local-first for instant UI, then pushed to
+   * `audit_logs` best-effort: the actor is snapshotted from the per-tab
+   * session, and the DB row (with its uuid) becomes the identity once the
+   * write lands. Customer-originated events (insert-RLS staff/admin only) are
+   * kept in the mirror but never make it to the DB.
+   */
+  record(entry: {
+    module: AuditModule;
+    action: AuditAction;
+    reference: string;
+    title: string;
+    description: string;
+    changes?: AuditChange[];
+    entityType?: string;
+    entityId?: string;
+    timestamp?: string;
+  }): void {
     this.load();
+    const actor = currentAuditActor();
+    const device = currentDeviceLabel();
     const created: AuditEntry = {
       ...entry,
-      id: entry.id ?? `AUD-${Date.now().toString().slice(-6)}`,
+      id: `AUD-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 90 + 10)}`,
       timestamp: entry.timestamp ?? new Date().toISOString(),
+      actorName: actor.actorName,
+      actorRole: actor.actorRole,
+      changes: entry.changes ?? [],
+      ...(device ? { device } : {}),
     };
     this.entries = [created, ...this.entries];
     this.persist();
     this.notify();
+
+    void insertAuditEntry({
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorRole: actor.actorRole,
+      actorEmail: actor.actorEmail,
+      action: entry.action,
+      entityType: entry.entityType ?? entry.module,
+      entityId: entry.entityId ?? entry.reference,
+      module: entry.module,
+      reference: entry.reference,
+      title: entry.title,
+      description: entry.description,
+      changes: entry.changes ?? [],
+      device,
+      timestamp: created.timestamp,
+    }).then((serverId) => {
+      if (serverId) {
+        // Adopt the server identity so UI keys stay stable; the realtime echo
+        // will re-hydrate the full DB snapshot in any case.
+        const refreshed = this.entries.find((e) => e.id === created.id);
+        if (refreshed) {
+          refreshed.id = serverId;
+          this.persist();
+          this.notify();
+        }
+      }
+    }).catch((err) => {
+      if (isRlsDenied(err)) {
+        console.warn('[audit] insert not synced (RLS) — kept locally:', entry.reference);
+      } else {
+        showDbError('audit.record', err);
+      }
+    });
+  }
+
+  /** True once the module has attempted a backend read (for hydration UI). */
+  isHydrated(): boolean {
+    return this.hydrated;
   }
 }
 

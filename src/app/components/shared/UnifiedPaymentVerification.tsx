@@ -45,6 +45,7 @@ import { TableSkeleton } from "../ui/table-skeleton";
 import { useHydrating } from "../../utils/useHydrating";
 import { dataStore } from "../../utils/dataStore";
 import { notificationStore } from "../../utils/notificationStore";
+import { auditLogStore } from "../../utils/auditLogStore";
 import { verifyPayment, rejectPayment, confirmCashPayment } from "../../../lib/db/paymentsRepo";
 import { showDbError } from "../../../lib/db/errors";
 import { BUCKETS, getSignedObjectUrl } from "../../../lib/db/storage";
@@ -571,6 +572,30 @@ export default function UnifiedPaymentVerification({ menuItems, userRole }: Unif
         // Keep the dialog open + keep our lock so the reviewer can retry.
         return false;
       }
+
+      // Audit the verification outcome — who approved/rejected which payment.
+      const paymentOrderLabel = targetOrder?.displayId ?? selectedPayment.orderId;
+      auditLogStore.record({
+        module: "Payments",
+        action: status === "verified" ? "Approved" : "Rejected",
+        reference: `Order #${paymentOrderLabel}`,
+        entityType: "Payment",
+        entityId: selectedPayment.rowId ?? selectedPayment.orderId,
+        title: status === "verified" ? "Payment Verified" : "Payment Rejected",
+        description:
+          status === "verified"
+            ? isCashDown
+              ? `The cash payment for order #${paymentOrderLabel} was confirmed at the shop (${paidFull ? "full amount" : "50% down"}) and the order entered the print queue.`
+              : `The payment for order #${paymentOrderLabel} was verified and the order entered the print queue.`
+            : `The payment for order #${paymentOrderLabel} was rejected. Reason: ${rejectionReason.trim() || "Rejected"}.`,
+        changes: [
+          {
+            field: "Payment Status",
+            previous: "Pending",
+            next: status === "verified" ? "Verified" : "Rejected",
+          },
+        ],
+      });
 
       // Notify the customer about the verification outcome (skips walk-ins /
       // orders without a customer email). Rendered by both the admin and staff

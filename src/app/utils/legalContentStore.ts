@@ -14,6 +14,7 @@ import { isRlsDenied, showDbError } from '../../lib/db/errors';
 import { authReady, supabase } from '../../lib/supabaseClient';
 import { fetchLegalPolicies, saveLegalPolicy } from '../../lib/db/siteContentRepo';
 import type { LegalPolicyInsert, LegalPolicyRow } from '../../lib/db/types';
+import { auditLogStore } from './auditLogStore';
 
 export interface LegalSection {
   title: string;
@@ -377,11 +378,27 @@ export const legalContentStore = {
   getContent: read,
   saveContent: (content: LegalContent) => {
     save(content);
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Terms & Privacy",
+      entityType: "Legal Policies",
+      title: "Terms & Privacy Updated",
+      description: "Edited the Terms & Conditions and Privacy Policy content.",
+    });
     void syncRemote(content);
   },
   resetContent: () => {
     const reset = defaultClone();
     save(reset);
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Terms & Privacy",
+      entityType: "Legal Policies",
+      title: "Terms & Privacy Reset",
+      description: "Reset the Terms & Conditions and Privacy Policy to the defaults.",
+    });
     void syncRemote(reset);
   },
   refreshFromBackend: () => hydrate(),

@@ -13,6 +13,7 @@
 // hydrates from the DB on load and follows realtime changes, so another tab or
 // device (e.g. staff clocking in while an admin monitors) shows up live.
 import { internetUtcMs, toPHT, formatPHTime } from "./pht";
+import { auditLogStore } from "./auditLogStore";
 import {
   fetchAttendanceRecords,
   upsertAttendanceRecord,
@@ -598,6 +599,22 @@ class AttendanceStore {
     const after = field === 'timeIn' ? record.timeIn : record.timeOut;
     const changed = (before?.getTime() ?? null) !== (after?.getTime() ?? null);
     if (!created && changed) {
+      if (push) {
+        auditLogStore.record({
+          module: 'Attendance',
+          action: 'Updated',
+          reference: `${userName} — ${date}`,
+          entityType: 'Attendance',
+          entityId: record.id,
+          title: 'Attendance Time Adjusted',
+          description: `${userName}'s ${field === 'timeIn' ? 'time in' : 'time out'} on ${date} was corrected by an admin from ${before ? formatPHTime(before) : '—'} to ${after ? formatPHTime(after) : '—'}.`,
+          changes: [{
+            field: field === 'timeIn' ? 'Time In' : 'Time Out',
+            previous: before ? formatPHTime(before) : '—',
+            next: after ? formatPHTime(after) : '—',
+          }],
+        });
+      }
       this.pushRecordAndAudit(record.id, field, before, after);
     } else if (push) {
       this.pushRecord(record);

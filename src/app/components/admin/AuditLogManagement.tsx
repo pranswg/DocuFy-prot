@@ -22,6 +22,7 @@ import {
   Hash,
   ArrowRight,
   Inbox,
+  Download,
 } from "lucide-react";
 import Layout from "../Layout";
 import { Button } from "../ui/button";
@@ -94,6 +95,63 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function csvCell(value: string | number | undefined | null): string {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+// Export the currently-filtered activities as a CSV download (Excel-friendly:
+// BOM so ₱/em-dashes render, quoted cells so commas/newlines stay intact).
+function exportAuditCsv(rows: AuditEntry[]) {
+  const header = [
+    "Date & Time (PHT)",
+    "Actor",
+    "Role",
+    "Module",
+    "Action",
+    "Reference",
+    "Title",
+    "Description",
+    "Changes",
+    "IP Address",
+    "Device / Browser",
+    "Transaction ID",
+    "Log ID",
+  ];
+  const lines = rows.map((entry) => {
+    const changes = entry.changes
+      .map((change) => `${change.field}: ${change.previous} -> ${change.next}`)
+      .join("; ");
+    return [
+      `${formatPHDate(entry.timestamp, "short")} ${formatPHTime(entry.timestamp)}`,
+      entry.actorName,
+      entry.actorRole,
+      entry.module,
+      entry.action,
+      entry.reference,
+      entry.title,
+      entry.description,
+      changes,
+      entry.ipAddress ?? "",
+      entry.device ?? "",
+      entry.transactionId ?? "",
+      entry.id,
+    ]
+      .map(csvCell)
+      .join(",");
+  });
+  const csv = "\uFEFF" + [header.map(csvCell).join(","), ...lines].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `docufy-audit-trail-${todayPHTKey()}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function ChangeRow({ change }: { change: AuditChange }) {
@@ -233,6 +291,16 @@ export default function AuditLogManagement() {
               they changed, and when.
             </p>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={filtered.length === 0}
+            onClick={() => exportAuditCsv(filtered)}
+            className="h-10 rounded-md border border-gray-200 bg-white px-4 text-slate-600 hover:border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white disabled:pointer-events-none disabled:opacity-40"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV{filtered.length > 0 ? ` (${filtered.length})` : ""}
+          </Button>
         </div>
 
         {/* Summary cards */}

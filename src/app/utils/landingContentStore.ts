@@ -15,6 +15,7 @@ import { isRlsDenied, showDbError } from '../../lib/db/errors';
 import { authReady, supabase } from '../../lib/supabaseClient';
 import { fetchLandingContent, upsertLandingContent } from '../../lib/db/siteContentRepo';
 import type { Json } from '../../lib/database.types';
+import { auditLogStore } from './auditLogStore';
 
 export interface ServiceCardContent {
   title: string;
@@ -329,11 +330,27 @@ export const landingContentStore = {
   getContent: read,
   saveContent: (content: LandingPageContent) => {
     save(content);
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Landing Page",
+      entityType: "Landing Page Content",
+      title: "Landing Page Content Updated",
+      description: "Edited the public landing page content.",
+    });
     void syncRemote(content);
   },
   resetContent: () => {
     const reset = { ...defaults };
     save(reset);
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Landing Page",
+      entityType: "Landing Page Content",
+      title: "Landing Page Content Reset",
+      description: "Reset the public landing page content to the defaults.",
+    });
     void syncRemote(reset);
   },
   refreshFromBackend: () => hydrate(),

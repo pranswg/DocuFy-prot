@@ -21,6 +21,7 @@ import {
 } from '../../lib/db/ordersRepo';
 import { hasVerifiedPayment } from '../../lib/db/paymentsRepo';
 import { createWalkInTransaction } from '../../lib/db/walkInRepo';
+import { auditLogStore } from './auditLogStore';
 import { resolveStorageUrl, BUCKETS, uploadObjectAndGetPath, removeObjectsIfPresent } from '../../lib/db/storage';
 import { formatOrderNumber } from '../../lib/db/types';
 import type { OrderDto, OrderFileDto } from '../../lib/db/types';
@@ -541,6 +542,23 @@ class DataStore {
         paymentMethod: 'Cash',
         createdBy: createdById,
       }).catch((err) => console.warn('[dataStore] walk-in transaction log write failed:', err));
+
+      // Audit the walk-in sale — captured at the single placement chokepoint so
+      // both print and photocopy walk-ins are covered.
+      const walkInCustomerName = input.customer ?? input.customerName ?? 'Walk-in Customer';
+      const walkInTotal = input.manualTotal ?? input.costBreakdown?.total ?? total;
+      auditLogStore.record({
+        module: 'Walk-in',
+        action: 'Created',
+        reference: `${walkInCustomerName} — Walk-in`,
+        entityType: 'Order',
+        entityId: id,
+        title: 'Walk-in Transaction Placed',
+        description: `A walk-in ${input.customerType === 'photocopy' ? 'photocopy' : 'printing'} transaction for ${walkInCustomerName} was placed. Total to collect: ₱${String(walkInTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}.`,
+        changes: walkInTotal > 0
+          ? [{ field: 'Total', previous: '—', next: `₱${String(walkInTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}` }]
+          : [],
+      });
     }
 
     if (files.length > 0) {

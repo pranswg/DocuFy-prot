@@ -15,6 +15,7 @@
 import { attendanceStore } from "./attendanceStore";
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { auditLogStore, type AuditChange } from './auditLogStore';
 import { authReady } from '../../lib/supabaseClient';
 import {
   fetchStaffAllowances,
@@ -445,10 +446,80 @@ class StaffStore {
   }
 
   setStaff(next: Staff[]): void {
+    const prev = this.list;
     this.list = next.map((s) => normalizeStaff({ ...s }));
     this.persist();
     this.notify();
     void this.syncAll();
+    this.recordRosterDiff(prev, this.list);
+  }
+
+  // Audit the roster diff — new members, edits (role/status/salary/contact),
+  // and removals — so a "who changed staff" question has an answer in the log.
+  private recordRosterDiff(prev: Staff[], next: Staff[]): void {
+    const prevByEmail = new Map(prev.map((s) => [s.email.toLowerCase(), s]));
+    const nextByEmail = new Map(next.map((s) => [s.email.toLowerCase(), s]));
+    const compareFields: { label: string; key: keyof Pick<Staff, 'name' | 'email' | 'role' | 'status' | 'phone' | 'salary'> }[] = [
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Role', key: 'role' },
+      { label: 'Account Status', key: 'status' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Salary', key: 'salary' },
+    ];
+
+    for (const current of next) {
+      const key = current.email.toLowerCase();
+      const old = prevByEmail.get(key);
+      if (!old) {
+        auditLogStore.record({
+          module: 'Staff',
+          action: 'Created',
+          reference: current.name || current.email,
+          entityType: 'Staff',
+          entityId: current.id,
+          title: 'Staff Member Added',
+          description: `Added ${current.name} (${current.email}) to the staff roster with role ${current.role}.`,
+        });
+        continue;
+      }
+      const changes: AuditChange[] = [];
+      for (const f of compareFields) {
+        if (String(old[f.key] ?? '') !== String(current[f.key] ?? '')) {
+          changes.push({
+            field: f.label,
+            previous: String(old[f.key] ?? '—'),
+            next: String(current[f.key] ?? '—'),
+          });
+        }
+      }
+      if (changes.length > 0) {
+        auditLogStore.record({
+          module: 'Staff',
+          action: 'Updated',
+          reference: current.name || current.email,
+          entityType: 'Staff',
+          entityId: current.id,
+          title: 'Staff Member Updated',
+          description: `Updated the staff record for ${current.name} (${current.email}).`,
+          changes,
+        });
+      }
+    }
+
+    for (const removed of prev) {
+      if (!nextByEmail.has(removed.email.toLowerCase())) {
+        auditLogStore.record({
+          module: 'Staff',
+          action: 'Deleted',
+          reference: removed.name || removed.email,
+          entityType: 'Staff',
+          entityId: removed.id,
+          title: 'Staff Member Removed',
+          description: `Removed ${removed.name} (${removed.email}) from the staff roster.`,
+        });
+      }
+    }
   }
 
   // Best-effort push of the whole roster: syncs the DB only after hydration so

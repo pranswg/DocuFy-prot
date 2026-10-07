@@ -15,6 +15,7 @@ import {
 } from '../../lib/db/paymentMethodsRepo';
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { authReady } from '../../lib/supabaseClient';
+import { auditLogStore, type AuditChange } from './auditLogStore';
 
 export type PaymentMethodType = {
   id: string;
@@ -151,6 +152,15 @@ class PaymentMethodsStore {
       qrStoragePath,
       active: true,
     });
+    auditLogStore.record({
+      module: 'Payment Methods',
+      action: 'Created',
+      reference: data.name.trim(),
+      entityType: 'Payment Method',
+      entityId: id,
+      title: 'Payment Method Added',
+      description: `Added the payment method "${data.name.trim()}" (${data.accountName.trim()} / ${data.accountNumber.trim()}).`,
+    });
     await this.hydrate();
     return this.findById(id) ?? {
       id,
@@ -194,12 +204,61 @@ class PaymentMethodsStore {
       qrStoragePath,
       active: updates.active ?? current.active,
     });
+    if (updates.active !== undefined && updates.active !== current.active) {
+      auditLogStore.record({
+        module: 'Payment Methods',
+        action: 'Updated',
+        reference: current.name,
+        entityType: 'Payment Method',
+        entityId: id,
+        title: updates.active ? 'Payment Method Activated' : 'Payment Method Deactivated',
+        description: `${updates.active ? 'Activated' : 'Deactivated'} the payment method "${current.name}".`,
+        changes: [{ field: 'Active', previous: current.active ? 'Yes' : 'No', next: updates.active ? 'Yes' : 'No' }],
+      });
+    } else {
+      const changes: AuditChange[] = [];
+      if (updates.name !== undefined && updates.name !== current.name) {
+        changes.push({ field: 'Name', previous: current.name, next: updates.name });
+      }
+      if (updates.accountName !== undefined && updates.accountName !== current.accountName) {
+        changes.push({ field: 'Account Name', previous: current.accountName, next: updates.accountName });
+      }
+      if (updates.accountNumber !== undefined && updates.accountNumber !== current.accountNumber) {
+        changes.push({ field: 'Account Number', previous: current.accountNumber, next: updates.accountNumber });
+      }
+      if (updates.qrCode !== undefined && updates.qrCode.startsWith('data:')) {
+        changes.push({ field: 'QR Code', previous: 'Previous image', next: 'New image' });
+      }
+      if (changes.length > 0) {
+        auditLogStore.record({
+          module: 'Payment Methods',
+          action: 'Updated',
+          reference: updates.name ?? current.name,
+          entityType: 'Payment Method',
+          entityId: id,
+          title: 'Payment Method Updated',
+          description: `Updated the payment method "${updates.name ?? current.name}".`,
+          changes,
+        });
+      }
+    }
     await this.hydrate();
     return true;
   }
 
   async setActive(id: string, active: boolean): Promise<boolean> {
+    const current = this.findById(id);
     await setPaymentMethodActive(id, active);
+    auditLogStore.record({
+      module: 'Payment Methods',
+      action: 'Updated',
+      reference: current?.name ?? id,
+      entityType: 'Payment Method',
+      entityId: id,
+      title: active ? 'Payment Method Activated' : 'Payment Method Deactivated',
+      description: `${active ? 'Activated' : 'Deactivated'} the payment method "${current?.name ?? id}".`,
+      changes: [{ field: 'Active', previous: active ? 'No' : 'Yes', next: active ? 'Yes' : 'No' }],
+    });
     await this.hydrate();
     return true;
   }
@@ -207,6 +266,15 @@ class PaymentMethodsStore {
   async deletePaymentMethod(id: string): Promise<boolean> {
     const current = this.findById(id);
     await dbDeletePaymentMethod(id, current?.qrStoragePath ?? null);
+    auditLogStore.record({
+      module: 'Payment Methods',
+      action: 'Deleted',
+      reference: current?.name ?? id,
+      entityType: 'Payment Method',
+      entityId: id,
+      title: 'Payment Method Deleted',
+      description: `Deleted the payment method "${current?.name ?? id}".`,
+    });
     await this.hydrate();
     return true;
   }

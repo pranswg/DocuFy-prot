@@ -8,6 +8,7 @@
 
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
+import { auditLogStore, type AuditChange } from './auditLogStore';
 import { authReady } from '../../lib/supabaseClient';
 import {
   deductPaperPiecesRpc,
@@ -274,6 +275,40 @@ class InventoryStore {
     }
   }
 
+  private recordInventoryUpdate(prev: InventoryItem, next: InventoryItem): void {
+    const labels: Record<keyof Pick<InventoryItem, 'name' | 'category' | 'brand' | 'unit' | 'currentStock' | 'minimumStock' | 'price' | 'paperSize' | 'archived'>, string> = {
+      name: 'Name',
+      category: 'Category',
+      brand: 'Brand',
+      unit: 'Unit',
+      currentStock: 'Current Stock',
+      minimumStock: 'Minimum Stock',
+      price: 'Price',
+      paperSize: 'Paper Size',
+      archived: 'Archived',
+    };
+    const changes: AuditChange[] = (Object.keys(labels) as (keyof typeof labels)[]).flatMap((key) => {
+      const oldValue = prev[key];
+      const newValue = next[key];
+      if (oldValue === newValue) return [];
+      return [{
+        field: labels[key],
+        previous: oldValue == null ? '—' : String(oldValue),
+        next: newValue == null ? '—' : String(newValue),
+      }];
+    });
+    auditLogStore.record({
+      module: 'Inventory',
+      action: 'Updated',
+      reference: prev.name || prev.id,
+      entityType: 'Inventory',
+      entityId: prev.id,
+      title: 'Inventory Item Updated',
+      description: `Updated the inventory item "${prev.name || prev.id}".`,
+      changes,
+    });
+  }
+
   private recordMovement(
     item: InventoryItem,
     type: StockMovementType,
@@ -403,6 +438,17 @@ class InventoryStore {
     this.saveToLocalStorage();
     this.notify();
 
+    auditLogStore.record({
+      module: 'Inventory',
+      action: 'Created',
+      reference: stamped.name || stamped.id,
+      entityType: 'Inventory',
+      entityId: stamped.id,
+      title: 'Inventory Item Added',
+      description: `Added the inventory item "${stamped.name || stamped.id}" (${stamped.category}) with an initial stock of ${stamped.currentStock} ${stamped.unit}(s).`,
+      changes: [{ field: 'Current Stock', previous: '—', next: String(stamped.currentStock) }],
+    });
+
     try {
       const saved = await saveInventoryItem({
         name: stamped.name,
@@ -427,7 +473,7 @@ class InventoryStore {
     }
   }
 
-  updateItem(id: string, updates: Partial<InventoryItem>): void {
+  updateItem(id: string, updates: Partial<InventoryItem>, opts?: { audit?: boolean }): void {
     this.loadFromLocalStorage();
     const prev = this.items.find(item => item.id === id);
     const merged: InventoryItem = {
@@ -441,7 +487,10 @@ class InventoryStore {
     );
     this.saveToLocalStorage();
     this.notify();
-    if (prev) void this.syncItem(merged);
+    if (prev) {
+      void this.syncItem(merged);
+      if (opts?.audit !== false) this.recordInventoryUpdate(prev, merged);
+    }
   }
 
   archiveItem(id: string): void {
@@ -454,10 +503,22 @@ class InventoryStore {
 
   deleteItem(id: string): void {
     this.loadFromLocalStorage();
+    const doomed = this.items.find(item => item.id === id);
     this.items = this.items.filter(item => item.id !== id);
     this.saveToLocalStorage();
     this.notify();
-    void this.removeRemote(id);
+    if (doomed) {
+      auditLogStore.record({
+        module: 'Inventory',
+        action: 'Deleted',
+        reference: doomed.name || doomed.id,
+        entityType: 'Inventory',
+        entityId: doomed.id,
+        title: 'Inventory Item Deleted',
+        description: `Deleted the inventory item "${doomed.name || doomed.id}" (${doomed.category}).`,
+      });
+      void this.removeRemote(id);
+    }
   }
 
   // Stock In (restocking): add quantity
@@ -465,9 +526,20 @@ class InventoryStore {
     if (quantity <= 0) return undefined;
     const item = this.getItemById(id);
     if (!item) return undefined;
+    const prevStock = item.currentStock;
     const updated = { ...item, currentStock: item.currentStock + quantity };
-    this.updateItem(id, { currentStock: updated.currentStock });
+    this.updateItem(id, { currentStock: updated.currentStock }, { audit: false });
     this.recordMovement(item, 'in', quantity, opts);
+    auditLogStore.record({
+      module: 'Inventory',
+      action: 'Updated',
+      reference: item.name || item.id,
+      entityType: 'Inventory',
+      entityId: item.id,
+      title: 'Stock In',
+      description: `Restocked "${item.name || item.id}" with ${quantity} ${item.unit}(s).${opts?.reason ? ` Reason: ${opts.reason}.` : ''}`,
+      changes: [{ field: 'Current Stock', previous: String(prevStock), next: String(updated.currentStock) }],
+    });
     return updated;
   }
 
@@ -479,9 +551,20 @@ class InventoryStore {
     if (item.currentStock < quantity) {
       return { success: false, message: `Not enough stock. Only ${item.currentStock} ${item.unit}(s) available.` };
     }
+    const prevStock = item.currentStock;
     const updated = { ...item, currentStock: item.currentStock - quantity };
-    this.updateItem(id, { currentStock: updated.currentStock });
+    this.updateItem(id, { currentStock: updated.currentStock }, { audit: false });
     this.recordMovement(item, 'out', quantity, opts);
+    auditLogStore.record({
+      module: 'Inventory',
+      action: 'Updated',
+      reference: item.name || item.id,
+      entityType: 'Inventory',
+      entityId: item.id,
+      title: 'Stock Out',
+      description: `Removed ${quantity} ${item.unit}(s) from "${item.name || item.id}" stock.${opts?.reason ? ` Reason: ${opts.reason}.` : ''}`,
+      changes: [{ field: 'Current Stock', previous: String(prevStock), next: String(updated.currentStock) }],
+    });
     return { success: true, message: 'Stock deducted.', item: updated };
   }
 

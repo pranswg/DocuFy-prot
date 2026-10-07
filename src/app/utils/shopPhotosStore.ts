@@ -19,6 +19,7 @@ import {
   insertShopPhoto,
 } from '../../lib/db/siteContentRepo';
 import { BUCKETS, removeObjectsIfPresent, uploadDataUrlAndGetPath } from '../../lib/db/storage';
+import { auditLogStore } from './auditLogStore';
 
 export const MAX_PHOTOS = 3;
 
@@ -205,16 +206,37 @@ class ShopPhotosStore {
     };
     this.photos = [...this.photos, photo];
     this.save();
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Created",
+      reference: "Shop Photo",
+      entityType: "Shop Photo",
+      entityId: photo.id,
+      title: "Shop Photo Added",
+      description: `Added a shop photo${this.photos.length > 1 ? ` (${this.photos.length} of ${MAX_PHOTOS} shown)` : ""}.`,
+    });
     this.notify();
     void this.pushAdd(photo);
     return true;
   }
 
   removePhoto(id: string): boolean {
+    const removed = this.photos.find((p) => p.id === id);
     const next = this.photos.filter((p) => p.id !== id);
     if (next.length === this.photos.length) return false;
     this.photos = next;
     this.save();
+    if (removed) {
+      auditLogStore.record({
+        module: "Shop Content",
+        action: "Deleted",
+        reference: "Shop Photo",
+        entityType: "Shop Photo",
+        entityId: id,
+        title: "Shop Photo Removed",
+        description: "Removed a shop photo from the location gallery.",
+      });
+    }
     this.notify();
     void this.pushRemove(id);
     return true;
