@@ -5,6 +5,7 @@ import { fetchShopStatus, upsertShopStatus } from '../../lib/db/siteContentRepo'
 import { dataStore } from "./dataStore";
 import { notificationStore } from "./notificationStore";
 import { internetUtcMs } from "./pht";
+import { auditLogStore } from "./auditLogStore";
 
 export type ShopStatus = "open" | "closed-scheduled" | "paused";
 
@@ -212,6 +213,23 @@ class ShopStatusStore {
     this.persist();
     if (prev.status !== this.state.status) {
       this.notifyStatusChange(prev, this.state);
+      const nextState = this.state;
+      const detail = [nextState.reason, nextState.eta].filter(Boolean).join(" · ");
+      auditLogStore.record({
+        module: "Shop Content",
+        action: "Updated",
+        reference: "Shop Status",
+        entityType: "Shop Status",
+        title: "Shop Status Changed",
+        description: `Changed the shop status to "${nextState.status}"${detail ? ` — ${detail}` : ""}.`,
+        changes: [
+          {
+            field: "Shop Status",
+            previous: prev.status === "open" ? "Open" : prev.status === "paused" ? "Paused" : "Closed (Scheduled)",
+            next: nextState.status === "open" ? "Open" : nextState.status === "paused" ? "Paused" : "Closed (Scheduled)",
+          },
+        ],
+      });
     }
     void this.syncRemote();
     return this.getState();

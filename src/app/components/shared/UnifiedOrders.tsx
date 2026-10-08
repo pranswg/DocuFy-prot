@@ -40,6 +40,7 @@ import StaffTimeInGate from "./StaffTimeInGate";
 import { ordersStore } from "../../utils/ordersStore";
 import { showDbError } from "../../../lib/db/errors";
 import { notificationStore } from "../../utils/notificationStore";
+import { auditLogStore } from "../../utils/auditLogStore";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
 import { shopStatusStore } from "../../utils/shopStatusStore";
 import { Card } from "../ui/card";
@@ -648,6 +649,37 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
       // Keep the form open so the user can retry.
       return;
     }
+
+    // Audit the status change — an immutable record of who moved the order
+    // where, and when.
+    const orderStatusLabel: Record<string, string> = {
+      awaitingPayment: "Awaiting Payment",
+      inQueue: "In Queue",
+      printing: "Printing",
+      completed: "Completed",
+      released: "Released",
+      canceled: "Canceled",
+      onHold: "On Hold",
+    };
+    auditLogStore.record({
+      module: "Orders",
+      action: pendingStatus === "released" ? "Released" : "Updated",
+      reference: `Order #${selectedOrder.displayId ?? selectedOrder.id}`,
+      entityType: "Order",
+      entityId: selectedOrder.id,
+      title: pendingStatus === "canceled" ? "Order Canceled" : "Order Status Updated",
+      description:
+        pendingStatus === "canceled"
+          ? `The order was canceled. Reason: ${statusFormData.cancellationReason || "Not specified"}.`
+          : `The order status was changed from ${orderStatusLabel[selectedOrder.status] ?? selectedOrder.status} to ${orderStatusLabel[pendingStatus] ?? pendingStatus}.`,
+      changes: [
+        {
+          field: "Order Status",
+          previous: orderStatusLabel[selectedOrder.status] ?? selectedOrder.status,
+          next: orderStatusLabel[pendingStatus] ?? pendingStatus,
+        },
+      ],
+    });
 
     const updatedSelectedOrder = {
       ...selectedOrder,

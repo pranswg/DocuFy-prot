@@ -13,6 +13,7 @@
 import { subscribeTableChanges } from '../../lib/db/hooks';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
 import { authReady } from '../../lib/supabaseClient';
+import { auditLogStore } from './auditLogStore';
 import {
   fetchMatrixCells,
   fetchPricingSettings,
@@ -850,10 +851,21 @@ class PricingStore {
     if (!(key in DEFAULT_PRICING) || !Number.isFinite(value) || value < 0) {
       return false;
     }
+    const previous = this.pricing[key];
     this.pricing = { ...this.pricing, [key]: value };
     this.save();
     this.notify();
     void this.syncSettings();
+    auditLogStore.record({
+      module: 'Pricing',
+      action: 'Updated',
+      reference: `Pricing — ${pricingFieldLabel(key)}`,
+      entityType: 'Pricing',
+      entityId: key,
+      title: 'Pricing Setting Updated',
+      description: `Changed the pricing setting "${pricingFieldLabel(key)}" from ${previous} to ${value}.`,
+      changes: [{ field: pricingFieldLabel(key), previous: String(previous), next: String(value) }],
+    });
     return true;
   }
 
@@ -875,29 +887,39 @@ class PricingStore {
   ): boolean {
     if (!Number.isFinite(value) || value < 0) return false;
     const m = JSON.parse(JSON.stringify(this.matrix)) as PricingMatrix;
+    let previous = -1;
+    let cellLabel = '';
 
     try {
       if (service === 'document') {
         if (path.length !== 3) return false;
         const [content, tier, size] = path as [ContentType, ColorTier, PaperSizeKey];
         if (!m.document[content]?.[tier]?.[size]) return false;
+        previous = m.document[content][tier][size];
         m.document[content][tier][size] = value;
+        cellLabel = `${CONTENT_TYPE_LABELS[content]} · ${COLOR_TIER_LABELS[tier]} · ${PAPER_SIZE_LABELS[size]}`;
       } else if (service === 'vellum') {
         if (path.length !== 2) return false;
         const [tier, size] = path as [ColorTier, PaperSizeKey];
         if (!m.vellum[tier]?.[size]) return false;
+        previous = m.vellum[tier][size];
         m.vellum[tier][size] = value;
+        cellLabel = `Vellum · ${COLOR_TIER_LABELS[tier]} · ${PAPER_SIZE_LABELS[size]}`;
       } else if (service === 'sticker') {
         if (path.length !== 1) return false;
         const [tier] = path as [ColorTier];
         if (!(tier in m.sticker)) return false;
+        previous = m.sticker[tier];
         m.sticker[tier] = value;
+        cellLabel = `Sticker · ${COLOR_TIER_LABELS[tier]}`;
       } else if (service === 'photo') {
         if (path.length !== 2) return false;
         const [size, field] = path as [PhotoSizeKey, 'price' | 'minQty'];
         if (!m.photo[size]) return false;
+        previous = field === 'price' ? m.photo[size].price : m.photo[size].minQty;
         if (field === 'price') m.photo[size].price = value;
         else m.photo[size].minQty = Math.max(1, Math.floor(value));
+        cellLabel = `Photo · ${PHOTO_SIZE_LABELS[size]} · ${field === 'price' ? 'Price' : 'Minimum Order'}`;
       }
     } catch {
       return false;
@@ -907,6 +929,16 @@ class PricingStore {
     this.save();
     this.notify();
     void this.syncCell(service, path, value);
+    auditLogStore.record({
+      module: 'Pricing',
+      action: 'Updated',
+      reference: `Pricing matrix — ${cellLabel}`,
+      entityType: 'Pricing',
+      entityId: `${service}:${path.join('/')}`,
+      title: 'Matrix Price Updated',
+      description: `Changed the price for ${cellLabel} from ${previous} to ${value}.`,
+      changes: [{ field: cellLabel, previous: String(previous), next: String(value) }],
+    });
     return true;
   }
 
@@ -916,6 +948,15 @@ class PricingStore {
     this.save();
     this.notify();
     void this.replaceRemote();
+    auditLogStore.record({
+      module: 'Pricing',
+      action: 'Updated',
+      reference: 'Pricing matrix',
+      entityType: 'Pricing',
+      entityId: 'matrix',
+      title: 'Pricing Matrix Replaced',
+      description: 'The full pricing matrix was rebuilt with a new set of values.',
+    });
   }
 
   // Reset all values (legacy + matrix) back to the system defaults.
@@ -926,6 +967,34 @@ class PricingStore {
     this.notify();
     void this.syncSettings();
     void this.replaceRemote();
+    auditLogStore.record({
+      module: 'Pricing',
+      action: 'Updated',
+      reference: 'Pricing settings',
+      entityType: 'Pricing',
+      entityId: 'pricing',
+      title: 'Pricing Reset to Defaults',
+      description: 'All pricing values and the pricing matrix were reset to the system defaults.',
+      changes: [{ field: 'Pricing', previous: 'Custom values', next: 'System defaults' }],
+    });
+  }
+}
+
+// Human-readable label for a legacy/key per-page or order-rule pricing field,
+// used by the audit log narrative.
+function pricingFieldLabel(key: keyof PricingValues): string {
+  switch (key) {
+    case 'bw': return 'B&W price per page';
+    case 'colorLow': return 'Partially colored price per page';
+    case 'colorHigh': return 'Fully colored price per page';
+    case 'sizeLongLegalFolio': return 'Long/Legal/Folio per-page surcharge';
+    case 'sizeA3': return 'A3 per-page surcharge';
+    case 'duplexSavings': return 'Double-sided savings per page';
+    case 'downPaymentThreshold': return 'Down payment threshold (₱)';
+    case 'fullPaymentThreshold': return 'Full payment threshold (₱)';
+    case 'cashPickupPaymentWindowSeconds': return 'Cash on Pickup payment window (s)';
+    case 'onlinePaymentVerificationWindowSeconds': return 'Online payment verification window (s)';
+    default: return String(key);
   }
 }
 

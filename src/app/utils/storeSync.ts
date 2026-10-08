@@ -25,6 +25,7 @@ import { logoStore } from './logoStore';
 import { shopPhotosStore } from './shopPhotosStore';
 import { staffStore } from './staffStore';
 import { salaryStore } from './salaryStore';
+import { auditLogStore } from './auditLogStore';
 
 // ---------------------------------------------------------------------------
 // Hydration tracking.
@@ -80,6 +81,7 @@ export async function refreshAllStores(): Promise<void> {
       shopPhotosStore.refreshFromBackend(),
       staffStore.refreshFromBackend(),
       salaryStore.refreshFromBackend(),
+      auditLogStore.refreshFromBackend(),
     ]);
   } finally {
     pendingHydrations -= 1;

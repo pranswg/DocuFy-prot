@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
+import AuthCallbackPage from './components/AuthCallbackPage';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import CustomerDashboard from './components/customer/CustomerDashboard';
@@ -73,6 +74,11 @@ const router = createBrowserRouter([
   {
     path: '/signup',
     element: <SignUpPage />,
+    errorElement: <ErrorBoundary />,
+  },
+  {
+    path: '/auth/callback',
+    element: <AuthCallbackPage />,
     errorElement: <ErrorBoundary />,
   },
   {

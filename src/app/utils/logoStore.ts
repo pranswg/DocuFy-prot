@@ -16,6 +16,7 @@ import { subscribeTableChanges } from '../../lib/db/hooks';
 import { isRlsDenied, showDbError } from '../../lib/db/errors';
 import { authReady } from '../../lib/supabaseClient';
 import { fetchBrandSettings, upsertBrandSettings } from '../../lib/db/siteContentRepo';
+import { auditLogStore } from './auditLogStore';
 import {
   BUCKETS,
   getStoragePublicUrl,
@@ -141,6 +142,14 @@ export const logoStore = {
     } catch {
       // Quota exceeded etc. — keep default
     }
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Brand Logo",
+      entityType: "Brand Logo",
+      title: "Brand Logo Changed",
+      description: "Uploaded a new custom brand logo.",
+    });
     notify();
     void pushLogo(dataUrl);
   },
@@ -150,6 +159,14 @@ export const logoStore = {
     } catch {
       // ignore
     }
+    auditLogStore.record({
+      module: "Shop Content",
+      action: "Updated",
+      reference: "Brand Logo",
+      entityType: "Brand Logo",
+      title: "Brand Logo Reset",
+      description: "Removed the custom brand logo and restored the default.",
+    });
     notify();
     void clearRemoteLogo();
   },

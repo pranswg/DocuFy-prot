@@ -386,7 +386,7 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
               </div>
               <div className="min-w-0 flex-1 text-left">
                 <p className="text-xs font-semibold text-white leading-none truncate">
-                  {user?.email?.split("@")[0]}
+                  {user?.name || user?.email?.split("@")[0]}
                 </p>
                 <p className="text-[10px] text-blue-100 capitalize leading-none mt-1">
                   {user?.role} account
@@ -402,7 +402,8 @@ export default function MobileNavSheet({ router }: MobileNavSheetProps) {
             {profilePresence && (
               <div className={`absolute bottom-full mb-2 left-3 right-3 bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-20 ${profilePresence.isClosing ? "animate-out fade-out-0 zoom-out-95 slide-out-to-bottom-2 duration-200 pointer-events-none" : "animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200"}`}>
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-xs font-bold text-gray-900 truncate">{user?.email}</p>
+                  <p className="text-xs font-bold text-gray-900 truncate">{user?.name || user?.email?.split("@")[0]}</p>
+                  <p className="text-[10px] text-gray-500 truncate mt-0.5">{user?.email}</p>
                   <p className="text-[10px] text-gray-500 capitalize mt-0.5">
                     {user?.role} Account
                   </p>

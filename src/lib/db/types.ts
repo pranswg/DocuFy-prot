@@ -43,6 +43,13 @@ export type OrderLockRow = Tables['order_locks']['Row'] & {
   locked_by_name?: string | null;
 };
 
+// `audit_logs` — the immutable "who changed what, when" record behind Admin →
+// Audit Trail. `actor_id` is a bare uuid with no DB FK (so no joined select);
+// the actor's display name/role/email are snapshotted into the jsonb
+// `metadata` by the repo so the page renders without a `profiles` join.
+export type AuditLogRow = Tables['audit_logs']['Row'];
+export type AuditLogInsert = Tables['audit_logs']['Insert'];
+
 export type ShopStatusRow = Tables['shop_status']['Row'];
 export type ShopStatusInsert = Tables['shop_status']['Insert'];
 

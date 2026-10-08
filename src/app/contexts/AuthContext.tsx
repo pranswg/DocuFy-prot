@@ -19,6 +19,9 @@ export interface User {
   role: 'customer' | 'staff' | 'admin';
   profileImage?: string;
   active?: boolean;
+  // Contact number from the profiles table (loaded on sign-in so the customer
+  // profile form can prefill it instead of leaking demo defaults).
+  phone?: string;
   // Supabase auth uid (set when a real Supabase session is loaded; absent for
   // local mock accounts).
   id?: string;
@@ -28,12 +31,14 @@ export interface AuthContextType {
   user: User | null;
   authLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; reason?: 'inactive' }>;
+  signInWithGoogle: () => Promise<{ success: boolean }>;
   signup: (data: any) => Promise<boolean>;
   registerStaff: (data: { name: string; email: string; password: string; role?: 'staff' | 'admin' }) => Promise<{ success: boolean; message?: string }>;
   updateStaffAccount: (currentEmail: string, updates: { email?: string; name?: string; role?: 'staff' | 'admin'; active?: boolean }) => boolean;
   getStaffAccounts: () => { email: string; name: string; role: string; active?: boolean; isAdminRegistered?: boolean }[];
   updateProfile: (data: Partial<User> & { profileImage?: string | null }) => void;
   updateProfileImage: (image: string | null) => Promise<boolean>;
+  syncProfileDetails: (patch: Database['public']['Tables']['profiles']['Update']) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   resetForgottenPassword: (email: string, newPassword: string) => Promise<boolean>;
@@ -194,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: profile?.email || authUser.email || '',
       role,
       profileImage: profile?.profile_image_path || undefined,
+      phone: profile?.phone || undefined,
       active: profile?.active !== false && profile?.suspended !== true,
       id: authUser.id,
     });
@@ -284,6 +290,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void refreshAllStores();
 
+    return { success: true };
+  };
+
+  // Kick off the Google OAuth flow. Supabase redirects the whole tab to Google,
+  // then back to window.location.origin/auth/callback with a session, which the
+  // AuthProvider session-restore effect picks up like any other login.
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      console.warn('[auth:google] failed to start OAuth:', error.message);
+      return { success: false };
+    }
     return { success: true };
   };
 
@@ -497,14 +520,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Persist editable profile text fields (name, phone, student/employee id) to
+  // the signed-in user's OWN `profiles` row. Unlike the avatar, these are
+  // local-first: the profile pages already wrote the text to their per-account
+  // localStorage blob before calling this, so a failed push must be surfaced
+  // (return false) for the page to keep the editor open and let the user retry.
+  const syncProfileDetails = async (patch: Database['public']['Tables']['profiles']['Update']): Promise<boolean> => {
+    if (!patch || Object.keys(patch).length === 0) return true;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const authUserId = authData.user?.id;
+      if (!authUserId) return false;
+      const { error } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', authUserId);
+      if (error) {
+        console.warn('[db:profiles] profile details sync failed — changes stay local only:', error.message);
+        return false;
+      }
+      const localSync: Partial<User> = {};
+      if (typeof patch.full_name === 'string') localSync.name = patch.full_name;
+      if (patch.phone !== undefined) localSync.phone = patch.phone ?? undefined;
+      if (Object.keys(localSync).length > 0) updateProfile(localSync);
+      return true;
+    } catch (err) {
+      console.warn('[db:profiles] profile details sync threw — changes stay local only:', err);
+      return false;
+    }
+  };
+
   // Persist a profile picture to Supabase Storage + the profiles table.
   // - image (base64 data URL): uploads a new avatar and stores its public URL.
   // - image (already-public URL): no change, nothing to do.
   // - image === null: clears the stored avatar.
-  // Returns true when Supabase was updated; false when it fell back to
-  // local-only (no session, offline, or a storage error) so callers can warn.
+  // Returns true when Supabase was updated; false when the picture could NOT be
+  // saved (no session, offline, or a storage error) — callers should surface the
+  // failure rather than treat the save as complete. Avatars are NEVER stored
+  // locally; Supabase is the only home for profile pictures.
   const updateProfileImage = async (image: string | null): Promise<boolean> => {
     if (!user) return false;
+    if ((image ?? null) === (user.profileImage ?? null)) return true;
     try {
       const { data: authData } = await supabase.auth.getUser();
       const authUserId = authData.user?.id;
@@ -539,7 +595,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return true;
     } catch (err) {
-      console.warn('Supabase avatar persistence failed — keeping local fallback:', err);
+      console.warn('Supabase avatar persistence failed — picture NOT saved:', err);
       return false;
     }
   };
@@ -601,12 +657,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         authLoading,
         login,
+        signInWithGoogle,
         signup,
         registerStaff,
         updateStaffAccount,
         getStaffAccounts,
         updateProfile,
         updateProfileImage,
+        syncProfileDetails,
         logout,
         resetPassword,
         resetForgottenPassword,
