@@ -14,6 +14,8 @@ import CustomerOrders from './components/customer/CustomerOrders';
 import CustomerPaymentVerification from './components/customer/PaymentVerification';
 import DownPaymentMethod from './components/customer/DownPaymentMethod';
 import StaffOrdersUnified from './components/staff/StaffOrdersUnified';
+import StaffPickupMonitoring from './components/staff/StaffPickupMonitoring';
+import StaffUnclaimedOrders from './components/staff/StaffUnclaimedOrders';
 import WalkInTransactions from './components/staff/WalkInTransactions';
 import StaffDashboard from './components/staff/StaffDashboard';
 import StaffProfile from './components/staff/StaffProfile';
@@ -23,6 +25,8 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import AdminProfile from './components/admin/AdminProfile';
 import AdminPaymentVerificationUnified from './components/admin/AdminPaymentVerificationUnified';
 import AdminOrdersUnified from './components/admin/AdminOrdersUnified';
+import AdminPickupMonitoring from './components/admin/AdminPickupMonitoring';
+import AdminUnclaimedOrders from './components/admin/AdminUnclaimedOrders';
 import Staff from './components/admin/Staff';
 import InventoryManagement from './components/admin/InventoryManagement';
 import PaymentMethodsManagement from './components/admin/PaymentMethodsManagement';
@@ -170,6 +174,14 @@ const router = createBrowserRouter([
         element: <ProtectedRoute role="staff"><StaffOrdersUnified /></ProtectedRoute>,
       },
       {
+        path: 'queue/pickup',
+        element: <ProtectedRoute role="staff"><StaffPickupMonitoring /></ProtectedRoute>,
+      },
+      {
+        path: 'queue/unclaimed',
+        element: <ProtectedRoute role="staff"><StaffUnclaimedOrders /></ProtectedRoute>,
+      },
+      {
         path: 'orders',
         element: <Navigate to="/staff/queue" replace />,
       },
@@ -238,6 +250,14 @@ const router = createBrowserRouter([
       {
         path: 'orders',
         element: <ProtectedRoute role="admin"><AdminOrdersUnified /></ProtectedRoute>,
+      },
+      {
+        path: 'orders/pickup',
+        element: <ProtectedRoute role="admin"><AdminPickupMonitoring /></ProtectedRoute>,
+      },
+      {
+        path: 'orders/unclaimed',
+        element: <ProtectedRoute role="admin"><AdminUnclaimedOrders /></ProtectedRoute>,
       },
       {
         path: 'inventory',

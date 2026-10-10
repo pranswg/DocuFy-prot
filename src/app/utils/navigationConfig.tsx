@@ -75,10 +75,19 @@ const dashboard = {
   icon: <LayoutDashboard className="w-5 h-5" />,
 };
 
+// Orders is now an expandable parent with three children: "All Orders" (the
+// live queue), "Pickup Monitoring" (ready-for-pickup / overdue tracking) and
+// "Unclaimed Orders" (the policy review workspace). All render inline in the
+// same sidebar.
 const orders = {
   label: "Orders",
   path: "/admin/orders",
   icon: <Package className="w-5 h-5" />,
+  children: [
+    { label: "All Orders", path: "/admin/orders" },
+    { label: "Pickup Monitoring", path: "/admin/orders/pickup" },
+    { label: "Unclaimed Orders", path: "/admin/orders/unclaimed" },
+  ],
 };
 
 const paymentVerification = {
@@ -140,6 +149,11 @@ const staffOrders = {
   label: "Orders",
   path: "/staff/queue",
   icon: <Package className="w-5 h-5" />,
+  children: [
+    { label: "All Orders", path: "/staff/queue" },
+    { label: "Pickup Monitoring", path: "/staff/queue/pickup" },
+    { label: "Unclaimed Orders", path: "/staff/queue/unclaimed" },
+  ],
 };
 
 const staffPaymentVerification = {

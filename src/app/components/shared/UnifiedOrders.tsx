@@ -42,6 +42,7 @@ import { showDbError } from "../../../lib/db/errors";
 import { notificationStore } from "../../utils/notificationStore";
 import { auditLogStore } from "../../utils/auditLogStore";
 import { formatPHDate, formatPHTime } from "../../utils/pht";
+import { formatCurrency } from "../../utils/formatNumber";
 import { shopStatusStore } from "../../utils/shopStatusStore";
 import { Card } from "../ui/card";
 import { DateRangeFilter } from "../ui/date-range-filter";
@@ -70,7 +71,10 @@ import { pricingStore } from "../../utils/pricingStore";
 import { ORDER_STATUS_STYLES, getStatusBadgeClasses } from "../../utils/orderStatusPalette";
 import { inventoryStore } from "../../utils/inventoryStore";
 import { PriorityBadge, StartHereTag } from "../ui/priority-badge";
-import OrderPaymentSummary from "./OrderPaymentSummary";
+import OrderPaymentSummary, {
+  computeOrderPayment,
+} from "./OrderPaymentSummary";
+import OrderPickupReview from "./OrderPickupReview";
 import {
   getLock,
   claimLock,
@@ -813,7 +817,8 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
     // When a specific status filter is selected, show from the full orders list
     // (so completed/released/canceled appear when their filter is chosen).
     // When "all", show only the active queue (excludes awaitingPayment + terminal statuses).
-    const base = statusFilter !== "all" ? orders : queueOrders;
+    const base =
+      statusFilter !== "all" ? orders : queueOrders;
     let filtered = [...base];
 
     // PROCESSING ORDER (default): sort by submission time oldest-first (FIFO),
@@ -978,7 +983,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                 activeBorder={s.accent}
                 activeBg={s.bg}
                 subtitle={description}
-                onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
+                onClick={() => {
+                  setStatusFilter(statusFilter === key ? "all" : key);
+                }}
               />
             );
           })}
@@ -1057,6 +1064,9 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   <SortableHeader column="orderSource">
                     Source
                   </SortableHeader>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
+                    Total / Balance
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[#10316B] uppercase tracking-wider">
                     Action
                   </th>
@@ -1160,6 +1170,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                 </span>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="flex flex-col items-start gap-1">
                                 <Badge
                                   variant="outline"
                                   className={`text-xs font-medium capitalize ${getStatusBadgeClasses(order.status)}`}
@@ -1170,6 +1181,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                       ? "Awaiting Payment"
                                       : order.status}
                                 </Badge>
+                                </div>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <Badge
@@ -1184,6 +1196,31 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                                     ? "Online"
                                     : "Walk-in"}
                                 </Badge>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                {(() => {
+                                  // PREVIEW — outstanding balance alongside the total.
+                                  const pay = computeOrderPayment(
+                                    order,
+                                    fallbackPrintTotal(order.pages, order.copies, order.type),
+                                  );
+                                  return (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-sm font-semibold text-[#1c1f26]">
+                                        {formatCurrency(pay.total)}
+                                      </span>
+                                      <span
+                                        className={`text-[11px] font-medium ${
+                                          pay.remaining > 0 ? "text-amber-600" : "text-green-600"
+                                        }`}
+                                      >
+                                        {pay.remaining > 0
+                                          ? `Balance ${formatCurrency(pay.remaining)}`
+                                          : "Fully paid"}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <Button
@@ -1206,9 +1243,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     <td colSpan={8}>
                       <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                         <Search className="w-12 h-12 mb-3" />
-                        <p className="text-sm font-medium">
-                          No orders found
-                        </p>
+                        <p className="text-sm font-medium">No orders found</p>
                         <p className="text-xs mt-1">
                           Try adjusting your search or filter
                         </p>
@@ -1492,6 +1527,20 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                     )}
                   />
                 </div>
+
+                {/* Pickup & Order Review (PREVIEW workflow) */}
+                <OrderPickupReview
+                  order={selectedOrder}
+                  fallbackTotal={fallbackPrintTotal(
+                    selectedOrder.pages,
+                    selectedOrder.copies,
+                    selectedOrder.type,
+                  )}
+                  reviewerName={myName}
+                  role={userRole}
+                  customerKey={selectedOrder.customerEmail || selectedOrder.customer}
+                  readOnly={!!selectedLock && selectedLock.heldBy !== myName}
+                />
 
                 {/* Additional Information Section */}
                 <div className="bg-white border-2 border-gray-300 rounded-xl overflow-hidden">

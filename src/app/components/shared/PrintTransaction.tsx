@@ -87,6 +87,8 @@ import {
 } from "../../utils/pricingStore";
 import PaymentMethodQRPanel from "./PaymentMethodQR";
 import { CashOnPickupAcknowledgement } from "./CashOnPickupAcknowledgement";
+import PaymentRestrictionNotice from "./PaymentRestrictionNotice";
+import { pickupReview } from "../../utils/pickupReview";
 import LegalPolicyDialog from "./LegalPolicyDialog";
 import {
   shopStatusStore,
@@ -2997,6 +2999,26 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       </div>
                     </div>
                   </RadioGroup>
+
+                  {!isWalkin &&
+                    (() => {
+                      // PREVIEW — show the proposed advance-payment restriction
+                      // notice only when a session preview restriction exists for
+                      // this customer. It does NOT change cashDisabled/enforcement.
+                      const restriction = pickupReview.getRestriction(
+                        user?.email || "",
+                      );
+                      if (!restriction.active) return null;
+                      return (
+                        <div className="mt-4">
+                          <PaymentRestrictionNotice
+                            preview
+                            reason={restriction.reason}
+                            duration={undefined}
+                          />
+                        </div>
+                      );
+                    })()}
 
                   {isOnline && (
                     <div className="mt-6">

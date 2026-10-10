@@ -9,7 +9,7 @@ import {
   Boxes,
 } from 'lucide-react';
 
-const staffMenuItems = [
+export const staffMenuItems = [
   {
     label: 'Dashboard',
     path: '/staff/dashboard',
