@@ -17,7 +17,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   PackageX,
-  PackageCheck,
   Clock,
   MessageSquare,
   ShieldAlert,
@@ -27,7 +26,6 @@ import {
   Trash2,
   AlertTriangle,
   ClipboardList,
-  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../Layout";
@@ -665,28 +663,25 @@ export default function UnclaimedOrders({
           if (!open) setSelected(null);
         }}
       >
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#10316B]">
-              {selected?.order.customer}
-              <span className="ml-2 font-mono text-sm text-gray-500">
-                {selected?.order.displayId ?? selected?.order.id}
-              </span>
-            </DialogTitle>
-            <DialogDescription>
-              Review this pickup incident and (Admin only) record the final
-              decision. Preview only — nothing is saved.
-            </DialogDescription>
-          </DialogHeader>
-
+        <DialogContent className="sm:max-w-[1100px] max-h-[90vh] overflow-y-auto p-[26px]">
           {selected && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:grid-cols-2">
-                <div className="bg-white p-3">
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    Order Status
-                  </p>
+            <>
+              <DialogHeader className="border-b border-gray-100 pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <DialogTitle className="text-[22px] font-bold text-[#10316B]">
+                        {selected.order.customer}
+                      </DialogTitle>
+                      <span className="font-mono text-sm text-gray-500">
+                        {selected.order.displayId ?? selected.order.id}
+                      </span>
+                    </div>
+                    <DialogDescription className="mt-1 text-sm text-gray-500">
+                      Submitted on {formatPHDate(selected.order.submittedAt)} ·{" "}
+                      {formatPHTime(selected.order.submittedAt)}
+                    </DialogDescription>
+                  </div>
                   <Badge
                     variant="outline"
                     className={`text-xs font-medium ${getStatusBadgeClasses(
@@ -696,17 +691,7 @@ export default function UnclaimedOrders({
                     {statusLabel(selected.order.status)}
                   </Badge>
                 </div>
-                <div className="bg-white p-3">
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    <PackageCheck className="h-3.5 w-3.5" />
-                    Submitted
-                  </p>
-                  <p className="text-sm font-medium text-[#1c1f26]">
-                    {formatPHDate(selected.order.submittedAt)} ·{" "}
-                    {formatPHTime(selected.order.submittedAt)}
-                  </p>
-                </div>
-              </div>
+              </DialogHeader>
 
               <OrderPickupReview
                 order={selected.order}
@@ -717,7 +702,7 @@ export default function UnclaimedOrders({
                   selected.order.customerEmail || selected.order.customer
                 }
               />
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
