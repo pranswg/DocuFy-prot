@@ -1319,3 +1319,12 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Removed the Draft banner from the Terms & Privacy dialog; fixed Terms/Privacy tab hover colors.
 - Typecheck and production build pass.
 
+
+## 2026-10-29 - Prans (01:00 AM PHT)
+
+- Rebuilt the staff/admin Order Details window to the approved reference layout: the order number and its status badge sit under the title, one identity line names the customer, channel and placed time, and the print job is one section with the file card and a filled settings panel.
+- Split the dialog footer: Cancel order now sits on the far left and the order's action (Start printing / Mark as done / Release order) on the far right, so the destructive and the committing button can never be confused for one another. Printing and completed orders show only their forward action, and a released or canceled order ends with a single read-only line.
+- Moved Preview and Download onto the same row as the file name in the file card, and dropped a meaningless "0 pages" from the photocopy line.
+- Phones keep the previous mobile layout, with the one-line print spec and no settings panel.
+- Typecheck and production build pass.
+
