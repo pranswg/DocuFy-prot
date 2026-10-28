@@ -143,7 +143,7 @@ export default function JobBoard() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <p className="text-sm text-gray-500 sm:text-base">
-              Browse opportunities at Docufy PSMS · Room 4, TBI Building, Palawan State University
+              Browse opportunities at Docufy PSMS Â· Room 4, TBI Building, Palawan State University
             </p>
           </div>
           <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
@@ -213,11 +213,11 @@ export default function JobBoard() {
                               </Badge>
                               {job.department && (
                                 <>
-                                  <span className="text-xs text-gray-500">·</span>
+                                  <span className="text-xs text-gray-500">Â·</span>
                                   <span className="text-xs text-gray-500">{job.department}</span>
                                 </>
                               )}
-                              <span className="text-xs text-gray-500">·</span>
+                              <span className="text-xs text-gray-500">Â·</span>
                               <span className="text-xs text-gray-500">Posted {job.posted}</span>
                               {application && (
                                 <Badge className={`text-xs border ${STATUS_COLORS[application.status]}`}>
@@ -410,10 +410,10 @@ export default function JobBoard() {
             <div>
               <h3 className="mb-2 font-semibold text-[#10316B]">Why Work With Docufy?</h3>
               <ul className="space-y-1 text-sm text-gray-700">
-                <li>• Flexible schedules perfect for students</li>
-                <li>• Gain valuable work experience in printing & admin</li>
-                <li>• Competitive compensation</li>
-                <li>• Supportive team environment at Palawan State University</li>
+                <li>â€¢ Flexible schedules perfect for students</li>
+                <li>â€¢ Gain valuable work experience in printing & admin</li>
+                <li>â€¢ Competitive compensation</li>
+                <li>â€¢ Supportive team environment at Palawan State University</li>
               </ul>
             </div>
           </div>
@@ -615,7 +615,7 @@ export default function JobBoard() {
               </div>
               <DialogTitle className="text-2xl">Application Submitted!</DialogTitle>
               <DialogDescription className="text-base">
-                Your application has been successfully submitted. Our team will review your application and contact you within 3–5 business days.
+                Your application has been successfully submitted. Our team will review your application and contact you within 3â€“5 business days.
               </DialogDescription>
             </div>
           </DialogHeader>
