@@ -804,15 +804,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
   const colorTierPctFor = (fileData: FileData) => {
     if (fileData.colorMode === "bw") return 0;
     const analysis = fileData.colorAnalysis;
-    if (analysis && analysis.colorPages.length > 0) {
-      const sum = analysis.colorPages.reduce(
-        (acc, p) => acc + (analysis.colorPercentages[p] ?? 0),
-        0,
-      );
-      const avg = sum / analysis.colorPages.length;
-      return avg <= 50 ? 50 : avg <= 75 ? 75 : 100;
-    }
-    return 100;
+    if (!analysis || !analysis.colorPages || analysis.colorPages.length === 0) return 0;
+    const sum = analysis.colorPages.reduce(
+      (acc, p) => acc + (analysis.colorPercentages[p] ?? 0),
+      0,
+    );
+    const avg = sum / analysis.colorPages.length;
+    if (avg < 25) return 0;
+    return avg <= 50 ? 50 : avg <= 75 ? 75 : 100;
   };
 
   const midColorRate = (rates: { bw: number; partial: number; full: number }) =>
