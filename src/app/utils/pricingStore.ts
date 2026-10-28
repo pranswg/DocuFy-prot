@@ -1004,6 +1004,7 @@ function pricingFieldLabel(key: keyof PricingValues): string {
 export function resolveColorTier(colorMode: 'bw' | 'colored', colorPct?: number): ColorTier {
   if (colorMode === 'bw') return 'bw';
   const pct = typeof colorPct === 'number' ? colorPct : 100;
+  if (pct < 25) return 'bw';
   return pct > 50 ? 'full' : 'partial';
 }
 

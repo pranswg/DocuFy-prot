@@ -374,6 +374,7 @@ export default function CustomerProfile() {
                       type="text"
                       value={formData.firstName}
                       onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      maxLength={50}
                     />
                   </div>
                 </div>
@@ -386,6 +387,7 @@ export default function CustomerProfile() {
                       type="text"
                       value={formData.lastName}
                       onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      maxLength={50}
                     />
                   </div>
                 </div>

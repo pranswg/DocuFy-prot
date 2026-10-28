@@ -1569,10 +1569,15 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                   </div>
                   <DialogDescription className="mt-2 break-words text-[14px] leading-relaxed text-[#4B5563]">
                     {selectedOrder.customer}
-                    {" · "}
-                    {selectedOrder.orderSource === "online"
-                      ? "Online order"
-                      : "Walk-in"}
+                    {selectedOrder.orderSource !== "walkin" ||
+                    selectedOrder.customer !== "Walk-in Customer" ? (
+                      <>
+                        {" · "}
+                        {selectedOrder.orderSource === "online"
+                          ? "Online order"
+                          : "Walk-in"}
+                      </>
+                    ) : null}
                     {" · "}
                     {compactStamp(
                       selectedOrder.createdAt || selectedOrder.submittedAt,

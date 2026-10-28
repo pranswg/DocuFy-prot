@@ -225,7 +225,8 @@ export default function Staff() {
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newStaff, setNewStaff] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -349,7 +350,8 @@ export default function Staff() {
 
   const resetAddForm = () => {
     setNewStaff({
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -381,12 +383,12 @@ export default function Staff() {
   }, []);
 
   const handleAddStaff = async () => {
-    const name = newStaff.fullName.trim();
+    const name = `${newStaff.firstName.trim()} ${newStaff.lastName.trim()}`.trim();
     const email = newStaff.email.trim();
     const password = newStaff.password;
 
-    if (!name) {
-      toast.error("Please enter the staff member's full name");
+    if (!newStaff.firstName.trim() || !newStaff.lastName.trim()) {
+      toast.error("Please enter the staff member's first and last name");
       return;
     }
 
@@ -1649,19 +1651,34 @@ export default function Staff() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name <span className="text-red-500">*</span></Label>
-              <Input
-                id="fullName"
-                type="text"
-                value={newStaff.fullName}
-                onChange={(e) =>
-                  setNewStaff({ ...newStaff, fullName: e.target.value })
-                }
-                placeholder="e.g. Maria Santos"
-                className="h-11 bg-white text-sm"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name <span className="text-red-500">*</span></Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  value={newStaff.firstName}
+                  onChange={(e) =>
+                    setNewStaff({ ...newStaff, firstName: e.target.value })
+                  }
+                  maxLength={50}
+                  placeholder="e.g. Maria"
+                  className="h-11 bg-white text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name <span className="text-red-500">*</span></Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  value={newStaff.lastName}
+                  onChange={(e) =>
+                    setNewStaff({ ...newStaff, lastName: e.target.value })
+                  }
+                  maxLength={50}
+                  placeholder="e.g. Santos"
+                  className="h-11 bg-white text-sm"
+                />
+              </div>
 
             <div className="space-y-2">
               <Label htmlFor="staffEmail">Email Address <span className="text-red-500">*</span></Label>
@@ -1972,7 +1989,7 @@ export default function Staff() {
         onOpenChange={setShowAddConfirm}
         onConfirm={handleAddStaff}
         title="Create Staff Account?"
-        description={`${newStaff.fullName.trim() || "This staff member"} (${newStaff.email.trim() || "no email"}) can sign in with the password you set.`}
+        description={`${`${newStaff.firstName.trim()} ${newStaff.lastName.trim()}`.trim() || "This staff member"} (${newStaff.email.trim() || "no email"}) can sign in with the password you set.`}
         confirmLabel="Create Account"
         cancelLabel="Go Back"
         destructive={false}

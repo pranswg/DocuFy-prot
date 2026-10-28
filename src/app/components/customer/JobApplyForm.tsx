@@ -418,6 +418,7 @@ export default function JobApplyForm() {
                     onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))}
                     onBlur={() => handleBlur("firstName")}
                     placeholder="e.g. Maria"
+                    maxLength={50}
                     className={inputClass("firstName")}
                   />
                   {fieldError("firstName")}
@@ -433,6 +434,7 @@ export default function JobApplyForm() {
                     onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))}
                     onBlur={() => handleBlur("lastName")}
                     placeholder="e.g. Santos"
+                    maxLength={50}
                     className={inputClass("lastName")}
                   />
                   {fieldError("lastName")}
@@ -447,7 +449,7 @@ export default function JobApplyForm() {
                     value={formData.contact}
                     onChange={(e) => setFormData((p) => ({ ...p, contact: e.target.value }))}
                     onBlur={() => handleBlur("contact")}
-                    placeholder="09XX XXX XXXX"
+                    placeholder="09XXXXXXXXX"
                     className={inputClass("contact")}
                   />
                   {fieldError("contact")}
