@@ -810,7 +810,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
       0,
     );
     const avg = sum / analysis.colorPages.length;
-    if (avg < 25) return 0;
+    if (avg < 1) return 0;
     return avg <= 50 ? 50 : avg <= 75 ? 75 : 100;
   };
 
