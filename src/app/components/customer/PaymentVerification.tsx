@@ -242,7 +242,7 @@ export default function PaymentVerification() {
   // sync so submit/verification use the right figure.
   useEffect(() => {
     if (!displayOrder) return;
-    const total = parseFloat((displayOrder.total || "?0").replace(/[?,]/g, ""));
+    const total = parseFloat((displayOrder.total || "0").replace(/[^0-9.]/g, ""));
     // Partial only lowers the amount for down-payment tier orders; full tier
     // and online none-tier orders always pay the full total up front.
     const required =
