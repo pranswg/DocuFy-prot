@@ -1328,3 +1328,8 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Phones keep the previous mobile layout, with the one-line print spec and no settings panel.
 - Typecheck and production build pass.
 
+
+## 2026-10-29 - Prans (02:04 AM PHT)
+
+- Fixed mojibake characters in customer JobBoard, JobApplyForm, and PaymentVerification: replaced Windows-1252 encoded bytes (0x95, 0x96, 0x97) with proper UTF-8 characters (bullet, en-dash, em-dash). Scanned entire codebase to ensure zero invalid UTF-8 files remain.
+- Typecheck and production build pass.
