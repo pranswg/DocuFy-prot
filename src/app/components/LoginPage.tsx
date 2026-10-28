@@ -193,14 +193,14 @@ export default function LoginPage() {
 
           <Button
             variant="outline"
-            className="w-full border-gray-200 text-[#1c1f26] h-10 text-sm mb-4"
+            className="group w-full border-gray-200 text-[#1c1f26] h-10 text-sm mb-4"
             onClick={() => setShowGoogleConfirm(true)}
             disabled={googleLoading}
           >
             {googleLoading ? (
               <span className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-[#2F6FD6]" />
             ) : (
-            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 mr-2 transition-all duration-200 group-hover:drop-shadow-[0_0_6px_rgba(66,133,244,0.8)] group-hover:scale-110" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
