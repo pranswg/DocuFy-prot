@@ -600,67 +600,8 @@ export default function PricingManagement() {
               </div>
             </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
         </div>
-
-        {/* Legacy per-page rates */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-8 h-8 rounded-lg bg-[#F2F7FF] flex items-center justify-center shrink-0">
-              <Tag className="w-4 h-4 text-gray-500" />
-            </span>
-            <h3 className="font-bold text-gray-900">Legacy Per-Page Rates</h3>
-          </div>
-          <p className="text-sm text-gray-500 mb-4 ml-10">
-            Fallback rates for the older document flow.
-          </p>
-          {CATEGORY_ORDER.map((category) => {
-            const items = PRICING_ITEMS.filter((item) => item.category === category);
-            if (items.length === 0) return null;
-            return (
-              <div key={category} className="mb-5 last:mb-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="w-7 h-7 rounded-lg bg-[#F2F7FF] flex items-center justify-center shrink-0">
-                    {CATEGORY_ICON[category]}
-                  </span>
-                  <h4 className="font-semibold text-gray-700">{category}</h4>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {items.map((item) =>
-                    DURATION_WINDOW_IDS.includes(item.id) ? (
-                      <DurationRow key={item.id} item={item} />
-                    ) : (
-                      <div
-                        key={item.id}
-                        className="py-3.5 flex items-center justify-between gap-4"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900">{item.label}</p>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            {item.description}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-sm font-semibold text-[#10316B] whitespace-nowrap">
-                            {legacyDisplayValue(item)}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-white text-[#2F6FD6] border-2 border-[#2F6FD6]/40 hover:bg-[#2F6FD6] hover:text-white h-9 transition-all"
-                            onClick={() => openLegacyEdit(item)}
-                          >
-                            <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </Card>
       </div>
 
       {/* Edit Matrix Cell Dialog */}

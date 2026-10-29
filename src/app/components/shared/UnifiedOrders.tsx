@@ -95,17 +95,6 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   awaitingPayment: "Awaiting payment",
 };
 
-// Fallback estimate when an order has no stored cost breakdown, using the
-// shared centralized pricing so admin/staff estimates stay in lockstep.
-function fallbackPrintTotal(pages: number, copies: number, type: string): number {
-  const pricing = pricingStore.getPricing();
-  return (
-    pages *
-    copies *
-    (type === 'Colored' ? pricing.colorHigh : pricing.bw)
-  );
-}
-
 type OrderType = {
   id: string;
   // Human-facing ORD-0001 form (DB uuid stays in `id`; consumers display this).
@@ -482,14 +471,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
   const selectedPayment = useMemo(
     () =>
       selectedOrder
-        ? computeOrderPayment(
-            selectedOrder,
-            fallbackPrintTotal(
-              selectedOrder.pages,
-              selectedOrder.copies,
-              selectedOrder.type,
-            ),
-          )
+        ? computeOrderPayment(selectedOrder)
         : null,
     [selectedOrder],
   );
@@ -1388,10 +1370,7 @@ export default function UnifiedOrders({ menuItems, userRole }: UnifiedOrdersProp
                               <td className="px-4 py-4 whitespace-nowrap">
                                 {(() => {
                                   // PREVIEW — outstanding balance alongside the total.
-                                  const pay = computeOrderPayment(
-                                    order,
-                                    fallbackPrintTotal(order.pages, order.copies, order.type),
-                                  );
+                                   const pay = computeOrderPayment(order);
                                   return (
                                     <div className="flex flex-col gap-0.5">
                                       <span className="text-sm font-semibold text-[#1c1f26]">

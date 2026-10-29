@@ -1938,66 +1938,9 @@ export default function OrderTracking() {
                 Pages with more than 50% color are charged at a higher rate.
               </p>
             </div>
-
-            {/* Mock color breakdown data - in production this would come from order data */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-4 gap-3 p-3 bg-gray-100 rounded-lg font-semibold text-sm">
-                <div>Page</div>
-                <div>Type</div>
-                <div>Color %</div>
-                <div>Rate</div>
-              </div>
-
-              {/* Sample data - replace with actual color analysis from order */}
-              {Array.from({ length: orderData?.pages || 25 }, (_, i) => {
-                const pageNum = i + 1;
-                const isColor = Math.random() > 0.6;
-                const colorPct = isColor ? Math.floor(Math.random() * 70) + 15 : 0;
-                const rate = colorPct > 50 ? formatPrice(pricing.colorHigh) : colorPct > 0 ? formatPrice(pricing.colorLow) : formatPrice(pricing.bw);
-
-                return (
-                  <div
-                    key={pageNum}
-                    className="grid grid-cols-4 gap-3 p-3 border-b border-gray-200 text-sm hover:bg-gray-50"
-                  >
-                    <div className="font-medium">Page {pageNum}</div>
-                    <div>
-                      <Badge
-                        className={
-                          colorPct === 0
-                            ? "bg-gray-100 text-gray-700"
-                            : colorPct > 50
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                        }
-                      >
-                        {colorPct === 0 ? "B&W" : "Color"}
-                      </Badge>
-                    </div>
-                    <div className="font-medium">{colorPct}%</div>
-                    <div className="text-[#2F6FD6] font-semibold">{rate}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 p-4 bg-blue-50 border-2 border-[#2F6FD6] rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-2">Pricing Summary</h4>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-700">High Color Pages (&gt;50%):</span>
-                  <span className="font-medium">{formatPrice(pricing.colorHigh)} per page</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Low Color Pages (≤50%):</span>
-                  <span className="font-medium">{formatPrice(pricing.colorLow)} per page</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Black & White Pages:</span>
-                  <span className="font-medium">{formatPrice(pricing.bw)} per page</span>
-                </div>
-              </div>
-            </div>
+            <p className="text-sm text-gray-500 text-center py-8">
+              Detailed color breakdown is no longer available.
+            </p>
           </div>
           <DialogFooter>
             <Button
