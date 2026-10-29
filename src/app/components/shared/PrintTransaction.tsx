@@ -132,8 +132,7 @@ const FILE_UPLOAD_ACCEPT = [
   ...ALLOWED_EXTENSIONS,
 ].join(",");
 
-const SUPPORTED_FORMATS_LABEL =
-  "PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, GIF, WEBP, BMP";
+const SUPPORTED_FORMATS_LABEL = "PDF, Word, Excel, and images";
 
 const COLOR_MODE_OPTIONS = [
   { value: "bw", label: "Black & White" },
@@ -724,7 +723,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
       if (!isValidType) {
         setFileError(
-          `Unsupported file format in "${file.name}". Please upload PDF, DOC, DOCX, XLS, XLSX, or image files only.`,
+          `"${file.name}" can't be uploaded. Use a PDF, Word, Excel, or image file.`,
         );
         return;
       }
@@ -1881,19 +1880,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     : "Upload Your First Document"
                   : "Add More Files"}
               </p>
-              <p className="text-sm text-gray-500 mb-2">
-                Supported formats: {SUPPORTED_FORMATS_LABEL}
+              <p className="text-sm text-gray-500 mb-4">
+                PDF works best. Word, Excel, and images are also accepted.
               </p>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 max-w-lg mx-auto">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-gray-700 text-left">
-                    <strong>Preferred Format: PDF</strong>
-                    <br />
-                    Other formats may print with layout shifts.
-                  </p>
-                </div>
-              </div>
 
               <label className="inline-block cursor-pointer">
                 <span className="px-6 py-3 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
@@ -3992,25 +3981,43 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
       {/* Non-PDF upload — preferred-format reminder */}
       <Dialog open={showNonPdfDialog} onOpenChange={setShowNonPdfDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="grid-cols-1 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-900">
-              <FileText className="h-5 w-5 text-amber-600" />
-              Preferred Format: PDF
-            </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed">
-              You selected{" "}
-              <span className="font-semibold text-gray-800">
-                {pendingUpload?.map((f) => f.name).join(", ")}
-              </span>
-              . Docufy recommends uploading <strong>PDF</strong> files for the
-              most accurate print output. DOC, DOCX, Excel, and image files are
-              also supported, but Docufy is not responsible for any formatting
-              errors or layout issues that may occur when printing these
-              non-PDF formats.
+            <div className="mb-2 flex items-center gap-3">
+              <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-amber-50 ring-1 ring-amber-200">
+                <FileText className="h-5 w-5 text-amber-600" />
+              </div>
+              <DialogTitle className="text-lg font-bold text-gray-900">
+                {pendingUpload && pendingUpload.length > 1
+                  ? `${pendingUpload.length} files aren't PDFs`
+                  : "This file isn't a PDF"}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed text-gray-600">
+              PDFs print exactly as they look. Other formats can shift.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 gap-2">
+
+          <div className="flex min-w-0 items-start gap-2.5 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <FileText className="mt-0.5 h-4 w-4 flex-none text-gray-500" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-gray-800">
+                {pendingUpload?.[0]?.name}
+              </p>
+              {pendingUpload && pendingUpload.length > 1 && (
+                <p className="text-xs text-gray-500">
+                  +{pendingUpload.length - 1} more file
+                  {pendingUpload.length - 1 === 1 ? "" : "s"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Supported: {SUPPORTED_FORMATS_LABEL}
+          </p>
+
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
@@ -4021,7 +4028,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
             >
-              Cancel
+              Choose Another File
             </Button>
             <Button
               type="button"
@@ -4035,7 +4042,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               }}
               className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
             >
-              Continue with Upload
+              Continue Anyway
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1339,3 +1339,11 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 - Removed student ID from the frontend: dropped the `student_id` column from the `profiles` type definitions and removed student ID references from comments and the legal privacy policy text. Backend handles its own schema separately.
 - Typecheck passes.
+
+
+## 2026-10-30 - Prans (01:53 AM PHT)
+
+- Simplified the non-PDF upload warning: the long disclaimer is now a clear title, one line of guidance, the chosen file in its own chip, a short supported-formats line, and Choose Another File / Continue Anyway buttons.
+- Stopped long file names from widening the warning window: the window now sizes to the screen and the file name truncates with an ellipsis, with "+N more files" when several are chosen.
+- Trimmed the upload area: the duplicate "Preferred Format: PDF" box is gone, the format hint is one line, and the unsupported-type error is one sentence.
+- Typecheck and production build pass.
