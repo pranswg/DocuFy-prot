@@ -48,7 +48,7 @@ function profileStorageKey(user: AuthUser | null): string {
  * nothing to show for the current account. */
 function readSavedProfile(
   user: AuthUser | null,
-): { firstName?: string; lastName?: string; email?: string; phone?: string; studentId?: string } | null {
+): { firstName?: string; lastName?: string; email?: string; phone?: string } | null {
   if (!user) return null;
 
   try {
@@ -87,7 +87,7 @@ function readSavedProfile(
 
 function buildFormData(
   user: AuthUser | null,
-  saved: { firstName?: string; lastName?: string; email?: string; phone?: string; studentId?: string } | null,
+  saved: { firstName?: string; lastName?: string; email?: string; phone?: string } | null,
 ) {
   const nameParts = (user?.name || '').split(' ');
   const defaultFirstName = nameParts[0] || '';
@@ -97,7 +97,6 @@ function buildFormData(
     lastName: saved?.lastName || defaultLastName,
     email: user?.email || saved?.email || '',
     phone: saved?.phone ?? user?.phone ?? '',
-    studentId: saved?.studentId || '',
   };
 }
 
@@ -143,7 +142,6 @@ export default function CustomerProfile() {
     lastName: string;
     email: string;
     phone: string;
-    studentId: string;
   }>(() => buildFormData(user, readSavedProfile(user)));
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(() =>
@@ -209,7 +207,6 @@ export default function CustomerProfile() {
     const patch: Database['public']['Tables']['profiles']['Update'] = {
       full_name: displayName,
       phone: formData.phone.trim() || null,
-      student_id: formData.studentId.trim() || null,
     };
     let detailsSynced = false;
     try {
@@ -417,23 +414,6 @@ export default function CustomerProfile() {
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="studentId">Student ID</Label>
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <Input
-                      id="studentId"
-                      type="text"
-                      value={formData.studentId}
-                      disabled
-                      className="bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                  <p className="flex items-center gap-1 text-xs text-gray-500">
-                    <Lock className="h-3 w-3" />
-                    Student ID cannot be changed.
-                  </p>
-                </div>
               </div>
 
               {/* Edit mode actions */}
@@ -463,7 +443,6 @@ export default function CustomerProfile() {
                 <InfoRow icon={<User className="h-4 w-4" />} label="Last Name" value={formData.lastName} />
                 <InfoRow icon={<Mail className="h-4 w-4" />} label="Email Address" value={formData.email} />
                 <InfoRow icon={<Phone className="h-4 w-4" />} label="Contact Number" value={formData.phone} />
-                <InfoRow icon={<FileText className="h-4 w-4" />} label="Student ID" value={formData.studentId} />
               </div>
             </div>
           </Card>
