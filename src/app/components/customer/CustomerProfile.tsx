@@ -21,7 +21,7 @@ const menuItems = [
   { label: 'Job Board', path: '/customer/job-board', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
-// Profile data (name/phone/student ID) is stored PER ACCOUNT so a customer who
+// Profile data (name/phone) is stored PER ACCOUNT so a customer who
 // signs out cannot leave their details behind for the next person on the same
 // browser. The legacy shared key is adopted ONLY when it embeds the signed-in
 // account's own email — otherwise it is ignored (leak-safe migration).
@@ -187,7 +187,7 @@ export default function CustomerProfile() {
     }
     setIsSaving(true);
 
-    // Text details (name/phone/student ID) write to the per-account blob
+    // Text details (name/phone) write to the per-account blob
     // regardless of the upload/backend result, so nothing is lost locally.
     localStorage.setItem(profileStorageKey(user), JSON.stringify(formData));
 

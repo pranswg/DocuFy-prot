@@ -612,7 +612,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // Persist editable profile text fields (name, phone, student/employee id) to
+  // Persist editable profile text fields (name, phone) to
   // the signed-in user's OWN `profiles` row. Unlike the avatar, these are
   // local-first: the profile pages already wrote the text to their per-account
   // localStorage blob before calling this, so a failed push must be surfaced

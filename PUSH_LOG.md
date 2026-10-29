@@ -1333,3 +1333,9 @@ New entries are added at the bottom, below the most recent one, so the log reads
 
 - Fixed mojibake characters in customer JobBoard, JobApplyForm, and PaymentVerification: replaced Windows-1252 encoded bytes (0x95, 0x96, 0x97) with proper UTF-8 characters (bullet, en-dash, em-dash). Scanned entire codebase to ensure zero invalid UTF-8 files remain.
 - Typecheck and production build pass.
+
+
+## 2026-10-29 - Prans (05:45 PM PHT)
+
+- Removed student ID from the frontend: dropped the `student_id` column from the `profiles` type definitions and removed student ID references from comments and the legal privacy policy text. Backend handles its own schema separately.
+- Typecheck passes.
