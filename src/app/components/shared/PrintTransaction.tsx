@@ -2200,7 +2200,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             <div className="@min-[640px]:col-span-2 @min-[960px]:col-span-1">
                               <div className="flex items-center justify-between gap-3 @min-[640px]:block @min-[640px]:space-y-2">
                                 <Label className="text-sm font-medium shrink-0">Page Range</Label>
-                                <div className="w-[55%] shrink-0 @min-[640px]:w-full">
+<div className="w-[55%] shrink-0 @min-[640px]:w-full overflow-visible">
                                   <ZoomSafeDropdown
                                     label="Page range"
                                     value={fileData.pageRange}
