@@ -2090,17 +2090,19 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                         <Settings className="h-4 w-4 text-[#2F6FD6]" />
                         <h3 className="text-sm font-semibold text-gray-900">Print Settings</h3>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBreakdownFileId(fileData.id);
-                          setShowColorPricing(true);
-                        }}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
-                      >
-                        <Info className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
-                        See Pricing Breakdown
-                      </button>
+                      {fileData.printType && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBreakdownFileId(fileData.id);
+                            setShowColorPricing(true);
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                        >
+                          <Info className="h-4 w-4 shrink-0 text-[#2F6FD6]" />
+                          See Pricing Breakdown
+                        </button>
+                      )}
                       {fileData.printType === "photo" ? (
                         <div className="space-y-4">
                           {!hasPhotoPaperStock && (
@@ -3572,15 +3574,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     <strong>{formatPrice(shadeRateFor(bFile, 0))}</strong>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <span>Partially colored page (25-50%)</span>
+                    <span>Partially colored page (1-50%)</span>
                     <strong>{formatPrice(shadeRateFor(bFile, 50))}</strong>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <span>Colored page (51-75%)</span>
-                    <strong>{formatPrice(shadeRateFor(bFile, 75))}</strong>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Fully colored page (76-100%)</span>
+                    <span>Fully colored page (51-100%)</span>
                     <strong>{formatPrice(shadeRateFor(bFile, 100))}</strong>
                   </div>
                 </div>
