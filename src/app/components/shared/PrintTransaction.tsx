@@ -3981,7 +3981,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
 
       {/* Non-PDF upload — preferred-format reminder */}
       <Dialog open={showNonPdfDialog} onOpenChange={setShowNonPdfDialog}>
-        <DialogContent className="grid-cols-1 sm:max-w-md">
+        <DialogContent className="grid-cols-1 sm:max-w-md [&_[data-slot=dialog-close]]:hidden">
           <DialogHeader>
             <div className="mb-2 flex items-center gap-3">
               <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-amber-50 ring-1 ring-amber-200">
@@ -4021,14 +4021,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             <Button
               type="button"
               variant="outline"
-              className="border-gray-300 text-gray-600"
+              className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
                 setShowNonPdfDialog(false);
                 setPendingUpload(null);
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
             >
-              Choose Another File
+              Cancel
             </Button>
             <Button
               type="button"
@@ -4042,7 +4042,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               }}
               className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
             >
-              Continue Anyway
+              I understand
             </Button>
           </DialogFooter>
         </DialogContent>

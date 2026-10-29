@@ -1347,3 +1347,9 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Stopped long file names from widening the warning window: the window now sizes to the screen and the file name truncates with an ellipsis, with "+N more files" when several are chosen.
 - Trimmed the upload area: the duplicate "Preferred Format: PDF" box is gone, the format hint is one line, and the unsupported-type error is one sentence.
 - Typecheck and production build pass.
+
+## 2026-10-29 - Prans
+
+- Non-PDF upload warning: replaced 'Choose Another File' with a red 'Cancel' button and 'Continue Anyway' with 'I understand'; removed the dialog close (X) button.
+- Typecheck and production build pass.
+
