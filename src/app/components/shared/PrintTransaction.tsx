@@ -1579,13 +1579,13 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             </div>
           </div>
           <Button
-            variant="outline"
+            variant="primary"
             onClick={() =>
               navigate(`/customer/payment/${submittedOrderId}`, {
                 state: { paymentMethod, showSuccessAfter: true },
               })
             }
-            className="shrink-0 w-full sm:w-auto bg-white text-[#2F6FD6] border-2 border-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white transition-all text-sm h-10 sm:h-11"
+            className="shrink-0 w-full sm:w-auto h-10 sm:h-11"
           >
             Go to Payment Verification
           </Button>
@@ -1854,10 +1854,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                             )}
                           </div>
                           <Button
-                            variant="ghost"
+                            variant="destructive-outline"
                             size="sm"
                             onClick={() => setFileToRemove(fileData.id)}
-                            className="text-red-400 hover:bg-red-500 hover:text-white border-2 border-red-200 hover:border-red-500 transition-all"
                             disabled={analyzingFileId === fileData.id}
                           >
                             <X className="w-4 h-4 mr-1" />
@@ -1885,7 +1884,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               </p>
 
               <label className="inline-block cursor-pointer">
-                <span className="px-6 py-3 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
+                <span className="px-6 py-3 bg-white text-slate-700 rounded-lg border-2 border-blue-200 hover:bg-brand hover:border-brand hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
                   <Upload className="w-4 h-4" />
                   {files.length === 0 ? "Choose File" : "Add More Files"}
                 </span>
@@ -2342,7 +2341,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                                     }));
                                     toast.success("Print settings applied to all files");
                                   }}
-                                  className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white font-medium sm:flex-1"
+                                  className="w-full font-medium sm:flex-1"
                                 >
                                   <Settings className="w-4 h-4 mr-2" />
                                   Apply Settings to All Files
@@ -3262,8 +3261,11 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             <div className="flex flex-col-reverse gap-2 pt-4 border-t border-gray-100 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between @min-[640px]:gap-4">
               {/* Secondary: Back + Cancel Order */}
               <div className="grid grid-cols-2 gap-2 @min-[640px]:w-auto @min-[640px]:gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
                   onClick={() => {
                     if (currentStep > 1) {
                       const prev = isPhotocopy ? 1 : currentStep - 1;
@@ -3273,24 +3275,26 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                       navigate(dashboardPath);
                     }
                   }}
-                  className="w-full py-2.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition-all"
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="destructive-outline"
+                  size="sm"
+                  className="w-full text-xs"
                   onClick={handleCancelOrder}
-                  className="w-full py-2.5 text-xs font-semibold rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 active:scale-[0.98] transition-all"
                 >
                   Cancel Order
-                </button>
+                </Button>
               </div>
               {/* Primary: Proceed to In Queue */}
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={() => setShowProceedConfirm(true)}
                 disabled={shopPaused || isSubmittingOrder || (isPhotocopy ? false : files.length === 0)}
-                className="w-full py-3 bg-[#2F6FD6] text-white font-semibold text-sm rounded-lg shadow-sm hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed active:scale-[0.98] transition-all @min-[640px]:w-auto @min-[640px]:min-w-[180px] @min-[640px]:px-6"
+                className="w-full @min-[640px]:w-auto @min-[640px]:min-w-[180px] @min-[640px]:px-6"
               >
                 {isSubmittingOrder ? (
                   <span className="inline-flex items-center gap-2 justify-center">
@@ -3302,14 +3306,14 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 ) : (
                   "Proceed to In Queue"
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
         <div className={isWalkin ? "flex items-center justify-between mt-8 pt-6 border-t" : "sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse items-stretch gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur @min-[640px]:flex-row @min-[640px]:flex-wrap @min-[640px]:items-center @min-[640px]:justify-between @min-[640px]:gap-4 sm:static sm:mx-0 sm:mt-1 sm:border-t sm:px-0 sm:py-0 sm:pt-6 sm:bg-transparent sm:backdrop-blur-none"}>
           <Button
             variant="outline"
-            className={`bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 ${isWalkin ? "" : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium"}`}
+            className={isWalkin ? "" : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium"}
             onClick={() => {
               if (currentStep > 1) {
                 const prev = currentStep - 1;
@@ -3332,9 +3336,10 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
           <div className={`flex flex-col-reverse w-full gap-2 ${isWalkin ? "sm:flex-row sm:gap-3 sm:w-auto" : "@min-[640px]:flex-row @min-[640px]:gap-3 @min-[640px]:w-auto"}`}>
             {currentStep < 4 ? (
               <Button
+                variant="primary"
                 className={isWalkin
-                  ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400 disabled:cursor-not-allowed"}
+                  ? ""
+                  : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium"}
                 onClick={() => {
                   const nextStep = currentStep + 1;
                   setCurrentStep(nextStep);
@@ -3361,17 +3366,17 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               <>
                 {isWalkin && (
                   <Button
-                    variant="outline"
-                    className="border-red-500 text-red-500 hover:bg-red-50"
+                    variant="destructive-outline"
                     onClick={handleCancelOrder}
                   >
                     Cancel Order
                   </Button>
                 )}
                 <Button
+                  variant="primary"
                   className={isWalkin
-                    ? "bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
-                    : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium bg-[#2F6FD6] text-white hover:bg-[#2557b8] disabled:bg-gray-400"}
+                    ? ""
+                    : "w-full @min-[640px]:w-auto @min-[640px]:min-w-[155px] h-12 @min-[640px]:h-11 px-6 text-base font-medium"}
                   onClick={() => {
                     if (isWalkin) {
                       setShowProceedConfirm(true);
@@ -3464,8 +3469,9 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 : "The shop is currently closed (weekend / holiday schedule). New print requests will be accepted again once we reopen."}
             </p>
             <Button
+              variant="primary"
               onClick={() => navigate(dashboardPath)}
-              className="mt-6 h-11 px-6 bg-[#2F6FD6] text-white hover:bg-[#2557b8]"
+              className="mt-6 h-11 px-6"
             >
               Back to Dashboard
             </Button>
@@ -3891,7 +3897,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             </DialogHeader>
             <div className="flex gap-3 mt-6">
               <Button
-                variant="outline"
+                variant="primary"
                 onClick={() => {
                   setShowSuccessModal(false);
                   if (isDownTier && !isOnline) {
@@ -3912,7 +3918,7 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     navigate(`/customer/track/${submittedOrderId}`);
                   }
                 }}
-                className="flex-1 bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
+                className="flex-1"
               >
                 {isDownTier && !isOnline
                   ? "Proceed to Down Payment Method"
@@ -3921,11 +3927,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                     : "Track Order"}
               </Button>
               <Button
+                variant="outline"
                 onClick={() => {
                   setShowSuccessModal(false);
                   navigate("/customer/dashboard");
                 }}
-                className="flex-1 bg-white text-gray-600 border-2 border-gray-200 hover:bg-gray-100 hover:text-gray-700"
+                className="flex-1"
               >
                 Go to Dashboard
               </Button>
@@ -4021,7 +4028,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
             <Button
               type="button"
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
                 setShowNonPdfDialog(false);
                 setPendingUpload(null);
@@ -4040,7 +4046,6 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 void processUploadedFiles(filesToProcess);
               }}
-              className="bg-[#2F6FD6] hover:bg-[#2557b8] text-white"
             >
               I understand
             </Button>
@@ -4074,14 +4079,12 @@ export default function PrintTransaction({ mode, userRole }: PrintTransactionPro
               <Button
                 variant="outline"
                 onClick={() => setShowCancelConfirmDialog(false)}
-                className="bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
               >
                 Keep Editing
               </Button>
               <Button
                 variant="destructive"
                 onClick={confirmCancelOrder}
-                className="bg-red-600 hover:bg-red-700"
               >
                 Yes, Cancel Transaction
               </Button>

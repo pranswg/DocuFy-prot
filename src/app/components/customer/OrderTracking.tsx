@@ -870,14 +870,15 @@ export default function OrderTracking() {
                 </div>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={() => setShopLocationOpen(true)}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1668D9] text-sm font-semibold text-white transition-colors hover:bg-[#10316B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1668D9] focus-visible:ring-offset-2 active:scale-[0.99]"
+                className="mt-3 h-11 w-full rounded-xl active:scale-[0.99]"
               >
                 <MapPin className="h-4 w-4" />
                 View Shop Location
-              </button>
+              </Button>
 
               {!isUnclaimed && pickupRemaining > 0 && (
                 <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-500">
@@ -1251,17 +1252,18 @@ export default function OrderTracking() {
             </div>
 
             {canCancelOrder && (
-              <button
+              <Button
                 type="button"
+                variant="destructive-outline"
                 onClick={() => {
                   setActiveSheet(null);
                   setCancellationReason("");
                   setShowCancelDialog(true);
                 }}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-red-200 bg-white text-sm font-semibold text-red-600 transition-colors hover:border-red-400 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+                className="mt-3 h-11 w-full rounded-xl"
               >
                 Cancel Order
-              </button>
+              </Button>
             )}
           </MobileSheet>
         </div>
@@ -1440,14 +1442,15 @@ export default function OrderTracking() {
                 <p className="mt-1 hidden break-words text-sm font-medium text-gray-800 sm:block">
                   {pickupLocation || "Docufy Printing Services"}
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="primary"
                   onClick={() => setShopLocationOpen(true)}
-                  className="mt-2 inline-flex h-9 items-center gap-2 rounded-xl bg-[#1668D9] px-4 text-sm font-semibold text-white transition-all hover:bg-[#1668D9]/90 active:scale-[0.97] sm:hidden"
+                  className="mt-2 h-9 px-4 rounded-xl active:scale-[0.97] sm:hidden"
                 >
                   <MapPin className="h-4 w-4" />
                   View Shop Location
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -1615,7 +1618,7 @@ export default function OrderTracking() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowColorBreakdown(true)}
-                className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white"
+                className="w-full"
               >
                 <Eye className="w-4 h-4 mr-2" />
                 View Page Color Breakdown
@@ -1707,12 +1710,12 @@ export default function OrderTracking() {
               <div className="mt-5 pt-4 border-t border-gray-200">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive-outline"
                   onClick={() => {
                     setCancellationReason("");
                     setShowCancelDialog(true);
                   }}
-                  className="w-full bg-white border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                  className="w-full h-11 rounded-xl active:scale-[0.99]"
                 >
                   Cancel Order
                 </Button>
@@ -1900,7 +1903,7 @@ export default function OrderTracking() {
             <Button
               variant="outline"
               onClick={() => setShowReceipt(true)}
-              className="w-full border-[#2F6FD6] text-[#2F6FD6] hover:bg-white hover:text-[#2F6FD6] border-2 border-blue-200"
+              className="w-full"
             >
               <Eye className="w-4 h-4 mr-2" />
               View Receipt
@@ -1982,12 +1985,12 @@ export default function OrderTracking() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0 sm:justify-between">
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900">
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
               Keep Order
             </Button>
             <Button
+              variant="destructive"
               onClick={handleCancelOrder}
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
               disabled={!cancellationReason.trim()}
             >
               Confirm Cancellation
@@ -2083,8 +2086,9 @@ export default function OrderTracking() {
 
           <DialogFooter>
             <Button
+              variant="primary"
               onClick={() => setUnclaimedDialogOpen(false)}
-              className="w-full border-transparent bg-[#1668D9] text-white hover:bg-[#10316B] sm:w-auto"
+              className="w-full sm:w-auto"
             >
               Close
             </Button>

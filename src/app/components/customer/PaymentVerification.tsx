@@ -595,9 +595,10 @@ export default function PaymentVerification() {
           </Card>
           <div className="flex gap-3">
             <Button
-onClick={goToNewRequest}
-            className="flex-1 bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
-          >
+              variant="outline"
+              onClick={goToNewRequest}
+              className="flex-1"
+            >
             New Print Request
           </Button>
             <Button
@@ -738,7 +739,7 @@ onClick={goToNewRequest}
                 onClick={() =>
                   setShowPaymentMethodSelector(true)
                 }
-                className="border-[#2F6FD6] text-[#2F6FD6] hover:bg-[#2F6FD6] hover:text-white border-2 border-[#2F6FD6] transition-colors w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 Change Payment Method
               </Button>
@@ -1141,7 +1142,7 @@ onClick={goToNewRequest}
                       Upload Payment Screenshot
                     </p>
                     <label className="inline-block cursor-pointer">
-                      <span className="px-6 py-2 bg-white text-[#2F6FD6] rounded-lg border-2 border-blue-200 hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
+                      <span className="px-6 py-2 bg-white text-slate-700 rounded-lg border-2 border-blue-200 hover:bg-brand hover:border-brand hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md font-medium inline-flex items-center gap-2">
                         <Upload className="w-4 h-4" />
                         Choose Image File
                       </span>
@@ -1173,12 +1174,12 @@ onClick={goToNewRequest}
                         <button
                           type="button"
                           onClick={handleViewImage}
-                          className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                          className="px-3 py-1 text-sm bg-white border-2 border-blue-200 text-slate-700 rounded hover:bg-brand hover:border-brand hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                         >
                           View
                         </button>
                         <label className="cursor-pointer">
-                          <span className="px-3 py-1 text-sm bg-white border border-[#2F6FD6] text-[#2F6FD6] rounded hover:bg-[#2F6FD6] hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                          <span className="px-3 py-1 text-sm bg-white border-2 border-blue-200 text-slate-700 rounded hover:bg-brand hover:border-brand hover:text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                             Change
                           </span>
                           <Input
@@ -1207,17 +1208,18 @@ onClick={goToNewRequest}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive-outline"
                   onClick={() => setShowCancelConfirm(true)}
-                  className="w-full h-11 sm:flex-1 sm:h-9 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="w-full h-11 sm:flex-1 sm:h-9"
                 >
                   Cancel Order
                 </Button>
                 <Button
                   type="submit"
+                  variant="primary"
                   loading={submitting}
                   loadingText="Submitting..."
-className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1668D9] text-white border-2 border-[#1668D9] hover:bg-[#10316B]"
+                  className="w-full h-11 sm:flex-1 sm:h-9"
                 >
                   Submit Reference
                 </Button>
@@ -1239,14 +1241,14 @@ className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1668D9] text-white border-2 border-
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/customer/dashboard")}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-60 disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500 disabled:hover:bg-gray-200 disabled:hover:text-gray-500 disabled:hover:translate-y-0 disabled:hover:shadow-none [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-white text-slate-700 border-2 border-transparent hover:-translate-y-0.5 hover:bg-[#2F6FD6] hover:text-white hover:shadow-md dark:bg-input/30 dark:hover:bg-input/50 h-9 px-4 py-2 has-[>svg]:px-3 flex-1"
+                className="flex-1"
               >
                 Dashboard
               </Button>
               <Button
-                variant="outline"
+                variant="primary"
                 onClick={() => navigate(`/customer/track/${orderId}`)}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-60 disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500 disabled:hover:bg-gray-200 disabled:hover:text-gray-500 disabled:hover:translate-y-0 disabled:hover:shadow-none [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive hover:-translate-y-0.5 hover:shadow-md h-9 px-4 py-2 has-[>svg]:px-3 flex-1 bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
+                className="flex-1"
               >
                 Track Order
               </Button>
@@ -1315,8 +1317,9 @@ className="w-full h-11 sm:flex-1 sm:h-9 bg-[#1668D9] text-white border-2 border-
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-6">
             <Button
+              variant="primary"
               onClick={goToNewRequest}
-              className="w-full h-11 bg-[#1668D9] text-white border-2 border-[#1668D9] hover:bg-[#10316B]"
+              className="w-full h-11"
             >
               New Print Request
             </Button>

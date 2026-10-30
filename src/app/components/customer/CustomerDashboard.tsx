@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Layout from "../Layout";
 import { Card } from "../ui/card";
+import { Button } from "../ui/button";
 import { CardSkeleton, DetailSkeleton } from "../ui/card-skeleton";
 import { useHydrating } from "../../utils/useHydrating";
 import { Badge } from "../ui/badge";
@@ -468,16 +469,17 @@ export default function CustomerDashboard() {
                       {getStatusMessage(currentOrder.status)}
                     </p>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
                       onClick={() =>
                         navigate(`/customer/track/${currentOrder.id}`)
                       }
-                      className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-[#1668D9] text-white hover:bg-[#10316B] transition-all active:scale-[0.97]"
+                      className="h-10 px-5 rounded-xl active:scale-[0.97]"
                     >
                       View Order Details
                       <ChevronRight className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
@@ -490,14 +492,15 @@ export default function CustomerDashboard() {
                     <p className="text-xs text-gray-500 mt-1">
                       Your active orders will appear here.
                     </p>
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
                       onClick={() => navigate("/customer/new-request")}
-                      className="mt-3 inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold bg-[#1668D9] text-white hover:bg-[#10316B] transition-all active:scale-[0.97]"
+                      className="mt-3 h-9 px-4 rounded-xl active:scale-[0.97]"
                     >
                       <FileText className="w-4 h-4" />
                       Start a Print Request
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

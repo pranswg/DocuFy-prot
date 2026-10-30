@@ -1353,3 +1353,14 @@ New entries are added at the bottom, below the most recent one, so the log reads
 - Non-PDF upload warning: replaced 'Choose Another File' with a red 'Cancel' button and 'Continue Anyway' with 'I understand'; removed the dialog close (X) button.
 - Typecheck and production build pass.
 
+## 2026-10-30 - Prans (03:06 AM PHT)
+
+- Unified button styling across the customer flow and the public landing page using the Option B fill-on-hover system.
+- Shared Button primitive: added primary (solid brand) and destructive-outline variants; default, outline and secondary now fill with brand blue on hover; ghost fills brand on hover; disabled state centralized to gray.
+- Added brand color tokens in theme.css (brand #1668D9, brand-hover #0F57B8, brand-soft #EAF2FF) exposed as Tailwind utilities.
+- Migrated customer CTAs in Dashboard, Orders, Profile, Down Payment Method, Job Board, Job Apply Form, Order Tracking and Payment Verification; removed hard-coded blues and per-page hover overrides.
+- Migrated the shared PrintTransaction flow (customer New Print Request and staff walk-in): step navigation, upload trigger, remove-file, apply-to-all, cancel dialogs and success-dialog buttons now use the shared variants.
+- Landing page: Log In is an outline button, Get Started and View Job Openings are primary; the admin landing page preview inherits automatically.
+- Typecheck and production build pass; verified live on the customer pages and public landing page.
+
+

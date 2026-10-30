@@ -346,7 +346,7 @@ export default function CustomerProfile() {
                 <Button
                   variant="outline"
                   onClick={() => setIsEditing(true)}
-                  className="w-full shrink-0 sm:w-auto bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
+                  className="w-full shrink-0 sm:w-auto"
                 >
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit Profile
@@ -421,13 +421,14 @@ export default function CustomerProfile() {
                 <Button
                   variant="outline"
                   onClick={() => setIsEditing(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 h-12"
+                  className="flex-1 h-12"
                 >
                   Cancel
                 </Button>
                 <Button
+                  variant="primary"
                   onClick={handleSave}
-                  className="flex-1 bg-[#1668D9] text-white hover:bg-[#10316B] h-12"
+                  className="flex-1 h-12"
                 >
                   Save Changes
                 </Button>
@@ -474,9 +475,9 @@ export default function CustomerProfile() {
         {/* Sign Out (destructive, separate from profile content) */}
         <div className="pt-1 pb-4">
           <Button
-            variant="outline"
+            variant="destructive"
             onClick={() => setShowLogoutConfirm(true)}
-            className="h-12 w-full border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700"
+            className="h-12 w-full"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
@@ -503,16 +504,15 @@ export default function CustomerProfile() {
               variant="outline"
               onClick={() => setShowSaveDialog(false)}
               disabled={isSaving}
-              className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
             >
               Cancel
             </Button>
             <Button
+              variant="primary"
               onClick={confirmSave}
               disabled={isSaving}
               loading={isSaving}
               loadingText="Saving..."
-              className="bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
             >
               Save Changes
             </Button>
@@ -613,7 +613,6 @@ export default function CustomerProfile() {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
-              className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900"
               onClick={() => {
                 setShowChangePasswordDialog(false);
                 setPasswordData({
@@ -626,13 +625,9 @@ export default function CustomerProfile() {
               Cancel
             </Button>
             <Button
+              variant="primary"
               onClick={handleChangePassword}
               disabled={!validatePassword(passwordData.newPassword).isValid || (passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')}
-              className={`${
-                validatePassword(passwordData.newPassword).isValid && !(passwordData.currentPassword === passwordData.newPassword && passwordData.currentPassword !== '')
-                  ? "bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
             >
               Change Password
             </Button>
@@ -652,7 +647,7 @@ export default function CustomerProfile() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button onClick={() => setShowSuccessDialog(false)} className="bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white">
+              <Button variant="outline" onClick={() => setShowSuccessDialog(false)}>
                 OK
               </Button>
             </DialogFooter>

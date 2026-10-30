@@ -346,8 +346,9 @@ export default function JobApplyForm() {
               <div className="flex flex-col gap-2.5 pt-2">
                 <Button
                   type="button"
+                  variant="outline"
                   onClick={() => navigate("/customer/job-board?tab=applications")}
-                  className="w-full h-11 bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  className="w-full h-11"
                 >
                   View Application Status
                 </Button>
@@ -355,7 +356,7 @@ export default function JobApplyForm() {
                   type="button"
                   onClick={() => navigate("/customer/dashboard")}
                   variant="ghost"
-                  className="w-full h-11 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  className="w-full h-11"
                 >
                   Back to Dashboard
                 </Button>
@@ -640,8 +641,9 @@ export default function JobApplyForm() {
             <div className="border-t border-slate-100 pt-5 space-y-3">
               <Button
                 type="submit"
+                variant="primary"
                 disabled={!formData.consentAgreed || isSubmitting}
-                className="w-full h-11 bg-[#1668D9] text-white border-2 border-[#1668D9] hover:bg-[#10316B] hover:border-[#10316B] transition-all hover:-translate-y-0.5 hover:shadow-md disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                className="w-full h-11"
               >
                 {isSubmitting ? (
                   <Spinner size="xs" label="Submitting..." />
@@ -653,7 +655,7 @@ export default function JobApplyForm() {
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/customer/job-board")}
-                className="w-full h-11 bg-white text-slate-600 border-2 border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                className="w-full h-11"
               >
                 Cancel
               </Button>
@@ -682,8 +684,8 @@ export default function JobApplyForm() {
           <div className="flex justify-end">
             <Button
               type="button"
+              variant="outline"
               onClick={() => setShowTerms(false)}
-              className="bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
             >
               Close
             </Button>

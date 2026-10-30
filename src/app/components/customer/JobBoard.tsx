@@ -272,7 +272,8 @@ export default function JobBoard() {
                         {!application && (
                           <div className="mt-4">
                             <Button
-                              className="w-full h-11 text-sm bg-[#1668D9] text-white border-2 border-[#1668D9] hover:bg-[#10316B] sm:w-auto"
+                              variant="primary"
+                              className="w-full h-11 text-sm sm:w-auto"
                               onClick={() => navigate(`/customer/job-apply/${job.id}`)}
                             >
                               Apply for this Position
@@ -302,7 +303,8 @@ export default function JobBoard() {
                 <p className="font-semibold text-gray-500 text-lg">No applications yet</p>
                 <p className="text-smm text-gray-500 mt-1">Browse job listings and apply to get started.</p>
                 <Button
-                  className="mt-6 w-fit mx-auto bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white px-3"
+                  variant="outline"
+                  className="mt-6 w-fit mx-auto px-3"
                   onClick={() => setTab('listings')}
                 >
                   Browse Listings
@@ -337,7 +339,7 @@ export default function JobBoard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full border-[#1668D9] text-xs text-[#1668D9] hover:bg-[#1668D9] hover:text-white sm:w-auto"
+                          className="w-full text-xs sm:w-auto"
                           onClick={() => setSelectedApp(app)}
                         >
                           <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -621,11 +623,12 @@ export default function JobBoard() {
           </DialogHeader>
           <div className="flex flex-col gap-2 mt-4">
             <Button
+              variant="primary"
               onClick={() => {
                 setShowSuccessDialog(false);
                 setTab('applications');
               }}
-              className="w-full bg-white text-[#1668D9] border-2 border-blue-200 hover:bg-[#1668D9] hover:text-white"
+              className="w-full"
             >
               View My Applications
             </Button>
